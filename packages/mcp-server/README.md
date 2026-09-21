@@ -8,7 +8,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-339933?logo=node.js&logoColor=white)](package.json)
 
-[Setup](#setup) · [Tools](#tools) · [Example response](#example-response) · [Related packages](#related-packages)
+[Setup](#setup) · [Tools](#tools) · [Example Response](#example-response) · [Related Packages](#related-packages)
 
 </div>
 
@@ -59,7 +59,7 @@ codex mcp add ctxjev --env TYPESAFE_API_KEY=... -- npx ctxjev-mcp
 
 `entries` is `{ id, role: 'user'|'assistant'|'tool', toolName?, content, timestamp }[]`.
 
-## Example response
+## Example Response
 
 Calling `prune_history` with two entries, one obviously relevant to the goal and one not, returns:
 
@@ -79,7 +79,7 @@ Calling `prune_history` with two entries, one obviously relevant to the goal and
 
 This is a real response body, captured against the live API.
 
-## Related packages
+## Related Packages
 
 | Package | What it is |
 | --- | --- |
@@ -91,6 +91,7 @@ Full docs, design notes, and per-host setup live in the main repo:
 
 ## License
 
-[MIT](LICENSE): free to use, modify, and distribute, including in a commercial product, as long
-as the license text and copyright notice ship with it. See the [main repo](https://github.com/x96x64/ctxjev#license)
-for how this matches every dependency `ctxjev` currently uses.
+This package is released under the [MIT](LICENSE) license: free to use, modify, and distribute,
+including in a commercial product, as long as the license text and copyright notice ship with it.
+See the [main repo](https://github.com/x96x64/ctxjev#license) for how this matches every
+dependency `ctxjev` currently uses.

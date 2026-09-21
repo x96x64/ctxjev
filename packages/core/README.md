@@ -9,7 +9,7 @@
 [![Node](https://img.shields.io/badge/node-%3E%3D20-339933?logo=node.js&logoColor=white)](package.json)
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)](package.json)
 
-[Why](#why) · [Install](#install) · [How it works](#how-it-works) · [API](#api) · [Related packages](#related-packages)
+[Why](#why) · [Install](#install) · [How It Works](#how-it-works) · [API](#api) · [Related Packages](#related-packages)
 
 </div>
 
@@ -37,7 +37,7 @@ npm install ctxjev-core
 Requires `TYPESAFE_API_KEY` in the environment. Get one at
 [console.typesafe.ai/settings/keys](https://console.typesafe.ai/settings/keys) (no waitlist).
 
-## How it works
+## How It Works
 
 Every entry becomes its own question, and every question in a batch is evaluated **in parallel
 against one shared state**, so Jev's cost barely grows with the number of questions: scoring 50
@@ -81,7 +81,7 @@ Full type definitions ship with the package. Design notes (why relevance and rec
 fields, why recency is batch-relative not wall-clock, how `recencyWeight`'s default was tuned
 against labeled fixtures) live in the main repo's README.
 
-## Related packages
+## Related Packages
 
 | Package | What it is |
 | --- | --- |
@@ -94,6 +94,7 @@ Full docs, design notes, and the Claude Code plugin live in the main repo:
 
 ## License
 
-[MIT](LICENSE): free to use, modify, and distribute, including in a commercial product, as long
-as the license text and copyright notice ship with it. See the [main repo](https://github.com/x96x64/ctxjev#license)
-for how this matches every dependency `ctxjev` currently uses.
+This package is released under the [MIT](LICENSE) license: free to use, modify, and distribute,
+including in a commercial product, as long as the license text and copyright notice ship with it.
+See the [main repo](https://github.com/x96x64/ctxjev#license) for how this matches every
+dependency `ctxjev` currently uses.

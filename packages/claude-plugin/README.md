@@ -7,7 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](../../LICENSE)
 [![Verified](https://img.shields.io/badge/verified-desktop%20app%20%2B%20CLI-brightgreen)](../../ROADMAP.md)
 
-[Overview](#overview) · [How it works](#how-it-works) · [Skills](#skills) · [Install](#install) · [Requirements](#requirements)
+[Overview](#overview) · [How It Works](#how-it-works) · [Skills](#skills) · [Install](#install) · [Requirements](#requirements)
 
 </div>
 
@@ -30,7 +30,7 @@ No configuration is required to start benefiting from it: it activates automatic
 installed. Set an explicit goal with `/ctxjev:set-goal` when you want scoring aimed at something
 more specific than "whatever you last said."
 
-## How it works
+## How It Works
 
 Claude Code hooks can *read* the conversation but cannot rewrite it, so this plugin doesn't try to
 intercept compaction. It works alongside it instead, using the one mechanism Claude Code actually
@@ -95,6 +95,7 @@ in the main repo: **[github.com/x96x64/ctxjev](https://github.com/x96x64/ctxjev)
 
 ## License
 
-[MIT](../../LICENSE): free to use, modify, and distribute, including in a commercial product, as
-long as the license text and copyright notice ship with it. See the [main repo](https://github.com/x96x64/ctxjev#license)
-for how this matches every dependency `ctxjev` currently uses.
+This package is released under the [MIT](../../LICENSE) license: free to use, modify, and
+distribute, including in a commercial product, as long as the license text and copyright notice
+ship with it. See the [main repo](https://github.com/x96x64/ctxjev#license) for how this matches
+every dependency `ctxjev` currently uses.

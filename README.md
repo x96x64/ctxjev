@@ -17,7 +17,7 @@ before your host's own compaction has to summarize its way through it.
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)](tsconfig.base.json)
 [![pnpm](https://img.shields.io/badge/maintained%20with-pnpm-F69220?logo=pnpm&logoColor=white)](pnpm-workspace.yaml)
 
-[Why](#why) · [How it works](#how-it-works) · [Quick start](#quick-start) · [Packages](#packages) · [MCP: Claude Code / Codex / Copilot](#using-it-from-an-mcp-host) · [Extra: Claude Code plugin](#the-claude-code-plugin) · [Design notes](#design-notes) · [Changelog](CHANGELOG.md)
+[Why](#why) · [How It Works](#how-it-works) · [Quick Start](#quick-start) · [Packages](#packages) · [MCP: Claude Code / Codex / Copilot](#using-it-from-an-mcp-host) · [Extra: Claude Code Plugin](#the-claude-code-plugin) · [Design Notes](#design-notes) · [Changelog](CHANGELOG.md)
 
 </div>
 
@@ -73,7 +73,7 @@ Jev cost: 859 input tokens, 123 output tokens (free) — ~$0.000036
 
 This is real output against the sample transcript in this repo. Jev is probabilistic, so exact
 numbers vary slightly between runs. "Score" is Jev's relevance blended with each entry's recency
-within the batch, described further in [Design notes](#design-notes). The cost line is computed
+within the batch, described further in [Design Notes](#design-notes). The cost line is computed
 from what Jev's API actually reported for that request, not estimated.
 
 The `entries` array above is the one shape every agent's history maps onto, regardless of which
@@ -82,7 +82,7 @@ history. `ctxjev analyze` also auto-detects one native format today, a real Clau
 `.jsonl` (`transcript_path`, or anything under `~/.claude/projects`), and infers the goal from your
 most recent chat message unless `--goal` overrides it. Any other host's history works the same
 way once it's shaped into ctxjev's own plain JSON format (`{ goal?, entries }`), shown in
-[Quick start](#quick-start) below. See
+[Quick Start](#quick-start) below. See
 [`examples/sample-transcripts/claude-code-session.jsonl`](examples/sample-transcripts/claude-code-session.jsonl)
 for a synthetic Claude Code transcript. **Never point this at a real session log**: real ones can
 contain secrets pasted into chat, and entry content is sent to the live Jev API. See
@@ -337,9 +337,10 @@ Anthropic.
 
 ## License
 
-[MIT](LICENSE): free to use, modify, and distribute, including in a commercial product, as long as
-the license text and copyright notice in [`LICENSE`](LICENSE) ship with it. It comes with no
-warranty of any kind; see the license text for the full disclaimer.
+This project is released under the [MIT](LICENSE) license: free to use, modify, and distribute,
+including in a commercial product, as long as the license text and copyright notice in
+[`LICENSE`](LICENSE) ship with it. It comes with no warranty of any kind; see the license text
+for the full disclaimer.
 
 This choice matches every package `ctxjev` currently depends on, so there is nothing to reconcile
 if you vendor or fork any of it:

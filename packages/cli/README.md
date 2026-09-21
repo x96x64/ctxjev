@@ -8,7 +8,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-339933?logo=node.js&logoColor=white)](package.json)
 
-[Install](#install) · [Usage](#usage) · [Options](#options) · [Transcript formats](#transcript-formats) · [Related packages](#related-packages)
+[Install](#install) · [Usage](#usage) · [Options](#options) · [Transcript Formats](#transcript-formats) · [Related Packages](#related-packages)
 
 </div>
 
@@ -55,7 +55,7 @@ estimated.
 | `--json` | Prints machine-readable JSON (`{ decisions, savings, usage }`) instead of the report. |
 | `--help` / `--version` | Work without `TYPESAFE_API_KEY` set. |
 
-## Transcript formats
+## Transcript Formats
 
 Auto-detected, no flag needed:
 
@@ -67,7 +67,7 @@ Auto-detected, no flag needed:
 > Never point this at a real, sensitive session log without checking its contents first. Entry
 > content is sent to the live Jev API for scoring.
 
-## Related packages
+## Related Packages
 
 | Package | What it is |
 | --- | --- |
@@ -79,6 +79,7 @@ Full docs, design notes, and example transcripts live in the main repo:
 
 ## License
 
-[MIT](LICENSE): free to use, modify, and distribute, including in a commercial product, as long
-as the license text and copyright notice ship with it. See the [main repo](https://github.com/x96x64/ctxjev#license)
-for how this matches every dependency `ctxjev` currently uses.
+This package is released under the [MIT](LICENSE) license: free to use, modify, and distribute,
+including in a commercial product, as long as the license text and copyright notice ship with it.
+See the [main repo](https://github.com/x96x64/ctxjev#license) for how this matches every
+dependency `ctxjev` currently uses.
