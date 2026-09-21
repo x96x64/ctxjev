@@ -2,7 +2,9 @@
 
 Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`, and
 `ctxjev-claude`: a version bump in one is a version bump in all four, even when only one actually
-changed.
+changed. This also covers the three plugin-manifest version fields Claude Code's installer reads
+(`.claude-plugin/marketplace.json`, `packages/claude-plugin/.claude-plugin/plugin.json`,
+`plugins/ctxjev/plugin.json`) — easy to forget since none of them are `package.json`.
 
 ## 0.1.8 — 2026-09-21
 
@@ -17,6 +19,12 @@ changed.
   instead of left as `tsc`'s plain per-file output, so both are self-contained and need nothing
   from `node_modules` at runtime — verified by running the bundled file alone in an empty
   directory with no `node_modules` at all.
+- **`ctxjev-claude`**: the plugin's own version fields (`.claude-plugin/marketplace.json`,
+  `.claude-plugin/plugin.json`, `plugins/ctxjev/plugin.json`) had stayed at `0.1.2` since the
+  very first release — the lockstep convention above only ever covered the four npm package
+  versions, not these three, so Claude Code's installer (which reads these, not
+  `package.json`) had no way to tell any of the last five releases apart. All three now track
+  the same version as everything else.
 
 ## 0.1.7 — 2026-09-21
 
