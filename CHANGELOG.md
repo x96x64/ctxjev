@@ -1,25 +1,33 @@
 # Changelog
 
 Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`, and
-`ctxjev-claude` — a version bump in one is a version bump in all four, even when only one
-actually changed.
+`ctxjev-claude`: a version bump in one is a version bump in all four, even when only one actually
+changed.
+
+## 0.1.3 — 2026-09-21
+
+- README (main and all four package READMEs): rewrote dash-led sentences into plain prose, and
+  gave each License section a real sentence explaining what MIT permits and requires instead of a
+  bare link.
+- `package.json` (`ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`, `ctxjev-claude`): added `keywords`,
+  `author`, `bugs`, and `engines.node`, all missing until now.
 
 ## 0.1.2 — 2026-09-21
 
 - **`ctxjev-cli`**: the report now opens with a one-line legend explaining what `score` and
-  `keep`/`summarize`/`drop` mean — first-time output shouldn't need someone else to explain it.
+  `keep`/`summarize`/`drop` mean, so first-time output shouldn't need someone else to explain it.
 - **`ctxjev-cli`**: `--version` now reads the installed package's actual version instead of a
   hardcoded string that had already gone stale.
 - **`ctxjev-cli`**: a missing `TYPESAFE_API_KEY` and a bad transcript path are now both reported
-  in one run, instead of only the first one found — fixing the key and re-running used to be
-  the only way to discover the path was wrong too.
+  in one run, instead of only the first one found. Fixing the key and re-running used to be the
+  only way to discover the path was wrong too.
 - **`ctxjev-cli`**: `--help` now leads with a copy-pasteable "try it right now" example (fetches
   the repo's sample transcript directly), rather than starting with the flag reference.
 - **`ctxjev-claude`**: the plugin's Overview, Skills, and Hooks descriptions (`plugin.json`,
   `marketplace.json`, `README.md`) were rewritten from a placeholder one-liner to real,
   descriptive content, matching the style of the other three packages' READMEs.
 - **`ctxjev-claude`**: removed a duplicate `category` field from `plugin.json` that
-  `claude plugin validate .` flagged — it belongs only in `marketplace.json`'s plugin entry.
+  `claude plugin validate .` flagged: it belongs only in `marketplace.json`'s plugin entry.
 - Added a Codex-specific plugin marketplace bundle (`.agents/plugins/marketplace.json`,
   `plugins/ctxjev/`), following the [Agent Plugins](https://agent-plugins.org) `1.0.0` schema, so
   `ctxjev-mcp` can be installed via `codex plugin marketplace add`/`codex plugin add` instead of
@@ -30,7 +38,7 @@ actually changed.
 - Per-package READMEs on npm expanded to match the main repo's style (badges, real captured
   examples) instead of minimal stubs.
 - First real use of [Trusted Publishing](https://docs.npmjs.com/trusted-publishers/) (GitHub
-  Actions OIDC) to ship a release — no npm token involved.
+  Actions OIDC) to ship a release, with no npm token involved.
 
 ## 0.1.0 — 2026-09-21
 
