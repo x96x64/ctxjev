@@ -89,16 +89,23 @@ documented **PreCompact / SessionStart(matcher: "compact") re-injection pattern*
   live re-injection text appears is still open, but lower-priority now that the skill (same
   `--plugin-dir` load path) is confirmed working for real.
 
-## Phase 4 — Further hosts ✅ (research spike complete, 2026-09-21)
+## Phase 4 — Further hosts ✅ (Codex verified hands-on, Copilot from research, Xcode ruled out — 2026-09-21)
 
-- **Codex CLI**: real, generic stdio MCP client support (also shared with the VS Code extension and
-  desktop app via one `config.toml`). Registering `ctxjev-mcp` is one command:
-  `codex mcp add ctxjev --env TYPESAFE_API_KEY=... -- node packages/mcp-server/dist/index.js`.
-  **No adapter package needed** — `packages/mcp-server` already works as-is. See the README's
-  "Using it from an MCP host" section for the exact command.
-- **GitHub Copilot** (agent mode, GA since 2026-07): also a generic stdio MCP client, configured via
-  `.vscode/mcp.json`'s `servers` key (note: `servers`, not Claude Code's `mcpServers`). **No adapter
-  package needed** here either — same `packages/mcp-server` binary, different config file.
+- **Codex CLI** ✅ **verified for real** (2026-09-21, `codex-cli` v0.155.1, installed fresh via
+  `npm install -g @openai/codex` specifically to check this): `codex mcp add ctxjev --env
+  TYPESAFE_API_KEY=... -- node packages/mcp-server/dist/index.js` registers cleanly —
+  `codex mcp get ctxjev` confirms the exact command/args/env stored correctly, `enabled: true`.
+  **No adapter package needed**, confirmed rather than assumed. Config-level only: actually
+  driving Codex through a real tool call needs Codex's own OpenAI/ChatGPT authentication, which
+  this session doesn't have and won't set up (credential entry is out of scope for an agent to do
+  on someone's behalf) — the server process itself is the same binary already proven working over
+  real stdio for Claude Code, so this is a narrow, specific gap, not an open question about
+  whether it works.
+- **GitHub Copilot** (agent mode, GA since 2026-07): also a generic stdio MCP client per official
+  docs, configured via `.vscode/mcp.json`'s `servers` key (note: `servers`, not Claude Code's
+  `mcpServers`). **Not verified hands-on** — Copilot only runs inside the VS Code GUI, with its own
+  GitHub sign-in; there's no CLI equivalent to `codex mcp add`/`claude mcp add` to script this the
+  way Codex and Claude Code were actually verified. Documented from research only.
 - **Xcode 26.3**: turned out to be the wrong shape of question. Xcode is an MCP *server*
   (`mcpbridge`) that exposes Xcode's own tools (build, run, simulator control) *to* external agents
   like Claude Code or Codex — it isn't itself a generic MCP client that would consume a third-party

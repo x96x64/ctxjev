@@ -133,7 +133,8 @@ will warn about the same server being defined in two scopes — harmless for a l
 `claude mcp remove ctxjev -s project` clears the noise if it bothers you.
 
 **Codex CLI** (also shared with its VS Code extension and desktop app) — one command, no file to
-hand-edit:
+hand-edit. Verified for real against `codex-cli` v0.155.1 (`codex mcp get ctxjev` confirms the
+command/args/env registered correctly):
 
 ```bash
 codex mcp add ctxjev --env TYPESAFE_API_KEY=... -- node /absolute/path/to/ctxjev/packages/mcp-server/dist/index.js
