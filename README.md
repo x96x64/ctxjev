@@ -215,13 +215,22 @@ The goal to score against is either set explicitly (`/ctxjev:set-goal <text>`, w
 `/ctxjev:status` shows the current goal and the last scoring pass without waiting for a real
 compaction to trigger one.
 
-Try it locally with `claude --plugin-dir packages/claude-plugin`. This repo's own
-[`.mcp.json`](.mcp.json) also wires `ctxjev-mcp` (see above) into any Claude Code session opened
-here — both are how this project dogfoods itself.
+**Install it (Claude Code desktop app or CLI):**
 
-`ctxjev-claude` isn't on npm — Claude Code plugins aren't npm-installed, and the desktop app has no
-way to load a local plugin folder at all (only the CLI's `--plugin-dir` does). It stays in this
-repo, `private: true`, until it's worth packaging for a marketplace.
+```
+/plugin marketplace add x96x64/ctxjev
+```
+
+This repo carries a [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) at its
+root pointing at the `packages/claude-plugin` subdirectory, so the desktop app can install it
+directly — no local clone needed. Verified: `/ctxjev:set-goal` and `/ctxjev:status` show up as
+available skills after adding the marketplace. (During development, `claude --plugin-dir
+packages/claude-plugin` from a clone works too — that's still the only way to iterate on the
+plugin's own source.)
+
+`ctxjev-claude` isn't on npm — Claude Code plugins install through the marketplace mechanism
+above, not `npm install`. This repo's own [`.mcp.json`](.mcp.json) also wires `ctxjev-mcp` (see
+above) into any Claude Code session opened here — both are how this project dogfoods itself.
 
 ## Design notes
 

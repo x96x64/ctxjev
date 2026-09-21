@@ -204,3 +204,35 @@ for all three packages, chosen deliberately as a low-stakes first real test of t
   was expected propagation delay, not a failure. Confirmed on the registry within ~2 minutes.
 - End-to-end, this is now: bump version → commit/push → `gh workflow run publish.yml` → done. No
   token to create, rotate, or leak.
+
+## Phase 8 — Usability pass + desktop-app plugin install (v0.1.2, 2026-09-21)
+
+A first-time user's own confusion drove this one directly: reading `ctxjev-cli`'s report, they
+didn't know what `score 0.46` meant until it was explained in chat. Fixed in the tool itself
+rather than leaving it as something everyone has to be told:
+
+- The report now opens with a plain-language legend (`score` range, what `keep`/`summarize`/`drop`
+  mean) — verified against a fresh first-run.
+- `--version` was reporting a hardcoded `"0.0.0"` that had silently gone stale through three
+  releases — now reads the installed package's real version.
+- A missing `TYPESAFE_API_KEY` and a bad transcript path used to surface one at a time (fix the
+  key, re-run, *then* discover the path was also wrong) — both are reported together now.
+- `--help` leads with a copy-pasteable "try it right now" (fetches the repo's own sample
+  transcript over HTTPS) instead of starting with the flag reference — works precisely because
+  the repo is now public (see below).
+
+**The repo went public.** Confirmed no secret ever landed in git history (full `git log --all -p`
+sweep, only placeholder `TYPESAFE_API_KEY=...` strings in docs) — and it needed to happen anyway,
+since every npm-published README already linked to `github.com/x96x64/ctxjev`, which 404'd for
+every npm user while the repo was private.
+
+**Desktop app plugin install — researched, then actually verified, not left as a guess.**
+Research said a `.claude-plugin/marketplace.json` at the repo root (pointing `source` at the
+monorepo subdirectory `./packages/claude-plugin`) would let the desktop app install the plugin
+via `/plugin marketplace add x96x64/ctxjev`, distinct from the CLI-only `--plugin-dir`. Added it,
+and — unlike several "should work per the docs" moments earlier in this project — it worked on
+the first try: `/plugin marketplace add x96x64/ctxjev` succeeded from the desktop app itself, and
+`/ctxjev:set-goal`/`/ctxjev:status` showed up as available skills in that same session. Not yet
+separately confirmed: the hooks (`PreCompact`/`SessionStart`) firing through a marketplace install
+specifically, as opposed to `--plugin-dir` — no real compaction has been forced to check (see
+Phase 5's note on why that's deliberately not being spent without asking first).
