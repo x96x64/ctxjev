@@ -9,9 +9,9 @@ const entries: Entry[] = [
 ]
 
 const decisions: PruneDecision[] = [
-  { entryId: 'a', action: 'keep', relevance: 0.9 },
-  { entryId: 'b', action: 'drop', relevance: 0.05 },
-  { entryId: 'c', action: 'summarize', relevance: 0.45 },
+  { entryId: 'a', action: 'keep', relevance: 0.9, recency: 0, combinedScore: 0.9 },
+  { entryId: 'b', action: 'drop', relevance: 0.05, recency: 0.5, combinedScore: 0.05 },
+  { entryId: 'c', action: 'summarize', relevance: 0.45, recency: 1, combinedScore: 0.45 },
 ]
 
 describe('summarizeSavings', () => {

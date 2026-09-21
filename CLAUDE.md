@@ -10,11 +10,13 @@ for the pitch and [ROADMAP.md](ROADMAP.md) for phased scope.
 
 ## Structure
 
-pnpm workspace monorepo. `packages/core` and `packages/cli` have real, working logic verified
-against the live Jev API; `packages/mcp-server` and `packages/claude-plugin` are still
-placeholders (Phase 2/3 — see [ROADMAP.md](ROADMAP.md)). Don't build those out ahead of schedule;
-each just wraps `core`, so there's nothing for them to do until there's a reason to prefer one
-integration surface's exact shape over another.
+pnpm workspace monorepo. `packages/core`, `packages/cli`, and `packages/mcp-server` have real,
+working logic verified against the live Jev API; `packages/claude-plugin` is still a placeholder
+(Phase 3 — see [ROADMAP.md](ROADMAP.md)). `core` exports two entry points that matter here:
+`scoreEntries()` (relevance + recency, no decision) and `pruneContext()` (`scoreEntries()` plus
+applying a `PruningPolicy`'s thresholds) — both `ctxjev-cli` and `ctxjev-mcp` are thin adapters
+over these two functions, nothing more. Don't add logic to an adapter package that belongs in
+`core` instead.
 
 ## Jev constraints (don't design around what it can't do)
 
@@ -31,11 +33,13 @@ integration surface's exact shape over another.
 pnpm install && pnpm build   # build every package (tsc -b), from the repo root
 pnpm test                    # run every package's tests, recursing via pnpm -r
 node packages/cli/dist/index.js analyze <transcript.json> --goal "..."
+node packages/mcp-server/dist/index.js   # stdio MCP server — expects an MCP client, not a terminal
 ```
 
 `TYPESAFE_API_KEY` (from `console.typesafe.ai/settings/keys`) must be set for anything that
-actually calls Jev — `scoreRelevance()`/`pruneContext()` and the CLI's `analyze` command. It's
-kept in `.env.local` at the repo root (gitignored, never commit it) — `source .env.local` before
-running anything live. `--help`/`--version` and the pure-logic test files don't need it; the one
-exception, `packages/core/src/jevClient.live.test.ts`, is skipped automatically when the key is
-absent rather than failing.
+actually calls Jev — `scoreRelevance()`/`pruneContext()`, the CLI's `analyze` command, and the MCP
+server's two tools. It's kept in `.env.local` at the repo root (gitignored, never commit it) —
+`source .env.local` before running anything live. `--help`/`--version` and the pure-logic test
+files don't need it; every test file whose name ends in `.live.test.ts` (`packages/core`'s
+`jevClient.live.test.ts`, `packages/mcp-server`'s `tools.test.ts`/`server.live.test.ts`) is skipped
+automatically when the key is absent rather than failing.

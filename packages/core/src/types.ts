@@ -12,11 +12,18 @@ export type Entry = {
 
 export type PruneAction = 'keep' | 'drop' | 'summarize'
 
-export type PruneDecision = {
+export type ScoredEntry = {
   entryId: string
-  action: PruneAction
   /** Jev's relevance probability (Noul), 0-1 — the sole signal `@typesafe-ai/sdk`'s noul() returns. */
   relevance: number
+  /** This entry's position in the batch, oldest=0 to newest=1 — see `recency.ts`. */
+  recency: number
+  /** `relevance` and `recency` blended per `PruningPolicy.recencyWeight` — what `decideAction` actually acts on. */
+  combinedScore: number
+}
+
+export type PruneDecision = ScoredEntry & {
+  action: PruneAction
 }
 
 export type PruningPolicy = {

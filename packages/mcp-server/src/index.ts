@@ -1,14 +1,18 @@
-/**
- * MCP server exposing ctxjev-core over the Model Context Protocol, so any MCP-capable agent
- * host (Claude Code, and — pending confirmation of their current MCP support — Codex CLI,
- * GitHub Copilot) can call it without a dedicated adapter.
- *
- * Planned tools:
- *   - score_relevance(goal, entries[])            -> PruneDecision[] (no history mutation)
- *   - prune_history(goal, entries[], policy?)      -> { kept, dropped, summarized, savingsReport }
- *
- * TODO(phase 2): implement against @modelcontextprotocol/sdk's server + stdio transport.
- * Verify end-to-end against Claude Code itself (a local .mcp.json entry) before assuming
- * any other host works the same way.
- */
-export {}
+#!/usr/bin/env node
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
+import { createServer } from './server.js'
+
+async function main() {
+  if (!process.env.TYPESAFE_API_KEY) {
+    console.error('ctxjev-mcp: TYPESAFE_API_KEY is not set — get one at console.typesafe.ai/settings/keys')
+    process.exit(1)
+  }
+
+  const server = createServer()
+  await server.connect(new StdioServerTransport())
+}
+
+main().catch((err: unknown) => {
+  console.error(err instanceof Error ? err.message : String(err))
+  process.exit(1)
+})

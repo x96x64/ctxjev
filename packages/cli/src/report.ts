@@ -26,10 +26,10 @@ export function formatReport(entries: Entry[], decisions: PruneDecision[], savin
 
     const id = entry.id.padEnd(idWidth)
     const role = (entry.toolName ?? entry.role).padEnd(roleWidth)
-    const relevance = decision.relevance.toFixed(2)
+    const score = decision.combinedScore.toFixed(2)
     const action = ACTION_COLOR[decision.action](decision.action.padEnd(ACTION_WIDTH))
 
-    lines.push(`  ${pc.dim(id)}  ${role}  ${action}  ${pc.dim(`relevance ${relevance}`)}  ${truncate(entry.content)}`)
+    lines.push(`  ${pc.dim(id)}  ${role}  ${action}  ${pc.dim(`score ${score}`)}  ${truncate(entry.content)}`)
   }
 
   lines.push('')

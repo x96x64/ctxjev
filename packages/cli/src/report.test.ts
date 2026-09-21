@@ -8,8 +8,8 @@ const entries: Entry[] = [
 ]
 
 const decisions: PruneDecision[] = [
-  { entryId: 'a', action: 'keep', relevance: 0.95 },
-  { entryId: 'b', action: 'drop', relevance: 0.05 },
+  { entryId: 'a', action: 'keep', relevance: 0.95, recency: 1, combinedScore: 0.95 },
+  { entryId: 'b', action: 'drop', relevance: 0.05, recency: 0, combinedScore: 0.05 },
 ]
 
 const savings: SavingsReport = {

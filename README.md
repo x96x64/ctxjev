@@ -15,7 +15,7 @@ useful, before your host's own compaction has to summarize its way through it.
 [![pnpm](https://img.shields.io/badge/maintained%20with-pnpm-F69220?logo=pnpm&logoColor=white)](pnpm-workspace.yaml)
 [![status: early development](https://img.shields.io/badge/status-early%20development-orange)](ROADMAP.md)
 
-[Why](#why) · [How it works](#how-it-works) · [Quick start](#quick-start) · [Packages](#packages) · [Roadmap](ROADMAP.md)
+[Why](#why) · [How it works](#how-it-works) · [Quick start](#quick-start) · [Packages](#packages) · [MCP](#using-it-from-an-mcp-host) · [Design notes](#design-notes) · [Roadmap](ROADMAP.md)
 
 </div>
 
@@ -57,20 +57,21 @@ const decisions = await pruneContext(
 ```console
 $ ctxjev analyze examples/sample-transcripts/checkout-bug.json
 
-  e1  bash       summarize  relevance 0.51  ran: npm test -- checkout.test.ts — 12 passed, 0 failed
-  e2  read       summarize  relevance 0.28  read package.json — saw the dependency list and script…
-  e3  grep       keep       relevance 0.95  grep "charge" in src/payments.ts — found chargeCustomer…
-  e4  bash       drop       relevance 0.10  ran: git log --oneline -5 — recent commits about unrela…
-  e5  read       keep       relevance 0.96  read src/payments.ts — the retry handler re-calls charg…
-  e6  assistant  keep       relevance 0.95  Found it: the retry path doesn't check for an in-flight…
-  e7  bash       drop       relevance 0.04  ran: ls public/audio — unrelated, was checking something…
+  e1  bash       summarize  score 0.51  ran: npm test -- checkout.test.ts — 12 passed, 0 failed
+  e2  read       summarize  score 0.28  read package.json — saw the dependency list and script names
+  e3  grep       keep       score 0.89  grep "charge" in src/payments.ts — found chargeCustomer() c…
+  e4  bash       drop       score 0.13  ran: git log --oneline -5 — recent commits about unrelated …
+  e5  read       keep       score 0.94  read src/payments.ts — the retry handler re-calls chargeCus…
+  e6  assistant  keep       score 0.94  Found it: the retry path doesn't check for an in-flight or …
+  e7  bash       drop       score 0.13  ran: ls public/audio — unrelated, was checking something el…
 
 3 kept, 2 summarized, 2 dropped (of 7 entries)
 ~60 / 154 tokens saved (39%)
 ```
 
 *(real output, against the sample transcript in this repo — Jev is probabilistic, so exact numbers
-will vary slightly between runs.)*
+will vary slightly between runs. "score" is Jev's relevance blended with each entry's recency
+within the batch — see [Design notes](#design-notes).)*
 
 ## Quick start
 
@@ -95,35 +96,142 @@ engine gets used.
 | --- | --- | --- |
 | [`ctxjev-core`](packages/core) | The engine — `pruneContext(entries, goal, policy)`. Everything else wraps this. | ✅ working |
 | [`ctxjev-cli`](packages/cli) | `ctxjev analyze <transcript.json>` — a plain-text report, no UI. | ✅ working |
-| [`ctxjev-mcp`](packages/mcp-server) | MCP server exposing `score_relevance`/`prune_history` as tools, for Claude Code, Codex, GitHub Copilot, and other MCP-capable hosts. | 🚧 planned |
+| [`ctxjev-mcp`](packages/mcp-server) | MCP server exposing `score_relevance`/`prune_history` as tools, for Claude Code, Codex, GitHub Copilot, and other MCP-capable hosts. | ✅ working |
 | [`ctxjev-claude`](packages/claude-plugin) | Claude Code–specific plugin: a hook that prunes ahead of Claude Code's own compaction, plus an on-demand inspection skill. | 🚧 planned |
 
 See [`ROADMAP.md`](ROADMAP.md) for the phase-by-phase plan, including why an Xcode adapter is a
 research spike rather than a commitment.
 
+## Using it from an MCP host
+
+`ctxjev-mcp` speaks plain stdio MCP, so any MCP-capable host can run it as a subprocess. For a
+host that reads a `.mcp.json`-style config (Claude Code among them):
+
+```json
+{
+  "mcpServers": {
+    "ctxjev": {
+      "command": "node",
+      "args": ["/absolute/path/to/ctxjev/packages/mcp-server/dist/index.js"],
+      "env": { "TYPESAFE_API_KEY": "..." }
+    }
+  }
+}
+```
+
+It exposes two tools:
+
+- **`score_relevance`** — `{ goal, entries, recencyWeight? }` → a relevance/recency/combined score
+  per entry, no decision made. Wraps `scoreEntries()`.
+- **`prune_history`** — the same input plus `{ dropBelow?, summarizeBelow? }` → a decision
+  (`keep`/`drop`/`summarize`) per entry and a savings report. Wraps `pruneContext()`.
+
+Calling `prune_history` with two entries — one obviously relevant to the goal, one not — returns:
+
+```json
+{
+  "decisions": [
+    { "entryId": "a", "relevance": 0.96, "recency": 0, "combinedScore": 0.864, "action": "keep" },
+    { "entryId": "b", "relevance": 0.04, "recency": 1, "combinedScore": 0.136, "action": "drop" }
+  ],
+  "savings": {
+    "totalEntries": 2, "keptEntries": 1, "droppedEntries": 1, "summarizedEntries": 0,
+    "totalTokens": 13, "savedTokens": 5
+  }
+}
+```
+
+*(real response body, captured against the live API via an in-process MCP client — the exact
+call is [`server.live.test.ts`](packages/mcp-server/src/server.live.test.ts).)*
+
 ## Design notes
 
-- **The engine never touches the network policy layer.** `pruneContext` calls Jev once per chunk
-  of entries and returns raw relevance scores; turning a score into keep/drop/summarize is a
-  separate, pure function ([`policy.ts`](packages/core/src/policy.ts)) so the threshold can be
-  tuned — or swapped for a different strategy entirely — without touching the Jev integration.
+- **Scoring and deciding are two different functions, on purpose.**
+  [`scoreEntries()`](packages/core/src/index.ts) calls Jev once per chunk of entries and returns a
+  `relevance`/`recency`/`combinedScore` triple per entry — no opinion about what to do with it.
+  [`pruneContext()`](packages/core/src/index.ts) is `scoreEntries()` plus a separate, pure decision
+  step ([`decideAction()`](packages/core/src/policy.ts)) that applies a `PruningPolicy`'s
+  thresholds. Splitting them means a threshold can be tuned, swapped for a different strategy, or
+  applied to the *same* scores twice for comparison — all without re-querying Jev. It's also why
+  the MCP server has two tools instead of one: `score_relevance` maps onto `scoreEntries()`,
+  `prune_history` onto `pruneContext()`, and neither has to know the other exists.
+- **Recency is relative to the batch, not to `Date.now()`.**
+  [`computeRecency()`](packages/core/src/recency.ts) normalizes each entry's timestamp to 0–1
+  *within the entries it's given* (oldest → 0, newest → 1). Anchoring to wall-clock time instead
+  would make every entry in a transcript replayed long after the fact — which is exactly what
+  `ctxjev-cli analyze` and the test fixtures do — read as maximally stale regardless of where it
+  actually falls in the conversation. The same function has to give sensible answers for both a
+  live agent's growing history and a static file being analyzed after the fact, so it can't
+  depend on when it happens to run.
+- **`combinedScore` blends the two linearly**, per `PruningPolicy.recencyWeight`
+  (`relevance * (1 - w) + recency * w`, [`combineScore()`](packages/core/src/policy.ts)) — a
+  weight of `0` ignores recency entirely and a weight of `1` ignores Jev entirely. The default
+  (`0.1`) leans heavily on Jev's judgment with recency only breaking close ties. This is a
+  deliberately simple starting point, not a tuned model — see the "not yet done" notes in
+  [`ROADMAP.md`](ROADMAP.md) for what a real tuning pass would need.
 - **Token counts are computed, not judged.** [`tokenEstimate.ts`](packages/core/src/tokenEstimate.ts)
   uses a real tokenizer ([`gpt-tokenizer`](https://www.npmjs.com/package/gpt-tokenizer)) — Jev is
-  explicitly bad at arithmetic, so this project doesn't ask it to count anything.
-- **Live tests are opt-in.** `packages/core`'s test suite includes one integration test that
-  calls the real Jev API — it's skipped automatically unless `TYPESAFE_API_KEY` is set, so cloning
-  this repo and running `pnpm test` with no key still passes on the pure-logic coverage alone.
+  explicitly bad at arithmetic, so this project doesn't ask it to count anything. Every "tokens
+  saved" number in this README came from that tokenizer, not from Jev.
+- **The MCP server is verified two ways.** `tools.live.test.ts` covers the underlying logic
+  directly (no MCP framework involved); `server.live.test.ts` spins up the real `McpServer`
+  against an in-process client over `InMemoryTransport` to exercise the actual tool registration,
+  zod schemas, and response shape. Both were also run once as a genuine subprocess over real
+  stdio (`StdioServerTransport` ↔ `StdioClientTransport`) during development — the same transport
+  path a host like Claude Code would use — though that run isn't part of the automated suite.
+- **Live tests are opt-in.** Every test file ending in `.live.test.ts`
+  (`packages/core/src/jevClient.live.test.ts`,
+  `packages/mcp-server/src/{tools,server}.live.test.ts`) calls the real Jev API and is skipped
+  automatically when `TYPESAFE_API_KEY` isn't set — cloning this repo and running `pnpm test` with
+  no key still passes, on the pure-logic coverage alone. CI never sets the key, so it's exercising
+  exactly that path on every push.
 
 ## Contributing
 
 Early days — issues and PRs welcome, but expect the API surface to move until `packages/core`
-settles. Run `pnpm install && pnpm build && pnpm test` before opening a PR.
+settles, especially around `PruningPolicy` and how recency weighting works (see
+[Design notes](#design-notes) above).
+
+Before opening a PR:
+
+```bash
+pnpm install && pnpm build && pnpm test
+```
+
+`pnpm test` alone is enough to validate a change that doesn't touch Jev-calling code — the
+pure-logic suite (chunking, policy math, recency, savings, transcript parsing, report formatting)
+runs with no key and no network access. If your change *does* touch `jevClient.ts`, `tools.ts`, or
+`server.ts`, get a free key at
+[console.typesafe.ai/settings/keys](https://console.typesafe.ai/settings/keys) and export
+`TYPESAFE_API_KEY` first so the corresponding `.live.test.ts` suite actually runs instead of
+skipping — a PR that only touches those files without a live test run passing locally is likely to
+get asked to re-run with a key before review.
 
 ## Acknowledgments
 
-Built on [Jev](https://typesafe.ai), TypeSafe AI's System One model. `ctxjev` is an independent,
-unofficial project — not affiliated with or endorsed by TypeSafe AI.
+Built on [Jev](https://typesafe.ai), TypeSafe AI's System One model, via the official
+[`@typesafe-ai/sdk`](https://www.npmjs.com/package/@typesafe-ai/sdk). `ctxjev-mcp` is built on
+Anthropic's [`@modelcontextprotocol/sdk`](https://www.npmjs.com/package/@modelcontextprotocol/sdk).
+`ctxjev` is an independent, unofficial project — not affiliated with or endorsed by TypeSafe AI or
+Anthropic.
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE) — do what you like with this code, including in a commercial product, as long as
+the license text and copyright notice in [`LICENSE`](LICENSE) ship with it. There's no warranty of
+any kind; see the license text for the full disclaimer.
+
+This choice matches every package `ctxjev` currently depends on, so there's nothing to reconcile
+if you vendor or fork any of it:
+
+| Dependency | License |
+| --- | --- |
+| [`@typesafe-ai/sdk`](https://www.npmjs.com/package/@typesafe-ai/sdk) | MIT |
+| [`@modelcontextprotocol/sdk`](https://www.npmjs.com/package/@modelcontextprotocol/sdk) | MIT |
+| [`zod`](https://www.npmjs.com/package/zod) | MIT |
+| [`gpt-tokenizer`](https://www.npmjs.com/package/gpt-tokenizer) | MIT |
+| [`picocolors`](https://www.npmjs.com/package/picocolors) | ISC |
+
+(ISC and MIT are both short, permissive licenses with no material difference in what they let you
+do — picocolors is just one of the few things here that happens to use ISC's slightly older
+wording instead of MIT's.)

@@ -14,15 +14,24 @@
   hand-written transcript; redacted excerpts from real Claude Code session `.jsonl` logs are messier
   and worth adding once the policy/scoring logic is stable enough that fixture churn isn't wasted effort.
 
-**Not yet done, deliberately deferred**: composite scoring (Jev's relevance alone drives the decision
-right now — no importance/recency weighting yet, even though `PruningPolicy.recencyWeight` exists as a
-field). Adding that without real transcripts to tune against would just be guessing at weights.
+- **Composite scoring** ✅: `scoreEntries()` blends Jev's relevance with each entry's recency within the
+  batch (oldest=0, newest=1 — see [`recency.ts`](packages/core/src/recency.ts)) per
+  `PruningPolicy.recencyWeight`, producing a `combinedScore` that `pruneContext()` actually acts on.
+  `scoreEntries()` and `pruneContext()` are now separate exports — the MCP server's two planned tools map
+  onto them directly (`score_relevance` → `scoreEntries`, `prune_history` → `pruneContext`).
 
-## Phase 2 — MCP server
-- `packages/mcp-server`: `score_relevance` (score a batch of entries against a goal) and `prune_history`
-  (apply a policy, return the pruned history + a savings report) as MCP tools.
-- Verify end-to-end against Claude Code itself via a local `.mcp.json` entry before assuming any other host
-  works.
+## Phase 2 — MCP server ✅
+- `packages/mcp-server`: `score_relevance` (wraps `scoreEntries` — scores only, no decision) and
+  `prune_history` (wraps `pruneContext` — scores plus the keep/drop/summarize decision and a savings
+  report) as MCP tools, registered via `McpServer.registerTool` with zod input schemas
+  ([`schemas.ts`](packages/mcp-server/src/schemas.ts)).
+- Verified two ways: an in-process client/server test over `InMemoryTransport`
+  ([`server.live.test.ts`](packages/mcp-server/src/server.live.test.ts)) exercising the real MCP
+  wiring, and a manual real-subprocess run over actual stdio (`StdioServerTransport`/
+  `StdioClientTransport`) — both pass against the live Jev API.
+- **Not yet done**: an actual `.mcp.json` entry wiring this into a real Claude Code session — the
+  subprocess test above proves the same transport path Claude Code would use, but hasn't been
+  confirmed inside Claude Code itself. Do that before assuming Codex/Copilot will "just work" too.
 
 ## Phase 3 — Claude Code plugin
 - `packages/claude-plugin`: a hook that runs pruning before Claude Code's own compaction kicks in, and a

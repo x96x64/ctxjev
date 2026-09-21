@@ -1,0 +1,24 @@
+import type { Entry } from 'ctxjev-core'
+import { describe, expect, it } from 'vitest'
+import { pruneHistoryTool, scoreRelevanceTool } from './tools.js'
+
+const entries: Entry[] = [
+  { id: 'relevant', role: 'tool', toolName: 'grep', content: 'found chargeCustomer() called twice on retry', timestamp: 0 },
+  { id: 'irrelevant', role: 'tool', toolName: 'ls', content: 'listed public/audio, unrelated', timestamp: 1 },
+]
+
+describe.skipIf(!process.env.TYPESAFE_API_KEY)('tools (live)', () => {
+  it('scoreRelevanceTool returns a score per entry, no action', async () => {
+    const scored = await scoreRelevanceTool({ goal: 'fix the double-charge bug in checkout', entries })
+    expect(scored).toHaveLength(2)
+    expect(scored.every((s) => 'combinedScore' in s)).toBe(true)
+    expect(scored.every((s) => !('action' in s))).toBe(true)
+  }, 20_000)
+
+  it('pruneHistoryTool returns decisions with actions plus a savings report', async () => {
+    const result = await pruneHistoryTool({ goal: 'fix the double-charge bug in checkout', entries })
+    expect(result.decisions).toHaveLength(2)
+    expect(result.decisions.every((d) => 'action' in d)).toBe(true)
+    expect(result.savings.totalEntries).toBe(2)
+  }, 20_000)
+})
