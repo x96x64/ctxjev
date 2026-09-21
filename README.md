@@ -17,7 +17,7 @@ before your host's own compaction has to summarize its way through it.
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)](tsconfig.base.json)
 [![pnpm](https://img.shields.io/badge/maintained%20with-pnpm-F69220?logo=pnpm&logoColor=white)](pnpm-workspace.yaml)
 
-[Why](#why) · [How it works](#how-it-works) · [Quick start](#quick-start) · [Packages](#packages) · [MCP](#using-it-from-an-mcp-host) · [Claude Code plugin](#the-claude-code-plugin) · [Design notes](#design-notes) · [Changelog](CHANGELOG.md)
+[Why](#why) · [How it works](#how-it-works) · [Quick start](#quick-start) · [Packages](#packages) · [MCP: Claude Code / Codex / Copilot](#using-it-from-an-mcp-host) · [Extra: Claude Code plugin](#the-claude-code-plugin) · [Design notes](#design-notes) · [Changelog](CHANGELOG.md)
 
 </div>
 
@@ -76,12 +76,17 @@ numbers vary slightly between runs. "Score" is Jev's relevance blended with each
 within the batch, described further in [Design notes](#design-notes). The cost line is computed
 from what Jev's API actually reported for that request, not estimated.
 
-`ctxjev analyze` also accepts a real Claude Code session transcript directly. Point it at a
-`.jsonl` file (`transcript_path`, or anything under `~/.claude/projects`) instead of ctxjev's own
-format, and the goal is inferred from your most recent chat message unless `--goal` overrides it.
-See [`examples/sample-transcripts/claude-code-session.jsonl`](examples/sample-transcripts/claude-code-session.jsonl)
-for a synthetic one. **Never point this at a real session log**: real ones can contain secrets
-pasted into chat, and entry content is sent to the live Jev API. See [`CLAUDE.md`](CLAUDE.md).
+The `entries` array above is the one shape every agent's history maps onto, regardless of which
+host is running it: Claude Code, Codex, GitHub Copilot, or anything else that keeps a tool-call
+history. `ctxjev analyze` also auto-detects one native format today, a real Claude Code session
+`.jsonl` (`transcript_path`, or anything under `~/.claude/projects`), and infers the goal from your
+most recent chat message unless `--goal` overrides it. Any other host's history works the same
+way once it's shaped into ctxjev's own plain JSON format (`{ goal?, entries }`), shown in
+[Quick start](#quick-start) below. See
+[`examples/sample-transcripts/claude-code-session.jsonl`](examples/sample-transcripts/claude-code-session.jsonl)
+for a synthetic Claude Code transcript. **Never point this at a real session log**: real ones can
+contain secrets pasted into chat, and entry content is sent to the live Jev API. See
+[`CLAUDE.md`](CLAUDE.md).
 
 ## Quick start
 
@@ -199,6 +204,12 @@ This is a real response, captured against the live API through an in-process MCP
 exact call lives in [`server.live.test.ts`](packages/mcp-server/src/server.live.test.ts).
 
 ## The Claude Code plugin
+
+Everything above (the MCP server, and `ctxjev-cli`) already works the same way with Claude Code,
+Codex, GitHub Copilot, or any other MCP-capable host — none of it is Claude Code-specific. This
+section is the one extra, host-specific integration `ctxjev` currently ships, because Claude Code
+happens to expose a lifecycle hook the others don't yet: a way to act right before and right after
+its own compaction runs.
 
 Claude Code hooks can *read* the conversation transcript but cannot rewrite it: there is no API
 for a hook to remove old entries before compaction summarizes them away. `ctxjev-claude` works
