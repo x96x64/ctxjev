@@ -6,6 +6,9 @@ import { DEFAULT_POLICY, isValidPolicyOrdering } from 'ctxjev-core'
 // trusting every caller to already know that.
 const MAX_ENTRIES = 500
 const MAX_CONTENT_LENGTH = 4000
+// goal gets embedded into state.goal on every chunked Jev request (jevClient.ts) — an oversized
+// goal is billed once per chunk, not once per call, and deserves the same cap as content.
+const MAX_GOAL_LENGTH = 2000
 
 export const entrySchema = z.object({
   id: z.string().min(1),
@@ -19,7 +22,7 @@ export const entrySchema = z.object({
 })
 
 export const scoreRelevanceInput = {
-  goal: z.string().min(1).describe('The current task/goal to judge each entry\'s relevance against.'),
+  goal: z.string().min(1).max(MAX_GOAL_LENGTH).describe('The current task/goal to judge each entry\'s relevance against.'),
   entries: z.array(entrySchema).max(MAX_ENTRIES).describe('The agent history entries to score.'),
   recencyWeight: z
     .number()

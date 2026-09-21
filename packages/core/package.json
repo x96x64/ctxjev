@@ -1,6 +1,6 @@
 {
   "name": "ctxjev-core",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "Score AI agent context for relevance with Jev, and decide what to keep, drop, or summarize.",
   "keywords": [
     "ai-agent",

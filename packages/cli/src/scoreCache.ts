@@ -1,8 +1,7 @@
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
-import { randomUUID } from 'node:crypto'
+import { mkdir, readFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
-import type { ScoreCache } from 'ctxjev-core'
+import { atomicWriteFile, type ScoreCache } from 'ctxjev-core'
 
 export const DEFAULT_CACHE_PATH = join(homedir(), '.cache', 'ctxjev', 'score-cache.json')
 
@@ -29,12 +28,10 @@ export async function loadFileScoreCache(path: string = DEFAULT_CACHE_PATH): Pro
   const save = async () => {
     if (!dirty) return
     await mkdir(dirname(path), { recursive: true })
-    // Temp file + rename, not a plain writeFile — this file is shared across every `ctxjev
-    // analyze` run, and a plain write can interleave with a concurrent run and corrupt it (the
-    // same race packages/claude-plugin/src/preserve.ts's identical cache is guarded against).
-    const tempPath = `${path}.${randomUUID()}.tmp`
-    await writeFile(tempPath, JSON.stringify(Object.fromEntries(store)), 'utf8')
-    await rename(tempPath, path)
+    // Atomic write — this file is shared across every `ctxjev analyze` run, and a plain write
+    // can interleave with a concurrent run and corrupt it (the same race
+    // packages/claude-plugin/src/preserve.ts's identical cache is guarded against).
+    await atomicWriteFile(path, JSON.stringify(Object.fromEntries(store)))
   }
 
   return { cache, save }

@@ -6,6 +6,7 @@ import { computeRecency } from './recency.js'
 import { DEFAULT_POLICY, type Entry, type JevUsage, type PruneDecision, type PruningPolicy, type ScoredEntry } from './types.js'
 
 export * from './types.js'
+export { atomicWriteFile } from './atomicWrite.js'
 export { summarizeSavings, type SavingsReport } from './savings.js'
 export { estimateTokens } from './tokenEstimate.js'
 export { parseClaudeCodeTranscript, inferGoalFromEntries, truncate } from './claudeCodeTranscript.js'

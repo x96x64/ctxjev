@@ -41,6 +41,12 @@ describe('scoreRelevanceInput', () => {
   it('rejects a recencyWeight outside [0, 1]', () => {
     expect(scoreRelevanceSchema.safeParse({ goal: 'g', entries: [], recencyWeight: 1.5 }).success).toBe(false)
   })
+
+  it('rejects a goal over the length cap', () => {
+    // goal gets re-embedded into every chunked Jev request — an oversized goal is billed once
+    // per chunk, not once per call, same rationale as entry content's own cap.
+    expect(scoreRelevanceSchema.safeParse({ goal: 'x'.repeat(2001), entries: [] }).success).toBe(false)
+  })
 })
 
 describe('validatePolicyOrdering', () => {

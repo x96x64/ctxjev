@@ -120,8 +120,14 @@ async function runAnalyze(argv: string[]) {
   } finally {
     // Whatever verdicts a partial run already paid Jev for and cached in memory (some chunks
     // succeeded before a later one threw) still get persisted — otherwise a failure discards
-    // already-spent cost, and the next run re-pays for entries it already scored.
-    await save()
+    // already-spent cost, and the next run re-pays for entries it already scored. A throw here
+    // must not itself replace a successful analysis's result, though — an unwritable cache dir
+    // is a reason to warn, not to discard a report that already succeeded and was already billed.
+    try {
+      await save()
+    } catch (err) {
+      console.error(`${pc.yellow('⚠')} could not save the score cache: ${err instanceof Error ? err.message : String(err)}`)
+    }
   }
   const savings = summarizeSavings(transcript.entries, decisions)
 

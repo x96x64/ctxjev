@@ -182,6 +182,14 @@ describe('inferGoalFromEntries', () => {
     expect(inferGoalFromEntries(parseClaudeCodeTranscript(jsonl))).toBe("/etc/hosts isn't being read correctly")
   })
 
+  it('does not mistake an imperative sentence starting with "/word" for a slash command', () => {
+    const jsonl = [
+      record({ type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: '/deploy the hotfix now' } }),
+    ].join('\n')
+
+    expect(inferGoalFromEntries(parseClaudeCodeTranscript(jsonl))).toBe('/deploy the hotfix now')
+  })
+
   it('returns undefined when every user entry is a slash command', () => {
     const jsonl = [
       record({ type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: '/clear' } }),

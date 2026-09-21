@@ -6,6 +6,29 @@ changed. This also covers the three plugin-manifest version fields Claude Code's
 (`.claude-plugin/marketplace.json`, `packages/claude-plugin/.claude-plugin/plugin.json`,
 `plugins/ctxjev/plugin.json`) — easy to forget since none of them are `package.json`.
 
+## 0.1.11 — 2026-09-21
+
+A second cloud review pass (same base as 0.1.10's) found 4 more issues, mostly in 0.1.9/0.1.10's
+own fixes. All 4 fixed.
+
+- **`ctxjev-cli`**: a failure to save the score cache (an unwritable `~/.cache/ctxjev`, a full
+  disk) no longer discards an already-succeeded, already-billed analysis. 0.1.10 wrapped `save()`
+  in a `finally` so a partial scoring failure still persists what it could — but a throw from
+  `finally` itself overrides normal control flow, so a save failure after a *successful* run used
+  to propagate past the report entirely. `save()`'s own failure is now caught and logged as a
+  warning instead.
+- **`ctxjev-core`**: `inferGoalFromEntries`'s slash-command detection (tightened in 0.1.9 to fix
+  paths like "/etc/hosts...") still matched an ordinary imperative sentence whose first word
+  happens to look like a command, e.g. "/deploy the hotfix now" — it now only treats a message as
+  a bare slash command when the *entire* message is just that one token, since a real invocation
+  with arguments already shows up wrapped in `<command-name>` instead.
+- **`ctxjev-mcp`**: `goal` now has the same length cap (`content` and `entries` already got in
+  0.1.9) — it gets re-embedded into every chunked Jev request, so an unbounded goal was billed
+  once per chunk instead of once per call.
+- **`ctxjev-claude`/`ctxjev-cli`**: the identical temp-file-then-rename atomic-write pattern,
+  independently duplicated between `preserve.ts` and `scoreCache.ts` in 0.1.9/0.1.10, is now one
+  shared `atomicWriteFile()` in `ctxjev-core`.
+
 ## 0.1.10 — 2026-09-21
 
 A cloud-based review (`/code-review ultra`, diffed against the repo's very first commit) audited

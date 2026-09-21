@@ -148,8 +148,14 @@ const SLASH_COMMAND_TOKEN = /^\/[a-zA-Z][\w-]*(:[\w-]+)*$/
 function isSlashCommand(content: string): boolean {
   const trimmed = content.trim()
   if (trimmed.includes('<command-name>')) return true
-  const [firstToken] = trimmed.split(/\s/, 1)
-  return SLASH_COMMAND_TOKEN.test(firstToken)
+
+  const words = trimmed.split(/\s+/)
+  // A bare command like "/compact" or "/clear" is the entire message, nothing else. A message
+  // with more words after a slash-shaped first token ("/deploy the hotfix now") is ambiguous
+  // between real command arguments and an ordinary sentence that starts with a slash-prefixed
+  // word — real invocations that take arguments show up wrapped in <command-name> instead
+  // (handled above), so don't guess here.
+  return words.length === 1 && SLASH_COMMAND_TOKEN.test(words[0])
 }
 
 /**
