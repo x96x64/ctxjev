@@ -1,3 +1,4 @@
+import { cacheKeyFor, type ScoreCache } from './cache.js'
 import { chunkEntries } from './chunk.js'
 import { scoreRelevance } from './jevClient.js'
 import { combineScore, decideAction } from './policy.js'
@@ -9,10 +10,13 @@ export { summarizeSavings, type SavingsReport } from './savings.js'
 export { estimateTokens } from './tokenEstimate.js'
 export { parseClaudeCodeTranscript, inferGoalFromEntries } from './claudeCodeTranscript.js'
 export { createUsageAccumulator } from './usage.js'
+export { cacheKeyFor, type ScoreCache } from './cache.js'
 
 export type ScoreEntriesOptions = {
   /** Called once per underlying Jev request (one per chunk) with that request's token usage. */
   onUsage?: (usage: JevUsage) => void
+  /** Checked before, and populated after, each Jev request — see `ScoreCache`. */
+  cache?: ScoreCache
 }
 
 /**
@@ -28,10 +32,18 @@ export async function scoreEntries(
   recencyWeight: number = DEFAULT_POLICY.recencyWeight,
   options: ScoreEntriesOptions = {},
 ): Promise<ScoredEntry[]> {
+  const seenIds = new Set<string>()
+  for (const entry of entries) {
+    if (seenIds.has(entry.id)) {
+      throw new Error(`duplicate entry id "${entry.id}" — every entry must have a unique id`)
+    }
+    seenIds.add(entry.id)
+  }
+
   const chunks = chunkEntries(entries)
   const chunkResults = await Promise.all(
     chunks.map(async (chunk) => {
-      const { verdicts, usage } = await scoreRelevance(goal, chunk)
+      const { verdicts, usage } = await scoreRelevance(goal, chunk, options.cache)
       options.onUsage?.(usage)
       return verdicts
     }),

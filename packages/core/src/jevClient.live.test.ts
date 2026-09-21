@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { pruneContext } from './index.js'
+import { pruneContext, scoreEntries } from './index.js'
+import type { ScoreCache } from './cache.js'
 import type { Entry } from './types.js'
 
 /**
@@ -30,5 +31,31 @@ describe.skipIf(!process.env.TYPESAFE_API_KEY)('pruneContext (live)', () => {
     const byId = new Map(decisions.map((d) => [d.entryId, d]))
 
     expect(byId.get('relevant')!.relevance).toBeGreaterThan(byId.get('irrelevant')!.relevance)
+  }, 20_000)
+
+  it('skips the Jev request entirely on a full cache hit', async () => {
+    const entries: Entry[] = [
+      { id: 'e1', role: 'tool', toolName: 'bash', content: 'ran the test suite, all green', timestamp: 0 },
+    ]
+    const goal = 'ship the release'
+
+    const store = new Map<string, number>()
+    const cache: ScoreCache = { get: (k) => store.get(k), set: (k, v) => store.set(k, v) }
+
+    const usages: number[] = []
+    await scoreEntries(entries, goal, undefined, { cache, onUsage: (u) => usages.push(u.inputTokens) })
+    expect(usages[0]).toBeGreaterThan(0)
+    expect(store.size).toBe(1)
+
+    // Same goal, same entry content, different entry id — still a cache hit, since the key is
+    // content-based rather than id-based.
+    const secondEntries: Entry[] = [{ ...entries[0], id: 'different-id' }]
+    const secondScored = await scoreEntries(secondEntries, goal, undefined, {
+      cache,
+      onUsage: (u) => usages.push(u.inputTokens),
+    })
+
+    expect(usages[1]).toBe(0)
+    expect(secondScored[0].relevance).toBeGreaterThan(0)
   }, 20_000)
 })

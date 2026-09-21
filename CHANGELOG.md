@@ -4,6 +4,19 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 `ctxjev-claude`: a version bump in one is a version bump in all four, even when only one actually
 changed.
 
+## 0.1.6 — 2026-09-21
+
+- **`ctxjev-core`**: `scoreEntries()` now rejects entries with duplicate ids up front, instead of
+  silently letting one entry's content overwrite another's in what Jev actually sees and mapping
+  both back to the same, wrong verdict.
+- **`ctxjev-cli`**: `--drop-below`/`--summarize-below` now reject anything that isn't a real
+  number in `[0, 1]` with a clear error, instead of silently becoming `NaN` — which compared
+  false against every score and meant `drop` could never be returned again.
+- **`ctxjev-core`**: added an optional `cache: ScoreCache` to `scoreEntries()`/`pruneContext()`,
+  checked before and populated after each Jev request, keyed by goal + entry content.
+  **`ctxjev-cli`** wires this to `~/.cache/ctxjev/score-cache.json` by default; `--no-cache`
+  bypasses it. Re-running the same analysis now costs nothing the second time.
+
 ## 0.1.5 — 2026-09-21
 
 - **`ctxjev-mcp`**: the MCP server registered itself with a literal `version: '0.0.0'` — the same

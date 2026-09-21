@@ -7,6 +7,7 @@ import { parseArgs } from 'node:util'
 import pc from 'picocolors'
 import { DEFAULT_POLICY, createUsageAccumulator, pruneContext, summarizeSavings, type PruningPolicy } from 'ctxjev-core'
 import { formatReport } from './report.js'
+import { DEFAULT_CACHE_PATH, loadFileScoreCache } from './scoreCache.js'
 import { parseTranscript } from './transcript.js'
 
 // Read from this package's own package.json rather than a hardcoded constant, so --version
@@ -29,8 +30,12 @@ ${pc.bold('Options')}
   --drop-below <0-1>         Relevance floor below which an entry is dropped.      (default ${DEFAULT_POLICY.dropBelow})
   --summarize-below <0-1>    Relevance floor below which an entry is summarized.   (default ${DEFAULT_POLICY.summarizeBelow})
   --json                     Print machine-readable JSON instead of the report.
+  --no-cache                 Don't read or write the score cache (${DEFAULT_CACHE_PATH}).
   --help                     Show this help.
   --version                  Print the installed version.
+
+Scores are cached by goal + entry content (not by transcript or entry id), so re-running the same
+analysis, or reusing a tool result across transcripts, costs nothing the second time.
 
 ${pc.bold('Transcript formats (auto-detected)')}
   ctxjev's own:  { "goal": "...", "entries": [{ "id", "role", "toolName"?, "content", "timestamp" }] }
@@ -49,6 +54,14 @@ function failAll(messages: string[]): never {
   process.exit(1)
 }
 
+/** Rejects anything that isn't a real number in [0, 1] instead of silently becoming NaN — a NaN
+ * threshold compares false against every score, so `decideAction` would quietly never "drop". */
+function parseThreshold(raw: string): number | undefined {
+  const n = Number(raw)
+  if (Number.isNaN(n) || n < 0 || n > 1) return undefined
+  return n
+}
+
 async function runAnalyze(argv: string[]) {
   const { positionals, values } = parseArgs({
     args: argv,
@@ -58,14 +71,16 @@ async function runAnalyze(argv: string[]) {
       'drop-below': { type: 'string' },
       'summarize-below': { type: 'string' },
       json: { type: 'boolean', default: false },
+      'no-cache': { type: 'boolean', default: false },
     },
   })
 
   const [file] = positionals
   if (!file) fail('missing <transcript.json> — see `ctxjev --help`')
 
-  // Both checked up front, independently — a user missing the key AND pointing at a bad path
-  // should hear about both in one run, not fix one only to discover the other on the next try.
+  // Every problem checked up front, independently, and all of them reported together — a user
+  // missing the key, pointing at a bad path, AND passing a bad threshold should hear about all
+  // three in one run, not fix one only to discover the next on the following try.
   const problems: string[] = []
   if (!process.env.TYPESAFE_API_KEY) {
     problems.push('TYPESAFE_API_KEY is not set — get one at console.typesafe.ai/settings/keys')
@@ -78,20 +93,33 @@ async function runAnalyze(argv: string[]) {
     problems.push(`couldn't read ${file}`)
   }
 
+  let dropBelow = DEFAULT_POLICY.dropBelow
+  if (values['drop-below'] !== undefined) {
+    const parsed = parseThreshold(values['drop-below'])
+    if (parsed === undefined) problems.push(`--drop-below must be a number between 0 and 1, got "${values['drop-below']}"`)
+    else dropBelow = parsed
+  }
+
+  let summarizeBelow = DEFAULT_POLICY.summarizeBelow
+  if (values['summarize-below'] !== undefined) {
+    const parsed = parseThreshold(values['summarize-below'])
+    if (parsed === undefined) problems.push(`--summarize-below must be a number between 0 and 1, got "${values['summarize-below']}"`)
+    else summarizeBelow = parsed
+  }
+
   if (problems.length > 0) failAll(problems)
 
   const transcript = parseTranscript(raw!)
   const goal = values.goal ?? transcript.goal
   if (!goal) fail('no goal — pass --goal or set "goal" in the transcript file')
 
-  const policy: PruningPolicy = {
-    dropBelow: values['drop-below'] ? Number(values['drop-below']) : DEFAULT_POLICY.dropBelow,
-    summarizeBelow: values['summarize-below'] ? Number(values['summarize-below']) : DEFAULT_POLICY.summarizeBelow,
-    recencyWeight: DEFAULT_POLICY.recencyWeight,
-  }
+  const policy: PruningPolicy = { dropBelow, summarizeBelow, recencyWeight: DEFAULT_POLICY.recencyWeight }
+
+  const { cache, save } = values['no-cache'] ? { cache: undefined, save: async () => {} } : await loadFileScoreCache()
 
   const { usage, onUsage } = createUsageAccumulator()
-  const decisions = await pruneContext(transcript.entries, goal, policy, { onUsage })
+  const decisions = await pruneContext(transcript.entries, goal, policy, { onUsage, cache })
+  await save()
   const savings = summarizeSavings(transcript.entries, decisions)
 
   if (values.json) {

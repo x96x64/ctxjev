@@ -1,4 +1,5 @@
 import { TypeSafeClient, noul } from '@typesafe-ai/sdk'
+import { cacheKeyFor, type ScoreCache } from './cache.js'
 import type { Entry, JevUsage } from './types.js'
 
 export type RelevanceVerdict = {
@@ -36,34 +37,55 @@ function getClient(): TypeSafeClient {
   return client
 }
 
-export async function scoreRelevance(goal: string, entries: Entry[]): Promise<ScoreRelevanceResult> {
+/**
+ * `cache`, when provided, is checked before spending a Jev request on an entry — and populated
+ * with any fresh verdicts afterward. Keyed on goal + entry content (see `cacheKeyFor`), not on
+ * `entry.id`, so the same tool output scores as a cache hit even across different transcripts.
+ */
+export async function scoreRelevance(goal: string, entries: Entry[], cache?: ScoreCache): Promise<ScoreRelevanceResult> {
   if (entries.length === 0) {
     return { verdicts: [], usage: { inputTokens: 0, outputTokens: 0 } }
   }
 
-  const state = {
-    goal,
-    entries: Object.fromEntries(
-      entries.map((entry) => [entry.id, { role: entry.role, toolName: entry.toolName ?? null, content: entry.content }]),
-    ),
+  const relevanceByEntryId = new Map<string, number>()
+  const uncached: Entry[] = []
+  for (const entry of entries) {
+    const hit = cache?.get(cacheKeyFor(goal, entry))
+    if (hit !== undefined) relevanceByEntryId.set(entry.id, hit)
+    else uncached.push(entry)
   }
 
-  const questions = Object.fromEntries(
-    entries.map((entry) => [
-      entry.id,
-      noul(`Given state.entries["${entry.id}"], is this still relevant to accomplishing state.goal?`),
-    ]),
-  )
+  let usage: JevUsage = { inputTokens: 0, outputTokens: 0 }
 
-  const response = await getClient().systemOne({ state, questions })
+  if (uncached.length > 0) {
+    const state = {
+      goal,
+      entries: Object.fromEntries(
+        uncached.map((entry) => [entry.id, { role: entry.role, toolName: entry.toolName ?? null, content: entry.content }]),
+      ),
+    }
+
+    const questions = Object.fromEntries(
+      uncached.map((entry) => [
+        entry.id,
+        noul(`Given state.entries["${entry.id}"], is this still relevant to accomplishing state.goal?`),
+      ]),
+    )
+
+    const response = await getClient().systemOne({ state, questions })
+    usage = { inputTokens: response.usage.input_tokens, outputTokens: response.usage.output_tokens }
+
+    for (const entry of uncached) {
+      const relevance = response.answers[entry.id].noul
+      relevanceByEntryId.set(entry.id, relevance)
+      cache?.set(cacheKeyFor(goal, entry), relevance)
+    }
+  }
 
   const verdicts = entries.map((entry) => ({
     entryId: entry.id,
-    relevance: response.answers[entry.id].noul,
+    relevance: relevanceByEntryId.get(entry.id)!,
   }))
 
-  return {
-    verdicts,
-    usage: { inputTokens: response.usage.input_tokens, outputTokens: response.usage.output_tokens },
-  }
+  return { verdicts, usage }
 }

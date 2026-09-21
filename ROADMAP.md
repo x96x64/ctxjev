@@ -275,3 +275,62 @@ actually matches local, not before.
 
 Also confirmed `codex plugin add <name>` requires the fully-qualified `<name>@<marketplace>` form
 when more than one marketplace is configured — a bare name is refused, not silently ambiguous.
+
+## Phase 10 — Self-audit: three real bugs, found by actually trying to break it (v0.1.4-0.1.6, 2026-09-21)
+
+Asked directly: "how far along is this, really, and what's actually wrong with it?" Answering that
+honestly meant reading every non-test source file in the monorepo (970 lines total — small enough
+to read in full) and then trying to break the result, not just re-reading the happy path.
+
+**Found and fixed, each confirmed against the live API before and after:**
+
+- **`inferGoalFromEntries()` picked up `/compact` itself as the goal (v0.1.4).** `PreCompact` fires
+  right after `/compact` runs, so the "most recent user message" fallback — the whole point of
+  which is to guess what the session was actually about — was, in the single most common way
+  `PreCompact` fires, just the literal string `"/compact"`. Confirmed against this repo's own
+  cached `preserved-context.json` from an earlier real compaction. Fixed by skipping any user
+  entry that's itself a slash command (bare or the wrapped `<command-name>` form) and continuing
+  to look backward.
+- **The MCP server reported `version: '0.0.0'`, hardcoded, forever (v0.1.5).** The exact same
+  stale-string bug already fixed for `ctxjev-cli --version` in Phase 8, just never applied to
+  `server.ts`'s own `McpServer` registration. Any MCP client inspecting server info would never
+  see the real version. Fixed the same way: read it from the package's own `package.json`.
+- **Duplicate entry ids silently corrupted scores (v0.1.6).** `scoreRelevance()` keys `state.entries`
+  by `entry.id`; two entries sharing an id meant the second's content silently overwrote the
+  first's in what Jev actually saw, and both then got mapped back to the same verdict — no error,
+  no warning, just a wrong score returned as if it were right. Reproduced with a deliberately
+  crafted transcript before fixing it: `scoreEntries()` now rejects duplicate ids up front, before
+  any entry reaches Jev.
+- **An invalid `--drop-below`/`--summarize-below` value silently went to `NaN` (v0.1.6).**
+  `score < NaN` is always `false`, so a typo'd threshold didn't error — it just meant `decideAction`
+  could never return `'drop'` again, changing every entry's outcome with no indication anything
+  was wrong. Reproduced live (`--drop-below notanumber` zeroed out every drop in a run that should
+  have had two), then fixed: both flags are now validated as real numbers in `[0, 1]` and reported
+  as a clear error, using the same "report every problem at once" path Phase 5 already established.
+
+**Added while looking for more of the above — a real fix, not a hypothetical one:** re-running the
+same sample transcript against Jev repeatedly (exactly what today's testing did, dozens of times)
+was re-paying for identical judgments every single time. `scoreEntries()`/`pruneContext()` now
+accept an optional `cache: ScoreCache` (a plain `get`/`set` interface, so `ctxjev-core` stays
+host-agnostic about where results live), checked before and populated after each Jev request, keyed
+by goal + entry content rather than entry id or transcript. `ctxjev-cli` wires this to a JSON file
+at `~/.cache/ctxjev/score-cache.json` by default, with `--no-cache` to bypass it. Verified live:
+identical input reports `usage: { inputTokens: 0, outputTokens: 0 }` on the second run.
+
+**Also deduplicated, not just fixed:** `ctxjev-cli` and `ctxjev-mcp`'s `tools.ts` had each
+reimplemented the exact same `JevUsage`-accumulation closure independently — moved into
+`ctxjev-core` as `createUsageAccumulator()`, per this project's own stated rule that logic more
+than one adapter needs belongs in `core`, not copied into each.
+
+**What this pass did *not* find anything wrong with, after real testing:** chunking across the
+50-entries-per-request boundary (verified with 55 entries — no id collisions, no lost entries,
+correct chunk-crossing ordering), all CLI error paths (missing file, wrong JSON shape, no goal,
+missing key + bad path reported together, empty `entries` array short-circuiting without an API
+call), and every package's dependency list (nothing unused).
+
+**Still an open gap, not yet closed:** the `PreCompact` → `SessionStart` hook pair has only ever
+been exercised by manually invoking the underlying scripts, or by real compactions during this
+project's own past development — never end-to-end through a fresh marketplace install specifically,
+on demand, as part of a verification pass. Doing that for real means actually running `/compact`
+in a live session, which costs a real (small) amount against the live API and actually compacts
+whatever conversation triggers it — deliberately not done automatically for that reason.
