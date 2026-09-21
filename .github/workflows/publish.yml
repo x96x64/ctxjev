@@ -1,0 +1,51 @@
+name: Publish to npm
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: "https://registry.npmjs.org"
+          cache: pnpm
+
+      # Trusted publishing needs npm CLI >= 11.5.1 — newer than what ships with Node 22 by default.
+      - run: npm install -g npm@latest
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm test
+
+      # pnpm publish doesn't yet know about OIDC trusted publishing (pnpm/pnpm#9812), but `pnpm pack`
+      # correctly rewrites `workspace:*` dependency ranges into the tarball — so pack with pnpm, then
+      # hand the tarball to npm's own OIDC-aware `publish`. Order matters: ctxjev-core first, since
+      # the other two declare a real version dependency on it once packed.
+      - name: Publish ctxjev-core
+        working-directory: packages/core
+        run: |
+          pnpm pack
+          npm publish ctxjev-core-*.tgz
+
+      - name: Publish ctxjev-cli
+        working-directory: packages/cli
+        run: |
+          pnpm pack
+          npm publish ctxjev-cli-*.tgz
+
+      - name: Publish ctxjev-mcp
+        working-directory: packages/mcp-server
+        run: |
+          pnpm pack
+          npm publish ctxjev-mcp-*.tgz
