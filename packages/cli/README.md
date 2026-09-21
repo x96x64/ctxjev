@@ -1,22 +1,81 @@
+<div align="center">
+
 # ctxjev-cli
 
-Analyze an AI agent transcript and see what [Jev](https://typesafe.ai) would keep, drop, or
-summarize — plain-text report or `--json`.
+**See what Jev would keep, drop, or summarize — right from your terminal.**
+
+[![npm](https://img.shields.io/npm/v/ctxjev-cli.svg)](https://www.npmjs.com/package/ctxjev-cli)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Node](https://img.shields.io/badge/node-%3E%3D20-339933?logo=node.js&logoColor=white)](package.json)
+
+[Install](#install) · [Usage](#usage) · [Options](#options) · [Transcript formats](#transcript-formats) · [Related packages](#related-packages)
+
+</div>
+
+---
+
+## Install
 
 ```bash
 npm install -g ctxjev-cli
 export TYPESAFE_API_KEY=...   # console.typesafe.ai/settings/keys — no waitlist
+```
 
+## Usage
+
+```bash
 ctxjev analyze transcript.jsonl --goal "Fix the checkout double-charge bug."
 ```
 
-Accepts two formats, auto-detected: ctxjev's own `{ goal?, entries }` JSON, or a real Claude Code
-session `.jsonl` transcript (goal inferred from your most recent chat message unless `--goal`
-overrides it).
+```console
+  e1  bash       summarize  score 0.48  ran: npm test -- checkout.test.ts — 12 passed, 0 failed
+  e2  read       summarize  score 0.26  read package.json — saw the dependency list and script names
+  e3  grep       keep       score 0.89  grep "charge" in src/payments.ts — found chargeCustomer() c…
+  e4  bash       drop       score 0.14  ran: git log --oneline -5 — recent commits about unrelated …
+  e5  read       keep       score 0.93  read src/payments.ts — the retry handler re-calls chargeCus…
+  e6  assistant  keep       score 0.94  Found it: the retry path doesn't check for an in-flight or …
+  e7  bash       drop       score 0.14  ran: ls public/audio — unrelated, was checking something el…
+
+3 kept, 2 summarized, 2 dropped (of 7 entries)
+~60 / 154 tokens saved (39%)
+Jev cost: 859 input tokens, 123 output tokens (free) — ~$0.000036
+```
+
+*(real output, against a sample transcript — Jev is probabilistic, so exact numbers vary slightly
+between runs. The cost line is computed from what Jev's API actually reported, not estimated.)*
+
+## Options
+
+| Flag | What it does |
+| --- | --- |
+| `--goal <text>` | Overrides the transcript's own goal (or the inferred one), if any. |
+| `--drop-below <0-1>` | Relevance floor below which an entry is dropped (default `0.25`). |
+| `--summarize-below <0-1>` | Relevance floor below which an entry is summarized (default `0.6`). |
+| `--json` | Print machine-readable JSON — `{ decisions, savings, usage }` — instead of the report. |
+| `--help` / `--version` | Work without `TYPESAFE_API_KEY` set. |
+
+## Transcript formats
+
+Auto-detected, no flag needed:
+
+- **ctxjev's own** — a single JSON document: `{ "goal": "...", "entries": [{ "id", "role", "toolName"?, "content", "timestamp" }] }`.
+- **Claude Code** — a real session `.jsonl` (`transcript_path`, or anything under
+  `~/.claude/projects`). The goal is inferred from your most recent chat message unless `--goal`
+  overrides it.
+
+> Never point this at a real, sensitive session log without checking its contents first — entry
+> content is sent to the live Jev API for scoring.
+
+## Related packages
+
+| Package | What it is |
+| --- | --- |
+| [`ctxjev-core`](https://www.npmjs.com/package/ctxjev-core) | The engine this CLI wraps. |
+| [`ctxjev-mcp`](https://www.npmjs.com/package/ctxjev-mcp) | The same scoring, as MCP tools for Claude Code, Codex, and other agent hosts. |
 
 Full docs, design notes, and example transcripts live in the main repo:
 **[github.com/x96x64/ctxjev](https://github.com/x96x64/ctxjev)**.
 
 ## License
 
-MIT
+[MIT](LICENSE)

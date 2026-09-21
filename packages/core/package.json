@@ -1,6 +1,6 @@
 {
   "name": "ctxjev-core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Score AI agent context for relevance with Jev, and decide what to keep, drop, or summarize.",
   "license": "MIT",
   "repository": {
