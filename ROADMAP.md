@@ -181,10 +181,26 @@ policy that's worth recording since it cost real time to work through:
   `ctxjev-mcp` into a clean scratch directory, then actually ran the CLI against a sample
   transcript and connected a real MCP client to the installed server — both worked identically to
   the local dev build.
-- **[`.github/workflows/publish.yml`](.github/workflows/publish.yml)** is ready for every release
-  after this one: OIDC Trusted Publishing, no token to manage or rotate. `pnpm publish` doesn't yet
-  speak OIDC itself ([pnpm/pnpm#9812](https://github.com/pnpm/pnpm/issues/9812)), so the workflow
-  packs with `pnpm pack` (for the same workspace-range rewrite) and publishes the resulting tarball
-  with plain `npm publish`, which is OIDC-aware. **Not yet configured**: each package's Trusted
-  Publisher settings on npmjs.com (org `x96x64`, repo `ctxjev`, workflow `publish.yml`) — do this
-  once per package, now that all three exist, before relying on the workflow for `v0.1.1`.
+- **[`.github/workflows/publish.yml`](.github/workflows/publish.yml)**: OIDC Trusted Publishing,
+  no token to manage or rotate. `pnpm publish` doesn't yet speak OIDC itself
+  ([pnpm/pnpm#9812](https://github.com/pnpm/pnpm/issues/9812)), so the workflow packs with `pnpm
+  pack` (for the same workspace-range rewrite) and publishes the resulting tarball with plain
+  `npm publish`, which is OIDC-aware.
+
+## Phase 7 — Trusted Publishing verified for real (v0.1.1, 2026-09-21)
+
+Configured each package's Trusted Publisher on npmjs.com (org `x96x64`, repo `ctxjev`, workflow
+`publish.yml`) and used `gh workflow run publish.yml` to publish `v0.1.1` — a README-only release
+for all three packages, chosen deliberately as a low-stakes first real test of the new pipeline.
+
+- **First attempt failed**: `403 OIDC permission denied for this action`. A Trusted Publisher
+  configuration has its own **"Allowed actions"** setting, separate from the publisher identity
+  (org/repo/workflow) — it must explicitly permit `npm publish` (direct), not just `npm stage
+  publish`. Same shape of gotcha as the access-token saga in Phase 6: npm's newer security
+  surface has more than one place that defaults to the safer, stage-only option.
+- **Second attempt succeeded**, but `npm view` and the registry API both still reported `0.1.0`
+  for a couple of minutes afterward — `npm publish`'s own output said as much
+  (`"Your package is being processed and may take a few minutes to become available"`), so this
+  was expected propagation delay, not a failure. Confirmed on the registry within ~2 minutes.
+- End-to-end, this is now: bump version → commit/push → `gh workflow run publish.yml` → done. No
+  token to create, rotate, or leak.
