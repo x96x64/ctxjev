@@ -4,6 +4,15 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 `ctxjev-claude`: a version bump in one is a version bump in all four, even when only one actually
 changed.
 
+## 0.1.4 — 2026-09-21
+
+- **`ctxjev-core`**: `inferGoalFromEntries()` now skips slash-command invocations (`/compact`,
+  `<command-name>/ctxjev:status</command-name>`, ...) when falling back to "the most recent user
+  message." `PreCompact` fires right after `/compact` runs, so without this, the inferred goal was
+  almost always the literal string `"/compact"` whenever no explicit goal was set — confirmed
+  against a real cached snapshot from this repo's own development. Also benefits `ctxjev-claude`,
+  which calls the same function.
+
 ## 0.1.3 — 2026-09-21
 
 - README (main and all four package READMEs): rewrote dash-led sentences into plain prose, and
