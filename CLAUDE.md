@@ -13,11 +13,12 @@ for the pitch and [ROADMAP.md](ROADMAP.md) for phased scope.
 pnpm workspace monorepo. `packages/core`, `packages/cli`, `packages/mcp-server`, and
 `packages/claude-plugin` all have real, working logic verified against the live Jev API (see
 [ROADMAP.md](ROADMAP.md) for what "verified" means for each — a couple of things are only proven
-via a synthetic/subprocess test and still need confirming inside a real, restarted Claude Code
-session). `core` exports two entry points that matter here: `scoreEntries()` (relevance + recency,
-no decision) and `pruneContext()` (`scoreEntries()` plus applying a `PruningPolicy`'s thresholds)
-— every other package is a thin adapter over these two functions, nothing more. Don't add logic
-to an adapter package that belongs in `core` instead.
+via a synthetic/subprocess test). `core` exports the pieces every other package is a thin adapter
+over: `scoreEntries()`/`pruneContext()` (relevance+recency scoring, with or without the
+keep/drop/summarize decision), and `parseClaudeCodeTranscript()`/`inferGoalFromEntries()` (parsing
+Claude Code's own session log format — used by both `ctxjev-cli` and `ctxjev-claude`, which is why
+it lives in `core` rather than either of them). Don't add logic to an adapter package that belongs
+in `core` instead.
 
 **Claude Code hooks cannot rewrite the transcript** — this constrained `packages/claude-plugin`'s
 whole design (see the Phase 3 section of [ROADMAP.md](ROADMAP.md) for what was tried first and
@@ -45,6 +46,8 @@ node packages/mcp-server/dist/index.js   # stdio MCP server — expects an MCP c
 # Simulate what Claude Code's hooks actually send a plugin script over stdin:
 echo '{"cwd":"...","transcript_path":"..."}' | node packages/claude-plugin/dist/preCompact.js
 echo '{"cwd":"..."}' | node packages/claude-plugin/dist/sessionStartCompact.js
+
+cd packages/core && pnpm eval   # sweep recencyWeight against examples/sample-transcripts' groundTruth
 ```
 
 `TYPESAFE_API_KEY` (from `console.typesafe.ai/settings/keys`) must be set for anything that
@@ -58,6 +61,11 @@ than failing — that's also exactly what CI runs, since it never sets the key.
 **Never run any of this against this repo's own real session transcripts**
 (`~/.claude/projects/*/*.jsonl`) — they can contain secrets pasted into chat (this project's own
 history does, from setting up `TYPESAFE_API_KEY` originally), and `preCompact.js`/`selectPreserved`
-sends entry content to the live Jev API. Use a synthetic fixture instead (see
-`packages/claude-plugin/src/transcript.test.ts` for the shape, or the pattern used to smoke-test
-the hooks during development).
+*and now `ctxjev-cli analyze`* send entry content to the live Jev API. Use a synthetic fixture
+instead (see `packages/core/src/claudeCodeTranscript.test.ts` for the shape, or
+`examples/sample-transcripts/claude-code-session.jsonl` for a ready-made one).
+
+`parseClaudeCodeTranscript()` skips `isSidechain: true` records (a subagent's own private
+conversation) — that content already shows up in the main thread as an ordinary
+tool_use/tool_result pair, so including the sidechain too would double up on it and score content
+that was never part of what the parent session's compaction actually operates on.

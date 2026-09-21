@@ -1,10 +1,12 @@
-import type { Entry } from 'ctxjev-core'
+import type { Entry } from './types.js'
 
 /**
  * Parses Claude Code's own session transcript format (one JSON record per line, at
- * `transcript_path`) into ctxjev's plain `Entry[]`. This format is Claude Code's internal
- * representation, not a documented public API — it may change between versions. Keeping the
- * parsing isolated to this one module means a schema change is a one-file fix.
+ * `transcript_path`, or any `.jsonl` session log under `~/.claude/projects`) into ctxjev's plain
+ * `Entry[]`. This format is Claude Code's internal representation, not a documented public API
+ * — it may change between versions. Keeping the parsing isolated to this one module means a
+ * schema change is a one-file fix. Shared by `ctxjev-claude` (scoring the live transcript at
+ * `PreCompact`) and `ctxjev-cli` (analyzing a saved transcript file directly).
  *
  * Only three things become entries: a plain user chat message, an assistant text reply, and a
  * tool call — combining its `tool_use` (name + input) with the matching `tool_result` (output)
@@ -12,6 +14,13 @@ import type { Entry } from 'ctxjev-core'
  * transcript (thinking blocks, environment attachments, file-history snapshots, Claude Code's own
  * bookkeeping records) is Claude Code's internal state, not agent "history" in the sense ctxjev
  * scores — it's intentionally skipped.
+ *
+ * Sidechain records (`isSidechain: true` — a subagent's own private conversation, spawned via the
+ * Agent tool) are skipped entirely, not merged into the main thread. A subagent's work already
+ * shows up in the main thread as an ordinary tool_use/tool_result pair (the call and its result);
+ * its internal back-and-forth getting there was never part of what Claude Code would compact for
+ * the *parent* session in the first place, so scoring it here would be scoring content that isn't
+ * actually part of the context this plugin is trying to protect.
  */
 
 type KnownContentBlock =
@@ -24,6 +33,7 @@ type TranscriptRecord = {
   type: string
   uuid?: string
   timestamp?: string
+  isSidechain?: boolean
   message?: { role: string; content: string | unknown[] }
 }
 
@@ -67,6 +77,8 @@ export function parseClaudeCodeTranscript(jsonl: string): Entry[] {
       continue // a malformed or truncated line shouldn't take down the whole parse
     }
 
+    if (record.isSidechain) continue
+
     const timestamp = toTimestampMs(record.timestamp)
     const content = record.message?.content
 
@@ -106,4 +118,9 @@ export function parseClaudeCodeTranscript(jsonl: string): Entry[] {
   }
 
   return entries
+}
+
+/** The most recent user chat message, as a fallback goal when none was set explicitly. */
+export function inferGoalFromEntries(entries: Entry[]): string | undefined {
+  return [...entries].reverse().find((e) => e.role === 'user')?.content
 }

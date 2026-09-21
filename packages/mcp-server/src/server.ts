@@ -13,8 +13,8 @@ export function createServer(): McpServer {
       inputSchema: scoreRelevanceInput,
     },
     async (args) => {
-      const scored = await scoreRelevanceTool(args)
-      return { content: [{ type: 'text', text: JSON.stringify(scored, null, 2) }] }
+      const result = await scoreRelevanceTool(args)
+      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
     },
   )
 

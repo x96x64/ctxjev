@@ -57,21 +57,31 @@ const decisions = await pruneContext(
 ```console
 $ ctxjev analyze examples/sample-transcripts/checkout-bug.json
 
-  e1  bash       summarize  score 0.51  ran: npm test -- checkout.test.ts — 12 passed, 0 failed
-  e2  read       summarize  score 0.28  read package.json — saw the dependency list and script names
+  e1  bash       summarize  score 0.48  ran: npm test -- checkout.test.ts — 12 passed, 0 failed
+  e2  read       summarize  score 0.26  read package.json — saw the dependency list and script names
   e3  grep       keep       score 0.89  grep "charge" in src/payments.ts — found chargeCustomer() c…
-  e4  bash       drop       score 0.13  ran: git log --oneline -5 — recent commits about unrelated …
-  e5  read       keep       score 0.94  read src/payments.ts — the retry handler re-calls chargeCus…
+  e4  bash       drop       score 0.14  ran: git log --oneline -5 — recent commits about unrelated …
+  e5  read       keep       score 0.93  read src/payments.ts — the retry handler re-calls chargeCus…
   e6  assistant  keep       score 0.94  Found it: the retry path doesn't check for an in-flight or …
-  e7  bash       drop       score 0.13  ran: ls public/audio — unrelated, was checking something el…
+  e7  bash       drop       score 0.14  ran: ls public/audio — unrelated, was checking something el…
 
 3 kept, 2 summarized, 2 dropped (of 7 entries)
 ~60 / 154 tokens saved (39%)
+Jev cost: 859 input tokens, 123 output tokens (free) — ~$0.000036
 ```
 
 *(real output, against the sample transcript in this repo — Jev is probabilistic, so exact numbers
 will vary slightly between runs. "score" is Jev's relevance blended with each entry's recency
-within the batch — see [Design notes](#design-notes).)*
+within the batch — see [Design notes](#design-notes). The cost line is computed from what Jev's
+API actually reported using that request, not estimated.)*
+
+`ctxjev analyze` also accepts a real Claude Code session transcript directly — point it at a
+`.jsonl` file (`transcript_path`, or anything under `~/.claude/projects`) instead of ctxjev's own
+format, and the goal is inferred from your most recent chat message unless `--goal` overrides it.
+See [`examples/sample-transcripts/claude-code-session.jsonl`](examples/sample-transcripts/claude-code-session.jsonl)
+for a synthetic one — **never point this at a real session log**, since real ones can contain
+secrets pasted into chat and entry content gets sent to the live Jev API (see
+[`CLAUDE.md`](CLAUDE.md)).
 
 ## Quick start
 
@@ -152,9 +162,9 @@ would consume a third-party server like this one.)*
 It exposes two tools:
 
 - **`score_relevance`** — `{ goal, entries, recencyWeight? }` → a relevance/recency/combined score
-  per entry, no decision made. Wraps `scoreEntries()`.
+  per entry plus Jev token usage, no decision made. Wraps `scoreEntries()`.
 - **`prune_history`** — the same input plus `{ dropBelow?, summarizeBelow? }` → a decision
-  (`keep`/`drop`/`summarize`) per entry and a savings report. Wraps `pruneContext()`.
+  (`keep`/`drop`/`summarize`) per entry, a savings report, and Jev token usage. Wraps `pruneContext()`.
 
 Calling `prune_history` with two entries — one obviously relevant to the goal, one not — returns:
 
@@ -167,7 +177,8 @@ Calling `prune_history` with two entries — one obviously relevant to the goal,
   "savings": {
     "totalEntries": 2, "keptEntries": 1, "droppedEntries": 1, "summarizedEntries": 0,
     "totalTokens": 13, "savedTokens": 5
-  }
+  },
+  "usage": { "inputTokens": 406, "outputTokens": 36 }
 }
 ```
 
@@ -200,14 +211,28 @@ here — both are how this project dogfoods itself.
 
 ## Design notes
 
-- **Claude Code's transcript parser is isolated on purpose.**
-  [`transcript.ts`](packages/claude-plugin/src/transcript.ts) parses Claude Code's own internal
-  session-log format — undocumented, and not guaranteed stable across versions. Keeping every bit
-  of that parsing in one module (rather than letting assumptions about its shape leak into
-  `preCompact.ts` or `select.ts`) means a Claude Code update that changes the format is a one-file
-  fix, not a hunt across the package. It's also the reason `packages/claude-plugin`'s original
-  design — a hook that edits the transcript directly — doesn't exist: hooks only get read access
-  to it (see [ROADMAP.md](ROADMAP.md)'s Phase 3 for what that ruled out and what replaced it).
+- **Claude Code's transcript parser lives in `core`, isolated, on purpose.**
+  [`claudeCodeTranscript.ts`](packages/core/src/claudeCodeTranscript.ts) parses Claude Code's own
+  internal session-log format — undocumented, and not guaranteed stable across versions. It moved
+  here from `packages/claude-plugin` once `ctxjev-cli` needed it too: both packages import the same
+  function rather than each keeping (and drifting from) their own copy. Keeping every bit of that
+  parsing in one module means a Claude Code update that changes the format is a one-file fix, not a
+  hunt across two packages. It's also the reason `packages/claude-plugin`'s original design — a
+  hook that edits the transcript directly — doesn't exist: hooks only get read access to it (see
+  [ROADMAP.md](ROADMAP.md)'s Phase 3 for what that ruled out and what replaced it). A subagent's
+  own private conversation (`isSidechain: true`) is excluded entirely, not merged in — that content
+  already appears in the main thread as an ordinary tool call, so including it too would score
+  content outside what the parent session's compaction actually operates on (a real bug this
+  parser had until Phase 5).
+- **No hand-rolled retry logic.** `@typesafe-ai/sdk`'s `TypeSafeClient` already retries connection
+  failures, timeouts, and 408/429/500-599 responses by default — adding our own would just be a
+  worse copy of what the SDK does correctly. Checked, not assumed (see
+  [`jevClient.ts`](packages/core/src/jevClient.ts)).
+- **Every cost claim here is measured, not estimated.** `scoreEntries()`/`pruneContext()` accept an
+  optional `onUsage` callback fired once per underlying Jev request with that request's real
+  `{ inputTokens, outputTokens }` (`@typesafe-ai/sdk`'s own reported usage) — `ctxjev-cli` and both
+  MCP tools surface the total. Adding this as an optional callback rather than changing the return
+  type kept it non-breaking.
 - **Scoring and deciding are two different functions, on purpose.**
   [`scoreEntries()`](packages/core/src/index.ts) calls Jev once per chunk of entries and returns a
   `relevance`/`recency`/`combinedScore` triple per entry — no opinion about what to do with it.
@@ -248,10 +273,10 @@ here — both are how this project dogfoods itself.
   stdio (`StdioServerTransport` ↔ `StdioClientTransport`) during development — the same transport
   path a host like Claude Code would use — though that run isn't part of the automated suite.
 - **Live tests are opt-in.** Every test file ending in `.live.test.ts` across all four packages
-  (`core`'s `jevClient`, `mcp-server`'s `tools`/`server`, `claude-plugin`'s `select`) calls the
-  real Jev API and is skipped automatically when `TYPESAFE_API_KEY` isn't set — cloning this repo
-  and running `pnpm test` with no key still passes, on the pure-logic coverage alone. CI never sets
-  the key, so it's exercising exactly that path on every push.
+  (`core`'s `jevClient`/`recencyWeight`, `mcp-server`'s `tools`/`server`, `claude-plugin`'s
+  `select`) calls the real Jev API and is skipped automatically when `TYPESAFE_API_KEY` isn't set
+  — cloning this repo and running `pnpm test` with no key still passes, on the pure-logic coverage
+  alone. CI never sets the key, so it's exercising exactly that path on every push.
 - **Never run anything here against this repo's own real Claude Code session transcripts.** They
   can contain secrets pasted into chat, and scoring sends entry content to the live Jev API — see
   the warning in [`CLAUDE.md`](CLAUDE.md). Use a synthetic transcript instead.

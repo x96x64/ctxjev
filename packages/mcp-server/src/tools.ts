@@ -1,9 +1,20 @@
-import { DEFAULT_POLICY, pruneContext, scoreEntries, summarizeSavings, type Entry, type PruningPolicy } from 'ctxjev-core'
+import { DEFAULT_POLICY, pruneContext, scoreEntries, summarizeSavings, type Entry, type JevUsage, type PruningPolicy } from 'ctxjev-core'
 
 /**
  * Plain functions wrapping ctxjev-core, kept independent of the MCP framework so they're
  * testable without spinning up a server. src/server.ts adapts these into MCP tool handlers.
  */
+
+function newUsageAccumulator(): { usage: JevUsage; onUsage: (u: JevUsage) => void } {
+  const usage: JevUsage = { inputTokens: 0, outputTokens: 0 }
+  return {
+    usage,
+    onUsage: (u) => {
+      usage.inputTokens += u.inputTokens
+      usage.outputTokens += u.outputTokens
+    },
+  }
+}
 
 export type ScoreRelevanceArgs = {
   goal: string
@@ -12,7 +23,9 @@ export type ScoreRelevanceArgs = {
 }
 
 export async function scoreRelevanceTool({ goal, entries, recencyWeight }: ScoreRelevanceArgs) {
-  return scoreEntries(entries, goal, recencyWeight ?? DEFAULT_POLICY.recencyWeight)
+  const { usage, onUsage } = newUsageAccumulator()
+  const scored = await scoreEntries(entries, goal, recencyWeight ?? DEFAULT_POLICY.recencyWeight, { onUsage })
+  return { scored, usage }
 }
 
 export type PruneHistoryArgs = ScoreRelevanceArgs & {
@@ -27,7 +40,8 @@ export async function pruneHistoryTool({ goal, entries, recencyWeight, dropBelow
     recencyWeight: recencyWeight ?? DEFAULT_POLICY.recencyWeight,
   }
 
-  const decisions = await pruneContext(entries, goal, policy)
+  const { usage, onUsage } = newUsageAccumulator()
+  const decisions = await pruneContext(entries, goal, policy, { onUsage })
   const savings = summarizeSavings(entries, decisions)
-  return { decisions, savings }
+  return { decisions, savings, usage }
 }

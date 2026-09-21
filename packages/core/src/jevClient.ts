@@ -1,9 +1,14 @@
 import { TypeSafeClient, noul } from '@typesafe-ai/sdk'
-import type { Entry } from './types.js'
+import type { Entry, JevUsage } from './types.js'
 
 export type RelevanceVerdict = {
   entryId: string
   relevance: number
+}
+
+export type ScoreRelevanceResult = {
+  verdicts: RelevanceVerdict[]
+  usage: JevUsage
 }
 
 /**
@@ -15,6 +20,11 @@ export type RelevanceVerdict = {
  * cost barely grows with question count, so this is one round trip per chunk, not per entry.
  * Requires TYPESAFE_API_KEY in the environment (the SDK reads it directly; no key is passed
  * here explicitly).
+ *
+ * No hand-rolled retry logic here — `TypeSafeClient`'s own `RetryPolicy` already retries
+ * connection failures, timeouts, and 408/429/500-599 responses by default (see
+ * `@typesafe-ai/sdk`'s `RetryPolicy` type). Re-implementing that here would just be a worse copy
+ * of what the SDK already does correctly.
  */
 let client: TypeSafeClient | undefined
 
@@ -26,8 +36,10 @@ function getClient(): TypeSafeClient {
   return client
 }
 
-export async function scoreRelevance(goal: string, entries: Entry[]): Promise<RelevanceVerdict[]> {
-  if (entries.length === 0) return []
+export async function scoreRelevance(goal: string, entries: Entry[]): Promise<ScoreRelevanceResult> {
+  if (entries.length === 0) {
+    return { verdicts: [], usage: { inputTokens: 0, outputTokens: 0 } }
+  }
 
   const state = {
     goal,
@@ -45,8 +57,13 @@ export async function scoreRelevance(goal: string, entries: Entry[]): Promise<Re
 
   const response = await getClient().systemOne({ state, questions })
 
-  return entries.map((entry) => ({
+  const verdicts = entries.map((entry) => ({
     entryId: entry.id,
     relevance: response.answers[entry.id].noul,
   }))
+
+  return {
+    verdicts,
+    usage: { inputTokens: response.usage.input_tokens, outputTokens: response.usage.output_tokens },
+  }
 }

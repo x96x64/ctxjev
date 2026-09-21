@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Entry, PruneDecision, SavingsReport } from 'ctxjev-core'
+import type { Entry, JevUsage, PruneDecision, SavingsReport } from 'ctxjev-core'
 import { formatReport } from './report.js'
 
 // picocolors' TTY/color-support detection differs between environments (a plain local shell vs.
@@ -28,9 +28,11 @@ const savings: SavingsReport = {
   savedTokens: 4,
 }
 
+const usage: JevUsage = { inputTokens: 500, outputTokens: 55 }
+
 describe('formatReport', () => {
   it('includes every entry id and its decision', () => {
-    const report = stripAnsi(formatReport(entries, decisions, savings))
+    const report = stripAnsi(formatReport(entries, decisions, savings, usage))
     expect(report).toContain('a')
     expect(report).toContain('b')
     expect(report).toContain('keep')
@@ -38,13 +40,20 @@ describe('formatReport', () => {
   })
 
   it('includes the summary counts and a token-savings percentage', () => {
-    const report = stripAnsi(formatReport(entries, decisions, savings))
+    const report = stripAnsi(formatReport(entries, decisions, savings, usage))
     expect(report).toContain('1 kept')
     expect(report).toContain('1 dropped')
     expect(report).toMatch(/40%/)
   })
 
+  it('includes token usage and an estimated cost', () => {
+    const report = stripAnsi(formatReport(entries, decisions, savings, usage))
+    expect(report).toContain('500')
+    expect(report).toContain('55')
+    expect(report).toMatch(/\$0\.00002/)
+  })
+
   it('skips entries with no matching decision rather than throwing', () => {
-    expect(() => formatReport(entries, [], savings)).not.toThrow()
+    expect(() => formatReport(entries, [], savings, usage)).not.toThrow()
   })
 })

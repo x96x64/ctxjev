@@ -25,4 +25,24 @@ describe('parseTranscript', () => {
   it('rejects a non-string goal', () => {
     expect(() => parseTranscript(JSON.stringify({ goal: 42, entries: [] }))).toThrow(/goal/)
   })
+
+  it('falls back to parsing a Claude Code .jsonl transcript when the whole file is not one JSON document', () => {
+    const jsonl = [
+      JSON.stringify({ type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: 'fix the bug' } }),
+      JSON.stringify({
+        type: 'assistant',
+        uuid: 'a1',
+        timestamp: '2026-01-01T00:00:01.000Z',
+        message: { role: 'assistant', content: [{ type: 'text', text: 'found it' }] },
+      }),
+    ].join('\n')
+
+    const parsed = parseTranscript(jsonl)
+    expect(parsed.goal).toBe('fix the bug')
+    expect(parsed.entries).toHaveLength(2)
+  })
+
+  it('throws a clear error when a file parses as neither format', () => {
+    expect(() => parseTranscript('not json at all\nstill not json')).toThrow(/could not parse/)
+  })
 })

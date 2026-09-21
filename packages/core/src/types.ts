@@ -40,3 +40,9 @@ export const DEFAULT_POLICY: PruningPolicy = {
   summarizeBelow: 0.6,
   recencyWeight: 0.1,
 }
+
+/** Token usage for one Jev request, straight from `@typesafe-ai/sdk`'s `SystemOneResult.usage`. */
+export type JevUsage = {
+  inputTokens: number
+  outputTokens: number
+}

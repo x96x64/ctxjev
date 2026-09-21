@@ -8,17 +8,19 @@ const entries: Entry[] = [
 ]
 
 describe.skipIf(!process.env.TYPESAFE_API_KEY)('tools (live)', () => {
-  it('scoreRelevanceTool returns a score per entry, no action', async () => {
-    const scored = await scoreRelevanceTool({ goal: 'fix the double-charge bug in checkout', entries })
-    expect(scored).toHaveLength(2)
-    expect(scored.every((s) => 'combinedScore' in s)).toBe(true)
-    expect(scored.every((s) => !('action' in s))).toBe(true)
+  it('scoreRelevanceTool returns a score per entry plus usage, no action', async () => {
+    const result = await scoreRelevanceTool({ goal: 'fix the double-charge bug in checkout', entries })
+    expect(result.scored).toHaveLength(2)
+    expect(result.scored.every((s) => 'combinedScore' in s)).toBe(true)
+    expect(result.scored.every((s) => !('action' in s))).toBe(true)
+    expect(result.usage.inputTokens).toBeGreaterThan(0)
   }, 20_000)
 
-  it('pruneHistoryTool returns decisions with actions plus a savings report', async () => {
+  it('pruneHistoryTool returns decisions with actions plus a savings report and usage', async () => {
     const result = await pruneHistoryTool({ goal: 'fix the double-charge bug in checkout', entries })
     expect(result.decisions).toHaveLength(2)
     expect(result.decisions.every((d) => 'action' in d)).toBe(true)
     expect(result.savings.totalEntries).toBe(2)
+    expect(result.usage.inputTokens).toBeGreaterThan(0)
   }, 20_000)
 })

@@ -2,7 +2,7 @@
 import { readFile } from 'node:fs/promises'
 import { parseArgs } from 'node:util'
 import pc from 'picocolors'
-import { DEFAULT_POLICY, pruneContext, summarizeSavings, type PruningPolicy } from 'ctxjev-core'
+import { DEFAULT_POLICY, pruneContext, summarizeSavings, type JevUsage, type PruningPolicy } from 'ctxjev-core'
 import { formatReport } from './report.js'
 import { parseTranscript } from './transcript.js'
 
@@ -11,19 +11,21 @@ const VERSION = '0.0.0'
 const HELP = `${pc.bold('ctxjev')} — score and prune AI agent context with Jev
 
 ${pc.bold('Usage')}
-  ctxjev analyze <transcript.json> --goal "<current task>" [options]
+  ctxjev analyze <transcript> --goal "<current task>" [options]
 
 ${pc.bold('Options')}
-  --goal <text>              Overrides the transcript file's own "goal", if any.
+  --goal <text>              Overrides the transcript's own goal (or the inferred one), if any.
   --drop-below <0-1>         Relevance floor below which an entry is dropped.      (default ${DEFAULT_POLICY.dropBelow})
   --summarize-below <0-1>    Relevance floor below which an entry is summarized.   (default ${DEFAULT_POLICY.summarizeBelow})
   --json                     Print machine-readable JSON instead of the report.
   --help                     Show this help.
   --version                  Print the installed version.
 
-${pc.bold('Transcript format')}
-  { "goal": "...", "entries": [{ "id", "role", "toolName"?, "content", "timestamp" }] }
-  See examples/sample-transcripts in the ctxjev repo for a real one.
+${pc.bold('Transcript formats (auto-detected)')}
+  ctxjev's own:  { "goal": "...", "entries": [{ "id", "role", "toolName"?, "content", "timestamp" }] }
+  Claude Code:   a real session .jsonl (transcript_path, or ~/.claude/projects/*/*.jsonl) — the
+                 goal is inferred from your most recent chat message unless --goal overrides it.
+  See examples/sample-transcripts in the ctxjev repo for one of each.
 `
 
 function fail(message: string): never {
@@ -67,15 +69,21 @@ async function runAnalyze(argv: string[]) {
     recencyWeight: DEFAULT_POLICY.recencyWeight,
   }
 
-  const decisions = await pruneContext(transcript.entries, goal, policy)
+  const usage: JevUsage = { inputTokens: 0, outputTokens: 0 }
+  const decisions = await pruneContext(transcript.entries, goal, policy, {
+    onUsage: (chunkUsage) => {
+      usage.inputTokens += chunkUsage.inputTokens
+      usage.outputTokens += chunkUsage.outputTokens
+    },
+  })
   const savings = summarizeSavings(transcript.entries, decisions)
 
   if (values.json) {
-    console.log(JSON.stringify({ decisions, savings }, null, 2))
+    console.log(JSON.stringify({ decisions, savings, usage }, null, 2))
     return
   }
 
-  console.log(formatReport(transcript.entries, decisions, savings))
+  console.log(formatReport(transcript.entries, decisions, savings, usage))
 }
 
 async function main() {

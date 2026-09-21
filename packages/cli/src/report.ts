@@ -1,5 +1,6 @@
 import pc from 'picocolors'
-import type { Entry, PruneDecision, SavingsReport } from 'ctxjev-core'
+import type { Entry, JevUsage, PruneDecision, SavingsReport } from 'ctxjev-core'
+import { estimateCostUsd } from './cost.js'
 
 const ACTION_COLOR: Record<PruneDecision['action'], (s: string) => string> = {
   keep: pc.green,
@@ -13,7 +14,7 @@ function truncate(text: string, max = 60): string {
   return oneLine.length > max ? `${oneLine.slice(0, max - 1)}…` : oneLine
 }
 
-export function formatReport(entries: Entry[], decisions: PruneDecision[], savings: SavingsReport): string {
+export function formatReport(entries: Entry[], decisions: PruneDecision[], savings: SavingsReport, usage: JevUsage): string {
   const decisionByEntryId = new Map(decisions.map((d) => [d.entryId, d]))
   const lines: string[] = []
 
@@ -44,6 +45,13 @@ export function formatReport(entries: Entry[], decisions: PruneDecision[], savin
   lines.push(
     pc.dim(
       `~${savings.savedTokens.toLocaleString()} / ${savings.totalTokens.toLocaleString()} tokens saved (${savedPct}%)`,
+    ),
+  )
+
+  const costUsd = estimateCostUsd(usage)
+  lines.push(
+    pc.dim(
+      `Jev cost: ${usage.inputTokens.toLocaleString()} input tokens, ${usage.outputTokens.toLocaleString()} output tokens (free) — ~$${costUsd.toFixed(6)}`,
     ),
   )
 

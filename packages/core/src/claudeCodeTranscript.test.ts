@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseClaudeCodeTranscript } from './transcript.js'
+import { inferGoalFromEntries, parseClaudeCodeTranscript } from './claudeCodeTranscript.js'
 
 function record(obj: unknown): string {
   return JSON.stringify(obj)
@@ -72,6 +72,24 @@ describe('parseClaudeCodeTranscript', () => {
     expect(parseClaudeCodeTranscript(jsonl)).toEqual([])
   })
 
+  it('skips sidechain records entirely (subagent private conversation)', () => {
+    const jsonl = [
+      record({ type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: 'main thread message' } }),
+      record({ type: 'user', uuid: 'u2', isSidechain: true, timestamp: '2026-01-01T00:00:01.000Z', message: { role: 'user', content: 'subagent-internal message' } }),
+      record({
+        type: 'assistant',
+        uuid: 'a1',
+        isSidechain: true,
+        timestamp: '2026-01-01T00:00:02.000Z',
+        message: { role: 'assistant', content: [{ type: 'text', text: 'subagent-internal reply' }] },
+      }),
+    ].join('\n')
+
+    const entries = parseClaudeCodeTranscript(jsonl)
+    expect(entries).toHaveLength(1)
+    expect(entries[0].content).toBe('main thread message')
+  })
+
   it('skips malformed lines without throwing', () => {
     const jsonl = ['not json', record({ type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: 'ok' } })].join('\n')
     expect(() => parseClaudeCodeTranscript(jsonl)).not.toThrow()
@@ -84,5 +102,27 @@ describe('parseClaudeCodeTranscript', () => {
     const entries = parseClaudeCodeTranscript(jsonl)
     expect(entries[0].content.length).toBeLessThan(310)
     expect(entries[0].content.endsWith('…')).toBe(true)
+  })
+})
+
+describe('inferGoalFromEntries', () => {
+  it('returns the most recent user entry', () => {
+    const jsonl = [
+      record({ type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: 'first' } }),
+      record({ type: 'assistant', uuid: 'a1', timestamp: '2026-01-01T00:00:01.000Z', message: { role: 'assistant', content: [{ type: 'text', text: 'reply' }] } }),
+      record({ type: 'user', uuid: 'u2', timestamp: '2026-01-01T00:00:02.000Z', message: { role: 'user', content: 'latest' } }),
+    ].join('\n')
+
+    expect(inferGoalFromEntries(parseClaudeCodeTranscript(jsonl))).toBe('latest')
+  })
+
+  it('returns undefined when there is no user entry', () => {
+    const jsonl = record({
+      type: 'assistant',
+      uuid: 'a1',
+      timestamp: '2026-01-01T00:00:00.000Z',
+      message: { role: 'assistant', content: [{ type: 'text', text: 'reply only' }] },
+    })
+    expect(inferGoalFromEntries(parseClaudeCodeTranscript(jsonl))).toBeUndefined()
   })
 })

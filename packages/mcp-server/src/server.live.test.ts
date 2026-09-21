@@ -34,6 +34,7 @@ describe.skipIf(!process.env.TYPESAFE_API_KEY)('MCP server (live, e2e)', () => {
     const parsed = JSON.parse(content[0].text)
     expect(parsed.decisions).toHaveLength(2)
     expect(parsed.savings.totalEntries).toBe(2)
+    expect(parsed.usage.inputTokens).toBeGreaterThan(0)
 
     await client.close()
     await server.close()

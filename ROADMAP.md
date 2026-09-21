@@ -113,3 +113,38 @@ documented **PreCompact / SessionStart(matcher: "compact") re-injection pattern*
 Given all three turned out to need either a one-line config change or nothing at all,
 `packages/mcp-server` stays a single, host-agnostic package — there's no case here for a
 dedicated per-host adapter package after all.
+
+## Phase 5 — Hardening (2026-09-21)
+
+- **The CLI can now read a real Claude Code transcript ✅.** `parseClaudeCodeTranscript()` moved
+  from `packages/claude-plugin` into `packages/core` (both `ctxjev-cli` and `ctxjev-claude` import
+  it from there now — it was never plugin-specific, just built there first). `ctxjev-cli analyze`
+  auto-detects the format: a `JSON.parse` failure on the whole file falls back to the Claude Code
+  `.jsonl` parser instead of erroring, with the goal inferred from the most recent user message
+  (`inferGoalFromEntries()`, also shared) unless `--goal` overrides it. New fixture:
+  [`examples/sample-transcripts/claude-code-session.jsonl`](examples/sample-transcripts/claude-code-session.jsonl).
+  **Never point this at a real `~/.claude/projects/*/*.jsonl` file** — see the warning in
+  [`CLAUDE.md`](CLAUDE.md); entry content gets sent to the live Jev API.
+- **Sidechain entries are now excluded ✅** — a real bug, not just a gap: `parseClaudeCodeTranscript`
+  was merging subagent-internal messages (`isSidechain: true`) into the main thread's scoring pass.
+  A subagent's work already shows up in the main thread as an ordinary tool_use/tool_result pair;
+  its private back-and-forth getting there was never part of what Claude Code would compact for the
+  *parent* session, so scoring it was scoring content outside what this plugin actually protects.
+- **Retry logic: investigated, none added — `@typesafe-ai/sdk`'s `TypeSafeClient` already retries**
+  connection failures, timeouts, and 408/429/500-599 responses by default (its `RetryPolicy`).
+  Hand-rolling this in `jevClient.ts` would have been a worse copy of what the SDK already does;
+  documented instead of duplicated.
+- **Jev token usage/cost is now tracked and surfaced ✅.** `scoreEntries()`/`pruneContext()` take an
+  optional `{ onUsage }` callback (non-breaking — existing call sites without it are unaffected),
+  fired once per underlying Jev request with that request's `{ inputTokens, outputTokens }`.
+  `ctxjev-cli`'s report and `--json` output, and both MCP tools' responses, now include a `usage`
+  total and (CLI only) an estimated USD cost (`packages/cli/src/cost.ts`, at Jev's published
+  $0.042/M input-token rate). Every "tokens saved" claim in this README was already backed by a
+  real tokenizer; now every cost claim is backed by what Jev itself actually billed.
+- **Real mid-session `/compact` verification: still open, deliberately not attempted.** Forcing an
+  actual autocompaction (`--autocompact 100000`, the CLI's minimum) needs a genuinely large context
+  — cheap in Jev terms, but a real, non-trivial spend of the *user's own Claude API/subscription
+  usage*, not something to spend without asking first. The hooks are verified against a synthetic
+  transcript (see Phase 3); the one remaining unverified link is whether Claude Code's own
+  documented "stdout on `SessionStart(compact)` becomes a system reminder" behavior holds in
+  practice, which is really a claim about Claude Code, not about `ctxjev`.

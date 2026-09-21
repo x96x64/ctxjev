@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 import { readFile } from 'node:fs/promises'
+import { parseClaudeCodeTranscript } from 'ctxjev-core'
 import { resolveGoal } from './goal.js'
 import { writePreservedContext } from './preserve.js'
 import { readStdin } from './readStdin.js'
 import { selectPreserved } from './select.js'
-import { parseClaudeCodeTranscript } from './transcript.js'
 
 type PreCompactInput = { cwd?: string; transcript_path?: string }
 
