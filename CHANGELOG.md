@@ -6,6 +6,16 @@ changed. This also covers the three plugin-manifest version fields Claude Code's
 (`.claude-plugin/marketplace.json`, `packages/claude-plugin/.claude-plugin/plugin.json`,
 `plugins/ctxjev/plugin.json`) — easy to forget since none of them are `package.json`.
 
+## 0.1.12 — 2026-09-21
+
+Docs only, no code changes: every package `README.md` (`ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
+`ctxjev-claude`) had its License section reworded so it doesn't open with "MIT:", and every
+remaining lowercase section heading (and the nav/cross-reference links pointing at them) was
+brought in line with the headline-style capitalization already used elsewhere. Bumped and
+republished per the lockstep convention above, since npm bundles each package's `README.md`
+into its published tarball regardless of the `files` field, and npmjs.com was still showing the
+pre-brush-up text.
+
 ## 0.1.11 — 2026-09-21
 
 A second cloud review pass (same base as 0.1.10's) found 4 more issues, mostly in 0.1.9/0.1.10's
