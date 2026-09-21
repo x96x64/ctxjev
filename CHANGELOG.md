@@ -4,6 +4,15 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 `ctxjev-claude`: a version bump in one is a version bump in all four, even when only one actually
 changed.
 
+## 0.1.7 — 2026-09-21
+
+- **`ctxjev-claude`**: `dist/` is now committed instead of gitignored. Claude Code installs a
+  plugin by cloning its marketplace repo, not by running a build step, so `hooks/hooks.json`'s
+  references to `dist/preCompact.js` and `dist/sessionStartCompact.js` resolved to nothing in
+  every fresh install, and both hooks failed with `MODULE_NOT_FOUND` — confirmed against a real
+  install on this repo's own development machine. Every other package's `dist/` stays gitignored,
+  since npm builds those itself on publish; only this one needed to ship built.
+
 ## 0.1.6 — 2026-09-21
 
 - **`ctxjev-core`**: `scoreEntries()` now rejects entries with duplicate ids up front, instead of
