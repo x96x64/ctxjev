@@ -236,3 +236,31 @@ the first try: `/plugin marketplace add x96x64/ctxjev` succeeded from the deskto
 separately confirmed: the hooks (`PreCompact`/`SessionStart`) firing through a marketplace install
 specifically, as opposed to `--plugin-dir` — no real compaction has been forced to check (see
 Phase 5's note on why that's deliberately not being spent without asking first).
+[`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) was also filled out past the
+bare minimum (`displayName`, `keywords`, `category`, `repository`, `homepage`, `license`,
+`author`) and passes `claude plugin validate .` cleanly.
+
+## Phase 9 — A Codex plugin bundle exists ⚠️ (implemented, not yet installed anywhere real)
+
+Turns out Codex has its own plugin marketplace too (launched 2026-03-27, separate from Claude
+Code's) — bundles of skills, app integrations, and MCP servers, shared across the ChatGPT/Codex
+desktop app, CLI, and IDE extensions. Two paths: submit to OpenAI's reviewed public directory, or
+distribute from a repo with zero review via `$REPO_ROOT/.agents/plugins/marketplace.json`. Since
+`ctxjev` has no Codex-specific lifecycle hooks to offer (Codex doesn't have anything like
+`PreCompact`/`SessionStart` — those are Claude Code–specific events), the only thing worth
+bundling for Codex is the existing `ctxjev-mcp` server, exposed the same way `codex mcp add`
+already does it manually.
+
+Added, following the documented [Agent Plugins](https://agent-plugins.org) schema (`1.0.0`):
+[`.agents/plugins/marketplace.json`](.agents/plugins/marketplace.json) →
+[`plugins/ctxjev/plugin.json`](plugins/ctxjev/plugin.json) +
+[`plugins/ctxjev/mcp.json`](plugins/ctxjev/mcp.json) (stdio, `npx ctxjev-mcp`,
+`TYPESAFE_API_KEY` from the environment).
+
+**Honest status: implemented per spec, not hands-on verified.** Unlike the Claude Code
+marketplace (tested live in the desktop app, worked first try) or Codex CLI's `mcp add` (tested
+live, worked), this hasn't actually been installed anywhere — no `claude plugin validate`
+equivalent was found for Codex's schema, and confirming it needs either the ChatGPT desktop app
+or a Codex CLI new enough to read a local plugin marketplace, neither attempted yet. Treat this
+the way Phase 4 treated GitHub Copilot: documented from the spec, real until proven otherwise, but
+not yet given the same benefit of the doubt as the things that were actually tested.

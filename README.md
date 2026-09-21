@@ -149,6 +149,19 @@ command/args/env registered correctly):
 codex mcp add ctxjev --env TYPESAFE_API_KEY=... -- node /absolute/path/to/ctxjev/packages/mcp-server/dist/index.js
 ```
 
+Codex also has its own plugin marketplace, separate from Claude Code's — this repo carries an
+[Agent Plugins](https://agent-plugins.org)-format bundle too
+([`.agents/plugins/marketplace.json`](.agents/plugins/marketplace.json)):
+
+```bash
+codex plugin marketplace add x96x64/ctxjev
+codex plugin add ctxjev
+```
+
+*(the marketplace itself adds cleanly — confirmed with a real `codex plugin marketplace add`; the
+plugin bundle's own install/run hasn't been separately confirmed yet, so treat this one with a
+little more caution than the `codex mcp add` command above.)*
+
 **GitHub Copilot** (VS Code, agent mode) — `.vscode/mcp.json`. Note the top-level key is
 `servers`, not Claude Code's `mcpServers`:
 
