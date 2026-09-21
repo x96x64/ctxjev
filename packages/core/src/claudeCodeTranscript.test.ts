@@ -125,4 +125,37 @@ describe('inferGoalFromEntries', () => {
     })
     expect(inferGoalFromEntries(parseClaudeCodeTranscript(jsonl))).toBeUndefined()
   })
+
+  it('skips a trailing bare slash command like /compact', () => {
+    const jsonl = [
+      record({ type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: 'fix the checkout bug' } }),
+      record({ type: 'assistant', uuid: 'a1', timestamp: '2026-01-01T00:00:01.000Z', message: { role: 'assistant', content: [{ type: 'text', text: 'reply' }] } }),
+      record({ type: 'user', uuid: 'u2', timestamp: '2026-01-01T00:00:02.000Z', message: { role: 'user', content: '/compact' } }),
+    ].join('\n')
+
+    expect(inferGoalFromEntries(parseClaudeCodeTranscript(jsonl))).toBe('fix the checkout bug')
+  })
+
+  it('skips a wrapped skill-command invocation', () => {
+    const jsonl = [
+      record({ type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: 'fix the checkout bug' } }),
+      record({
+        type: 'user',
+        uuid: 'u2',
+        timestamp: '2026-01-01T00:00:01.000Z',
+        message: { role: 'user', content: '<command-message>ctxjev:status</command-message> <command-name>/ctxjev:status</command-name>' },
+      }),
+    ].join('\n')
+
+    expect(inferGoalFromEntries(parseClaudeCodeTranscript(jsonl))).toBe('fix the checkout bug')
+  })
+
+  it('returns undefined when every user entry is a slash command', () => {
+    const jsonl = [
+      record({ type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: '/clear' } }),
+      record({ type: 'user', uuid: 'u2', timestamp: '2026-01-01T00:00:01.000Z', message: { role: 'user', content: '/compact' } }),
+    ].join('\n')
+
+    expect(inferGoalFromEntries(parseClaudeCodeTranscript(jsonl))).toBeUndefined()
+  })
 })

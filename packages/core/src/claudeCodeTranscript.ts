@@ -120,7 +120,17 @@ export function parseClaudeCodeTranscript(jsonl: string): Entry[] {
   return entries
 }
 
-/** The most recent user chat message, as a fallback goal when none was set explicitly. */
+function isSlashCommand(content: string): boolean {
+  const trimmed = content.trim()
+  return trimmed.startsWith('/') || trimmed.includes('<command-name>')
+}
+
+/**
+ * The most recent real user chat message, as a fallback goal when none was set explicitly.
+ * Skips slash-command invocations (`/compact`, `/ctxjev:status`, ...): `PreCompact` fires right
+ * after one is run, so without this the "most recent user message" would almost always be the
+ * command itself rather than anything describing what the session was actually about.
+ */
 export function inferGoalFromEntries(entries: Entry[]): string | undefined {
-  return [...entries].reverse().find((e) => e.role === 'user')?.content
+  return [...entries].reverse().find((e) => e.role === 'user' && !isSlashCommand(e.content))?.content
 }
