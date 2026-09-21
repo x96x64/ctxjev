@@ -2,7 +2,7 @@
 
 # ctxjev-mcp
 
-**Jev-based context scoring, as MCP tools — for Claude Code, Codex, and any other MCP host.**
+**Jev-based context scoring, as MCP tools for Claude Code, Codex, and any other MCP host.**
 
 [![npm](https://img.shields.io/npm/v/ctxjev-mcp.svg)](https://www.npmjs.com/package/ctxjev-mcp)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -14,7 +14,7 @@
 
 ---
 
-`ctxjev-mcp` speaks plain stdio MCP — the same binary works with every host below, only the
+`ctxjev-mcp` speaks plain stdio MCP: the same binary works with every host below, and only the
 config shape differs.
 
 ## Setup
@@ -34,7 +34,7 @@ claude mcp add ctxjev --env TYPESAFE_API_KEY=... -- npx ctxjev-mcp
 codex mcp add ctxjev --env TYPESAFE_API_KEY=... -- npx ctxjev-mcp
 ```
 
-**GitHub Copilot** (VS Code, agent mode) — `.vscode/mcp.json` (note the top-level key is
+**GitHub Copilot** (VS Code, agent mode) uses `.vscode/mcp.json` (note the top-level key is
 `servers`, not Claude Code's `mcpServers`):
 
 ```json
@@ -52,16 +52,16 @@ codex mcp add ctxjev --env TYPESAFE_API_KEY=... -- npx ctxjev-mcp
 
 ## Tools
 
-- **`score_relevance`** — `{ goal, entries, recencyWeight? }` → a relevance/recency/combined score
-  per entry plus Jev token usage, no decision made.
-- **`prune_history`** — the same input plus `{ dropBelow?, summarizeBelow? }` → a decision
-  (`keep`/`drop`/`summarize`) per entry, a savings report, and Jev token usage.
+- **`score_relevance`** takes `{ goal, entries, recencyWeight? }` and returns a
+  relevance/recency/combined score per entry plus Jev token usage, with no decision made.
+- **`prune_history`** takes the same input plus `{ dropBelow?, summarizeBelow? }` and returns a
+  decision (`keep`/`drop`/`summarize`) per entry, a savings report, and Jev token usage.
 
 `entries` is `{ id, role: 'user'|'assistant'|'tool', toolName?, content, timestamp }[]`.
 
 ## Example response
 
-Calling `prune_history` with two entries — one obviously relevant to the goal, one not:
+Calling `prune_history` with two entries, one obviously relevant to the goal and one not, returns:
 
 ```json
 {
@@ -77,7 +77,7 @@ Calling `prune_history` with two entries — one obviously relevant to the goal,
 }
 ```
 
-*(real response body, captured against the live API.)*
+This is a real response body, captured against the live API.
 
 ## Related packages
 

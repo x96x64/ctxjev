@@ -15,46 +15,46 @@
 
 ## Overview
 
-Claude Code compacts a long conversation by summarizing it — necessary to keep going, but a
+Claude Code compacts a long conversation by summarizing it. That's necessary to keep going, but a
 summary is lossy by nature. The detail that mattered most (the exact line that turned out to be
 the bug, the one command whose output actually mattered) can get smoothed away along with
 everything that didn't.
 
-`ctxjev` scores your session's history with [Jev](https://typesafe.ai) — a fast, cheap,
-typed-decision model, not a text-generating one — right before compaction happens, and caches
-whatever scored highest. The moment compaction finishes, it hands that cache back to Claude Code
-as a reminder. Nothing about the compaction itself changes; what changes is that the few things
-that mattered most don't have to survive being summarized to still be there.
+`ctxjev` scores your session's history with [Jev](https://typesafe.ai), a fast, cheap,
+typed-decision model rather than a text-generating one, right before compaction happens, and
+caches whatever scored highest. The moment compaction finishes, it hands that cache back to Claude
+Code as a reminder. Nothing about the compaction itself changes; what changes is that the few
+things that mattered most don't have to survive being summarized to still be there.
 
-No configuration required to start benefiting from it — it activates automatically once installed.
-Set an explicit goal with `/ctxjev:set-goal` when you want scoring aimed at something more specific
-than "whatever you last said."
+No configuration is required to start benefiting from it: it activates automatically once
+installed. Set an explicit goal with `/ctxjev:set-goal` when you want scoring aimed at something
+more specific than "whatever you last said."
 
 ## How it works
 
-Claude Code hooks can *read* the conversation but cannot rewrite it, so this plugin doesn't try
-to intercept compaction — it works alongside it, using the one mechanism Claude Code actually
+Claude Code hooks can *read* the conversation but cannot rewrite it, so this plugin doesn't try to
+intercept compaction. It works alongside it instead, using the one mechanism Claude Code actually
 provides for this:
 
 ```
 PreCompact          → score every entry against your goal, cache the highest-scoring few
-  (Claude Code's own compaction runs — untouched, exactly as it always does)
-SessionStart(compact) → read that cache, print a short digest — Claude Code adds it back as
+  (Claude Code's own compaction runs, untouched, exactly as it always does)
+SessionStart(compact) → read that cache, print a short digest; Claude Code adds it back as
                         a system reminder, right as the new, compacted session begins
 ```
 
-Scoring runs against whichever goal is active: an explicit one you set with
-`/ctxjev:set-goal`, or — if you never set one — your most recent message, inferred automatically.
-Either way, this is the same relevance judgment [`ctxjev-mcp`](https://www.npmjs.com/package/ctxjev-mcp)
-and [`ctxjev-cli`](https://www.npmjs.com/package/ctxjev-cli) expose elsewhere, applied here at
-exactly the moment it matters most.
+Scoring runs against whichever goal is active: an explicit one you set with `/ctxjev:set-goal`,
+or, if you never set one, your most recent message, inferred automatically. Either way, this is
+the same relevance judgment [`ctxjev-mcp`](https://www.npmjs.com/package/ctxjev-mcp) and
+[`ctxjev-cli`](https://www.npmjs.com/package/ctxjev-cli) expose elsewhere, applied here at exactly
+the moment it matters most.
 
 ## Skills
 
-- **`/ctxjev:set-goal <text>`** — Point scoring at something specific instead of guessing from
-  your last message. Useful the moment your session's focus shifts, or before a compaction you
-  know is coming. Takes effect immediately, persists for the rest of the project.
-- **`/ctxjev:status`** — See what's currently cached without waiting for a real compaction: the
+- **`/ctxjev:set-goal <text>`** points scoring at something specific instead of guessing from your
+  last message. Useful the moment your session's focus shifts, or before a compaction you know is
+  coming. Takes effect immediately and persists for the rest of the project.
+- **`/ctxjev:status`** shows what's currently cached without waiting for a real compaction: the
   active goal, and every entry from the last scoring pass with its relevance score, highest
   first. The fastest way to check the plugin is actually doing something.
 
@@ -80,12 +80,12 @@ claude --plugin-dir packages/claude-plugin
 
 ## Requirements
 
-A [Jev](https://typesafe.ai) API key — get one at
-[console.typesafe.ai/settings/keys](https://console.typesafe.ai/settings/keys) (no waitlist) —
-exported as `TYPESAFE_API_KEY` in the environment Claude Code itself runs in. Without it, the
-`PreCompact` hook is a silent no-op: your session works exactly as it always did, just without the
-reminder afterward. A bug here can never block your actual compaction — that's by design, not a
-side effect.
+A [Jev](https://typesafe.ai) API key, exported as `TYPESAFE_API_KEY` in the environment Claude
+Code itself runs in. Get one at
+[console.typesafe.ai/settings/keys](https://console.typesafe.ai/settings/keys) (no waitlist).
+Without it, the `PreCompact` hook is a silent no-op: your session works exactly as it always did,
+just without the reminder afterward. A bug here can never block your actual compaction. That's by
+design, not a side effect.
 
 ---
 

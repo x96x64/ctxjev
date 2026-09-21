@@ -2,7 +2,7 @@
 
 # ctxjev-cli
 
-**See what Jev would keep, drop, or summarize — right from your terminal.**
+**See what Jev would keep, drop, or summarize, right from your terminal.**
 
 [![npm](https://img.shields.io/npm/v/ctxjev-cli.svg)](https://www.npmjs.com/package/ctxjev-cli)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -18,7 +18,7 @@
 
 ```bash
 npm install -g ctxjev-cli
-export TYPESAFE_API_KEY=...   # console.typesafe.ai/settings/keys — no waitlist
+export TYPESAFE_API_KEY=...   # console.typesafe.ai/settings/keys (no waitlist)
 ```
 
 ## Usage
@@ -41,8 +41,9 @@ ctxjev analyze transcript.jsonl --goal "Fix the checkout double-charge bug."
 Jev cost: 859 input tokens, 123 output tokens (free) — ~$0.000036
 ```
 
-*(real output, against a sample transcript — Jev is probabilistic, so exact numbers vary slightly
-between runs. The cost line is computed from what Jev's API actually reported, not estimated.)*
+This is real output against a sample transcript. Jev is probabilistic, so exact numbers vary
+slightly between runs, and the cost line is computed from what Jev's API actually reported, not
+estimated.
 
 ## Options
 
@@ -51,19 +52,19 @@ between runs. The cost line is computed from what Jev's API actually reported, n
 | `--goal <text>` | Overrides the transcript's own goal (or the inferred one), if any. |
 | `--drop-below <0-1>` | Relevance floor below which an entry is dropped (default `0.25`). |
 | `--summarize-below <0-1>` | Relevance floor below which an entry is summarized (default `0.6`). |
-| `--json` | Print machine-readable JSON — `{ decisions, savings, usage }` — instead of the report. |
+| `--json` | Prints machine-readable JSON (`{ decisions, savings, usage }`) instead of the report. |
 | `--help` / `--version` | Work without `TYPESAFE_API_KEY` set. |
 
 ## Transcript formats
 
 Auto-detected, no flag needed:
 
-- **ctxjev's own** — a single JSON document: `{ "goal": "...", "entries": [{ "id", "role", "toolName"?, "content", "timestamp" }] }`.
-- **Claude Code** — a real session `.jsonl` (`transcript_path`, or anything under
+- **ctxjev's own format** is a single JSON document: `{ "goal": "...", "entries": [{ "id", "role", "toolName"?, "content", "timestamp" }] }`.
+- **A Claude Code session** is a real `.jsonl` transcript (`transcript_path`, or anything under
   `~/.claude/projects`). The goal is inferred from your most recent chat message unless `--goal`
   overrides it.
 
-> Never point this at a real, sensitive session log without checking its contents first — entry
+> Never point this at a real, sensitive session log without checking its contents first. Entry
 > content is sent to the live Jev API for scoring.
 
 ## Related packages

@@ -5,8 +5,8 @@
 **Stop paying to re-read your own agent's history.**
 
 `ctxjev` scores every entry in a running AI agent's context for relevance with
-[Jev](https://typesafe.ai) — TypeSafe AI's typed-decision model — and prunes what's no longer
-useful, before your host's own compaction has to summarize its way through it.
+[Jev](https://typesafe.ai), TypeSafe AI's typed-decision model, and prunes what's no longer useful
+before your host's own compaction has to summarize its way through it.
 
 [![npm (ctxjev-cli)](https://img.shields.io/npm/v/ctxjev-cli.svg?label=ctxjev-cli)](https://www.npmjs.com/package/ctxjev-cli)
 [![npm (ctxjev-core)](https://img.shields.io/npm/v/ctxjev-core.svg?label=ctxjev-core)](https://www.npmjs.com/package/ctxjev-core)
@@ -25,8 +25,8 @@ useful, before your host's own compaction has to summarize its way through it.
 
 ## Why
 
-Long-running agent loops — coding agents, browser agents, anything with a growing tool-call
-history — accumulate context faster than it stays useful. Most of that history isn't hard to
+Long-running agent loops, such as coding agents, browser agents, or anything with a growing
+tool-call history, accumulate context faster than it stays useful. Most of that history isn't hard to
 judge: *"is this old tool result still relevant to the current task?"* is exactly the kind of
 fast, cheap, structured decision Jev is built for, a decision model that returns typed judgments
 (a yes/no probability, a choice, a score) in about 100ms instead of writing a sentence about it.
@@ -87,7 +87,7 @@ pasted into chat, and entry content is sent to the live Jev API. See [`CLAUDE.md
 
 ```bash
 npm install -g ctxjev-cli
-export TYPESAFE_API_KEY=...   # console.typesafe.ai/settings/keys — no waitlist
+export TYPESAFE_API_KEY=...   # console.typesafe.ai/settings/keys (no waitlist)
 
 ctxjev analyze transcript.jsonl --goal "Fix the checkout double-charge bug."
 ```
@@ -110,20 +110,20 @@ that engine gets used.
 
 | Package | What it is | Status |
 | --- | --- | --- |
-| [`ctxjev-core`](packages/core) ([npm](https://www.npmjs.com/package/ctxjev-core)) | The engine — `pruneContext(entries, goal, policy)`. Everything else wraps this. | ✅ published |
-| [`ctxjev-cli`](packages/cli) ([npm](https://www.npmjs.com/package/ctxjev-cli)) | `ctxjev analyze <transcript.json>` — a plain-text report, no UI. | ✅ published |
+| [`ctxjev-core`](packages/core) ([npm](https://www.npmjs.com/package/ctxjev-core)) | The engine: `pruneContext(entries, goal, policy)`. Everything else wraps this. | ✅ published |
+| [`ctxjev-cli`](packages/cli) ([npm](https://www.npmjs.com/package/ctxjev-cli)) | `ctxjev analyze <transcript.json>`: a plain-text report, no UI. | ✅ published |
 | [`ctxjev-mcp`](packages/mcp-server) ([npm](https://www.npmjs.com/package/ctxjev-mcp)) | MCP server exposing `score_relevance`/`prune_history` as tools, for Claude Code, Codex, GitHub Copilot, and other MCP-capable hosts. | ✅ published |
-| [`ctxjev-claude`](packages/claude-plugin) | Claude Code plugin: scores context with Jev at `PreCompact` and re-injects a digest at `SessionStart`, plus two inspection skills. | ✅ working (not on npm — see below) |
+| [`ctxjev-claude`](packages/claude-plugin) | Claude Code plugin: scores context with Jev at `PreCompact` and re-injects a digest at `SessionStart`, plus two inspection skills. | ✅ working (not on npm; see below) |
 
 ## Using it from an MCP host
 
 `ctxjev-mcp` speaks plain stdio MCP, so no per-host adapter is necessary. Every host below runs
 the exact same binary (`node packages/mcp-server/dist/index.js`); only the config shape differs.
 
-**Claude Code** — this repo ships a project-level [`.mcp.json`](.mcp.json). In practice, that scope
-requires an approval step that does not currently surface in the UI (tested against Claude Code
-v2.1.278): `claude mcp list` silently omits the server, with no prompt and no error. `claude mcp
-add` at local scope works immediately with no friction:
+**Claude Code** ships with a project-level [`.mcp.json`](.mcp.json) in this repo. In practice, that
+scope requires an approval step that does not currently surface in the UI (tested against Claude
+Code v2.1.278): `claude mcp list` silently omits the server, with no prompt and no error. `claude
+mcp add` at local scope works immediately with no friction:
 
 ```bash
 claude mcp add ctxjev --env TYPESAFE_API_KEY=... -- node /absolute/path/to/ctxjev/packages/mcp-server/dist/index.js
@@ -134,9 +134,9 @@ will warn that the same server is defined in two scopes. That warning concerns O
 storage, which does not apply to a local stdio server, so it is safe to ignore, or run `claude mcp
 remove ctxjev -s project` to clear it.
 
-**Codex CLI** (also shared with its VS Code extension and desktop app) — one command, no file to
-hand-edit. Verified against `codex-cli` v0.155.1: `codex mcp get ctxjev` confirms the command,
-args, and env are registered correctly.
+**Codex CLI** (also shared with its VS Code extension and desktop app) needs only one command, with
+no file to hand-edit. Verified against `codex-cli` v0.155.1: `codex mcp get ctxjev` confirms the
+command, args, and env are registered correctly.
 
 ```bash
 codex mcp add ctxjev --env TYPESAFE_API_KEY=... -- node /absolute/path/to/ctxjev/packages/mcp-server/dist/index.js
@@ -154,7 +154,7 @@ codex plugin add ctxjev@ctxjev-plugins
 Afterward, `codex mcp list` shows `ctxjev` registered with the exact `npx ctxjev-mcp` command and
 environment the plugin bundle declares.
 
-**GitHub Copilot** (VS Code, agent mode) — `.vscode/mcp.json`. Note that the top-level key is
+**GitHub Copilot** (VS Code, agent mode) uses `.vscode/mcp.json`. Note that the top-level key is
 `servers`, not Claude Code's `mcpServers`:
 
 ```json
@@ -172,10 +172,12 @@ environment the plugin bundle declares.
 
 It exposes two tools:
 
-- **`score_relevance`** — `{ goal, entries, recencyWeight? }` → a relevance/recency/combined score
-  per entry plus Jev token usage, with no decision made. Wraps `scoreEntries()`.
-- **`prune_history`** — the same input plus `{ dropBelow?, summarizeBelow? }` → a decision
-  (`keep`/`drop`/`summarize`) per entry, a savings report, and Jev token usage. Wraps `pruneContext()`.
+- **`score_relevance`** takes `{ goal, entries, recencyWeight? }` and returns a
+  relevance/recency/combined score per entry plus Jev token usage, with no decision made. Wraps
+  `scoreEntries()`.
+- **`prune_history`** takes the same input plus `{ dropBelow?, summarizeBelow? }` and returns a
+  decision (`keep`/`drop`/`summarize`) per entry, a savings report, and Jev token usage. Wraps
+  `pruneContext()`.
 
 Calling `prune_history` with two entries, one obviously relevant to the goal and one not, returns:
 
@@ -207,8 +209,8 @@ context after compaction has already run.
 
 ```
 PreCompact  → score every entry with Jev, cache the top few to .ctxjev/preserved-context.json
-  (compaction happens — out of this plugin's control)
-SessionStart (compact) → read that cache, print a digest — Claude Code adds it as a system reminder
+  (compaction happens, outside this plugin's control)
+SessionStart (compact) → read that cache, print a digest; Claude Code adds it as a system reminder
 ```
 
 The goal to score against is either set explicitly (`/ctxjev:set-goal <text>`, written to
