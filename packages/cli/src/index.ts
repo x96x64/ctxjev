@@ -9,6 +9,7 @@ import { DEFAULT_POLICY, createUsageAccumulator, pruneContext, summarizeSavings,
 import { formatReport } from './report.js'
 import { DEFAULT_CACHE_PATH, loadFileScoreCache } from './scoreCache.js'
 import { parseTranscript } from './transcript.js'
+import { describePolicyOrderingError, parseThreshold } from './validation.js'
 
 // Read from this package's own package.json rather than a hardcoded constant, so --version
 // can't silently go stale after the next release the way a literal string would.
@@ -52,14 +53,6 @@ function fail(message: string): never {
 function failAll(messages: string[]): never {
   for (const message of messages) console.error(`${pc.red('✖')} ${message}`)
   process.exit(1)
-}
-
-/** Rejects anything that isn't a real number in [0, 1] instead of silently becoming NaN — a NaN
- * threshold compares false against every score, so `decideAction` would quietly never "drop". */
-function parseThreshold(raw: string): number | undefined {
-  const n = Number(raw)
-  if (Number.isNaN(n) || n < 0 || n > 1) return undefined
-  return n
 }
 
 async function runAnalyze(argv: string[]) {
@@ -106,6 +99,9 @@ async function runAnalyze(argv: string[]) {
     if (parsed === undefined) problems.push(`--summarize-below must be a number between 0 and 1, got "${values['summarize-below']}"`)
     else summarizeBelow = parsed
   }
+
+  const orderingError = describePolicyOrderingError(dropBelow, summarizeBelow)
+  if (orderingError) problems.push(orderingError)
 
   if (problems.length > 0) failAll(problems)
 

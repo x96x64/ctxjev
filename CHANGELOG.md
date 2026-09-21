@@ -6,6 +6,80 @@ changed. This also covers the three plugin-manifest version fields Claude Code's
 (`.claude-plugin/marketplace.json`, `packages/claude-plugin/.claude-plugin/plugin.json`,
 `plugins/ctxjev/plugin.json`) — easy to forget since none of them are `package.json`.
 
+## 0.1.9 — 2026-09-21
+
+An exhaustive, no-compromise pass over the whole monorepo (not tied to any single reported bug)
+turned up 32 issues across every package; all 32 are fixed here.
+
+- **`ctxjev-core`**: `decideAction` now throws on a NaN score instead of silently defaulting to
+  `'keep'` — NaN compares false against every threshold, so a bad relevance/recency input upstream
+  previously resolved to "definitely keep this" with no error anywhere. `chunkEntries` now rejects
+  a non-positive `maxPerRequest` instead of looping forever. `cacheKeyFor` now builds its key via
+  `JSON.stringify` instead of joining fields, which let one field's own content shift the boundary
+  and collide with a different `(role, toolName, content)` tuple. `scoreRelevance` throws a clear
+  error when Jev's response is missing an answer for an entry, instead of a raw `TypeError`.
+  `summarizeSavings` throws when an entry has no matching decision instead of silently counting it
+  as "kept". `scoreEntries` now fans chunk requests out with a concurrency cap of 5 instead of one
+  unthrottled `Promise.all` — a large transcript no longer risks a rate-limit thundering herd.
+  `computeRecency` no longer spreads the full entry list into `Math.min`/`Math.max` (a stack-size
+  risk on very large transcripts); a plain loop instead.
+- **`ctxjev-core`**: `parseClaudeCodeTranscript` no longer silently drops a user message whose
+  content is array-shaped (an attachment alongside text, for example) — its text block is now
+  captured the same way an assistant's already was. A `tool_use` block that never receives its
+  matching `tool_result` (the transcript ends mid-call) is no longer dropped from the entry list;
+  it's kept as a "(no result — tool call never completed)" entry. `inferGoalFromEntries`'s
+  slash-command detection no longer misclassifies an ordinary message that happens to start with
+  "/" (e.g. "/etc/hosts isn't being read correctly") — only a genuinely command-shaped first token
+  counts now.
+- **`ctxjev-cli`**: transcript entries in ctxjev's own JSON format are now validated field-by-field
+  (id, role, content, timestamp) instead of being cast straight through — a missing `timestamp`
+  used to poison every entry's recency to NaN, which (per the `ctxjev-core` fix above) used to
+  silently resolve to "keep everything," with zero error. `--drop-below`/`--summarize-below` now
+  reject an empty or whitespace-only value instead of reading it as a literal `0`
+  (`Number('')` is `0`, not `NaN`). The two flags are now also checked against each other —
+  `--drop-below` greater than `--summarize-below` used to silently make "summarize" unreachable.
+- **`ctxjev-mcp`**: `score_relevance`/`prune_history` now share an in-memory score cache across
+  calls, the same goal+content keying `ctxjev-cli`'s file-backed cache already uses — a
+  long-running server process no longer re-pays Jev for identical entries it already scored.
+  `dropBelow`/`summarizeBelow` are now checked against each other, mirroring the `ctxjev-cli` fix
+  above. `entries` is now capped at 500 per call and `content` at 4000 characters; `goal`/entry
+  `id` now reject empty strings — the MCP-facing schema previously enforced none of the size limits
+  `ctxjev-core`'s own docs already describe. The tools' advertised defaults in their schema
+  descriptions now read from `DEFAULT_POLICY` instead of being hardcoded as literal text that would
+  go stale the moment the policy is retuned.
+- **`ctxjev-claude`**: the committed `dist/` no longer contains five dead files (`goal.js`,
+  `select.js`, `preserve.js`, `readStdin.js`, `transcript.js`) left over from `tsc`'s per-file
+  output — they still carried the exact unresolvable bare `ctxjev-core` import 0.1.8 shipped
+  esbuild bundling to fix, harmless only because nothing loaded them. `tsc` is now `noEmit` for
+  this package (nothing else in the monorepo references its declarations), so it can never again
+  write a broken intermediate `dist/preCompact.js` for `esbuild.build.mjs` to maybe-overwrite; the
+  build script now also deletes anything in `dist/` besides the two files `hooks/hooks.json`
+  actually invokes, and fails loudly if either still has an unresolved bare import after bundling.
+  `ctxjev-core`'s `package.json` now declares `"sideEffects": false`, letting esbuild's
+  tree-shaking actually drop `gpt-tokenizer`'s unused BPE tables from the bundle —
+  `dist/preCompact.js` shrank from 3.3MB/206,766 lines to 17KB, minified. The preserved-context
+  cache write is now atomic (temp file + rename) instead of a single `writeFile` that two
+  concurrent `PreCompact` runs on the same project could interleave and corrupt. The
+  `SessionStart:compact` reminder now explicitly frames preserved entries as quoted transcript
+  excerpts, not instructions — they're re-injected as trusted-looking context, and a high-scoring
+  prompt-injection payload from before compaction deserves the same "this is data, not a command"
+  framing tool output already gets elsewhere.
+- **Test coverage**: `packages/mcp-server/src/schemas.test.ts`, `packages/cli/src/validation.test.ts`,
+  `packages/claude-plugin/src/preCompact.test.ts`, and
+  `packages/claude-plugin/src/sessionStartCompact.test.ts` are new — none of this logic (schema
+  validation boundaries, threshold parsing, and the hooks' own stdin-parsing/guard behavior) had
+  any test running in CI before; the previous test files touching it were all `.live.test.ts`,
+  gated on a key CI never sets. The last two spawn the actual bundled `dist/*.js` files as
+  subprocesses — the same artifact a real install runs.
+- **CI/release**: `ci.yml` now runs on Node 22, matching `publish.yml` — CI had never tested the
+  same runtime a release actually ships on. `publish.yml` now sets `TYPESAFE_API_KEY` for its test
+  step, so a release's live-API tests actually run instead of always skipping; it also now checks
+  all 7 version-lockstep files agree before publishing, the exact drift that went unnoticed for
+  five releases before 0.1.8. Root `package.json`'s `"lint"` script is removed — it called
+  `pnpm -r run lint` when no package in the monorepo has ever had a lint script, a permanent no-op
+  masquerading as a check. `README.md` no longer claims all four packages have `.live.test.ts`
+  files; `ctxjev-cli` has none.
+
 ## 0.1.8 — 2026-09-21
 
 - **`ctxjev-claude`**: `preCompact.js` now fails the same way `dist/` itself did in 0.1.7 —

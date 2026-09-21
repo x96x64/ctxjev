@@ -96,6 +96,30 @@ describe('parseClaudeCodeTranscript', () => {
     expect(parseClaudeCodeTranscript(jsonl)).toHaveLength(1)
   })
 
+  it('extracts a text block from array-shaped user content (e.g. a message with an attachment)', () => {
+    const jsonl = record({
+      type: 'user',
+      uuid: 'u1',
+      timestamp: '2026-01-01T00:00:00.000Z',
+      message: { role: 'user', content: [{ type: 'text', text: 'check this screenshot' }, { type: 'image', source: {} }] },
+    })
+    const entries = parseClaudeCodeTranscript(jsonl)
+    expect(entries).toEqual([{ id: 'u1:text:0', role: 'user', content: 'check this screenshot', timestamp: Date.parse('2026-01-01T00:00:00.000Z') }])
+  })
+
+  it('keeps a tool_use with no matching tool_result instead of dropping it', () => {
+    const jsonl = record({
+      type: 'assistant',
+      uuid: 'a1',
+      timestamp: '2026-01-01T00:00:01.000Z',
+      message: { role: 'assistant', content: [{ type: 'tool_use', id: 'call1', name: 'Bash', input: { command: 'npm test' } }] },
+    })
+    const entries = parseClaudeCodeTranscript(jsonl)
+    expect(entries).toHaveLength(1)
+    expect(entries[0]).toMatchObject({ id: 'call1', role: 'tool', toolName: 'Bash' })
+    expect(entries[0].content).toContain('no result')
+  })
+
   it('truncates long content to a short excerpt', () => {
     const longText = 'x'.repeat(500)
     const jsonl = record({ type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: longText } })
@@ -148,6 +172,14 @@ describe('inferGoalFromEntries', () => {
     ].join('\n')
 
     expect(inferGoalFromEntries(parseClaudeCodeTranscript(jsonl))).toBe('fix the checkout bug')
+  })
+
+  it('does not mistake an ordinary message that starts with "/" for a slash command', () => {
+    const jsonl = [
+      record({ type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: "/etc/hosts isn't being read correctly" } }),
+    ].join('\n')
+
+    expect(inferGoalFromEntries(parseClaudeCodeTranscript(jsonl))).toBe("/etc/hosts isn't being read correctly")
   })
 
   it('returns undefined when every user entry is a slash command', () => {

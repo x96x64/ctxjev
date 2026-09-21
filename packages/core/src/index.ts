@@ -19,6 +19,24 @@ export type ScoreEntriesOptions = {
   cache?: ScoreCache
 }
 
+// A large transcript can chunk into hundreds of requests; firing all of them at once relies
+// entirely on the SDK's own retry/backoff to survive the resulting rate-limit thundering herd.
+const MAX_CONCURRENT_CHUNK_REQUESTS = 5
+
+async function mapWithConcurrencyLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array(items.length)
+  let nextIndex = 0
+
+  async function worker(): Promise<void> {
+    for (let i = nextIndex++; i < items.length; i = nextIndex++) {
+      results[i] = await fn(items[i])
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
+  return results
+}
+
 /**
  * Score every entry's relevance to `goal` via Jev, blended with its recency within this batch
  * (see `recency.ts`) per `recencyWeight` — but stop short of deciding what to actually do about
@@ -41,13 +59,11 @@ export async function scoreEntries(
   }
 
   const chunks = chunkEntries(entries)
-  const chunkResults = await Promise.all(
-    chunks.map(async (chunk) => {
-      const { verdicts, usage } = await scoreRelevance(goal, chunk, options.cache)
-      options.onUsage?.(usage)
-      return verdicts
-    }),
-  )
+  const chunkResults = await mapWithConcurrencyLimit(chunks, MAX_CONCURRENT_CHUNK_REQUESTS, async (chunk) => {
+    const { verdicts, usage } = await scoreRelevance(goal, chunk, options.cache)
+    options.onUsage?.(usage)
+    return verdicts
+  })
   const verdicts = chunkResults.flat()
 
   const verdictByEntryId = new Map(verdicts.map((v) => [v.entryId, v]))

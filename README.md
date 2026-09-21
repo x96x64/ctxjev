@@ -305,9 +305,10 @@ Code session opened here, so this project uses its own tools on its own reposito
   zod schemas, and response shape. Both were also verified once as a real subprocess over stdio
   (`StdioServerTransport` ↔ `StdioClientTransport`), the same transport path a host like Claude
   Code uses, though that run is not part of the automated suite.
-- **Live tests are opt-in.** Every test file ending in `.live.test.ts` across all four packages
-  (`core`'s `jevClient`/`recencyWeight`, `mcp-server`'s `tools`/`server`, `claude-plugin`'s
-  `select`) calls the real Jev API and is skipped automatically when `TYPESAFE_API_KEY` isn't set.
+- **Live tests are opt-in.** Every test file ending in `.live.test.ts` — `core`'s
+  `jevClient`/`recencyWeight`, `mcp-server`'s `tools`/`server`, `claude-plugin`'s `select`
+  (`cli` has none; its tests cover its own pure logic against a stubbed cache/transcript) — calls
+  the real Jev API and is skipped automatically when `TYPESAFE_API_KEY` isn't set.
   Cloning this repo and running `pnpm test` with no key still passes, on the pure-logic coverage
   alone, and CI never sets the key, so it exercises exactly that path on every push.
 - **Never run anything here against this repo's own real Claude Code session transcripts.** They

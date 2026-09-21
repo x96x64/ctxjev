@@ -33,4 +33,8 @@ describe('decideAction', () => {
     expect(decideAction(DEFAULT_POLICY.dropBelow, DEFAULT_POLICY)).toBe('summarize')
     expect(decideAction(DEFAULT_POLICY.summarizeBelow, DEFAULT_POLICY)).toBe('keep')
   })
+
+  it('throws on a NaN score instead of silently defaulting to keep', () => {
+    expect(() => decideAction(NaN, DEFAULT_POLICY)).toThrow('NaN score')
+  })
 })

@@ -93,10 +93,13 @@ export function parseClaudeCodeTranscript(jsonl: string): Entry[] {
       const block = asKnownBlock(raw)
       if (!block) continue
 
-      if (block.type === 'text' && record.type === 'assistant') {
+      // A user turn's content is array-shaped whenever it carries more than plain text (an
+      // attachment alongside a text block, for example) — its text block still belongs in the
+      // entry list the same way a plain-string user message does.
+      if (block.type === 'text' && (record.type === 'assistant' || record.type === 'user')) {
         entries.push({
           id: `${record.uuid ?? timestamp}:text:${index}`,
-          role: 'assistant',
+          role: record.type === 'user' ? 'user' : 'assistant',
           content: truncate(block.text),
           timestamp,
         })
@@ -104,6 +107,7 @@ export function parseClaudeCodeTranscript(jsonl: string): Entry[] {
         pendingToolUse.set(block.id, { name: block.name, input: block.input, timestamp })
       } else if (block.type === 'tool_result') {
         const pending = pendingToolUse.get(block.tool_use_id)
+        pendingToolUse.delete(block.tool_use_id)
         const name = pending?.name ?? 'unknown_tool'
         const resultText = toolResultText(block.content)
         entries.push({
@@ -117,12 +121,33 @@ export function parseClaudeCodeTranscript(jsonl: string): Entry[] {
     }
   }
 
+  // A tool_use that never received its tool_result (the transcript ends mid-call — a crash, a
+  // truncated log, a hook error) still occupied real context-window space; drop it from the
+  // entry list entirely and PreCompact would silently forget it existed.
+  for (const [toolUseId, pending] of pendingToolUse) {
+    entries.push({
+      id: toolUseId,
+      role: 'tool',
+      toolName: pending.name,
+      content: truncate(`${pending.name}: (no result — tool call never completed)`),
+      timestamp: pending.timestamp,
+    })
+  }
+
   return entries
 }
 
+/** A real slash command's own token has no further "/" or whitespace in it, e.g. "/compact" or
+ * "/ctxjev:set-goal" — unlike a path or shell command a user might type mid-sentence, such as
+ * "/etc/hosts isn't being read correctly", whose first token contains a second "/" and so never
+ * matches. */
+const SLASH_COMMAND_TOKEN = /^\/[a-zA-Z][\w-]*(:[\w-]+)*$/
+
 function isSlashCommand(content: string): boolean {
   const trimmed = content.trim()
-  return trimmed.startsWith('/') || trimmed.includes('<command-name>')
+  if (trimmed.includes('<command-name>')) return true
+  const [firstToken] = trimmed.split(/\s/, 1)
+  return SLASH_COMMAND_TOKEN.test(firstToken)
 }
 
 /**

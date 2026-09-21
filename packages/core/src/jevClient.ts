@@ -76,7 +76,11 @@ export async function scoreRelevance(goal: string, entries: Entry[], cache?: Sco
     usage = { inputTokens: response.usage.input_tokens, outputTokens: response.usage.output_tokens }
 
     for (const entry of uncached) {
-      const relevance = response.answers[entry.id].noul
+      const answer = response.answers[entry.id]
+      if (!answer) {
+        throw new Error(`Jev returned no answer for entry "${entry.id}" — the response is missing this question`)
+      }
+      const relevance = answer.noul
       relevanceByEntryId.set(entry.id, relevance)
       cache?.set(cacheKeyFor(goal, entry), relevance)
     }

@@ -28,4 +28,8 @@ describe('summarizeSavings', () => {
     expect(report.savedTokens).toBeGreaterThan(0)
     expect(report.savedTokens).toBeLessThan(report.totalTokens)
   })
+
+  it('throws instead of silently counting an entry with no matching decision as kept', () => {
+    expect(() => summarizeSavings(entries, decisions.slice(1))).toThrow('no decision found for entry "a"')
+  })
 })

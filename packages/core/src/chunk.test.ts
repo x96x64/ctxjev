@@ -31,4 +31,9 @@ describe('chunkEntries', () => {
   it('returns no chunks for empty input', () => {
     expect(chunkEntries([], 50)).toEqual([])
   })
+
+  it('rejects a non-positive maxPerRequest instead of looping forever', () => {
+    expect(() => chunkEntries(makeEntries(1), 0)).toThrow('maxPerRequest must be a positive number')
+    expect(() => chunkEntries(makeEntries(1), -1)).toThrow('maxPerRequest must be a positive number')
+  })
 })

@@ -1,4 +1,6 @@
-import { inferGoalFromEntries, parseClaudeCodeTranscript, type Entry } from 'ctxjev-core'
+import { inferGoalFromEntries, parseClaudeCodeTranscript, type Entry, type EntryRole } from 'ctxjev-core'
+
+const VALID_ROLES: EntryRole[] = ['user', 'assistant', 'tool']
 
 export type TranscriptFile = {
   /** Optional — omit to require --goal on the command line instead. */
@@ -49,5 +51,35 @@ function parseCtxjevFormat(parsed: unknown): TranscriptFile {
     throw new Error('"goal" must be a string when present')
   }
 
+  entries.forEach((entry, index) => validateEntry(entry, index))
+
   return { goal, entries: entries as Entry[] }
+}
+
+/** A malformed entry (a bad timestamp, especially) doesn't fail loudly — it poisons every other
+ * entry's recency-relative score to NaN, which then silently reads as "keep everything". Reject
+ * it here instead, at the one place ctxjev's own transcript format is actually parsed. */
+function validateEntry(entry: unknown, index: number): void {
+  const where = `entries[${index}]`
+  if (typeof entry !== 'object' || entry === null) {
+    throw new Error(`${where} must be an object`)
+  }
+
+  const { id, role, toolName, content, timestamp } = entry as Record<string, unknown>
+
+  if (typeof id !== 'string' || id.length === 0) {
+    throw new Error(`${where}.id must be a non-empty string`)
+  }
+  if (typeof role !== 'string' || !VALID_ROLES.includes(role as EntryRole)) {
+    throw new Error(`${where}.role must be one of ${VALID_ROLES.join(', ')}`)
+  }
+  if (toolName !== undefined && typeof toolName !== 'string') {
+    throw new Error(`${where}.toolName must be a string when present`)
+  }
+  if (typeof content !== 'string') {
+    throw new Error(`${where}.content must be a string`)
+  }
+  if (typeof timestamp !== 'number' || !Number.isFinite(timestamp)) {
+    throw new Error(`${where}.timestamp must be a finite number`)
+  }
 }

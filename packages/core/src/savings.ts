@@ -24,10 +24,14 @@ export function summarizeSavings(entries: Entry[], decisions: PruneDecision[]): 
     const tokens = estimateTokens(entry.content)
     totalTokens += tokens
 
-    const action = decisionByEntryId.get(entry.id)?.action
-    if (action === 'drop' || action === 'summarize') {
+    const decision = decisionByEntryId.get(entry.id)
+    if (!decision) {
+      throw new Error(`no decision found for entry "${entry.id}" — entries and decisions must correspond 1:1`)
+    }
+
+    if (decision.action === 'drop' || decision.action === 'summarize') {
       savedTokens += tokens
-      if (action === 'drop') droppedEntries++
+      if (decision.action === 'drop') droppedEntries++
       else summarizedEntries++
     } else {
       keptEntries++

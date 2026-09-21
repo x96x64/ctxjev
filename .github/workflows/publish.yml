@@ -27,6 +27,34 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: pnpm test
+        env:
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+
+      # CHANGELOG.md documents these 7 files as version-lockstep: a bump in one is a bump in all.
+      # They drifted silently for five releases (0.1.3-0.1.7) before anyone noticed — check it here
+      # instead of trusting it gets remembered by hand every time.
+      - name: Check version lockstep
+        run: |
+          node -e '
+            const fs = require("fs");
+            const files = [
+              "packages/core/package.json",
+              "packages/cli/package.json",
+              "packages/mcp-server/package.json",
+              "packages/claude-plugin/package.json",
+              ".claude-plugin/marketplace.json",
+              "packages/claude-plugin/.claude-plugin/plugin.json",
+              "plugins/ctxjev/plugin.json",
+            ];
+            const versions = files.map((f) => [f, JSON.parse(fs.readFileSync(f, "utf8")).version]);
+            const distinct = new Set(versions.map(([, v]) => v));
+            if (distinct.size > 1) {
+              console.error("Version lockstep violated:");
+              for (const [f, v] of versions) console.error(`  ${v}  ${f}`);
+              process.exit(1);
+            }
+            console.log(`All 7 lockstep files agree on version ${versions[0][1]}`);
+          '
 
       # pnpm publish doesn't yet know about OIDC trusted publishing (pnpm/pnpm#9812), but `pnpm pack`
       # correctly rewrites `workspace:*` dependency ranges into the tarball — so pack with pnpm, then

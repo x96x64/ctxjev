@@ -10,9 +10,15 @@ import type { Entry } from './types.js'
 export function computeRecency(entries: Entry[]): Map<string, number> {
   if (entries.length === 0) return new Map()
 
-  const timestamps = entries.map((e) => e.timestamp)
-  const min = Math.min(...timestamps)
-  const max = Math.max(...timestamps)
+  // A reduce, not Math.min(...timestamps)/Math.max(...timestamps) — spreading a very large
+  // entry list as call arguments risks a stack-size RangeError, and this runs on the whole
+  // unchunked batch.
+  let min = entries[0].timestamp
+  let max = entries[0].timestamp
+  for (const { timestamp } of entries) {
+    if (timestamp < min) min = timestamp
+    if (timestamp > max) max = timestamp
+  }
   const range = max - min
 
   // All entries share one timestamp (or there's only one entry) — no ordering information
