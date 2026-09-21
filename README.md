@@ -104,8 +104,11 @@ research spike rather than a commitment.
 
 ## Using it from an MCP host
 
-`ctxjev-mcp` speaks plain stdio MCP, so any MCP-capable host can run it as a subprocess. For a
-host that reads a `.mcp.json`-style config (Claude Code among them):
+`ctxjev-mcp` speaks plain stdio MCP — no per-host adapter turned out to be necessary. Every host
+below runs the exact same binary (`node packages/mcp-server/dist/index.js`); only the config
+shape differs.
+
+**Claude Code** — a project or user `.mcp.json`:
 
 ```json
 {
@@ -118,6 +121,33 @@ host that reads a `.mcp.json`-style config (Claude Code among them):
   }
 }
 ```
+
+**Codex CLI** (also shared with its VS Code extension and desktop app) — one command, no file to
+hand-edit:
+
+```bash
+codex mcp add ctxjev --env TYPESAFE_API_KEY=... -- node /absolute/path/to/ctxjev/packages/mcp-server/dist/index.js
+```
+
+**GitHub Copilot** (VS Code, agent mode) — `.vscode/mcp.json`. Note the top-level key is
+`servers`, not Claude Code's `mcpServers`:
+
+```json
+{
+  "servers": {
+    "ctxjev": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/absolute/path/to/ctxjev/packages/mcp-server/dist/index.js"],
+      "env": { "TYPESAFE_API_KEY": "..." }
+    }
+  }
+}
+```
+
+*(Xcode is a deliberate absence here — see [ROADMAP.md](ROADMAP.md)'s Phase 4. It turned out to be
+an MCP* server *exposing Xcode's own tools to agents like Claude Code/Codex, not a client that
+would consume a third-party server like this one.)*
 
 It exposes two tools:
 

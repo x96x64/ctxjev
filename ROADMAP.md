@@ -67,9 +67,27 @@ documented **PreCompact / SessionStart(matcher: "compact") re-injection pattern*
   session**, for the same reason as Phase 2's `.mcp.json`: this requires a fresh session with the
   key exported, which this development session can't do to itself.
 
-## Phase 4 — Further hosts (research spikes before committing)
-- **Codex CLI**, **GitHub Copilot**: both are plausible MCP-server consumers — confirm each host's current
-  MCP support before building a dedicated adapter; if MCP works, `packages/mcp-server` may need no changes
-  at all.
-- **Xcode**: no confirmed general-purpose third-party AI/MCP extension surface as of this writing — spike
-  first, don't commit to an adapter package until that's verified.
+## Phase 4 — Further hosts ✅ (research spike complete, 2026-09-21)
+
+- **Codex CLI**: real, generic stdio MCP client support (also shared with the VS Code extension and
+  desktop app via one `config.toml`). Registering `ctxjev-mcp` is one command:
+  `codex mcp add ctxjev --env TYPESAFE_API_KEY=... -- node packages/mcp-server/dist/index.js`.
+  **No adapter package needed** — `packages/mcp-server` already works as-is. See the README's
+  "Using it from an MCP host" section for the exact command.
+- **GitHub Copilot** (agent mode, GA since 2026-07): also a generic stdio MCP client, configured via
+  `.vscode/mcp.json`'s `servers` key (note: `servers`, not Claude Code's `mcpServers`). **No adapter
+  package needed** here either — same `packages/mcp-server` binary, different config file.
+- **Xcode 26.3**: turned out to be the wrong shape of question. Xcode is an MCP *server*
+  (`mcpbridge`) that exposes Xcode's own tools (build, run, simulator control) *to* external agents
+  like Claude Code or Codex — it isn't itself a generic MCP client that would consume a third-party
+  server like `ctxjev-mcp`. Its own AI panel lets you swap the underlying chat model, but true
+  agentic/tool-calling behavior is reported to only work with the preconfigured providers (ChatGPT
+  Codex, Claude Agent), not arbitrary added ones. **Conclusion: no `ctxjev`-for-Xcode adapter is
+  applicable.** If you're doing Xcode-integrated agentic iOS development via Claude Code or Codex
+  (with Xcode's MCP bridge feeding *them* Xcode-specific tools), `ctxjev`'s existing Claude Code
+  plugin / MCP server already covers that session's context — Xcode is just one more tool source
+  feeding the same agent, not a separate host to integrate with.
+
+Given all three turned out to need either a one-line config change or nothing at all,
+`packages/mcp-server` stays a single, host-agnostic package — there's no case here for a
+dedicated per-host adapter package after all.
