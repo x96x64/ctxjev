@@ -1,0 +1,15 @@
+{
+  "name": "ctxjev-plugins",
+  "owner": {
+    "name": "x96x64",
+    "url": "https://github.com/x96x64"
+  },
+  "description": "Plugins for ctxjev — Jev-based context pruning for AI agents.",
+  "plugins": [
+    {
+      "name": "ctxjev",
+      "source": "./packages/claude-plugin",
+      "description": "Preserves Jev-scored context through Claude Code's own compaction (PreCompact/SessionStart), plus /ctxjev:set-goal and /ctxjev:status skills."
+    }
+  ]
+}
