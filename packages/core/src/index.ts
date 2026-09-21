@@ -8,6 +8,7 @@ export * from './types.js'
 export { summarizeSavings, type SavingsReport } from './savings.js'
 export { estimateTokens } from './tokenEstimate.js'
 export { parseClaudeCodeTranscript, inferGoalFromEntries } from './claudeCodeTranscript.js'
+export { createUsageAccumulator } from './usage.js'
 
 export type ScoreEntriesOptions = {
   /** Called once per underlying Jev request (one per chunk) with that request's token usage. */

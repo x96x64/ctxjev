@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 import pc from 'picocolors'
-import { DEFAULT_POLICY, pruneContext, summarizeSavings, type JevUsage, type PruningPolicy } from 'ctxjev-core'
+import { DEFAULT_POLICY, createUsageAccumulator, pruneContext, summarizeSavings, type PruningPolicy } from 'ctxjev-core'
 import { formatReport } from './report.js'
 import { parseTranscript } from './transcript.js'
 
@@ -90,13 +90,8 @@ async function runAnalyze(argv: string[]) {
     recencyWeight: DEFAULT_POLICY.recencyWeight,
   }
 
-  const usage: JevUsage = { inputTokens: 0, outputTokens: 0 }
-  const decisions = await pruneContext(transcript.entries, goal, policy, {
-    onUsage: (chunkUsage) => {
-      usage.inputTokens += chunkUsage.inputTokens
-      usage.outputTokens += chunkUsage.outputTokens
-    },
-  })
+  const { usage, onUsage } = createUsageAccumulator()
+  const decisions = await pruneContext(transcript.entries, goal, policy, { onUsage })
   const savings = summarizeSavings(transcript.entries, decisions)
 
   if (values.json) {

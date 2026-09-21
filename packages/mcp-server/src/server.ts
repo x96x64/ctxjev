@@ -1,9 +1,19 @@
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { pruneHistoryInput, scoreRelevanceInput } from './schemas.js'
 import { pruneHistoryTool, scoreRelevanceTool } from './tools.js'
 
+// Read from this package's own package.json rather than a hardcoded constant, so the version
+// reported to MCP clients can't silently go stale after the next release the way a literal
+// string would (ctxjev-cli's --version had exactly this bug — see CHANGELOG 0.1.2).
+const VERSION: string = JSON.parse(
+  readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../package.json'), 'utf8'),
+).version
+
 export function createServer(): McpServer {
-  const server = new McpServer({ name: 'ctxjev', version: '0.0.0' })
+  const server = new McpServer({ name: 'ctxjev', version: VERSION })
 
   server.registerTool(
     'score_relevance',
