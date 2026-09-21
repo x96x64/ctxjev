@@ -240,7 +240,7 @@ Phase 5's note on why that's deliberately not being spent without asking first).
 bare minimum (`displayName`, `keywords`, `category`, `repository`, `homepage`, `license`,
 `author`) and passes `claude plugin validate .` cleanly.
 
-## Phase 9 — A Codex plugin bundle exists ⚠️ (implemented, not yet installed anywhere real)
+## Phase 9 — A Codex plugin bundle, verified for real (v0.1.2, 2026-09-21)
 
 Turns out Codex has its own plugin marketplace too (launched 2026-03-27, separate from Claude
 Code's) — bundles of skills, app integrations, and MCP servers, shared across the ChatGPT/Codex
@@ -257,10 +257,21 @@ Added, following the documented [Agent Plugins](https://agent-plugins.org) schem
 [`plugins/ctxjev/mcp.json`](plugins/ctxjev/mcp.json) (stdio, `npx ctxjev-mcp`,
 `TYPESAFE_API_KEY` from the environment).
 
-**Honest status: implemented per spec, not hands-on verified.** Unlike the Claude Code
-marketplace (tested live in the desktop app, worked first try) or Codex CLI's `mcp add` (tested
-live, worked), this hasn't actually been installed anywhere — no `claude plugin validate`
-equivalent was found for Codex's schema, and confirming it needs either the ChatGPT desktop app
-or a Codex CLI new enough to read a local plugin marketplace, neither attempted yet. Treat this
-the way Phase 4 treated GitHub Copilot: documented from the spec, real until proven otherwise, but
-not yet given the same benefit of the doubt as the things that were actually tested.
+**Fully verified with a real, freshly-installed `codex-cli`, not left at "should work per spec":**
+
+```
+codex plugin marketplace add x96x64/ctxjev   # → Added marketplace `ctxjev-plugins`
+codex plugin add ctxjev@ctxjev-plugins       # → Added plugin `ctxjev` ... installed, enabled 0.1.2
+codex mcp list                                # → ctxjev  npx  ctxjev-mcp  env: PLUGIN_DATA=..., PLUGIN_ROOT=..., TYPESAFE_API_KEY=...
+```
+
+One real snag on the way: the very first `codex plugin marketplace add x96x64/ctxjev` resolved to
+the *Claude Code* marketplace (`.claude-plugin/marketplace.json`, pointing at
+`packages/claude-plugin`) instead of the new Codex-specific one — not because Codex prefers that
+file, but because the new `.agents/plugins/marketplace.json` hadn't been pushed to GitHub yet at
+that moment. `codex plugin marketplace upgrade ctxjev-plugins` after pushing picked up the right
+file immediately. A reminder that "verify for real" has to happen *after* the remote state
+actually matches local, not before.
+
+Also confirmed `codex plugin add <name>` requires the fully-qualified `<name>@<marketplace>` form
+when more than one marketplace is configured — a bare name is refused, not silently ambiguous.

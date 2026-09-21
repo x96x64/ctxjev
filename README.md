@@ -155,12 +155,11 @@ Codex also has its own plugin marketplace, separate from Claude Code's — this 
 
 ```bash
 codex plugin marketplace add x96x64/ctxjev
-codex plugin add ctxjev
+codex plugin add ctxjev@ctxjev-plugins
 ```
 
-*(the marketplace itself adds cleanly — confirmed with a real `codex plugin marketplace add`; the
-plugin bundle's own install/run hasn't been separately confirmed yet, so treat this one with a
-little more caution than the `codex mcp add` command above.)*
+Verified for real: `codex mcp list` afterward shows `ctxjev` registered with the exact
+`npx ctxjev-mcp` command and environment the plugin bundle declares.
 
 **GitHub Copilot** (VS Code, agent mode) — `.vscode/mcp.json`. Note the top-level key is
 `servers`, not Claude Code's `mcpServers`:
