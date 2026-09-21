@@ -1,5 +1,5 @@
 import pc from 'picocolors'
-import type { Entry, JevUsage, PruneDecision, SavingsReport } from 'ctxjev-core'
+import { truncate, type Entry, type JevUsage, type PruneDecision, type SavingsReport } from 'ctxjev-core'
 import { estimateCostUsd } from './cost.js'
 
 const ACTION_COLOR: Record<PruneDecision['action'], (s: string) => string> = {
@@ -9,9 +9,13 @@ const ACTION_COLOR: Record<PruneDecision['action'], (s: string) => string> = {
 }
 const ACTION_WIDTH = Math.max(...Object.keys(ACTION_COLOR).map((a) => a.length))
 
-function truncate(text: string, max = 60): string {
-  const oneLine = text.replace(/\s+/g, ' ').trim()
-  return oneLine.length > max ? `${oneLine.slice(0, max - 1)}…` : oneLine
+/** A plain loop, not Math.max(...widths) — entries comes straight from a real (unbounded)
+ * transcript, and spreading a large enough array into a function call risks a stack-size
+ * RangeError, the same risk ctxjev-core's computeRecency was fixed to avoid. */
+function maxLength(values: string[], floor: number): number {
+  let max = floor
+  for (const v of values) if (v.length > max) max = v.length
+  return max
 }
 
 export function formatReport(entries: Entry[], decisions: PruneDecision[], savings: SavingsReport, usage: JevUsage): string {
@@ -25,8 +29,8 @@ export function formatReport(entries: Entry[], decisions: PruneDecision[], savin
   )
   lines.push('')
 
-  const idWidth = Math.max(2, ...entries.map((e) => e.id.length))
-  const roleWidth = Math.max(4, ...entries.map((e) => (e.toolName ?? e.role).length))
+  const idWidth = maxLength(entries.map((e) => e.id), 2)
+  const roleWidth = maxLength(entries.map((e) => e.toolName ?? e.role), 4)
 
   for (const entry of entries) {
     const decision = decisionByEntryId.get(entry.id)
@@ -37,7 +41,7 @@ export function formatReport(entries: Entry[], decisions: PruneDecision[], savin
     const score = decision.combinedScore.toFixed(2)
     const action = ACTION_COLOR[decision.action](decision.action.padEnd(ACTION_WIDTH))
 
-    lines.push(`  ${pc.dim(id)}  ${role}  ${action}  ${pc.dim(`score ${score}`)}  ${truncate(entry.content)}`)
+    lines.push(`  ${pc.dim(id)}  ${role}  ${action}  ${pc.dim(`score ${score}`)}  ${truncate(entry.content, 60)}`)
   }
 
   lines.push('')

@@ -1,4 +1,5 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import type { ScoreCache } from 'ctxjev-core'
@@ -28,7 +29,12 @@ export async function loadFileScoreCache(path: string = DEFAULT_CACHE_PATH): Pro
   const save = async () => {
     if (!dirty) return
     await mkdir(dirname(path), { recursive: true })
-    await writeFile(path, JSON.stringify(Object.fromEntries(store)), 'utf8')
+    // Temp file + rename, not a plain writeFile — this file is shared across every `ctxjev
+    // analyze` run, and a plain write can interleave with a concurrent run and corrupt it (the
+    // same race packages/claude-plugin/src/preserve.ts's identical cache is guarded against).
+    const tempPath = `${path}.${randomUUID()}.tmp`
+    await writeFile(tempPath, JSON.stringify(Object.fromEntries(store)), 'utf8')
+    await rename(tempPath, path)
   }
 
   return { cache, save }

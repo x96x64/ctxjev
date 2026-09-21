@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { combineScore, decideAction } from './policy.js'
+import { combineScore, decideAction, isValidPolicyOrdering } from './policy.js'
 import { DEFAULT_POLICY } from './types.js'
 
 describe('combineScore', () => {
@@ -36,5 +36,16 @@ describe('decideAction', () => {
 
   it('throws on a NaN score instead of silently defaulting to keep', () => {
     expect(() => decideAction(NaN, DEFAULT_POLICY)).toThrow('NaN score')
+  })
+})
+
+describe('isValidPolicyOrdering', () => {
+  it('accepts dropBelow <= summarizeBelow', () => {
+    expect(isValidPolicyOrdering(0.25, 0.6)).toBe(true)
+    expect(isValidPolicyOrdering(0.5, 0.5)).toBe(true)
+  })
+
+  it('rejects a reversed pair', () => {
+    expect(isValidPolicyOrdering(0.9, 0.1)).toBe(false)
   })
 })

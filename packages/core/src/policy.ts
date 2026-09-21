@@ -4,6 +4,13 @@ export function combineScore(relevance: number, recency: number, recencyWeight: 
   return relevance * (1 - recencyWeight) + recency * recencyWeight
 }
 
+/** `decideAction`'s sequential `<` comparisons silently make 'summarize' unreachable if the pair
+ * is reversed — every caller that accepts these two independently (a CLI flag pair, an MCP
+ * schema) must check this once, resolved, instead of trusting each value's own [0,1] range. */
+export function isValidPolicyOrdering(dropBelow: number, summarizeBelow: number): boolean {
+  return dropBelow <= summarizeBelow
+}
+
 export function decideAction(score: number, policy: PruningPolicy): PruneAction {
   // NaN compares false against every threshold below, which would otherwise fall through to
   // 'keep' by default — silently treating "we don't know" as "definitely keep this".

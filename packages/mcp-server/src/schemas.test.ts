@@ -18,6 +18,14 @@ describe('entrySchema', () => {
     const result = entrySchema.safeParse({ id: 'e1', role: 'user', content: 'x'.repeat(4001), timestamp: 0 })
     expect(result.success).toBe(false)
   })
+
+  it('rejects a non-finite timestamp', () => {
+    // Reachable over real JSON: JSON.parse('{"timestamp":1e400}') already produces Infinity.
+    // core's computeRecency takes min/max across the whole batch, so one infinite timestamp
+    // would otherwise turn every entry's recency into NaN, not just this one's.
+    expect(entrySchema.safeParse({ id: 'e1', role: 'user', content: 'x', timestamp: Infinity }).success).toBe(false)
+    expect(entrySchema.safeParse({ id: 'e1', role: 'user', content: 'x', timestamp: -Infinity }).success).toBe(false)
+  })
 })
 
 describe('scoreRelevanceInput', () => {

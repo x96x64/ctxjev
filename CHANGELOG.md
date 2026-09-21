@@ -6,6 +6,36 @@ changed. This also covers the three plugin-manifest version fields Claude Code's
 (`.claude-plugin/marketplace.json`, `packages/claude-plugin/.claude-plugin/plugin.json`,
 `plugins/ctxjev/plugin.json`) — easy to forget since none of them are `package.json`.
 
+## 0.1.10 — 2026-09-21
+
+A cloud-based review (`/code-review ultra`, diffed against the repo's very first commit) audited
+0.1.9's own fixes and turned up 8 more issues — several in the fixes themselves. All 8 fixed.
+
+- **`ctxjev-mcp`**: `entrySchema.timestamp` now requires `.finite()` — a bare `z.number()` only
+  rejects `NaN`, not `Infinity`/`-Infinity`, and `JSON.parse('{"timestamp":1e400}')` already
+  produces `Infinity` over ordinary JSON. Since `ctxjev-core`'s `computeRecency` takes min/max
+  across the *whole batch*, one infinite timestamp turned every entry's recency (and thus
+  `combinedScore`) into NaN, not just the offending entry's.
+- **`ctxjev-claude`**: `preCompact.ts` now clears `.ctxjev/preserved-context.json` as soon as
+  `cwd` is known, before any of its several early-return paths (missing API key, zero parsed
+  entries, no resolvable goal, nothing selected). Previously, a snapshot from an earlier — possibly
+  unrelated — compaction stayed in place through any of those paths, and `sessionStartCompact.ts`
+  would re-inject it unconditionally as if it reflected the compaction that just happened.
+- **`ctxjev-core`**: `isValidPolicyOrdering(dropBelow, summarizeBelow)` is now exported and is the
+  one place the `dropBelow <= summarizeBelow` invariant lives — `ctxjev-cli` and `ctxjev-mcp` had
+  each independently reimplemented the identical check (0.1.9 added both, in parallel, as if they
+  were unrelated fixes). `truncate()` is now also exported from core and shared with
+  `ctxjev-cli`'s report formatter, which had its own copy differing only in the length constant.
+- **`ctxjev-cli`**: `report.ts`'s column-width calculation no longer spreads the full (unbounded,
+  straight from a real transcript) entries array into `Math.max(...)` — the exact stack-overflow
+  risk this same release's core fix (`computeRecency`) addressed, left unfixed here. The score
+  cache is now saved in a `finally`, so a partial run (some chunks scored before a later one
+  throws) doesn't discard already-paid-for verdicts. `scoreCache.ts`'s save is now atomic
+  (temp file + rename), matching `ctxjev-claude`'s identical fix to `preserve.ts` in 0.1.9 — this
+  file was missed at the time despite sharing the exact same shared-file race.
+- **`ctxjev-core`**: removed an unused `cacheKeyFor` value import in `index.ts` (only the
+  standalone re-export on the next line needs it).
+
 ## 0.1.9 — 2026-09-21
 
 An exhaustive, no-compromise pass over the whole monorepo (not tied to any single reported bug)

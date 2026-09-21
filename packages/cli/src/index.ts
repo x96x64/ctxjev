@@ -114,8 +114,15 @@ async function runAnalyze(argv: string[]) {
   const { cache, save } = values['no-cache'] ? { cache: undefined, save: async () => {} } : await loadFileScoreCache()
 
   const { usage, onUsage } = createUsageAccumulator()
-  const decisions = await pruneContext(transcript.entries, goal, policy, { onUsage, cache })
-  await save()
+  let decisions: Awaited<ReturnType<typeof pruneContext>>
+  try {
+    decisions = await pruneContext(transcript.entries, goal, policy, { onUsage, cache })
+  } finally {
+    // Whatever verdicts a partial run already paid Jev for and cached in memory (some chunks
+    // succeeded before a later one threw) still get persisted — otherwise a failure discards
+    // already-spent cost, and the next run re-pays for entries it already scored.
+    await save()
+  }
   const savings = summarizeSavings(transcript.entries, decisions)
 
   if (values.json) {

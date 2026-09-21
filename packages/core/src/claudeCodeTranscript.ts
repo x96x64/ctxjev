@@ -44,9 +44,11 @@ function asKnownBlock(raw: unknown): KnownContentBlock | undefined {
 
 const MAX_CONTENT_LENGTH = 300
 
-function truncate(text: string): string {
+/** Collapses whitespace and clips to `max` chars with an ellipsis — shared with `ctxjev-cli`'s
+ * report formatting so the same normalize-and-truncate behavior isn't reimplemented twice. */
+export function truncate(text: string, max: number = MAX_CONTENT_LENGTH): string {
   const oneLine = text.replace(/\s+/g, ' ').trim()
-  return oneLine.length > MAX_CONTENT_LENGTH ? `${oneLine.slice(0, MAX_CONTENT_LENGTH - 1)}…` : oneLine
+  return oneLine.length > max ? `${oneLine.slice(0, max - 1)}…` : oneLine
 }
 
 function toolResultText(content: string | Array<{ type: string; text?: string }>): string {

@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -56,6 +56,21 @@ describe('preCompact.js (dist)', () => {
     const result = await run(JSON.stringify({ cwd, transcript_path: transcriptPath }), { TYPESAFE_API_KEY: undefined })
     expect(result.exitCode).toBe(0)
     expect(result.stderr).toBe('')
+    await expect(readFile(join(cwd, '.ctxjev', 'preserved-context.json'), 'utf8')).rejects.toThrow()
+  }, 10_000)
+
+  it('clears a stale snapshot from an earlier compaction instead of leaving it for sessionStartCompact.js to re-inject', async () => {
+    await mkdir(join(cwd, '.ctxjev'), { recursive: true })
+    await writeFile(
+      join(cwd, '.ctxjev', 'preserved-context.json'),
+      JSON.stringify({ goal: 'an unrelated earlier task', scoredAt: '2020-01-01T00:00:00.000Z', entries: [] }),
+      'utf8',
+    )
+
+    // No API key — this hits an early return, the exact case the bug report described (a stale
+    // file surviving because a *later* PreCompact run bailed out before ever writing a fresh one).
+    const result = await run(JSON.stringify({ cwd, transcript_path: join(cwd, 'transcript.jsonl') }), { TYPESAFE_API_KEY: undefined })
+    expect(result.exitCode).toBe(0)
     await expect(readFile(join(cwd, '.ctxjev', 'preserved-context.json'), 'utf8')).rejects.toThrow()
   }, 10_000)
 })

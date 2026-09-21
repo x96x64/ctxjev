@@ -2,7 +2,7 @@
 import { readFile } from 'node:fs/promises'
 import { parseClaudeCodeTranscript } from 'ctxjev-core'
 import { resolveGoal } from './goal.js'
-import { writePreservedContext } from './preserve.js'
+import { clearPreservedContext, writePreservedContext } from './preserve.js'
 import { readStdin } from './readStdin.js'
 import { selectPreserved } from './select.js'
 
@@ -20,8 +20,14 @@ type PreCompactInput = { cwd?: string; transcript_path?: string }
 async function main() {
   const input: PreCompactInput = JSON.parse(await readStdin())
   const { cwd, transcript_path: transcriptPath } = input
+  if (!cwd) return
 
-  if (!process.env.TYPESAFE_API_KEY || !cwd || !transcriptPath) return
+  // Clear whatever an earlier compaction (a previous session, maybe days ago) left behind before
+  // doing anything else — every return below this point must leave no stale snapshot for
+  // sessionStartCompact.ts to misread as reflecting the compaction that just happened.
+  await clearPreservedContext(cwd)
+
+  if (!process.env.TYPESAFE_API_KEY || !transcriptPath) return
 
   const jsonl = await readFile(transcriptPath, 'utf8')
   const entries = parseClaudeCodeTranscript(jsonl)

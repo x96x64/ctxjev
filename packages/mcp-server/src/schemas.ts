@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { DEFAULT_POLICY } from 'ctxjev-core'
+import { DEFAULT_POLICY, isValidPolicyOrdering } from 'ctxjev-core'
 
 // Entries are billed per input token and, per ctxjev-core's own Entry doc, meant to be a short
 // excerpt rather than a full payload — cap both dimensions at the MCP boundary instead of
@@ -12,7 +12,10 @@ export const entrySchema = z.object({
   role: z.enum(['user', 'assistant', 'tool']),
   toolName: z.string().optional(),
   content: z.string().max(MAX_CONTENT_LENGTH),
-  timestamp: z.number(),
+  // .finite() — bare z.number() only rejects NaN, not Infinity/-Infinity. core's computeRecency
+  // takes min/max across the whole batch, so one infinite timestamp turns every entry's recency
+  // (and thus combinedScore) into NaN, not just the offending entry's.
+  timestamp: z.number().finite(),
 })
 
 export const scoreRelevanceInput = {
@@ -39,9 +42,10 @@ export const pruneHistoryInput = {
 
 /** dropBelow/summarizeBelow are each in range on their own, but nothing above stops a reversed
  * pair from making 'summarize' unreachable — check the actual values a call resolves to
- * (including the defaults) before running it. */
+ * (including the defaults) before running it. The invariant itself lives in ctxjev-core; this
+ * just formats the MCP-facing field names into the error. */
 export function validatePolicyOrdering(dropBelow: number, summarizeBelow: number): void {
-  if (dropBelow > summarizeBelow) {
+  if (!isValidPolicyOrdering(dropBelow, summarizeBelow)) {
     throw new Error(`dropBelow (${dropBelow}) must not be greater than summarizeBelow (${summarizeBelow})`)
   }
 }

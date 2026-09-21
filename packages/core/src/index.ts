@@ -1,4 +1,4 @@
-import { cacheKeyFor, type ScoreCache } from './cache.js'
+import { type ScoreCache } from './cache.js'
 import { chunkEntries } from './chunk.js'
 import { scoreRelevance } from './jevClient.js'
 import { combineScore, decideAction } from './policy.js'
@@ -8,9 +8,10 @@ import { DEFAULT_POLICY, type Entry, type JevUsage, type PruneDecision, type Pru
 export * from './types.js'
 export { summarizeSavings, type SavingsReport } from './savings.js'
 export { estimateTokens } from './tokenEstimate.js'
-export { parseClaudeCodeTranscript, inferGoalFromEntries } from './claudeCodeTranscript.js'
+export { parseClaudeCodeTranscript, inferGoalFromEntries, truncate } from './claudeCodeTranscript.js'
 export { createUsageAccumulator } from './usage.js'
 export { cacheKeyFor, type ScoreCache } from './cache.js'
+export { isValidPolicyOrdering } from './policy.js'
 
 export type ScoreEntriesOptions = {
   /** Called once per underlying Jev request (one per chunk) with that request's token usage. */

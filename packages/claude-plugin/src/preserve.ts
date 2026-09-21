@@ -1,4 +1,4 @@
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import type { ScoredEntry } from 'ctxjev-core'
@@ -30,4 +30,12 @@ export async function readPreservedContext(cwd: string): Promise<PreservedContex
   } catch {
     return undefined
   }
+}
+
+/** preCompact.ts has several early-return paths (no API key, no entries, no goal, nothing
+ * selected) that skip writing a fresh snapshot — call this before any of them so a stale
+ * snapshot from an earlier, unrelated compaction never lingers for sessionStartCompact.ts to
+ * re-inject as if it reflects the compaction that just happened. */
+export async function clearPreservedContext(cwd: string): Promise<void> {
+  await rm(cachePath(cwd), { force: true })
 }
