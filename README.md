@@ -108,19 +108,19 @@ research spike rather than a commitment.
 below runs the exact same binary (`node packages/mcp-server/dist/index.js`); only the config
 shape differs.
 
-**Claude Code** — a project or user `.mcp.json`:
+**Claude Code** — this repo ships a project-level [`.mcp.json`](.mcp.json), but in practice that
+scope needed an approval step that never surfaced for us (Claude Code v2.1.278) — `claude mcp
+list` just silently omitted the server, with no prompt and no error. `claude mcp add` (local
+scope) worked immediately with no friction:
 
-```json
-{
-  "mcpServers": {
-    "ctxjev": {
-      "command": "node",
-      "args": ["/absolute/path/to/ctxjev/packages/mcp-server/dist/index.js"],
-      "env": { "TYPESAFE_API_KEY": "..." }
-    }
-  }
-}
+```bash
+claude mcp add ctxjev --env TYPESAFE_API_KEY=... -- node /absolute/path/to/ctxjev/packages/mcp-server/dist/index.js
 ```
+
+If you go this route in a repo that already has the project-level `.mcp.json`, `claude mcp list`
+will warn about the same server being defined in two scopes — harmless for a local stdio server
+(the warning is really about OAuth token storage, which doesn't apply here), but
+`claude mcp remove ctxjev -s project` clears the noise if it bothers you.
 
 **Codex CLI** (also shared with its VS Code extension and desktop app) — one command, no file to
 hand-edit:

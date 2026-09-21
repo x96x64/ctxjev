@@ -29,12 +29,16 @@
   ([`server.live.test.ts`](packages/mcp-server/src/server.live.test.ts)) exercising the real MCP
   wiring, and a manual real-subprocess run over actual stdio (`StdioServerTransport`/
   `StdioClientTransport`) — both pass against the live Jev API.
-- A project-level [`.mcp.json`](.mcp.json) now wires `ctxjev` into any Claude Code session opened
-  in this repo (`${TYPESAFE_API_KEY}` expanded from the environment Claude Code itself was
-  launched in — no secret in the committed file). **Not yet verified**: MCP servers load at
-  session start, so this needs a fresh Claude Code session (with the key actually exported first)
-  to confirm the tools show up for real — proving that is still open, and is a precondition for
-  assuming Codex/Copilot will "just work" too.
+- **Verified end-to-end in a real Claude Code session** (v2.1.278, 2026-09-21) —
+  `claude mcp list` shows `ctxjev: ... ✔ Connected`. Getting there took a real finding, not just a
+  restart: the project-level [`.mcp.json`](.mcp.json) this repo ships (`${TYPESAFE_API_KEY}`
+  expanded from the launching shell's environment) never actually got approved in practice —
+  `claude mcp list` silently omitted the server with no prompt and no error, even with the key
+  present, workspace trust already accepted, and after manually pre-approving it in
+  `~/.claude.json`'s `enabledMcpjsonServers`. `claude mcp add` (local/user scope) worked on the
+  first try. See the README's "Using it from an MCP host" section for the working command — the
+  project `.mcp.json` stays in the repo for whoever it works for out of the box, but `claude mcp
+  add` is the documented fallback now, not an afterthought.
 
 ## Phase 3 — Claude Code plugin ✅ (design corrected)
 **The original plan here was wrong.** Research into Claude Code's actual hooks system
@@ -62,10 +66,14 @@ documented **PreCompact / SessionStart(matcher: "compact") re-injection pattern*
   into context after compaction smooths it over.
 - **Skills**: `/ctxjev:set-goal <text>` (writes the explicit goal) and `/ctxjev:status` (shows the
   current goal and the last `PreCompact` scoring pass) — both plain `SKILL.md` files, no code.
-- Verified end-to-end against a synthetic transcript (real `preCompact.js`/`sessionStartCompact.js`
-  subprocesses, piped fake stdin, against the live Jev API) — **not yet against a real Claude Code
-  session**, for the same reason as Phase 2's `.mcp.json`: this requires a fresh session with the
-  key exported, which this development session can't do to itself.
+  **Verified in a real Claude Code session** (`claude --plugin-dir packages/claude-plugin`, v2.1.278,
+  2026-09-21): `/ctxjev:status` ran correctly and reported no cache yet, exactly as designed for a
+  fresh project.
+- The hooks themselves were verified against a synthetic transcript (real
+  `preCompact.js`/`sessionStartCompact.js` subprocesses, piped fake stdin, against the live Jev
+  API) rather than a real compaction — forcing an actual compaction mid-session to confirm the
+  live re-injection text appears is still open, but lower-priority now that the skill (same
+  `--plugin-dir` load path) is confirmed working for real.
 
 ## Phase 4 — Further hosts ✅ (research spike complete, 2026-09-21)
 
