@@ -1,14 +1,25 @@
 #!/usr/bin/env node
+import { readFileSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 import pc from 'picocolors'
 import { DEFAULT_POLICY, pruneContext, summarizeSavings, type JevUsage, type PruningPolicy } from 'ctxjev-core'
 import { formatReport } from './report.js'
 import { parseTranscript } from './transcript.js'
 
-const VERSION = '0.0.0'
+// Read from this package's own package.json rather than a hardcoded constant, so --version
+// can't silently go stale after the next release the way a literal string would.
+const VERSION: string = JSON.parse(
+  readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../package.json'), 'utf8'),
+).version
 
 const HELP = `${pc.bold('ctxjev')} — score and prune AI agent context with Jev
+
+${pc.bold('Try it right now')}
+  curl -O https://raw.githubusercontent.com/x96x64/ctxjev/main/examples/sample-transcripts/checkout-bug.json
+  ctxjev analyze checkout-bug.json
 
 ${pc.bold('Usage')}
   ctxjev analyze <transcript> --goal "<current task>" [options]
@@ -33,6 +44,11 @@ function fail(message: string): never {
   process.exit(1)
 }
 
+function failAll(messages: string[]): never {
+  for (const message of messages) console.error(`${pc.red('✖')} ${message}`)
+  process.exit(1)
+}
+
 async function runAnalyze(argv: string[]) {
   const { positionals, values } = parseArgs({
     args: argv,
@@ -48,18 +64,23 @@ async function runAnalyze(argv: string[]) {
   const [file] = positionals
   if (!file) fail('missing <transcript.json> — see `ctxjev --help`')
 
+  // Both checked up front, independently — a user missing the key AND pointing at a bad path
+  // should hear about both in one run, not fix one only to discover the other on the next try.
+  const problems: string[] = []
   if (!process.env.TYPESAFE_API_KEY) {
-    fail('TYPESAFE_API_KEY is not set — get one at console.typesafe.ai/settings/keys')
+    problems.push('TYPESAFE_API_KEY is not set — get one at console.typesafe.ai/settings/keys')
   }
 
-  let raw: string
+  let raw: string | undefined
   try {
     raw = await readFile(file, 'utf8')
   } catch {
-    fail(`couldn't read ${file}`)
+    problems.push(`couldn't read ${file}`)
   }
 
-  const transcript = parseTranscript(raw)
+  if (problems.length > 0) failAll(problems)
+
+  const transcript = parseTranscript(raw!)
   const goal = values.goal ?? transcript.goal
   if (!goal) fail('no goal — pass --goal or set "goal" in the transcript file')
 

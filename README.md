@@ -18,7 +18,7 @@ useful, before your host's own compaction has to summarize its way through it.
 [![pnpm](https://img.shields.io/badge/maintained%20with-pnpm-F69220?logo=pnpm&logoColor=white)](pnpm-workspace.yaml)
 [![status: early development](https://img.shields.io/badge/status-early%20development-orange)](ROADMAP.md)
 
-[Why](#why) · [How it works](#how-it-works) · [Quick start](#quick-start) · [Packages](#packages) · [MCP](#using-it-from-an-mcp-host) · [Claude Code plugin](#the-claude-code-plugin) · [Design notes](#design-notes) · [Roadmap](ROADMAP.md)
+[Why](#why) · [How it works](#how-it-works) · [Quick start](#quick-start) · [Packages](#packages) · [MCP](#using-it-from-an-mcp-host) · [Claude Code plugin](#the-claude-code-plugin) · [Design notes](#design-notes) · [Roadmap](ROADMAP.md) · [Changelog](CHANGELOG.md)
 
 </div>
 

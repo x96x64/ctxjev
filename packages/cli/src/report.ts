@@ -18,6 +18,13 @@ export function formatReport(entries: Entry[], decisions: PruneDecision[], savin
   const decisionByEntryId = new Map(decisions.map((d) => [d.entryId, d]))
   const lines: string[] = []
 
+  lines.push(
+    pc.dim(
+      `score: 0–1, higher = more relevant to your goal · ${pc.green('keep')} = as-is, ${pc.yellow('summarize')} = shorten, ${pc.red('drop')} = remove`,
+    ),
+  )
+  lines.push('')
+
   const idWidth = Math.max(2, ...entries.map((e) => e.id.length))
   const roleWidth = Math.max(4, ...entries.map((e) => (e.toolName ?? e.role).length))
 
