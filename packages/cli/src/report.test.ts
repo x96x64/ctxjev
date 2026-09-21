@@ -2,6 +2,13 @@ import { describe, expect, it } from 'vitest'
 import type { Entry, PruneDecision, SavingsReport } from 'ctxjev-core'
 import { formatReport } from './report.js'
 
+// picocolors' TTY/color-support detection differs between environments (a plain local shell vs.
+// a CI runner vs. a real terminal) — stripping ANSI codes before asserting on substrings keeps
+// these tests deterministic regardless of where they run, rather than depending on that detection.
+function stripAnsi(text: string): string {
+  return text.replace(/\x1b\[[0-9;]*m/g, '')
+}
+
 const entries: Entry[] = [
   { id: 'a', role: 'tool', toolName: 'grep', content: 'the important finding', timestamp: 0 },
   { id: 'b', role: 'tool', toolName: 'ls', content: 'unrelated directory listing', timestamp: 1 },
@@ -23,7 +30,7 @@ const savings: SavingsReport = {
 
 describe('formatReport', () => {
   it('includes every entry id and its decision', () => {
-    const report = formatReport(entries, decisions, savings)
+    const report = stripAnsi(formatReport(entries, decisions, savings))
     expect(report).toContain('a')
     expect(report).toContain('b')
     expect(report).toContain('keep')
@@ -31,7 +38,7 @@ describe('formatReport', () => {
   })
 
   it('includes the summary counts and a token-savings percentage', () => {
-    const report = formatReport(entries, decisions, savings)
+    const report = stripAnsi(formatReport(entries, decisions, savings))
     expect(report).toContain('1 kept')
     expect(report).toContain('1 dropped')
     expect(report).toMatch(/40%/)
