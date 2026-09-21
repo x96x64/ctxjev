@@ -4,6 +4,20 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 `ctxjev-claude`: a version bump in one is a version bump in all four, even when only one actually
 changed.
 
+## 0.1.8 — 2026-09-21
+
+- **`ctxjev-claude`**: `preCompact.js` now fails the same way `dist/` itself did in 0.1.7 —
+  `hooks/hooks.json` ran it fine this time, but it then crashed with
+  `ERR_MODULE_NOT_FOUND: Cannot find package 'ctxjev-core'`. `tsc` had only transpiled the bare
+  `import ... from 'ctxjev-core'` as-is; it resolved in this repo purely because pnpm's workspace
+  linking drops a `node_modules/ctxjev-core` symlink here, and Claude Code's installer never runs
+  an install step, so that symlink — and the import — could never exist in an installed copy,
+  confirmed against a real reinstall on this repo's own development machine. `preCompact.js` and
+  `sessionStartCompact.js` are now bundled with esbuild (`packages/claude-plugin/esbuild.build.mjs`)
+  instead of left as `tsc`'s plain per-file output, so both are self-contained and need nothing
+  from `node_modules` at runtime — verified by running the bundled file alone in an empty
+  directory with no `node_modules` at all.
+
 ## 0.1.7 — 2026-09-21
 
 - **`ctxjev-claude`**: `dist/` is now committed instead of gitignored. Claude Code installs a

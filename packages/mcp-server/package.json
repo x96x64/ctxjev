@@ -1,6 +1,6 @@
 {
   "name": "ctxjev-mcp",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "MCP server exposing ctxjev's Jev-based context scoring/pruning as tools for any MCP-capable agent host.",
   "keywords": [
     "mcp",
