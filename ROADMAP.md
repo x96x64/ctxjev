@@ -10,15 +10,29 @@
   parallel against a shared state — see [`jevClient.ts`](packages/core/src/jevClient.ts).
 - `packages/cli`: `ctxjev analyze <transcript.json>` — a plain-text report (entries pruned, estimated
   token savings) or `--json` for machine-readable output.
-- Test fixtures: [`examples/sample-transcripts`](examples/sample-transcripts) — currently one
-  hand-written transcript; redacted excerpts from real Claude Code session `.jsonl` logs are messier
-  and worth adding once the policy/scoring logic is stable enough that fixture churn isn't wasted effort.
+- Test fixtures: [`examples/sample-transcripts`](examples/sample-transcripts) — two hand-labeled
+  transcripts now (`checkout-bug.json`, `memory-leak.json`), each carrying a `groundTruth` field
+  used by the tuning pass below. Redacted excerpts from real Claude Code session `.jsonl` logs
+  would be a further, messier addition — not done yet.
 
 - **Composite scoring** ✅: `scoreEntries()` blends Jev's relevance with each entry's recency within the
   batch (oldest=0, newest=1 — see [`recency.ts`](packages/core/src/recency.ts)) per
   `PruningPolicy.recencyWeight`, producing a `combinedScore` that `pruneContext()` actually acts on.
-  `scoreEntries()` and `pruneContext()` are now separate exports — the MCP server's two planned tools map
-  onto them directly (`score_relevance` → `scoreEntries`, `prune_history` → `pruneContext`).
+  `scoreEntries()` and `pruneContext()` are separate exports — the MCP server's two tools map onto
+  them directly (`score_relevance` → `scoreEntries`, `prune_history` → `pruneContext`).
+- **`recencyWeight` tuned against real data ✅** (2026-09-21, [`eval/run.mjs`](packages/core/eval/run.mjs)):
+  swept `recencyWeight` ∈ {0, 0.05, 0.1, 0.2, 0.3, 0.5} against both hand-labeled fixtures. Aggregate
+  accuracy ties at 76.9% (10/13) for every weight from 0 through 0.2 — but `memory-leak.json`
+  (deliberately adversarial: its root-cause entry is early *and* critical) starts degrading at
+  `w=0.2` (67%, down from 83%) as recency starts dragging that entry's score down despite Jev
+  rating it highly relevant. `w=0.1` (the existing default) sits on the safe side of that cliff
+  with no aggregate cost — kept as-is, not because it was untested, but because testing it found no
+  reason to change it. [`recencyWeight.live.test.ts`](packages/core/src/recencyWeight.live.test.ts)
+  locks this in as a regression test: `DEFAULT_POLICY` must never drop an entry either fixture's
+  ground truth marks relevant. Two fixtures is a thin base for real precision/recall tuning of
+  `dropBelow`/`summarizeBelow` themselves (both borderline misses at low weight are entries sitting
+  just above `dropBelow` despite low ground-truth relevance) — that needs more labeled data before
+  touching those thresholds, and would risk overfitting to 13 data points otherwise.
 
 ## Phase 2 — MCP server ✅
 - `packages/mcp-server`: `score_relevance` (wraps `scoreEntries` — scores only, no decision) and

@@ -17,7 +17,8 @@
   ],
   "scripts": {
     "build": "tsc -b",
-    "test": "vitest run"
+    "test": "vitest run",
+    "eval": "node eval/run.mjs"
   },
   "dependencies": {
     "@typesafe-ai/sdk": "^0.6.0",

@@ -1,0 +1,55 @@
+{
+  "goal": "Fix a memory leak causing the server to crash after roughly 6 hours of uptime.",
+  "entries": [
+    {
+      "id": "e1",
+      "role": "tool",
+      "toolName": "bash",
+      "content": "ran a heap snapshot diff across two hours of uptime — retained size dominated by EventEmitter listeners on the websocket connection object, growing linearly with connection count",
+      "timestamp": 1758100001000
+    },
+    {
+      "id": "e2",
+      "role": "tool",
+      "toolName": "read",
+      "content": "read package.json — saw the dependency list and script names",
+      "timestamp": 1758100002000
+    },
+    {
+      "id": "e3",
+      "role": "tool",
+      "toolName": "bash",
+      "content": "ran: git log --oneline -5 — recent commits were unrelated copy-editing on the marketing site",
+      "timestamp": 1758100003000
+    },
+    {
+      "id": "e4",
+      "role": "tool",
+      "toolName": "read",
+      "content": "read README.md — general project setup instructions, nothing about the websocket handler",
+      "timestamp": 1758100004000
+    },
+    {
+      "id": "e5",
+      "role": "tool",
+      "toolName": "bash",
+      "content": "ran: ls public/audio — unrelated, was checking something else earlier in the session",
+      "timestamp": 1758100005000
+    },
+    {
+      "id": "e6",
+      "role": "tool",
+      "toolName": "bash",
+      "content": "ran an 8-hour load test after adding removeListener() cleanup in the websocket disconnect handler — memory stayed flat, no crash",
+      "timestamp": 1758100006000
+    }
+  ],
+  "groundTruth": {
+    "e1": true,
+    "e2": false,
+    "e3": false,
+    "e4": false,
+    "e5": false,
+    "e6": true
+  }
+}

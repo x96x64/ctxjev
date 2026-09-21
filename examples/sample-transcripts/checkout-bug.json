@@ -49,5 +49,14 @@
       "content": "ran: ls public/audio — unrelated, was checking something else earlier in the session",
       "timestamp": 1758000007000
     }
-  ]
+  ],
+  "groundTruth": {
+    "e1": false,
+    "e2": false,
+    "e3": true,
+    "e4": false,
+    "e5": true,
+    "e6": true,
+    "e7": false
+  }
 }

@@ -228,9 +228,15 @@ here — both are how this project dogfoods itself.
 - **`combinedScore` blends the two linearly**, per `PruningPolicy.recencyWeight`
   (`relevance * (1 - w) + recency * w`, [`combineScore()`](packages/core/src/policy.ts)) — a
   weight of `0` ignores recency entirely and a weight of `1` ignores Jev entirely. The default
-  (`0.1`) leans heavily on Jev's judgment with recency only breaking close ties. This is a
-  deliberately simple starting point, not a tuned model — see the "not yet done" notes in
-  [`ROADMAP.md`](ROADMAP.md) for what a real tuning pass would need.
+  (`0.1`) is now backed by [an actual sweep](packages/core/eval/run.mjs) against two hand-labeled
+  fixtures, one of them deliberately adversarial (a root-cause entry that's both early *and*
+  critical): accuracy ties from `w=0` to `w=0.2`, but the adversarial fixture starts degrading
+  right at `w=0.2` as recency drags that entry's score down despite Jev rating it highly relevant.
+  `0.1` sits on the safe side of that cliff for free — see
+  [`recencyWeight.live.test.ts`](packages/core/src/recencyWeight.live.test.ts), which turns that
+  finding into a standing regression test. Two fixtures is still thin evidence for tuning
+  `dropBelow`/`summarizeBelow` themselves — see [ROADMAP.md](ROADMAP.md) for why those stay
+  untouched for now.
 - **Token counts are computed, not judged.** [`tokenEstimate.ts`](packages/core/src/tokenEstimate.ts)
   uses a real tokenizer ([`gpt-tokenizer`](https://www.npmjs.com/package/gpt-tokenizer)) — Jev is
   explicitly bad at arithmetic, so this project doesn't ask it to count anything. Every "tokens
@@ -270,6 +276,18 @@ handling, report formatting) runs with no key and no network access. If your cha
 `TYPESAFE_API_KEY` first so the corresponding `.live.test.ts` suite actually runs instead of
 skipping — a PR that only touches those files without a live test run passing locally is likely to
 get asked to re-run with a key before review.
+
+If your change touches `PruningPolicy` defaults or the scoring/recency blend specifically, add a
+labeled fixture to [`examples/sample-transcripts`](examples/sample-transcripts) (a `groundTruth`
+field, same shape as the existing two) and run the sweep before opening a PR:
+
+```bash
+cd packages/core && pnpm eval
+```
+
+A PR that changes `DEFAULT_POLICY` without new sweep numbers to back it up is going back to
+"deliberately simple starting point, not tuned" — which is exactly the state this project moved
+away from once. Adding a fixture is cheap; regressing the honesty of that default isn't.
 
 ## Acknowledgments
 
