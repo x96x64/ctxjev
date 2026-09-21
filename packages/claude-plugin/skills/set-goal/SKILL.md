@@ -1,5 +1,5 @@
 ---
-description: Set the goal ctxjev scores context relevance against, instead of guessing it from your last message.
+description: Point ctxjev's context scoring at a specific goal instead of guessing from your most recent message — use this when your session's focus shifts, or right before a compaction you know is coming, so the reminder afterward is aimed at what actually matters.
 ---
 
 The user is invoking `/ctxjev:set-goal <text>`. Take everything after `set-goal` as the goal text

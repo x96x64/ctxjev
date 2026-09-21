@@ -1,8 +1,11 @@
 {
   "name": "ctxjev",
-  "description": "Preserves the context Jev thinks matters most through Claude Code's own compaction, by scoring the transcript at PreCompact and re-injecting a digest at SessionStart.",
+  "displayName": "ctxjev",
+  "description": "Keeps what matters through Claude Code's own compaction — scores your session's context with Jev right before compaction runs, then hands the highest-scoring entries back as a reminder the moment it finishes. No configuration required; set an explicit goal with /ctxjev:set-goal when you want scoring aimed at something specific.",
   "version": "0.1.2",
-  "author": { "name": "x96x64" },
+  "author": { "name": "x96x64", "url": "https://github.com/x96x64" },
   "homepage": "https://github.com/x96x64/ctxjev/tree/main/packages/claude-plugin#readme",
-  "license": "MIT"
+  "repository": "https://github.com/x96x64/ctxjev",
+  "license": "MIT",
+  "keywords": ["context", "compaction", "pruning", "jev", "tokens", "memory"]
 }

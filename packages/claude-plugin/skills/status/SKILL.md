@@ -1,5 +1,5 @@
 ---
-description: Show what ctxjev currently has cached — the active goal and the last PreCompact scoring pass.
+description: Check what ctxjev is currently doing without waiting for a real compaction to trigger it — shows the active scoring goal and every entry from the last PreCompact pass with its relevance score, highest first. The fastest way to confirm the plugin is actually working.
 ---
 
 The user is invoking `/ctxjev:status`. Report, concisely:
