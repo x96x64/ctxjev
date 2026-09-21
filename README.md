@@ -323,9 +323,9 @@ Anthropic.
 
 ## License
 
-[MIT](LICENSE) — do what you like with this code, including in a commercial product, as long as
-the license text and copyright notice in [`LICENSE`](LICENSE) ship with it. There is no warranty
-of any kind; see the license text for the full disclaimer.
+[MIT](LICENSE): free to use, modify, and distribute, including in a commercial product, as long as
+the license text and copyright notice in [`LICENSE`](LICENSE) ship with it. It comes with no
+warranty of any kind; see the license text for the full disclaimer.
 
 This choice matches every package `ctxjev` currently depends on, so there is nothing to reconcile
 if you vendor or fork any of it:

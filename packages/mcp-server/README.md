@@ -91,4 +91,6 @@ Full docs, design notes, and per-host setup live in the main repo:
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE): free to use, modify, and distribute, including in a commercial product, as long
+as the license text and copyright notice ship with it. See the [main repo](https://github.com/x96x64/ctxjev#license)
+for how this matches every dependency `ctxjev` currently uses.
