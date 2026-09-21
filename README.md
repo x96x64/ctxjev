@@ -15,7 +15,7 @@ useful, before your host's own compaction has to summarize its way through it.
 [![pnpm](https://img.shields.io/badge/maintained%20with-pnpm-F69220?logo=pnpm&logoColor=white)](pnpm-workspace.yaml)
 [![status: early development](https://img.shields.io/badge/status-early%20development-orange)](ROADMAP.md)
 
-[Why](#why) · [How it works](#how-it-works) · [Quick start](#quick-start) · [Packages](#packages) · [MCP](#using-it-from-an-mcp-host) · [Design notes](#design-notes) · [Roadmap](ROADMAP.md)
+[Why](#why) · [How it works](#how-it-works) · [Quick start](#quick-start) · [Packages](#packages) · [MCP](#using-it-from-an-mcp-host) · [Claude Code plugin](#the-claude-code-plugin) · [Design notes](#design-notes) · [Roadmap](ROADMAP.md)
 
 </div>
 
@@ -97,7 +97,7 @@ engine gets used.
 | [`ctxjev-core`](packages/core) | The engine — `pruneContext(entries, goal, policy)`. Everything else wraps this. | ✅ working |
 | [`ctxjev-cli`](packages/cli) | `ctxjev analyze <transcript.json>` — a plain-text report, no UI. | ✅ working |
 | [`ctxjev-mcp`](packages/mcp-server) | MCP server exposing `score_relevance`/`prune_history` as tools, for Claude Code, Codex, GitHub Copilot, and other MCP-capable hosts. | ✅ working |
-| [`ctxjev-claude`](packages/claude-plugin) | Claude Code–specific plugin: a hook that prunes ahead of Claude Code's own compaction, plus an on-demand inspection skill. | 🚧 planned |
+| [`ctxjev-claude`](packages/claude-plugin) | Claude Code plugin: scores context with Jev at `PreCompact` and re-injects a digest at `SessionStart`, plus two inspection skills. | ✅ working |
 
 See [`ROADMAP.md`](ROADMAP.md) for the phase-by-phase plan, including why an Xcode adapter is a
 research spike rather than a commitment.
@@ -144,8 +144,40 @@ Calling `prune_history` with two entries — one obviously relevant to the goal,
 *(real response body, captured against the live API via an in-process MCP client — the exact
 call is [`server.live.test.ts`](packages/mcp-server/src/server.live.test.ts).)*
 
+## The Claude Code plugin
+
+Claude Code hooks can *read* the conversation transcript but **cannot rewrite it** — there's no
+API for a hook to reach in and drop old entries before compaction summarizes them away. So
+`ctxjev-claude` doesn't try to. It uses the pattern Claude Code actually supports: score at
+`PreCompact`, cache the highest-relevance entries, and re-inject a digest of them at
+`SessionStart` (`matcher: "compact"`) — the one documented way a hook can put content back into
+context once compaction has already smoothed over what was there.
+
+```
+PreCompact  → score every entry with Jev, cache the top few to .ctxjev/preserved-context.json
+  (compaction happens — out of this plugin's control)
+SessionStart (compact) → read that cache, print a digest — Claude Code adds it as a system reminder
+```
+
+The goal to score against is either set explicitly (`/ctxjev:set-goal <text>`, written to
+`.ctxjev/goal.txt`) or, if you never set one, inferred from your most recent chat message.
+`/ctxjev:status` shows the current goal and the last scoring pass without waiting for a real
+compaction to trigger one.
+
+Try it locally with `claude --plugin-dir packages/claude-plugin`. This repo's own
+[`.mcp.json`](.mcp.json) also wires `ctxjev-mcp` (see above) into any Claude Code session opened
+here — both are how this project dogfoods itself.
+
 ## Design notes
 
+- **Claude Code's transcript parser is isolated on purpose.**
+  [`transcript.ts`](packages/claude-plugin/src/transcript.ts) parses Claude Code's own internal
+  session-log format — undocumented, and not guaranteed stable across versions. Keeping every bit
+  of that parsing in one module (rather than letting assumptions about its shape leak into
+  `preCompact.ts` or `select.ts`) means a Claude Code update that changes the format is a one-file
+  fix, not a hunt across the package. It's also the reason `packages/claude-plugin`'s original
+  design — a hook that edits the transcript directly — doesn't exist: hooks only get read access
+  to it (see [ROADMAP.md](ROADMAP.md)'s Phase 3 for what that ruled out and what replaced it).
 - **Scoring and deciding are two different functions, on purpose.**
   [`scoreEntries()`](packages/core/src/index.ts) calls Jev once per chunk of entries and returns a
   `relevance`/`recency`/`combinedScore` triple per entry — no opinion about what to do with it.
@@ -179,12 +211,14 @@ call is [`server.live.test.ts`](packages/mcp-server/src/server.live.test.ts).)*
   zod schemas, and response shape. Both were also run once as a genuine subprocess over real
   stdio (`StdioServerTransport` ↔ `StdioClientTransport`) during development — the same transport
   path a host like Claude Code would use — though that run isn't part of the automated suite.
-- **Live tests are opt-in.** Every test file ending in `.live.test.ts`
-  (`packages/core/src/jevClient.live.test.ts`,
-  `packages/mcp-server/src/{tools,server}.live.test.ts`) calls the real Jev API and is skipped
-  automatically when `TYPESAFE_API_KEY` isn't set — cloning this repo and running `pnpm test` with
-  no key still passes, on the pure-logic coverage alone. CI never sets the key, so it's exercising
-  exactly that path on every push.
+- **Live tests are opt-in.** Every test file ending in `.live.test.ts` across all four packages
+  (`core`'s `jevClient`, `mcp-server`'s `tools`/`server`, `claude-plugin`'s `select`) calls the
+  real Jev API and is skipped automatically when `TYPESAFE_API_KEY` isn't set — cloning this repo
+  and running `pnpm test` with no key still passes, on the pure-logic coverage alone. CI never sets
+  the key, so it's exercising exactly that path on every push.
+- **Never run anything here against this repo's own real Claude Code session transcripts.** They
+  can contain secrets pasted into chat, and scoring sends entry content to the live Jev API — see
+  the warning in [`CLAUDE.md`](CLAUDE.md). Use a synthetic transcript instead.
 
 ## Contributing
 
@@ -199,9 +233,9 @@ pnpm install && pnpm build && pnpm test
 ```
 
 `pnpm test` alone is enough to validate a change that doesn't touch Jev-calling code — the
-pure-logic suite (chunking, policy math, recency, savings, transcript parsing, report formatting)
-runs with no key and no network access. If your change *does* touch `jevClient.ts`, `tools.ts`, or
-`server.ts`, get a free key at
+pure-logic suite (chunking, policy math, recency, savings, transcript parsing, goal/cache
+handling, report formatting) runs with no key and no network access. If your change *does* touch
+`jevClient.ts`, `tools.ts`, `server.ts`, or `select.ts`, get a free key at
 [console.typesafe.ai/settings/keys](https://console.typesafe.ai/settings/keys) and export
 `TYPESAFE_API_KEY` first so the corresponding `.live.test.ts` suite actually runs instead of
 skipping — a PR that only touches those files without a live test run passing locally is likely to

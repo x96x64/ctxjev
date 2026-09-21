@@ -1,0 +1,8 @@
+{
+  "name": "ctxjev",
+  "description": "Preserves the context Jev thinks matters most through Claude Code's own compaction, by scoring the transcript at PreCompact and re-injecting a digest at SessionStart.",
+  "version": "0.0.0",
+  "author": { "name": "x96x64" },
+  "homepage": "https://github.com/x96x64/ctxjev/tree/main/packages/claude-plugin#readme",
+  "license": "MIT"
+}

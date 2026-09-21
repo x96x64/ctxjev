@@ -29,14 +29,43 @@
   ([`server.live.test.ts`](packages/mcp-server/src/server.live.test.ts)) exercising the real MCP
   wiring, and a manual real-subprocess run over actual stdio (`StdioServerTransport`/
   `StdioClientTransport`) — both pass against the live Jev API.
-- **Not yet done**: an actual `.mcp.json` entry wiring this into a real Claude Code session — the
-  subprocess test above proves the same transport path Claude Code would use, but hasn't been
-  confirmed inside Claude Code itself. Do that before assuming Codex/Copilot will "just work" too.
+- A project-level [`.mcp.json`](.mcp.json) now wires `ctxjev` into any Claude Code session opened
+  in this repo (`${TYPESAFE_API_KEY}` expanded from the environment Claude Code itself was
+  launched in — no secret in the committed file). **Not yet verified**: MCP servers load at
+  session start, so this needs a fresh Claude Code session (with the key actually exported first)
+  to confirm the tools show up for real — proving that is still open, and is a precondition for
+  assuming Codex/Copilot will "just work" too.
 
-## Phase 3 — Claude Code plugin
-- `packages/claude-plugin`: a hook that runs pruning before Claude Code's own compaction kicks in, and a
-  skill for manually inspecting/triggering a prune mid-session.
-- Dogfood on real sessions.
+## Phase 3 — Claude Code plugin ✅ (design corrected)
+**The original plan here was wrong.** Research into Claude Code's actual hooks system
+(2026-09-21) found that hooks can *read* the transcript (via a `transcript_path` they're handed)
+but **cannot modify or rewrite it** — there is no way for a hook to reach into Claude Code's own
+compaction and selectively drop entries before it summarizes. "A hook that prunes ahead of Claude
+Code's own compaction" was never buildable as originally worded.
+
+What Claude Code actually supports, and what `packages/claude-plugin` builds instead: the
+documented **PreCompact / SessionStart(matcher: "compact") re-injection pattern**.
+
+- **`PreCompact` hook** ([`preCompact.ts`](packages/claude-plugin/src/preCompact.ts)): fires right
+  before compaction. Reads `transcript_path`, parses Claude Code's own transcript format
+  ([`transcript.ts`](packages/claude-plugin/src/transcript.ts) — internal/undocumented, isolated
+  to one module since it may change between Claude Code versions), resolves a goal
+  ([`goal.ts`](packages/claude-plugin/src/goal.ts) — explicit `.ctxjev/goal.txt` if set via the
+  `/ctxjev:set-goal` skill, else the most recent user message), scores every entry with Jev, and
+  caches the top few by combined score to `.ctxjev/preserved-context.json`. Never blocks
+  compaction and never throws outward — a failure here (including a missing API key) is a silent
+  no-op, since a bug in this plugin must never be able to break the user's actual session.
+- **`SessionStart` hook, `matcher: "compact"`**
+  ([`sessionStartCompact.ts`](packages/claude-plugin/src/sessionStartCompact.ts)): fires right
+  after compaction finishes. Reads that cache and prints a digest to stdout — Claude Code adds
+  this text to context as a system reminder, the one documented way a hook can put content *back*
+  into context after compaction smooths it over.
+- **Skills**: `/ctxjev:set-goal <text>` (writes the explicit goal) and `/ctxjev:status` (shows the
+  current goal and the last `PreCompact` scoring pass) — both plain `SKILL.md` files, no code.
+- Verified end-to-end against a synthetic transcript (real `preCompact.js`/`sessionStartCompact.js`
+  subprocesses, piped fake stdin, against the live Jev API) — **not yet against a real Claude Code
+  session**, for the same reason as Phase 2's `.mcp.json`: this requires a fresh session with the
+  key exported, which this development session can't do to itself.
 
 ## Phase 4 — Further hosts (research spikes before committing)
 - **Codex CLI**, **GitHub Copilot**: both are plausible MCP-server consumers — confirm each host's current

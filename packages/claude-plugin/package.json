@@ -2,8 +2,18 @@
   "name": "ctxjev-claude",
   "version": "0.0.0",
   "private": true,
-  "description": "Claude Code plugin: proactive context pruning via ctxjev-core, ahead of Claude Code's own compaction.",
+  "description": "Claude Code plugin: preserves Jev-scored context through Claude Code's own compaction.",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run"
+  },
   "dependencies": {
     "ctxjev-core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.9"
   }
 }
