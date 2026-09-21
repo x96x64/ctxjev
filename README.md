@@ -40,7 +40,7 @@ once and discard nuance along with the noise.
 > typed output. See [`CLAUDE.md`](CLAUDE.md) for the full list of things this project deliberately
 > never asks Jev to do.
 
-## How it works
+## How It Works
 
 Every entry becomes its own question, and every question in a batch is evaluated **in parallel
 against one shared state**, so Jev's cost barely grows with the number of questions: scoring 50
@@ -88,7 +88,7 @@ for a synthetic Claude Code transcript. **Never point this at a real session log
 contain secrets pasted into chat, and entry content is sent to the live Jev API. See
 [`CLAUDE.md`](CLAUDE.md).
 
-## Quick start
+## Quick Start
 
 ```bash
 npm install -g ctxjev-cli
@@ -120,7 +120,7 @@ that engine gets used.
 | [`ctxjev-mcp`](packages/mcp-server) ([npm](https://www.npmjs.com/package/ctxjev-mcp)) | MCP server exposing `score_relevance`/`prune_history` as tools, for Claude Code, Codex, GitHub Copilot, and other MCP-capable hosts. | ✅ published |
 | [`ctxjev-claude`](packages/claude-plugin) | Claude Code plugin: scores context with Jev at `PreCompact` and re-injects a digest at `SessionStart`, plus two inspection skills. | ✅ working (not on npm; see below) |
 
-## Using it from an MCP host
+## Using It From an MCP Host
 
 `ctxjev-mcp` speaks plain stdio MCP, so no per-host adapter is necessary. Every host below runs
 the exact same binary (`node packages/mcp-server/dist/index.js`); only the config shape differs.
@@ -203,7 +203,7 @@ Calling `prune_history` with two entries, one obviously relevant to the goal and
 This is a real response, captured against the live API through an in-process MCP client. The
 exact call lives in [`server.live.test.ts`](packages/mcp-server/src/server.live.test.ts).
 
-## The Claude Code plugin
+## The Claude Code Plugin
 
 Everything above (the MCP server, and `ctxjev-cli`) already works the same way with Claude Code,
 Codex, GitHub Copilot, or any other MCP-capable host — none of it is Claude Code-specific. This
@@ -244,7 +244,7 @@ available skills right after adding the marketplace.
 not `npm install`. This repo's own [`.mcp.json`](.mcp.json) also wires `ctxjev-mcp` into any Claude
 Code session opened here, so this project uses its own tools on its own repository.
 
-## Design notes
+## Design Notes
 
 - **Claude Code's transcript parser lives in `core`, isolated, on purpose.**
   [`claudeCodeTranscript.ts`](packages/core/src/claudeCodeTranscript.ts) parses Claude Code's own
