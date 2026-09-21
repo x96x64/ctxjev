@@ -16,9 +16,8 @@ useful, before your host's own compaction has to summarize its way through it.
 [![Node](https://img.shields.io/badge/node-%3E%3D20-339933?logo=node.js&logoColor=white)](package.json)
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)](tsconfig.base.json)
 [![pnpm](https://img.shields.io/badge/maintained%20with-pnpm-F69220?logo=pnpm&logoColor=white)](pnpm-workspace.yaml)
-[![status: early development](https://img.shields.io/badge/status-early%20development-orange)](ROADMAP.md)
 
-[Why](#why) · [How it works](#how-it-works) · [Quick start](#quick-start) · [Packages](#packages) · [MCP](#using-it-from-an-mcp-host) · [Claude Code plugin](#the-claude-code-plugin) · [Design notes](#design-notes) · [Roadmap](ROADMAP.md) · [Changelog](CHANGELOG.md)
+[Why](#why) · [How it works](#how-it-works) · [Quick start](#quick-start) · [Packages](#packages) · [MCP](#using-it-from-an-mcp-host) · [Claude Code plugin](#the-claude-code-plugin) · [Design notes](#design-notes) · [Changelog](CHANGELOG.md)
 
 </div>
 
@@ -29,23 +28,22 @@ useful, before your host's own compaction has to summarize its way through it.
 Long-running agent loops — coding agents, browser agents, anything with a growing tool-call
 history — accumulate context faster than it stays useful. Most of that history isn't hard to
 judge: *"is this old tool result still relevant to the current task?"* is exactly the kind of
-fast, cheap, structured decision [Jev](https://typesafe.ai) is built for — a decision model that
-returns typed judgments (a yes/no probability, a choice, a score) in ~100ms instead of writing a
-sentence about it.
+fast, cheap, structured decision Jev is built for, a decision model that returns typed judgments
+(a yes/no probability, a choice, a score) in about 100ms instead of writing a sentence about it.
 
 `ctxjev` asks Jev that question continuously, so an agent's context stays close to what it
-actually needs — before a host's own summarization has to compress its way through everything at
-once, discarding nuance along with the noise.
+actually needs, before a host's own summarization has to compress its way through everything at
+once and discard nuance along with the noise.
 
-> Jev can't see images, do arithmetic, or generate text. `ctxjev` never asks it to — token
-> counting happens in code, and the keep/drop/summarize decision is a plain threshold applied to
-> Jev's typed output. See [`CLAUDE.md`](CLAUDE.md) for the full list of things this project
-> deliberately never asks Jev to do.
+> Jev can't see images, do arithmetic, or generate text. `ctxjev` never asks it to: token counting
+> happens in code, and the keep/drop/summarize decision is a plain threshold applied to Jev's
+> typed output. See [`CLAUDE.md`](CLAUDE.md) for the full list of things this project deliberately
+> never asks Jev to do.
 
 ## How it works
 
 Every entry becomes its own question, and every question in a batch is evaluated **in parallel
-against one shared state** — Jev's cost barely grows with the number of questions, so scoring 50
+against one shared state**, so Jev's cost barely grows with the number of questions: scoring 50
 tool-call entries costs about the same as scoring one.
 
 ```ts
@@ -73,18 +71,17 @@ $ ctxjev analyze examples/sample-transcripts/checkout-bug.json
 Jev cost: 859 input tokens, 123 output tokens (free) — ~$0.000036
 ```
 
-*(real output, against the sample transcript in this repo — Jev is probabilistic, so exact numbers
-will vary slightly between runs. "score" is Jev's relevance blended with each entry's recency
-within the batch — see [Design notes](#design-notes). The cost line is computed from what Jev's
-API actually reported using that request, not estimated.)*
+This is real output against the sample transcript in this repo. Jev is probabilistic, so exact
+numbers vary slightly between runs. "Score" is Jev's relevance blended with each entry's recency
+within the batch, described further in [Design notes](#design-notes). The cost line is computed
+from what Jev's API actually reported for that request, not estimated.
 
-`ctxjev analyze` also accepts a real Claude Code session transcript directly — point it at a
+`ctxjev analyze` also accepts a real Claude Code session transcript directly. Point it at a
 `.jsonl` file (`transcript_path`, or anything under `~/.claude/projects`) instead of ctxjev's own
 format, and the goal is inferred from your most recent chat message unless `--goal` overrides it.
 See [`examples/sample-transcripts/claude-code-session.jsonl`](examples/sample-transcripts/claude-code-session.jsonl)
-for a synthetic one — **never point this at a real session log**, since real ones can contain
-secrets pasted into chat and entry content gets sent to the live Jev API (see
-[`CLAUDE.md`](CLAUDE.md)).
+for a synthetic one. **Never point this at a real session log**: real ones can contain secrets
+pasted into chat, and entry content is sent to the live Jev API. See [`CLAUDE.md`](CLAUDE.md).
 
 ## Quick start
 
@@ -95,7 +92,7 @@ export TYPESAFE_API_KEY=...   # console.typesafe.ai/settings/keys — no waitlis
 ctxjev analyze transcript.jsonl --goal "Fix the checkout double-charge bug."
 ```
 
-Or from a clone, to run the exact sample transcript below:
+Or from a clone, to run the exact sample transcript above:
 
 ```bash
 git clone https://github.com/x96x64/ctxjev.git
@@ -108,8 +105,8 @@ node packages/cli/dist/index.js analyze examples/sample-transcripts/checkout-bug
 
 ## Packages
 
-This is a pnpm workspace monorepo: one host-agnostic engine, and a thin adapter per place that
-engine gets used.
+This is a pnpm workspace monorepo: one host-agnostic engine, and a thin adapter for each place
+that engine gets used.
 
 | Package | What it is | Status |
 | --- | --- | --- |
@@ -118,50 +115,46 @@ engine gets used.
 | [`ctxjev-mcp`](packages/mcp-server) ([npm](https://www.npmjs.com/package/ctxjev-mcp)) | MCP server exposing `score_relevance`/`prune_history` as tools, for Claude Code, Codex, GitHub Copilot, and other MCP-capable hosts. | ✅ published |
 | [`ctxjev-claude`](packages/claude-plugin) | Claude Code plugin: scores context with Jev at `PreCompact` and re-injects a digest at `SessionStart`, plus two inspection skills. | ✅ working (not on npm — see below) |
 
-See [`ROADMAP.md`](ROADMAP.md) for the phase-by-phase plan, including why an Xcode adapter is a
-research spike rather than a commitment.
-
 ## Using it from an MCP host
 
-`ctxjev-mcp` speaks plain stdio MCP — no per-host adapter turned out to be necessary. Every host
-below runs the exact same binary (`node packages/mcp-server/dist/index.js`); only the config
-shape differs.
+`ctxjev-mcp` speaks plain stdio MCP, so no per-host adapter is necessary. Every host below runs
+the exact same binary (`node packages/mcp-server/dist/index.js`); only the config shape differs.
 
-**Claude Code** — this repo ships a project-level [`.mcp.json`](.mcp.json), but in practice that
-scope needed an approval step that never surfaced for us (Claude Code v2.1.278) — `claude mcp
-list` just silently omitted the server, with no prompt and no error. `claude mcp add` (local
-scope) worked immediately with no friction:
+**Claude Code** — this repo ships a project-level [`.mcp.json`](.mcp.json). In practice, that scope
+requires an approval step that does not currently surface in the UI (tested against Claude Code
+v2.1.278): `claude mcp list` silently omits the server, with no prompt and no error. `claude mcp
+add` at local scope works immediately with no friction:
 
 ```bash
 claude mcp add ctxjev --env TYPESAFE_API_KEY=... -- node /absolute/path/to/ctxjev/packages/mcp-server/dist/index.js
 ```
 
-If you go this route in a repo that already has the project-level `.mcp.json`, `claude mcp list`
-will warn about the same server being defined in two scopes — harmless for a local stdio server
-(the warning is really about OAuth token storage, which doesn't apply here), but
-`claude mcp remove ctxjev -s project` clears the noise if it bothers you.
+If you use this route in a repo that already has the project-level `.mcp.json`, `claude mcp list`
+will warn that the same server is defined in two scopes. That warning concerns OAuth token
+storage, which does not apply to a local stdio server, so it is safe to ignore, or run `claude mcp
+remove ctxjev -s project` to clear it.
 
 **Codex CLI** (also shared with its VS Code extension and desktop app) — one command, no file to
-hand-edit. Verified for real against `codex-cli` v0.155.1 (`codex mcp get ctxjev` confirms the
-command/args/env registered correctly):
+hand-edit. Verified against `codex-cli` v0.155.1: `codex mcp get ctxjev` confirms the command,
+args, and env are registered correctly.
 
 ```bash
 codex mcp add ctxjev --env TYPESAFE_API_KEY=... -- node /absolute/path/to/ctxjev/packages/mcp-server/dist/index.js
 ```
 
-Codex also has its own plugin marketplace, separate from Claude Code's — this repo carries an
-[Agent Plugins](https://agent-plugins.org)-format bundle too
-([`.agents/plugins/marketplace.json`](.agents/plugins/marketplace.json)):
+Codex also has its own plugin marketplace, separate from Claude Code's. This repo carries an
+[Agent Plugins](https://agent-plugins.org)-format bundle too, at
+[`.agents/plugins/marketplace.json`](.agents/plugins/marketplace.json):
 
 ```bash
 codex plugin marketplace add x96x64/ctxjev
 codex plugin add ctxjev@ctxjev-plugins
 ```
 
-Verified for real: `codex mcp list` afterward shows `ctxjev` registered with the exact
-`npx ctxjev-mcp` command and environment the plugin bundle declares.
+Afterward, `codex mcp list` shows `ctxjev` registered with the exact `npx ctxjev-mcp` command and
+environment the plugin bundle declares.
 
-**GitHub Copilot** (VS Code, agent mode) — `.vscode/mcp.json`. Note the top-level key is
+**GitHub Copilot** (VS Code, agent mode) — `.vscode/mcp.json`. Note that the top-level key is
 `servers`, not Claude Code's `mcpServers`:
 
 ```json
@@ -177,18 +170,14 @@ Verified for real: `codex mcp list` afterward shows `ctxjev` registered with the
 }
 ```
 
-*(Xcode is a deliberate absence here — see [ROADMAP.md](ROADMAP.md)'s Phase 4. It turned out to be
-an MCP* server *exposing Xcode's own tools to agents like Claude Code/Codex, not a client that
-would consume a third-party server like this one.)*
-
 It exposes two tools:
 
 - **`score_relevance`** — `{ goal, entries, recencyWeight? }` → a relevance/recency/combined score
-  per entry plus Jev token usage, no decision made. Wraps `scoreEntries()`.
+  per entry plus Jev token usage, with no decision made. Wraps `scoreEntries()`.
 - **`prune_history`** — the same input plus `{ dropBelow?, summarizeBelow? }` → a decision
   (`keep`/`drop`/`summarize`) per entry, a savings report, and Jev token usage. Wraps `pruneContext()`.
 
-Calling `prune_history` with two entries — one obviously relevant to the goal, one not — returns:
+Calling `prune_history` with two entries, one obviously relevant to the goal and one not, returns:
 
 ```json
 {
@@ -204,17 +193,17 @@ Calling `prune_history` with two entries — one obviously relevant to the goal,
 }
 ```
 
-*(real response body, captured against the live API via an in-process MCP client — the exact
-call is [`server.live.test.ts`](packages/mcp-server/src/server.live.test.ts).)*
+This is a real response, captured against the live API through an in-process MCP client. The
+exact call lives in [`server.live.test.ts`](packages/mcp-server/src/server.live.test.ts).
 
 ## The Claude Code plugin
 
-Claude Code hooks can *read* the conversation transcript but **cannot rewrite it** — there's no
-API for a hook to reach in and drop old entries before compaction summarizes them away. So
-`ctxjev-claude` doesn't try to. It uses the pattern Claude Code actually supports: score at
-`PreCompact`, cache the highest-relevance entries, and re-inject a digest of them at
-`SessionStart` (`matcher: "compact"`) — the one documented way a hook can put content back into
-context once compaction has already smoothed over what was there.
+Claude Code hooks can *read* the conversation transcript but cannot rewrite it: there is no API
+for a hook to remove old entries before compaction summarizes them away. `ctxjev-claude` works
+within that constraint rather than around it, using the one pattern Claude Code supports: score
+every entry at `PreCompact`, cache the highest-relevance ones, and re-inject a digest of them at
+`SessionStart` (`matcher: "compact"`), the only documented way a hook can put content back into
+context after compaction has already run.
 
 ```
 PreCompact  → score every entry with Jev, cache the top few to .ctxjev/preserved-context.json
@@ -234,136 +223,111 @@ compaction to trigger one.
 ```
 
 This repo carries a [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) at its
-root pointing at the `packages/claude-plugin` subdirectory, so the desktop app can install it
-directly — no local clone needed. Verified: `/ctxjev:set-goal` and `/ctxjev:status` show up as
-available skills after adding the marketplace. (During development, `claude --plugin-dir
-packages/claude-plugin` from a clone works too — that's still the only way to iterate on the
-plugin's own source.)
+root, pointing at the `packages/claude-plugin` subdirectory, so the desktop app can install it
+directly with no local clone needed. Verified: `/ctxjev:set-goal` and `/ctxjev:status` show up as
+available skills right after adding the marketplace.
 
-`ctxjev-claude` isn't on npm — Claude Code plugins install through the marketplace mechanism
-above, not `npm install`. This repo's own [`.mcp.json`](.mcp.json) also wires `ctxjev-mcp` (see
-above) into any Claude Code session opened here — both are how this project dogfoods itself.
+`ctxjev-claude` isn't on npm; Claude Code plugins install through the marketplace mechanism above,
+not `npm install`. This repo's own [`.mcp.json`](.mcp.json) also wires `ctxjev-mcp` into any Claude
+Code session opened here, so this project uses its own tools on its own repository.
 
 ## Design notes
 
 - **Claude Code's transcript parser lives in `core`, isolated, on purpose.**
   [`claudeCodeTranscript.ts`](packages/core/src/claudeCodeTranscript.ts) parses Claude Code's own
-  internal session-log format — undocumented, and not guaranteed stable across versions. It moved
-  here from `packages/claude-plugin` once `ctxjev-cli` needed it too: both packages import the same
-  function rather than each keeping (and drifting from) their own copy. Keeping every bit of that
-  parsing in one module means a Claude Code update that changes the format is a one-file fix, not a
-  hunt across two packages. It's also the reason `packages/claude-plugin`'s original design — a
-  hook that edits the transcript directly — doesn't exist: hooks only get read access to it (see
-  [ROADMAP.md](ROADMAP.md)'s Phase 3 for what that ruled out and what replaced it). A subagent's
-  own private conversation (`isSidechain: true`) is excluded entirely, not merged in — that content
-  already appears in the main thread as an ordinary tool call, so including it too would score
-  content outside what the parent session's compaction actually operates on (a real bug this
-  parser had until Phase 5).
+  internal session-log format, which is undocumented and not guaranteed stable across versions. It
+  lives in `core` rather than in `packages/claude-plugin` because `ctxjev-cli` needs it too: both
+  packages import the same function instead of each keeping, and drifting from, their own copy.
+  Keeping every bit of that parsing in one module means a Claude Code format change is a one-file
+  fix rather than a hunt across two packages. It's also why `packages/claude-plugin` doesn't try to
+  edit the transcript directly: hooks only get read access to it. A subagent's own private
+  conversation (`isSidechain: true`) is excluded entirely rather than merged in, since that content
+  already appears in the main thread as an ordinary tool call; merging it in would double-count
+  content the parent session's compaction never actually operates on.
 - **No hand-rolled retry logic.** `@typesafe-ai/sdk`'s `TypeSafeClient` already retries connection
-  failures, timeouts, and 408/429/500-599 responses by default — adding our own would just be a
-  worse copy of what the SDK does correctly. Checked, not assumed (see
-  [`jevClient.ts`](packages/core/src/jevClient.ts)).
+  failures, timeouts, and 408/429/500-599 responses by default, so adding a custom retry layer
+  would just be a worse copy of what the SDK already does correctly. See
+  [`jevClient.ts`](packages/core/src/jevClient.ts).
 - **Every cost claim here is measured, not estimated.** `scoreEntries()`/`pruneContext()` accept an
-  optional `onUsage` callback fired once per underlying Jev request with that request's real
-  `{ inputTokens, outputTokens }` (`@typesafe-ai/sdk`'s own reported usage) — `ctxjev-cli` and both
-  MCP tools surface the total. Adding this as an optional callback rather than changing the return
-  type kept it non-breaking.
+  optional `onUsage` callback, fired once per underlying Jev request with that request's real
+  `{ inputTokens, outputTokens }` as reported by `@typesafe-ai/sdk`. `ctxjev-cli` and both MCP tools
+  surface the total. Adding this as an optional callback rather than changing the return type kept
+  it non-breaking.
 - **Scoring and deciding are two different functions, on purpose.**
   [`scoreEntries()`](packages/core/src/index.ts) calls Jev once per chunk of entries and returns a
-  `relevance`/`recency`/`combinedScore` triple per entry — no opinion about what to do with it.
+  `relevance`/`recency`/`combinedScore` triple per entry, with no opinion about what to do with it.
   [`pruneContext()`](packages/core/src/index.ts) is `scoreEntries()` plus a separate, pure decision
-  step ([`decideAction()`](packages/core/src/policy.ts)) that applies a `PruningPolicy`'s
+  step, [`decideAction()`](packages/core/src/policy.ts), that applies a `PruningPolicy`'s
   thresholds. Splitting them means a threshold can be tuned, swapped for a different strategy, or
-  applied to the *same* scores twice for comparison — all without re-querying Jev. It's also why
-  the MCP server has two tools instead of one: `score_relevance` maps onto `scoreEntries()`,
+  applied to the same scores twice for comparison, all without re-querying Jev. It's also why the
+  MCP server has two tools instead of one: `score_relevance` maps onto `scoreEntries()`,
   `prune_history` onto `pruneContext()`, and neither has to know the other exists.
 - **Recency is relative to the batch, not to `Date.now()`.**
   [`computeRecency()`](packages/core/src/recency.ts) normalizes each entry's timestamp to 0–1
-  *within the entries it's given* (oldest → 0, newest → 1). Anchoring to wall-clock time instead
-  would make every entry in a transcript replayed long after the fact — which is exactly what
-  `ctxjev-cli analyze` and the test fixtures do — read as maximally stale regardless of where it
+  within the entries it's given, oldest at 0 and newest at 1. Anchoring to wall-clock time instead
+  would make every entry in a transcript replayed long after the fact, which is exactly what
+  `ctxjev-cli analyze` and the test fixtures do, read as maximally stale regardless of where it
   actually falls in the conversation. The same function has to give sensible answers for both a
-  live agent's growing history and a static file being analyzed after the fact, so it can't
-  depend on when it happens to run.
-- **`combinedScore` blends the two linearly**, per `PruningPolicy.recencyWeight`
-  (`relevance * (1 - w) + recency * w`, [`combineScore()`](packages/core/src/policy.ts)) — a
-  weight of `0` ignores recency entirely and a weight of `1` ignores Jev entirely. The default
-  (`0.1`) is now backed by [an actual sweep](packages/core/eval/run.mjs) against two hand-labeled
-  fixtures, one of them deliberately adversarial (a root-cause entry that's both early *and*
-  critical): accuracy ties from `w=0` to `w=0.2`, but the adversarial fixture starts degrading
-  right at `w=0.2` as recency drags that entry's score down despite Jev rating it highly relevant.
-  `0.1` sits on the safe side of that cliff for free — see
+  live agent's growing history and a static file analyzed after the fact, so it can't depend on
+  when it happens to run.
+- **`combinedScore` blends the two linearly**, per `PruningPolicy.recencyWeight`:
+  `relevance * (1 - w) + recency * w`, in [`combineScore()`](packages/core/src/policy.ts). A weight
+  of `0` ignores recency entirely, and a weight of `1` ignores Jev entirely. The default (`0.1`) is
+  backed by [an actual sweep](packages/core/eval/run.mjs) against two hand-labeled fixtures, one of
+  them deliberately adversarial: a root-cause entry that's both early and critical. Accuracy ties
+  from `w=0` to `w=0.2`, but the adversarial fixture starts degrading right at `w=0.2`, as recency
+  drags that entry's score down despite Jev rating it highly relevant. `0.1` sits safely on the
+  near side of that cliff. See
   [`recencyWeight.live.test.ts`](packages/core/src/recencyWeight.live.test.ts), which turns that
   finding into a standing regression test. Two fixtures is still thin evidence for tuning
-  `dropBelow`/`summarizeBelow` themselves — see [ROADMAP.md](ROADMAP.md) for why those stay
-  untouched for now.
+  `dropBelow`/`summarizeBelow` directly, so those thresholds keep their original, untuned defaults
+  for now.
 - **Token counts are computed, not judged.** [`tokenEstimate.ts`](packages/core/src/tokenEstimate.ts)
-  uses a real tokenizer ([`gpt-tokenizer`](https://www.npmjs.com/package/gpt-tokenizer)) — Jev is
-  explicitly bad at arithmetic, so this project doesn't ask it to count anything. Every "tokens
+  uses a real tokenizer, [`gpt-tokenizer`](https://www.npmjs.com/package/gpt-tokenizer), since Jev
+  is explicitly bad at arithmetic and this project never asks it to count anything. Every "tokens
   saved" number in this README came from that tokenizer, not from Jev.
 - **The MCP server is verified two ways.** `tools.live.test.ts` covers the underlying logic
-  directly (no MCP framework involved); `server.live.test.ts` spins up the real `McpServer`
+  directly, with no MCP framework involved. `server.live.test.ts` spins up the real `McpServer`
   against an in-process client over `InMemoryTransport` to exercise the actual tool registration,
-  zod schemas, and response shape. Both were also run once as a genuine subprocess over real
-  stdio (`StdioServerTransport` ↔ `StdioClientTransport`) during development — the same transport
-  path a host like Claude Code would use — though that run isn't part of the automated suite.
+  zod schemas, and response shape. Both were also verified once as a real subprocess over stdio
+  (`StdioServerTransport` ↔ `StdioClientTransport`), the same transport path a host like Claude
+  Code uses, though that run is not part of the automated suite.
 - **Live tests are opt-in.** Every test file ending in `.live.test.ts` across all four packages
   (`core`'s `jevClient`/`recencyWeight`, `mcp-server`'s `tools`/`server`, `claude-plugin`'s
-  `select`) calls the real Jev API and is skipped automatically when `TYPESAFE_API_KEY` isn't set
-  — cloning this repo and running `pnpm test` with no key still passes, on the pure-logic coverage
-  alone. CI never sets the key, so it's exercising exactly that path on every push.
+  `select`) calls the real Jev API and is skipped automatically when `TYPESAFE_API_KEY` isn't set.
+  Cloning this repo and running `pnpm test` with no key still passes, on the pure-logic coverage
+  alone, and CI never sets the key, so it exercises exactly that path on every push.
 - **Never run anything here against this repo's own real Claude Code session transcripts.** They
-  can contain secrets pasted into chat, and scoring sends entry content to the live Jev API — see
-  the warning in [`CLAUDE.md`](CLAUDE.md). Use a synthetic transcript instead.
+  can contain secrets pasted into chat, and scoring sends entry content to the live Jev API. See
+  the warning in [`CLAUDE.md`](CLAUDE.md), and use a synthetic transcript instead.
 
 ## Contributing
 
-Early days — issues and PRs welcome, but expect the API surface to move until `packages/core`
-settles, especially around `PruningPolicy` and how recency weighting works (see
-[Design notes](#design-notes) above).
-
-Before opening a PR:
+Issues and pull requests are welcome.
 
 ```bash
 pnpm install && pnpm build && pnpm test
 ```
 
-`pnpm test` alone is enough to validate a change that doesn't touch Jev-calling code — the
-pure-logic suite (chunking, policy math, recency, savings, transcript parsing, goal/cache
-handling, report formatting) runs with no key and no network access. If your change *does* touch
-`jevClient.ts`, `tools.ts`, `server.ts`, or `select.ts`, get a free key at
-[console.typesafe.ai/settings/keys](https://console.typesafe.ai/settings/keys) and export
-`TYPESAFE_API_KEY` first so the corresponding `.live.test.ts` suite actually runs instead of
-skipping — a PR that only touches those files without a live test run passing locally is likely to
-get asked to re-run with a key before review.
-
-If your change touches `PruningPolicy` defaults or the scoring/recency blend specifically, add a
-labeled fixture to [`examples/sample-transcripts`](examples/sample-transcripts) (a `groundTruth`
-field, same shape as the existing two) and run the sweep before opening a PR:
-
-```bash
-cd packages/core && pnpm eval
-```
-
-A PR that changes `DEFAULT_POLICY` without new sweep numbers to back it up is going back to
-"deliberately simple starting point, not tuned" — which is exactly the state this project moved
-away from once. Adding a fixture is cheap; regressing the honesty of that default isn't.
+`pnpm test` runs the full pure-logic suite with no API key and no network access. Tests that call
+the live Jev API end in `.live.test.ts` and are skipped automatically unless `TYPESAFE_API_KEY` is
+set.
 
 ## Acknowledgments
 
 Built on [Jev](https://typesafe.ai), TypeSafe AI's System One model, via the official
 [`@typesafe-ai/sdk`](https://www.npmjs.com/package/@typesafe-ai/sdk). `ctxjev-mcp` is built on
 Anthropic's [`@modelcontextprotocol/sdk`](https://www.npmjs.com/package/@modelcontextprotocol/sdk).
-`ctxjev` is an independent, unofficial project — not affiliated with or endorsed by TypeSafe AI or
+`ctxjev` is an independent, unofficial project, not affiliated with or endorsed by TypeSafe AI or
 Anthropic.
 
 ## License
 
 [MIT](LICENSE) — do what you like with this code, including in a commercial product, as long as
-the license text and copyright notice in [`LICENSE`](LICENSE) ship with it. There's no warranty of
-any kind; see the license text for the full disclaimer.
+the license text and copyright notice in [`LICENSE`](LICENSE) ship with it. There is no warranty
+of any kind; see the license text for the full disclaimer.
 
-This choice matches every package `ctxjev` currently depends on, so there's nothing to reconcile
+This choice matches every package `ctxjev` currently depends on, so there is nothing to reconcile
 if you vendor or fork any of it:
 
 | Dependency | License |
@@ -374,6 +338,5 @@ if you vendor or fork any of it:
 | [`gpt-tokenizer`](https://www.npmjs.com/package/gpt-tokenizer) | MIT |
 | [`picocolors`](https://www.npmjs.com/package/picocolors) | ISC |
 
-(ISC and MIT are both short, permissive licenses with no material difference in what they let you
-do — picocolors is just one of the few things here that happens to use ISC's slightly older
-wording instead of MIT's.)
+ISC and MIT are both short, permissive licenses with no material difference in what they let you
+do.

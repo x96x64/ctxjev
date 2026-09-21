@@ -15,6 +15,15 @@ actually changed.
   the only way to discover the path was wrong too.
 - **`ctxjev-cli`**: `--help` now leads with a copy-pasteable "try it right now" example (fetches
   the repo's sample transcript directly), rather than starting with the flag reference.
+- **`ctxjev-claude`**: the plugin's Overview, Skills, and Hooks descriptions (`plugin.json`,
+  `marketplace.json`, `README.md`) were rewritten from a placeholder one-liner to real,
+  descriptive content, matching the style of the other three packages' READMEs.
+- **`ctxjev-claude`**: removed a duplicate `category` field from `plugin.json` that
+  `claude plugin validate .` flagged — it belongs only in `marketplace.json`'s plugin entry.
+- Added a Codex-specific plugin marketplace bundle (`.agents/plugins/marketplace.json`,
+  `plugins/ctxjev/`), following the [Agent Plugins](https://agent-plugins.org) `1.0.0` schema, so
+  `ctxjev-mcp` can be installed via `codex plugin marketplace add`/`codex plugin add` instead of
+  only `codex mcp add`.
 
 ## 0.1.1 — 2026-09-21
 

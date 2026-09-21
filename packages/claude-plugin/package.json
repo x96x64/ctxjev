@@ -3,6 +3,18 @@
   "version": "0.1.2",
   "private": true,
   "description": "Claude Code plugin: preserves Jev-scored context through Claude Code's own compaction.",
+  "license": "MIT",
+  "author": {
+    "name": "x96x64",
+    "url": "https://github.com/x96x64"
+  },
+  "homepage": "https://github.com/x96x64/ctxjev/tree/main/packages/claude-plugin#readme",
+  "bugs": {
+    "url": "https://github.com/x96x64/ctxjev/issues"
+  },
+  "engines": {
+    "node": ">=20"
+  },
   "type": "module",
   "scripts": {
     "build": "tsc -b",
