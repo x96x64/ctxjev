@@ -4,6 +4,15 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 `ctxjev-claude`: a version bump in one is a version bump in all four, even when only one actually
 changed.
 
+## 0.1.5 — 2026-09-21
+
+- **`ctxjev-mcp`**: the MCP server registered itself with a literal `version: '0.0.0'` — the same
+  stale-hardcoded-string bug already fixed for `ctxjev-cli`'s `--version` in 0.1.2, just never
+  applied here. Any MCP client inspecting server info would see `0.0.0` forever regardless of the
+  actually installed version. Now reads it from the package's own `package.json`.
+- **`ctxjev-core`**: added `createUsageAccumulator()`, replacing an identical `JevUsage`
+  accumulation closure that `ctxjev-cli` and `ctxjev-mcp` had each reimplemented on their own.
+
 ## 0.1.4 — 2026-09-21
 
 - **`ctxjev-core`**: `inferGoalFromEntries()` now skips slash-command invocations (`/compact`,
