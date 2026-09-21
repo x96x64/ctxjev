@@ -1,0 +1,31 @@
+{
+  "name": "ctxjev-core",
+  "version": "0.0.0",
+  "description": "Score AI agent context for relevance with Jev, and decide what to keep, drop, or summarize.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/x96x64/ctxjev.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/x96x64/ctxjev/tree/main/packages/core#readme",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@typesafe-ai/sdk": "^0.6.0",
+    "gpt-tokenizer": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.9"
+  }
+}

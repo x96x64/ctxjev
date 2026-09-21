@@ -1,0 +1,33 @@
+{
+  "name": "ctxjev-cli",
+  "version": "0.0.0",
+  "description": "CLI for ctxjev — analyze an agent transcript and report what Jev would keep, drop, or summarize.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/x96x64/ctxjev.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/x96x64/ctxjev/tree/main/packages/cli#readme",
+  "type": "module",
+  "main": "./dist/index.js",
+  "bin": {
+    "ctxjev": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "ctxjev-core": "workspace:*",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.9"
+  }
+}

@@ -1,0 +1,31 @@
+import { describe, expect, it } from 'vitest'
+import { summarizeSavings } from './savings.js'
+import type { Entry, PruneDecision } from './types.js'
+
+const entries: Entry[] = [
+  { id: 'a', role: 'tool', content: 'kept content here', timestamp: 0 },
+  { id: 'b', role: 'tool', content: 'dropped content here', timestamp: 1 },
+  { id: 'c', role: 'tool', content: 'summarized content here', timestamp: 2 },
+]
+
+const decisions: PruneDecision[] = [
+  { entryId: 'a', action: 'keep', relevance: 0.9 },
+  { entryId: 'b', action: 'drop', relevance: 0.05 },
+  { entryId: 'c', action: 'summarize', relevance: 0.45 },
+]
+
+describe('summarizeSavings', () => {
+  it('counts entries by action', () => {
+    const report = summarizeSavings(entries, decisions)
+    expect(report.totalEntries).toBe(3)
+    expect(report.keptEntries).toBe(1)
+    expect(report.droppedEntries).toBe(1)
+    expect(report.summarizedEntries).toBe(1)
+  })
+
+  it('counts dropped and summarized tokens as saved, kept tokens as not', () => {
+    const report = summarizeSavings(entries, decisions)
+    expect(report.savedTokens).toBeGreaterThan(0)
+    expect(report.savedTokens).toBeLessThan(report.totalTokens)
+  })
+})

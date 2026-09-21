@@ -1,0 +1,9 @@
+{
+  "name": "ctxjev-claude",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Claude Code plugin: proactive context pruning via ctxjev-core, ahead of Claude Code's own compaction.",
+  "dependencies": {
+    "ctxjev-core": "workspace:*"
+  }
+}
