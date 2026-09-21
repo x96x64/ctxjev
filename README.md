@@ -8,6 +8,9 @@
 [Jev](https://typesafe.ai) — TypeSafe AI's typed-decision model — and prunes what's no longer
 useful, before your host's own compaction has to summarize its way through it.
 
+[![npm (ctxjev-cli)](https://img.shields.io/npm/v/ctxjev-cli.svg?label=ctxjev-cli)](https://www.npmjs.com/package/ctxjev-cli)
+[![npm (ctxjev-core)](https://img.shields.io/npm/v/ctxjev-core.svg?label=ctxjev-core)](https://www.npmjs.com/package/ctxjev-core)
+[![npm (ctxjev-mcp)](https://img.shields.io/npm/v/ctxjev-mcp.svg?label=ctxjev-mcp)](https://www.npmjs.com/package/ctxjev-mcp)
 [![CI](https://github.com/x96x64/ctxjev/actions/workflows/ci.yml/badge.svg)](https://github.com/x96x64/ctxjev/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-339933?logo=node.js&logoColor=white)](package.json)
@@ -86,16 +89,22 @@ secrets pasted into chat and entry content gets sent to the live Jev API (see
 ## Quick start
 
 ```bash
+npm install -g ctxjev-cli
+export TYPESAFE_API_KEY=...   # console.typesafe.ai/settings/keys — no waitlist
+
+ctxjev analyze transcript.jsonl --goal "Fix the checkout double-charge bug."
+```
+
+Or from a clone, to run the exact sample transcript below:
+
+```bash
 git clone https://github.com/x96x64/ctxjev.git
 cd ctxjev
 pnpm install && pnpm build
 
-export TYPESAFE_API_KEY=...   # console.typesafe.ai/settings/keys — no waitlist
+export TYPESAFE_API_KEY=...
 node packages/cli/dist/index.js analyze examples/sample-transcripts/checkout-bug.json
 ```
-
-None of the packages are published to npm yet (see [Packages](#packages) and
-[status](ROADMAP.md)) — for now, run them from a clone as above.
 
 ## Packages
 
@@ -104,10 +113,10 @@ engine gets used.
 
 | Package | What it is | Status |
 | --- | --- | --- |
-| [`ctxjev-core`](packages/core) | The engine — `pruneContext(entries, goal, policy)`. Everything else wraps this. | ✅ working |
-| [`ctxjev-cli`](packages/cli) | `ctxjev analyze <transcript.json>` — a plain-text report, no UI. | ✅ working |
-| [`ctxjev-mcp`](packages/mcp-server) | MCP server exposing `score_relevance`/`prune_history` as tools, for Claude Code, Codex, GitHub Copilot, and other MCP-capable hosts. | ✅ working |
-| [`ctxjev-claude`](packages/claude-plugin) | Claude Code plugin: scores context with Jev at `PreCompact` and re-injects a digest at `SessionStart`, plus two inspection skills. | ✅ working |
+| [`ctxjev-core`](packages/core) ([npm](https://www.npmjs.com/package/ctxjev-core)) | The engine — `pruneContext(entries, goal, policy)`. Everything else wraps this. | ✅ published |
+| [`ctxjev-cli`](packages/cli) ([npm](https://www.npmjs.com/package/ctxjev-cli)) | `ctxjev analyze <transcript.json>` — a plain-text report, no UI. | ✅ published |
+| [`ctxjev-mcp`](packages/mcp-server) ([npm](https://www.npmjs.com/package/ctxjev-mcp)) | MCP server exposing `score_relevance`/`prune_history` as tools, for Claude Code, Codex, GitHub Copilot, and other MCP-capable hosts. | ✅ published |
+| [`ctxjev-claude`](packages/claude-plugin) | Claude Code plugin: scores context with Jev at `PreCompact` and re-injects a digest at `SessionStart`, plus two inspection skills. | ✅ working (not on npm — see below) |
 
 See [`ROADMAP.md`](ROADMAP.md) for the phase-by-phase plan, including why an Xcode adapter is a
 research spike rather than a commitment.
@@ -209,6 +218,10 @@ compaction to trigger one.
 Try it locally with `claude --plugin-dir packages/claude-plugin`. This repo's own
 [`.mcp.json`](.mcp.json) also wires `ctxjev-mcp` (see above) into any Claude Code session opened
 here — both are how this project dogfoods itself.
+
+`ctxjev-claude` isn't on npm — Claude Code plugins aren't npm-installed, and the desktop app has no
+way to load a local plugin folder at all (only the CLI's `--plugin-dir` does). It stays in this
+repo, `private: true`, until it's worth packaging for a marketplace.
 
 ## Design notes
 

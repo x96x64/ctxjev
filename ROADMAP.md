@@ -155,3 +155,36 @@ dedicated per-host adapter package after all.
   transcript (see Phase 3); the one remaining unverified link is whether Claude Code's own
   documented "stdout on `SessionStart(compact)` becomes a system reminder" behavior holds in
   practice, which is really a claim about Claude Code, not about `ctxjev`.
+
+## Phase 6 — First npm release ✅ (v0.1.0, 2026-09-21)
+
+`ctxjev-core`, `ctxjev-cli`, and `ctxjev-mcp` are live on npm (`ctxjev-claude` stays repo-only —
+see the README's Claude Code plugin section for why). Getting there surfaced real, current npm
+policy that's worth recording since it cost real time to work through:
+
+- **The bootstrap problem**: npm's newer "Trusted Publishing" (OIDC from GitHub Actions, no
+  token) — which is genuinely the right long-term setup, see below — **cannot be configured for a
+  package that has never been published.** Both it and the newer "stage + approve" flow
+  (`npm stage publish` → `npm stage approve`) require the package to already exist; a stage attempt
+  on a brand-new name 404s. First publish of anything new has no way around a classic,
+  human-authenticated `npm publish`.
+- **The actual fix**: a Granular Access Token with **"Read and write (publish and stage)"**
+  *and* **"Bypass two-factor authentication (2FA)"** both set — easy to miss either one (we hit
+  both: first the bypass box unchecked, then the permission level set to "stage only" instead of
+  "publish and stage") and the resulting 403/404s don't clearly say which. `pnpm publish
+  --no-git-checks` with that token worked immediately once both were right.
+- **`pnpm publish` vs. workspace ranges**: unrelated to the above, but relevant to any future
+  publish — `pnpm publish` correctly rewrites `ctxjev-core`'s `workspace:*` dependency range in
+  `ctxjev-cli`/`ctxjev-mcp` into a real version (verified: `0.1.0`) before uploading. Publish order
+  matters — `ctxjev-core` first, so that version actually exists when the other two are packed.
+- **Verified for real, not just "upload succeeded"**: fresh `npm install` of both `ctxjev-cli` and
+  `ctxjev-mcp` into a clean scratch directory, then actually ran the CLI against a sample
+  transcript and connected a real MCP client to the installed server — both worked identically to
+  the local dev build.
+- **[`.github/workflows/publish.yml`](.github/workflows/publish.yml)** is ready for every release
+  after this one: OIDC Trusted Publishing, no token to manage or rotate. `pnpm publish` doesn't yet
+  speak OIDC itself ([pnpm/pnpm#9812](https://github.com/pnpm/pnpm/issues/9812)), so the workflow
+  packs with `pnpm pack` (for the same workspace-range rewrite) and publishes the resulting tarball
+  with plain `npm publish`, which is OIDC-aware. **Not yet configured**: each package's Trusted
+  Publisher settings on npmjs.com (org `x96x64`, repo `ctxjev`, workflow `publish.yml`) — do this
+  once per package, now that all three exist, before relying on the workflow for `v0.1.1`.
