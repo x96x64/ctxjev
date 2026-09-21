@@ -120,7 +120,7 @@ that engine gets used.
 | [`ctxjev-mcp`](packages/mcp-server) ([npm](https://www.npmjs.com/package/ctxjev-mcp)) | MCP server exposing `score_relevance`/`prune_history` as tools, for Claude Code, Codex, GitHub Copilot, and other MCP-capable hosts. | ✅ published |
 | [`ctxjev-claude`](packages/claude-plugin) | Claude Code plugin: scores context with Jev at `PreCompact` and re-injects a digest at `SessionStart`, plus two inspection skills. | ✅ working (not on npm; see below) |
 
-## Using It From an MCP Host
+## Using It from an MCP Host
 
 `ctxjev-mcp` speaks plain stdio MCP, so no per-host adapter is necessary. Every host below runs
 the exact same binary (`node packages/mcp-server/dist/index.js`); only the config shape differs.
