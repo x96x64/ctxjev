@@ -1,5 +1,9 @@
 node_modules/
 dist/
+# Claude Code installs this plugin by cloning the repo, not by running a build step, so
+# hooks/hooks.json's references to dist/*.js resolve to nothing unless the build output is
+# actually committed. Every other package's dist/ stays ignored; only this one ships built.
+!packages/claude-plugin/dist/
 *.tsbuildinfo
 .env
 .env.local
