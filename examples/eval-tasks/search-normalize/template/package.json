@@ -1,0 +1,9 @@
+{
+  "name": "catalog-search",
+  "version": "3.0.4",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test \"test/*.test.js\""
+  }
+}

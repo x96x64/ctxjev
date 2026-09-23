@@ -77,6 +77,13 @@ goes through `redactSecrets()` (`packages/core/src/redact.ts`) and the plugin RE
 Any new path that sends content to Jev must go through `buildJevRequest()` in `jevClient.ts` so it
 inherits that masking.
 
+The one exception is `examples/eval-sessions/recorded-*.json`: real Claude Code sessions, but
+recorded on purpose on the throwaway task repos in `examples/eval-tasks/` (`record.mjs`, run with a
+clean environment so no personal hooks, MCP servers, or keys are involved), converted and scrubbed
+by `packages/core/eval/import-claude-code.mjs`, and read in full before being committed. Only the
+transcript `record.mjs` itself produced may be read that way — never anything else under
+`~/.claude/projects`.
+
 `parseClaudeCodeTranscript()` skips `isSidechain: true` records (a subagent's own private
 conversation) — that content already shows up in the main thread as an ordinary
 tool_use/tool_result pair, so including the sidechain too would double up on it and score content

@@ -199,6 +199,7 @@ for (const strategy of [...scorers, 'recency', 'random', 'labels']) {
   retentionSummary[strategy] = {
     ...averageRetention(perFixture),
     byLanguage: Object.fromEntries(['en', 'ja'].map((lang) => [lang, averageRetention(perFixture.filter((_, i) => heldOut[i].language === lang))])),
+    byKind: Object.fromEntries(['written', 'recorded'].map((kind) => [kind, averageRetention(perFixture.filter((_, i) => Boolean(heldOut[i].recorded) === (kind === 'recorded')))])),
   }
 }
 summary.retention = retentionSummary
@@ -219,10 +220,10 @@ for (const set of ['dev', 'held-out', 'all']) {
 }
 
 log(`== held-out: budget retention (${heldOut.length} sessions; probe retention / relevant-token recall) ==`)
-log(`  ${'strategy'.padEnd(9)}${BUDGETS.map((b) => `budget ${b * 100}%`.padEnd(22)).join('')}by language at 50% (probes)`)
+log(`  ${'strategy'.padEnd(9)}${BUDGETS.map((b) => `budget ${b * 100}%`.padEnd(22)).join('')}by language and kind (probes at 25% / 50%)`)
 for (const [strategy, r] of Object.entries(retentionSummary)) {
   const cols = BUDGETS.map((b) => `${pct(r[b].probes)} / ${pct(r[b].relevantTokens)}`.padEnd(22)).join('')
-  const langs = Object.entries(r.byLanguage).map(([lang, lr]) => `${lang} ${pct(lr[0.5].probes).trim()}`).join('  ')
+  const langs = [...Object.entries(r.byLanguage), ...Object.entries(r.byKind)].map(([key, lr]) => `${key} ${pct(lr[0.25].probes).trim()}/${pct(lr[0.5].probes).trim()}`).join('  ')
   log(`  ${strategy.padEnd(9)}${cols}${langs}`)
 }
 log()

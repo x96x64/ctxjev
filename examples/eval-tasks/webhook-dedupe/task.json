@@ -1,0 +1,36 @@
+{
+  "language": "en",
+  "goal": "The ledger audit found duplicate refunds and captures (logs/duplicate-refunds-2026-09-20.txt). Find out how the same PayRail webhook gets applied twice. Investigate only for now; do not edit anything.",
+  "prompts": [
+    "Good. Constraints: we run 4 instances behind the load balancer, so an in-memory set won't work — use the existing db.markSeen / db.hasSeen. PayRail retries for up to 24 hours, so keep the mark for 24h. And a duplicate must still get a 200, otherwise PayRail keeps retrying. Check how the email sender uses markSeen so we stay consistent. No edits yet.",
+    "Also look at whether the ordering section of their docs affects us for refunds, and summarize the plan. Still no edits.",
+    "Implement the dedupe fix now and run the tests."
+  ],
+  "history": [
+    {
+      "message": "payments-gateway: initial webhook receiver",
+      "date": "2026-02-05T10:00:00+00:00",
+      "author": "Nora Ahmed"
+    },
+    {
+      "message": "Receipt emails deduped with db.markSeen",
+      "date": "2026-04-22T14:25:00+00:00",
+      "author": "Nora Ahmed"
+    },
+    {
+      "message": "Scale gateway to 4 instances",
+      "date": "2026-07-30T09:00:00+00:00",
+      "author": "Platform Bot"
+    },
+    {
+      "message": "Refund events: append negative ledger entries",
+      "date": "2026-08-18T16:40:00+00:00",
+      "author": "Theo Park"
+    },
+    {
+      "message": "Apply webhook events synchronously before acknowledging",
+      "date": "2026-09-12T11:15:00+00:00",
+      "author": "Theo Park"
+    }
+  ]
+}

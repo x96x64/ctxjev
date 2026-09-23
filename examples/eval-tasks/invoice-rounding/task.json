@@ -1,0 +1,36 @@
+{
+  "language": "en",
+  "goal": "Finance says some invoice totals are off by one cent compared with the ledger — see logs/reconcile-2026-09-18.txt from last night's reconciliation job. Find out why. Don't change any files yet; just investigate and tell me what you find.",
+  "prompts": [
+    "Thanks. Constraints from finance and the team before we fix anything: the ledger rounds each line to cents using banker's rounding (round half to even), not half-up. Keep the computeTotal(lines) signature exactly as it is, other services call it. And don't touch anything under src/legacy/, it's frozen for the v1 API. With that in mind, check what else calls lineAmount or toCents and whether changing rounding would affect it. Still no edits.",
+    "Also go through test/ and tell me which existing tests would need to change, then summarize the fix you plan to make. Still no edits.",
+    "Go ahead and implement the fix now, then run the tests."
+  ],
+  "history": [
+    {
+      "message": "Initial import of billing-core",
+      "date": "2026-06-02T10:00:00+00:00",
+      "author": "Dana Kim"
+    },
+    {
+      "message": "Add regional tax table",
+      "date": "2026-07-14T09:12:00+00:00",
+      "author": "Dana Kim"
+    },
+    {
+      "message": "Render invoices as plain text for the PDF service",
+      "date": "2026-08-03T15:40:00+00:00",
+      "author": "Luis Ortega"
+    },
+    {
+      "message": "Nightly ledger reconciliation job",
+      "date": "2026-08-21T11:05:00+00:00",
+      "author": "Priya Raman"
+    },
+    {
+      "message": "computeTotal: sum raw amounts, round once (fewer rounding steps)",
+      "date": "2026-09-10T16:22:00+00:00",
+      "author": "Luis Ortega"
+    }
+  ]
+}

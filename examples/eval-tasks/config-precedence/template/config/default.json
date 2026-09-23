@@ -1,0 +1,6 @@
+{
+  "port": 3000,
+  "db": { "host": "localhost", "poolMax": 10, "idleTimeoutMs": 30000 },
+  "cache": { "ttlSeconds": 60 },
+  "logLevel": "info"
+}
