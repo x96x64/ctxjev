@@ -348,8 +348,10 @@ exact call lives in [`server.live.test.ts`](packages/mcp-server/src/server.live.
   offline scorer alongside Jev. On fixtures whose relevant entries share the goal's words, the two
   tie. On [`session-logout.json`](examples/sample-transcripts/session-logout.json), where the real
   cause (a token-renewal race) never uses the goal's words and the distractors do ("user", "app",
-  "log out"), keyword overlap put 1 relevant entry in its top 5 and Jev put 5. Across all four
-  fixtures (101 labels), drop accuracy at the default weight is 83% for Jev and 78% for keywords.
+  "log out"), keyword overlap put 1 relevant entry in its top 5 and Jev put 5. A Japanese fixture,
+  [`invoice-date-ja.json`](examples/sample-transcripts/invoice-date-ja.json), is built the same
+  way: keywords got 3 of its top 5 and Jev 5. Across all five fixtures (129 labels), drop accuracy
+  at the default weight is 85% for Jev and 72% for keywords.
   Every release is gated on this: `publish.yml` runs `eval/run.mjs --gate`, which fails if Jev
   falls below the baseline or misses more than one of any fixture's top entries.
 - **Token counts are computed, not judged.** [`tokenEstimate.ts`](packages/core/src/tokenEstimate.ts)

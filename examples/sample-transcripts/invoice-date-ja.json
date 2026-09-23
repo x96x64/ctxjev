@@ -1,0 +1,229 @@
+{
+  "goal": "月末の請求書の日付がたまに1日ずれるので、原因を調べて直して",
+  "entries": [
+    {
+      "id": "j1",
+      "role": "user",
+      "content": "月末の請求書の日付がたまに1日ずれるので、原因を調べて直して",
+      "timestamp": 1758300001000
+    },
+    {
+      "id": "j2",
+      "role": "tool",
+      "toolName": "bash",
+      "content": "ran: git status — 作業ツリーはクリーン",
+      "timestamp": 1758300002000
+    },
+    {
+      "id": "j3",
+      "role": "tool",
+      "toolName": "read",
+      "content": "read src/invoices/InvoicePdf.tsx — 請求書PDFのフォントとロゴの配置",
+      "timestamp": 1758300003000
+    },
+    {
+      "id": "j4",
+      "role": "tool",
+      "toolName": "read",
+      "content": "read src/components/DatePicker.tsx — 日付ピッカーのカレンダー表示とスタイル",
+      "timestamp": 1758300004000
+    },
+    {
+      "id": "j5",
+      "role": "tool",
+      "toolName": "bash",
+      "content": "ran: grep -rn \"月末\" src — 月末セールのバナー文言だけがヒット",
+      "timestamp": 1758300005000
+    },
+    {
+      "id": "j6",
+      "role": "tool",
+      "toolName": "bash",
+      "content": "ran: 本番ログを確認 — 3月31日 23:40 に発行された請求書の発行日が 2026-03-30 になっている。4月・6月の月末も同様",
+      "timestamp": 1758300006000
+    },
+    {
+      "id": "j7",
+      "role": "tool",
+      "toolName": "read",
+      "content": "read package.json — date-fns, node-cron, pg, vitest",
+      "timestamp": 1758300007000
+    },
+    {
+      "id": "j8",
+      "role": "tool",
+      "toolName": "read",
+      "content": "read src/invoices/list.tsx — 請求書一覧画面、20件ずつページング",
+      "timestamp": 1758300008000
+    },
+    {
+      "id": "j9",
+      "role": "tool",
+      "toolName": "read",
+      "content": "read src/jobs/issueInvoices.ts — 毎日 00:05 (Asia/Tokyo) に cron で起動し、new Date().toISOString().slice(0, 10) を発行日として保存",
+      "timestamp": 1758300009000
+    },
+    {
+      "id": "j10",
+      "role": "tool",
+      "toolName": "bash",
+      "content": "ran: npm install — 412 packages を追加",
+      "timestamp": 1758300010000
+    },
+    {
+      "id": "j11",
+      "role": "tool",
+      "toolName": "read",
+      "content": "read docs/billing.md — 請求書の再発行手順と、宛名の変更方法",
+      "timestamp": 1758300011000
+    },
+    {
+      "id": "j12",
+      "role": "tool",
+      "toolName": "bash",
+      "content": "ran: TZ=Asia/Tokyo node -e で確認 — 2026-04-01 00:05 JST の toISOString() は 2026-03-31T15:05Z で、slice すると前日の日付になる",
+      "timestamp": 1758300012000
+    },
+    {
+      "id": "j13",
+      "role": "tool",
+      "toolName": "read",
+      "content": "read src/users/profile.tsx — ユーザーの誕生日入力欄",
+      "timestamp": 1758300013000
+    },
+    {
+      "id": "j14",
+      "role": "tool",
+      "toolName": "bash",
+      "content": "ran: npm run lint — エラー 0 件",
+      "timestamp": 1758300014000
+    },
+    {
+      "id": "j15",
+      "role": "tool",
+      "toolName": "grep",
+      "content": "grep \"toISOString\" src — issueInvoices.ts と reports/monthly.ts の2箇所",
+      "timestamp": 1758300015000
+    },
+    {
+      "id": "j16",
+      "role": "tool",
+      "toolName": "read",
+      "content": "read src/reports/monthly.ts — 月次レポートも toISOString() で締め日を計算しており、同じずれ方をする",
+      "timestamp": 1758300016000
+    },
+    {
+      "id": "j17",
+      "role": "tool",
+      "toolName": "bash",
+      "content": "ran: docker ps — api と postgres のコンテナが稼働中",
+      "timestamp": 1758300017000
+    },
+    {
+      "id": "j18",
+      "role": "tool",
+      "toolName": "read",
+      "content": "read src/styles/theme.ts — ライト/ダークの配色トークン",
+      "timestamp": 1758300018000
+    },
+    {
+      "id": "j19",
+      "role": "assistant",
+      "content": "原因は発行日を UTC で切り出していること。日本時間の深夜0時台に動くジョブでは UTC がまだ前日なので、発行日が1日前になる。月初の実行だと前月扱いになるので月末分で目立つ。",
+      "timestamp": 1758300019000
+    },
+    {
+      "id": "j20",
+      "role": "tool",
+      "toolName": "read",
+      "content": "read CHANGELOG.md — 「請求書: 支払期日の表示を追加」",
+      "timestamp": 1758300020000
+    },
+    {
+      "id": "j21",
+      "role": "tool",
+      "toolName": "bash",
+      "content": "ran: git log --oneline -5 — 月末セールのバナー差し替えのコミットが続いている",
+      "timestamp": 1758300021000
+    },
+    {
+      "id": "j22",
+      "role": "tool",
+      "toolName": "edit",
+      "content": "edited src/lib/date.ts — formatInTimeZone(date, 'Asia/Tokyo', 'yyyy-MM-dd') を返す toJstDateString() を追加",
+      "timestamp": 1758300022000
+    },
+    {
+      "id": "j23",
+      "role": "tool",
+      "toolName": "edit",
+      "content": "edited src/jobs/issueInvoices.ts — 発行日を toJstDateString(new Date()) に置き換え",
+      "timestamp": 1758300023000
+    },
+    {
+      "id": "j24",
+      "role": "tool",
+      "toolName": "read",
+      "content": "read src/invoices/email.ts — 請求書送付メールの件名と本文テンプレート",
+      "timestamp": 1758300024000
+    },
+    {
+      "id": "j25",
+      "role": "tool",
+      "toolName": "bash",
+      "content": "ran: npm test -- issueInvoices.test.ts — JST 00:05 に発行するケースのテストを追加して通過",
+      "timestamp": 1758300025000
+    },
+    {
+      "id": "j26",
+      "role": "tool",
+      "toolName": "bash",
+      "content": "ran: ls public — favicon, robots.txt, images/",
+      "timestamp": 1758300026000
+    },
+    {
+      "id": "j27",
+      "role": "tool",
+      "toolName": "read",
+      "content": "read .github/workflows/ci.yml — node 22 で lint とテストを実行",
+      "timestamp": 1758300027000
+    },
+    {
+      "id": "j28",
+      "role": "tool",
+      "toolName": "edit",
+      "content": "edited src/reports/monthly.ts — 締め日の計算も toJstDateString() に統一",
+      "timestamp": 1758300028000
+    }
+  ],
+  "groundTruth": {
+    "j1": true,
+    "j2": false,
+    "j3": false,
+    "j4": false,
+    "j5": false,
+    "j6": true,
+    "j7": false,
+    "j8": false,
+    "j9": true,
+    "j10": false,
+    "j11": false,
+    "j12": true,
+    "j13": false,
+    "j14": false,
+    "j15": true,
+    "j16": true,
+    "j17": false,
+    "j18": false,
+    "j19": true,
+    "j20": false,
+    "j21": false,
+    "j22": true,
+    "j23": true,
+    "j24": false,
+    "j25": true,
+    "j26": false,
+    "j27": false,
+    "j28": true
+  }
+}

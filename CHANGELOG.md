@@ -5,6 +5,16 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 (`.claude-plugin/marketplace.json`, `packages/claude-plugin/.claude-plugin/plugin.json`,
 `plugins/ctxjev/plugin.json`). A bump in one is a bump in all, even when only one changed.
 
+## Unreleased
+
+- `ctxjev-core`: offline scoring (`scorer: 'local'`, the CLI's `--offline`, the plugin without a
+  key) now matches Japanese, Chinese, and Korean text; before, it ignored it, so a Japanese goal
+  scored every entry 0 and the plugin preserved nothing.
+- `ctxjev-core`: a short Japanese instruction ("ログイン画面のバグを直して") is no longer mistaken
+  for an acknowledgment, so it can become the inferred goal and take a preserved slot.
+- `ctxjev-core`: secrets written after a Japanese label ("パスワード：…", "APIキー: …") are masked
+  before anything is sent to Jev or cached.
+
 ## 0.3.0 — 2026-09-23
 
 - `ctxjev-core`: `pruneMessages()` takes an Anthropic Messages conversation and returns it with
