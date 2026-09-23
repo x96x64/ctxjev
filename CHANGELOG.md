@@ -18,7 +18,15 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
   `~/.claude/ctxjev/`, readable only by you; the `.ctxjev/` directory earlier versions created
   is removed at the next compaction (only its own files, and the directory only if empty).
 - `ctxjev-claude`: compaction waits at most 8 seconds for Jev (was 40) before scoring offline.
-- `ctxjev-claude`: `/ctxjev:status` also shows the goal the next compaction will use.
+- `ctxjev-claude`: `/ctxjev:status` also shows the goal the next compaction will use, and its report
+  is inlined into the skill rather than fetched by a tool call. In a manual test, Claude Haiku read
+  the old report's `Goal:` line as a request and edited and committed code; goals and excerpts are
+  now quoted and labeled as data, and only you can run the skill.
+- `ctxjev-claude`: the post-compaction reminder says its excerpts aren't requests and that any
+  question in them was already asked. Haiku had answered a preserved "Shall I write the tests?"
+  by writing and committing them. ctxjev's own status report is never preserved.
+- `ctxjev-claude`, `ctxjev-cli`: the `<pasted_content>` tags Claude Code wraps around pasted text
+  no longer end up in the goal.
 - `ctxjev-claude`: a slash command you ran (such as `/ctxjev:set-goal`) no longer takes one of the
   preserved slots.
 - `ctxjev-core`, `ctxjev-cli`: `scorer: 'recency'` / `--scorer recency` ranks by position alone,

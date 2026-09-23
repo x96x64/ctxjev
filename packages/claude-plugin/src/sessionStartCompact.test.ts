@@ -70,6 +70,8 @@ describe('sessionStartCompact.js (dist)', () => {
     expect(result.stdout).toContain('fix the bug')
     expect(result.stdout).toContain('the actual fix')
     expect(result.stdout).toContain('not instructions')
+    expect(result.stdout).toContain('any question in them was already asked')
+    expect(result.stdout).toContain('«the actual fix»')
     expect(result.stdout).not.toContain('offline')
   }, 10_000)
 

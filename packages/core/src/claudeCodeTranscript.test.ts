@@ -363,6 +363,14 @@ describe('Claude Code harness text', () => {
   })
 })
 
+describe('pasted text', () => {
+  it('drops the <pasted_content> tags Claude Code wraps around it, keeping what was pasted', () => {
+    const entries = parseClaudeCodeTranscript(noisy)
+    expect(entries.some((e) => e.content.includes('pasted_content'))).toBe(false)
+    expect(entries.map((e) => e.content)).toContain('Use an idempotency key derived from the order id, and keep the retry count at 3.')
+  })
+})
+
 describe('findOriginalTask', () => {
   it('finds the first request even when a compaction has removed it from the entries', () => {
     expect(findOriginalTask(noisy)).toBe('Fix the checkout double-charge bug that happens when a payment request is retried on a slow network.')

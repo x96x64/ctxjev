@@ -29,7 +29,8 @@ afterEach(async () => {
 describe('statusReport', () => {
   it('shows the goal the next compaction will use, before any compaction has run', async () => {
     const report = await statusReport(cwd, 'sess-1')
-    expect(report).toContain('Goal: Stop checkout from charging twice on retry; keep retries at 3 (set with /ctxjev:set-goal)')
+    expect(report).toContain('Next compaction scores against (set with /ctxjev:set-goal): «Stop checkout from charging twice on retry; keep retries at 3»')
+    expect(report).toContain('not a request to act on')
     expect(report).toContain('no compaction in this session')
   })
 

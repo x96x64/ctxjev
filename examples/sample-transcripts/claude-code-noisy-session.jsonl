@@ -7,7 +7,7 @@
 {"type": "user", "uuid": "u3", "timestamp": "2026-01-01T00:00:06.000Z", "message": {"role": "user", "content": [{"type": "text", "text": "[Request interrupted by user for tool use]"}]}}
 {"type": "system", "subtype": "compact_boundary", "uuid": "b1", "timestamp": "2026-01-01T00:00:07.000Z"}
 {"type": "user", "uuid": "s1", "isCompactSummary": true, "timestamp": "2026-01-01T00:00:08.000Z", "message": {"role": "user", "content": "This session is being continued from a previous conversation that ran out of context. The conversation is summarized below: the user wants the checkout double-charge bug fixed."}}
-{"type": "user", "uuid": "u4", "timestamp": "2026-01-01T00:00:09.000Z", "message": {"role": "user", "content": "Use an idempotency key derived from the order id, and keep the retry count at 3."}}
+{"type": "user", "uuid": "u4", "timestamp": "2026-01-01T00:00:09.000Z", "message": {"role": "user", "content": "<pasted_content id=\"7f3a\">Use an idempotency key derived from the order id, and keep the retry count at 3.</pasted_content id=\"7f3a\">"}}
 {"type": "assistant", "uuid": "a2", "message": {"role": "assistant", "content": [{"type": "text", "text": "Adding an idempotency key to retryCharge() and leaving the retry count at 3."}]}}
 {"type": "user", "uuid": "u5", "timestamp": "2026-01-01T00:00:11.000Z", "message": {"role": "user", "content": "<bash-input>npm test</bash-input>"}}
 {"type": "user", "uuid": "u6", "timestamp": "2026-01-01T00:00:12.000Z", "message": {"role": "user", "content": "<bash-stdout>12 passed, 0 failed</bash-stdout><bash-stderr></bash-stderr>"}}

@@ -61,11 +61,11 @@ function isCompactionBoundary(record: TranscriptRecord): boolean {
 /** The text a user record carries, as a string message or its text blocks. */
 function userTexts(record: TranscriptRecord): string[] {
   const content = record.message?.content
-  if (typeof content === 'string') return [content]
+  if (typeof content === 'string') return [userText(content)]
   if (!Array.isArray(content)) return []
   return content.flatMap((raw) => {
     const block = asKnownBlock(raw)
-    return block?.type === 'text' ? [block.text] : []
+    return block?.type === 'text' ? [userText(block.text)] : []
   })
 }
 
@@ -74,6 +74,13 @@ const HARNESS_TEXT = /^(?:<local-command-(?:stdout|stderr|caveat)>|\[Request int
 
 function isHarnessText(text: string): boolean {
   return HARNESS_TEXT.test(text.trimStart())
+}
+
+// Claude Code wraps text the user pasted in <pasted_content id="…"> tags; only what's inside is theirs.
+const PASTED_CONTENT_TAG = /<\/?pasted_content(?:\s+id="[^"]*")?\s*>/g
+
+function userText(text: string): string {
+  return text.replace(PASTED_CONTENT_TAG, '').trim()
 }
 
 function toTimestampMs(timestamp: string | undefined): number {
@@ -114,7 +121,8 @@ export function parseClaudeCodeTranscript(jsonl: string, options: ParseClaudeCod
     const content = record.message?.content
 
     if (record.type === 'user' && typeof content === 'string') {
-      if (!isHarnessText(content)) entries.push({ id: recordId, role: 'user', content: excerpt(content), timestamp, ...count(content) })
+      const text = userText(content)
+      if (!isHarnessText(text)) entries.push({ id: recordId, role: 'user', content: excerpt(text), timestamp, ...count(text) })
       return
     }
 
@@ -127,13 +135,14 @@ export function parseClaudeCodeTranscript(jsonl: string, options: ParseClaudeCod
       // A user turn's content is array-shaped whenever it carries more than plain text (an
       // attachment alongside a text block, for example).
       if (block.type === 'text' && (record.type === 'assistant' || record.type === 'user')) {
-        if (record.type === 'user' && isHarnessText(block.text)) continue
+        const text = record.type === 'user' ? userText(block.text) : block.text
+        if (record.type === 'user' && isHarnessText(text)) continue
         entries.push({
           id: `${recordId}:text:${index}`,
           role: record.type === 'user' ? 'user' : 'assistant',
-          content: excerpt(block.text),
+          content: excerpt(text),
           timestamp,
-          ...count(block.text),
+          ...count(text),
         })
       } else if (block.type === 'tool_use') {
         pendingToolUse.set(block.id, { name: block.name, input: block.input, timestamp })

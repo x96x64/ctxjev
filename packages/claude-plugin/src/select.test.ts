@@ -73,4 +73,14 @@ describe('rankForPreservation, acknowledgments', () => {
     const withCommandScored: ScoredEntry[] = [...scored, { entryId: 'cmd', relevance: 1, recency: 1, combinedScore: 1 }]
     expect(rankForPreservation(withCommandScored, withCommand, 'Stop the double charge on retry', 5, Number.MIN_VALUE).map((s) => s.entryId)).not.toContain('cmd')
   })
+
+  it("leaves out ctxjev's own status report, and a reply that quotes it", () => {
+    const report = 'Bash(node status.js s1): ctxjev status — session s1 A diagnostic report…'
+    const echo = '```text ctxjev status — session s1 Next compaction scores against …```'
+    const withReport: Entry[] = [...entries, { id: 'r', role: 'tool', toolName: 'Bash', content: report, timestamp: 3 }, { id: 'e', role: 'assistant', content: echo, timestamp: 4 }]
+    const withReportScored: ScoredEntry[] = [...scored, { entryId: 'r', relevance: 1, recency: 1, combinedScore: 1 }, { entryId: 'e', relevance: 1, recency: 1, combinedScore: 1 }]
+    const ids = rankForPreservation(withReportScored, withReport, 'x', 5, Number.MIN_VALUE).map((s) => s.entryId)
+    expect(ids).not.toContain('r')
+    expect(ids).not.toContain('e')
+  })
 })
