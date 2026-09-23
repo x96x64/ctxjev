@@ -18,7 +18,7 @@ In an agent loop you write yourself, it tells you what's safe to drop.
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)](tsconfig.base.json)
 [![pnpm](https://img.shields.io/badge/maintained%20with-pnpm-F69220?logo=pnpm&logoColor=white)](pnpm-workspace.yaml)
 
-[Why](#why) · [Choosing a Package](#choosing-a-package) · [Claude Code Plugin](#the-claude-code-plugin) · [How Scoring Works](#how-scoring-works) · [Quick Start](#quick-start) · [MCP Hosts](#using-it-from-an-mcp-host) · [Design Notes](#design-notes) · [Changelog](CHANGELOG.md)
+[Why](#why) · [Choosing a Package](#choosing-a-package) · [Claude Code Plugin](#the-claude-code-plugin) · [How Scoring Works](#how-scoring-works) · [Does It Work?](#does-it-work) · [Quick Start](#quick-start) · [MCP Hosts](#using-it-from-an-mcp-host) · [Design Notes](#design-notes) · [Changelog](CHANGELOG.md)
 
 </div>
 
@@ -51,7 +51,7 @@ it's ever sent to the model again.
 | You want to… | Use | What it actually does |
 | --- | --- | --- |
 | Keep key details through Claude Code's compaction | [`ctxjev-claude`](#the-claude-code-plugin) plugin | Scores the session right before compaction and re-injects the top few entries right after. Adds a short reminder; doesn't remove anything. |
-| Drop stale history in an agent loop you control | [`ctxjev-core`](packages/core) | `pruneMessages()` takes an Anthropic Messages conversation and returns it with stale entries removed, every `tool_use`/`tool_result` pair kept intact. For other formats, `pruneContext()` returns keep/drop/summarize per entry. |
+| Drop stale history in an agent loop you control | [`ctxjev-core`](packages/core) | `pruneMessages()` takes an Anthropic Messages conversation and returns it with stale entries removed (or cut to fit a token budget), every `tool_use`/`tool_result` pair kept intact, and reports what that costs a prompt cache. For other formats, `pruneContext()` returns keep/drop/summarize per entry. |
 | See how a transcript would score, or prune a saved one | [`ctxjev-cli`](packages/cli) | `analyze` prints a report; `prune` writes the transcript back out with drops removed. |
 | Expose scoring as a tool to an MCP host | [`ctxjev-mcp`](packages/mcp-server) | Returns scores to whoever calls the tool. [Read the caveat](#using-it-from-an-mcp-host) before expecting it to save tokens. |
 
@@ -120,25 +120,26 @@ Any other history shape works through `pruneContext(entries, goal)`, which takes
 ```console
 $ ctxjev analyze examples/sample-transcripts/checkout-bug.json
 
-  e1  bash       summarize  score 0.48  ran: npm test -- checkout.test.ts — 12 passed, 0 failed
-  e2  read       summarize  score 0.26  read package.json — saw the dependency list and script names
-  e3  grep       keep       score 0.89  grep "charge" in src/payments.ts — found chargeCustomer() c…
-  e4  bash       drop       score 0.14  ran: git log --oneline -5 — recent commits about unrelated …
-  e5  read       keep       score 0.93  read src/payments.ts — the retry handler re-calls chargeCus…
-  e6  assistant  keep       score 0.94  Found it: the retry path doesn't check for an in-flight or …
-  e7  bash       drop       score 0.14  ran: ls public/audio — unrelated, was checking something el…
+  e1  bash       summarize  score 0.52  ran: npm test -- checkout.test.ts — 12 passed, 0 failed
+  e2  read       drop       score 0.27  read package.json — saw the dependency list and script names
+  e3  grep       keep       score 0.84  grep "charge" in src/payments.ts — found chargeCustomer() c…
+  e4  bash       drop       score 0.15  ran: git log --oneline -5 — recent commits about unrelated …
+  e5  read       keep       score 0.89  read src/payments.ts — the retry handler re-calls chargeCus…
+  e6  assistant  keep       score 0.90  Found it: the retry path doesn't check for an in-flight or …
+  e7  bash       drop       score 0.15  ran: ls public/audio — unrelated, was checking something el…
 
-3 kept, 2 summarized, 2 dropped (of 7 entries)
-~33 / 154 tokens saved by dropping (21%), plus ~27 in entries marked summarize (savings there depend on your summarizer)
-Jev cost: 859 input tokens, 123 output tokens (free) — ~$0.000036
+3 kept, 1 summarized, 3 dropped (of 7 entries)
+~44 / 154 tokens saved by dropping (29%), plus ~16 in entries marked summarize (savings there depend on your summarizer)
+Jev cost: 1,290 input tokens, 123 output tokens (free) — ~$0.000054
 ```
 
 This is real output against the sample transcript in this repo. Jev is probabilistic, so exact
 numbers vary slightly between runs. "Score" is Jev's relevance blended with each entry's recency
 within the batch, described further in [Design Notes](#design-notes). The cost line is computed
 from what Jev's API actually reported for that request, not estimated. Only dropped entries count
-as saved: `ctxjev` can't summarize (Jev doesn't generate text), so what `summarize` saves depends
-on whatever summarizer you use.
+as saved. Jev doesn't generate text, so what `summarize` saves depends on what you do with those
+entries: `ctxjev prune --summarize-excerpts` cuts them to their head and tail, and
+`pruneMessages()` can also hand them to your own summarizer.
 
 The `entries` array above is the one shape every agent's history maps onto, regardless of host.
 `ctxjev analyze` also auto-detects a real Claude Code session `.jsonl` and infers the goal from
@@ -147,6 +148,35 @@ your most recent chat message unless `--goal` overrides it. See
 for a synthetic one. **Be careful pointing it at a real session log**: entry content is sent to the
 live Jev API, and although common secret formats are masked first, that masking can't catch
 everything.
+
+## Does It Work?
+
+Measured by [`eval/run.mjs`](packages/core/eval/run.mjs) on a **held-out set** that was never used
+for tuning: five synthetic but realistic coding sessions in
+[`examples/eval-sessions`](examples/eval-sessions) (three English, two Japanese; 165 labeled
+entries, about 39k tokens). They have raw tool output: multi-line test logs, stack traces, diffs,
+installer noise, and 5k-token logs. There are dead ends that were later reverted, and distractors
+that share the goal's words. Each session lists the facts the task still needs later ("the race was
+introduced by #482", "don't convert to Shift_JIS"), with the entries that state them.
+
+Squeezing each session into a fixed token budget with `pruneMessages({ targetTokens })`, how many
+of those facts survive (mean of 3 Jev runs):
+
+| Ranking by | 50% budget | 25% budget |
+| --- | --- | --- |
+| **Jev** | **92%** | **82%** |
+| Keyword overlap (offline) | 69% | 45% |
+| Random | 69% | 59% |
+| Newest first (plain truncation) | 58% | 50% |
+
+On the same set, Jev's keep/drop matches the labels 79% of the time (keywords: 51%) and puts only
+relevant entries in every session's top 5, the part the Claude Code plugin re-injects. On the dev
+fixtures it was tuned on, it's 90%.
+
+What this doesn't show: the sessions are written, not recorded, and nothing here measures whether an
+agent finishes its task better afterwards. That would need a model to run the task with and without
+pruning. Token counts come from `gpt-tokenizer`, an approximation of Claude's tokenizer. Every release
+must still pass these numbers: `publish.yml` runs `eval/run.mjs --gate --runs 3`.
 
 ## Quick Start
 
@@ -308,14 +338,21 @@ exact call lives in [`server.live.test.ts`](packages/mcp-server/src/server.live.
   goal: no key, no network, much cruder. The plugin falls back to it when there's no key or Jev
   fails, and says so; the CLI exposes it as `--offline`. Its scores never go into the Jev score
   cache.
-- **Savings only count what's actually removed.** `summarizeSavings()` reports `droppedTokens`
-  separately from `summarizableTokens`. `ctxjev` can't summarize, so counting `summarize` as saved
-  would claim savings that depend entirely on someone else's summarizer.
+- **Savings only count what's actually removed, at its real size.** `summarizeSavings()` reports
+  `droppedTokens` separately from `summarizableTokens`, since what `summarize` saves depends on
+  what you do with it. Both count each entry's `sourceTokens`, the size of the full payload, not
+  the 600-character excerpt that gets scored. Before 0.3.1 they counted the excerpt, which made a
+  45,000-token log look like ~200 tokens.
 - **Pruning a conversation keeps it a valid request.** In the Anthropic Messages API, a
   `tool_result` without its `tool_use` (or the reverse) is rejected, so
   [`pruneMessages()`](packages/core/src/anthropicMessages.ts) scores a tool call and its result as
   one entry and removes them together. It never touches the first message (the original task) or
-  the latest turn, which may hold a tool call still waiting on its result.
+  the latest turn, which may hold a tool call still waiting on its result. Pruning also changes
+  every request after the first removed message, so a prompt cache starts over there. The result
+  reports `cache.invalidatedTokens`, and `minSavedTokens` skips a change too small to pay for that.
+  See [prompt caching](packages/core/README.md#with-prompt-caching).
+- **The scorer is pluggable.** `scorer` takes `'jev'`, `'local'`, or your own function, which is
+  called per chunk like Jev and gets content that `redactSecrets()` has already masked.
 - **No hand-rolled retry logic.** `@typesafe-ai/sdk`'s `TypeSafeClient` already retries connection
   failures, timeouts, and 408/429/500-599 responses by default, so adding a custom retry layer
   would just be a worse copy of what the SDK already does correctly. Across chunks, requests run
@@ -342,18 +379,21 @@ exact call lives in [`server.live.test.ts`](packages/mcp-server/src/server.live.
   one of them deliberately adversarial: a root-cause entry that's both early and critical. Accuracy
   tied from `w=0` to `w=0.2`, but the adversarial fixture started degrading at `w=0.2`, so `0.1`
   sits on the safe side. [`recencyWeight.live.test.ts`](packages/core/src/recencyWeight.live.test.ts)
-  keeps that as a regression test. The drop/summarize thresholds keep their original, untuned
-  defaults until there's more labeled data.
+  keeps that as a regression test. `dropBelow` went from 0.25 to 0.3 in 0.4.0: on the dev
+  fixtures, Jev keeps every relevant entry up to 0.4, but the held-out sessions start losing
+  relevant entries at 0.35. So 0.3 is the highest value that loses none on either set, and it
+  raises accuracy by 4-6 points. `summarizeBelow` keeps its original default.
 - **Jev has to beat a keyword baseline, and does — where it matters.** The eval always runs the
   offline scorer alongside Jev. On fixtures whose relevant entries share the goal's words, the two
   tie. On [`session-logout.json`](examples/sample-transcripts/session-logout.json), where the real
   cause (a token-renewal race) never uses the goal's words and the distractors do ("user", "app",
   "log out"), keyword overlap put 1 relevant entry in its top 5 and Jev put 5. A Japanese fixture,
   [`invoice-date-ja.json`](examples/sample-transcripts/invoice-date-ja.json), is built the same
-  way: keywords got 3 of its top 5 and Jev 5. Across all five fixtures (129 labels), drop accuracy
-  at the default weight is 85% for Jev and 72% for keywords.
-  Every release is gated on this: `publish.yml` runs `eval/run.mjs --gate`, which fails if Jev
-  falls below the baseline or misses more than one of any fixture's top entries.
+  way: keywords got 3 of its top 5 and Jev 5. See [Does It Work?](#does-it-work) for the held-out
+  numbers. Every release is gated on this: `publish.yml` runs `eval/run.mjs --gate --runs 3`,
+  which fails if Jev's mean accuracy falls below the baseline's, it misses more than one of any
+  fixture's top entries, or it keeps fewer of the held-out facts under a 50% budget than plain
+  truncation or keywords do.
 - **Token counts are computed, not judged.** [`tokenEstimate.ts`](packages/core/src/tokenEstimate.ts)
   uses a real tokenizer, [`gpt-tokenizer`](https://www.npmjs.com/package/gpt-tokenizer), since Jev
   is explicitly bad at arithmetic and this project never asks it to count anything.

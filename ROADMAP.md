@@ -394,3 +394,74 @@ pairing right themselves. `pruneMessages()` does it, and `ctxjev prune` exposes 
 **To verify for real:** that Claude Code keeps the same `session_id` across a compaction, which the
 per-session snapshot relies on. It can only be checked with an actual `/compact`.
 
+
+## Phase 13 — Non-English text and real token counts (v0.3.1, 2026-09-23)
+
+A real compaction scored 669 entries against a Japanese goal and preserved nothing. The offline
+scorer's tokenizer split on `[^a-z0-9]`, so Japanese contributed no terms and every entry scored 0.
+A strict review of the whole project afterwards rated it about 55/100. The engineering was
+solid, but there was little evidence that it helps, the design had gaps, and it had correctness
+bugs. Phases 13-17 work through that review.
+
+- **CJK.** Offline scoring uses character bigrams for Han, Katakana, and Hangul runs, with Hiragana
+  as a separator. `Intl.Segmenter` was ruled out because it splits katakana loanwords
+  inconsistently. Short Japanese instructions no longer read as acknowledgments, since wide
+  characters count double. Credentials behind Japanese labels ("パスワード：…") are masked.
+- **Savings at real size.** Savings counted the 600-character scoring excerpt, so a
+  45,000-token log showed as ~205 tokens. Entries now carry `sourceTokens`. The first version
+  imported the tokenizer into the transcript parser and grew the plugin bundle from 24KB to 2.8MB,
+  so the counter is now passed in, and the plugin build fails above 200KB.
+- **Hygiene.** `analyze --help` / `prune --help` work. CI runs on Node 20 and 22, and ESLint runs
+  on every push.
+
+## Phase 14 — A pluggable scorer (v0.4.0)
+
+`scorer` takes a function as well as `'jev'` / `'local'`. It's called per chunk like Jev, gets the
+batch's latest activity, and only ever sees content that `redactSecrets()` has already masked.
+Its output is validated, so a wrong count or a score outside 0-1 throws, naming the entry.
+
+## Phase 15 — `pruneMessages()` for real agent loops (v0.4.0)
+
+- **Budgets.** `targetTokens` keeps removing the lowest-scoring unprotected entries after the
+  threshold drops, and reports `overBudget` if only protected entries are left.
+- **`summarize` does something.** `'excerpt'` cuts an entry to its head and tail, or a function
+  writes the replacement. A tool call keeps its `tool_use` and only its result changes.
+  Summaries are applied before the budget pass, since shortening loses less than dropping.
+- **Prompt caching.** Any change rewrites a cache from the first changed message on. The result
+  reports `cache.invalidatedTokens`, and `minSavedTokens` makes a small saving a no-op.
+- **Verification.** Beyond unit tests, a seeded property test runs 150 random conversations with
+  random scores and options. It checks that every `tool_use` keeps its `tool_result`, that the
+  first message and the protected tail are unchanged, and that no message is left empty. It also
+  asserts that most runs actually change something, so it can't pass by doing nothing.
+
+## Phase 16 — A held-out eval that looks like real sessions (v0.4.0)
+
+The dev fixtures are tidy one-liners and were used for tuning, so their numbers were optimistic by
+construction. [`examples/eval-sessions`](examples/eval-sessions) adds five raw Anthropic Messages
+sessions (3 English, 2 Japanese, 165 labeled entries, about 39k tokens) with realistic tool
+output, reverted attempts, and distractors. Each lists the facts the task needs later ("probes").
+They're synthetic by design: CLAUDE.md rules out real transcripts.
+
+**What it found** (mean of 3 Jev runs):
+- **Budget retention.** At a 50% token budget, Jev keeps 92% of probes. Plain truncation keeps
+  58%, keywords 69%, and random 69%. At 25%, Jev keeps 82% and truncation 50%.
+- **Held-out accuracy.** Drop accuracy is 79% for Jev and 51% for keywords, against 90% for Jev
+  on dev. That gap is the honest cost of tidy fixtures. Top-5: no misses in any session.
+- **Random beats keywords at 25%** (59% vs 45%). The keyword scorer ranks big logs that happen
+  to share the goal's words above small entries that state the facts. Ranking by the labels
+  themselves also isn't a ceiling (83% at 50%), because it ignores size.
+- **`dropBelow` 0.25 → 0.3.** On dev, Jev keeps every relevant entry up to 0.4. The held-out set
+  starts losing them at 0.35 (99.4%). 0.3 loses none on either set and gains 4-6 points of
+  accuracy. Held-out informed that choice, which is recorded here rather than presented as
+  untouched. `recencyWeight` stays 0.1: dev ties from 0 to 0.1.
+- **Release gate.** `--gate --runs 3` also fails if Jev keeps fewer held-out probes at 50% than
+  truncation or keywords do.
+
+## Phase 17 — Docs and release (v0.4.0)
+
+The README leads its results with the held-out table and says what it doesn't show: the sessions
+are written rather than recorded, and there is no end-to-end measure of whether an agent finishes
+its task better. An LLM-graded outcome eval was scoped out on purpose.
+
+**Still open:** an outcome eval (a model answering the probes from pruned context, with and without
+ctxjev), and checking `session_id` continuity across a real `/compact` (from Phase 12).
