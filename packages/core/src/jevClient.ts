@@ -1,5 +1,6 @@
 import { TypeSafeClient, noul } from '@typesafe-ai/sdk'
 import { cacheKeyFor, type ScoreCache } from './cache.js'
+import { redactSecrets } from './redact.js'
 import type { Entry, JevUsage } from './types.js'
 
 export type RelevanceVerdict = {
@@ -38,6 +39,29 @@ function getClient(): TypeSafeClient {
 }
 
 /**
+ * Everything sent to Jev for one chunk. This is the single point where entry content leaves the
+ * machine, so it's also where secrets are masked — every caller (CLI, MCP server, Claude Code
+ * plugin, a library user's own agent loop) goes through here.
+ */
+export function buildJevRequest(goal: string, entries: Entry[]) {
+  const state = {
+    goal: redactSecrets(goal),
+    entries: Object.fromEntries(
+      entries.map((entry) => [entry.id, { role: entry.role, toolName: entry.toolName ?? null, content: redactSecrets(entry.content) }]),
+    ),
+  }
+
+  const questions = Object.fromEntries(
+    entries.map((entry) => [
+      entry.id,
+      noul(`Given state.entries[${JSON.stringify(entry.id)}], is this still relevant to accomplishing state.goal?`),
+    ]),
+  )
+
+  return { state, questions }
+}
+
+/**
  * `cache`, when provided, is checked before spending a Jev request on an entry — and populated
  * with any fresh verdicts afterward. Keyed on goal + entry content (see `cacheKeyFor`), not on
  * `entry.id`, so the same tool output scores as a cache hit even across different transcripts.
@@ -58,20 +82,7 @@ export async function scoreRelevance(goal: string, entries: Entry[], cache?: Sco
   let usage: JevUsage = { inputTokens: 0, outputTokens: 0 }
 
   if (uncached.length > 0) {
-    const state = {
-      goal,
-      entries: Object.fromEntries(
-        uncached.map((entry) => [entry.id, { role: entry.role, toolName: entry.toolName ?? null, content: entry.content }]),
-      ),
-    }
-
-    const questions = Object.fromEntries(
-      uncached.map((entry) => [
-        entry.id,
-        noul(`Given state.entries["${entry.id}"], is this still relevant to accomplishing state.goal?`),
-      ]),
-    )
-
+    const { state, questions } = buildJevRequest(goal, uncached)
     const response = await getClient().systemOne({ state, questions })
     usage = { inputTokens: response.usage.input_tokens, outputTokens: response.usage.output_tokens }
 

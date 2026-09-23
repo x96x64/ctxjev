@@ -59,6 +59,10 @@ codex mcp add ctxjev --env TYPESAFE_API_KEY=... -- npx ctxjev-mcp
 
 `entries` is `{ id, role: 'user'|'assistant'|'tool', toolName?, content, timestamp }[]`.
 
+Entry content and the goal are sent to TypeSafe AI's Jev API. Common secret formats (API keys,
+tokens, private-key blocks, `NAME=value` credentials) are masked to `[REDACTED]` first, on a
+best-effort basis.
+
 ## Example Response
 
 Calling `prune_history` with two entries, one obviously relevant to the goal and one not, returns:

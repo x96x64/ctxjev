@@ -1,3 +1,4 @@
+import { redactSecrets } from './redact.js'
 import type { Entry } from './types.js'
 
 /**
@@ -51,6 +52,11 @@ export function truncate(text: string, max: number = MAX_CONTENT_LENGTH): string
   return oneLine.length > max ? `${oneLine.slice(0, max - 1)}…` : oneLine
 }
 
+// Masked here too (not only in jevClient) because parsed entries are also written to disk by ctxjev-claude.
+function excerpt(text: string): string {
+  return truncate(redactSecrets(text))
+}
+
 function toolResultText(content: string | Array<{ type: string; text?: string }>): string {
   if (typeof content === 'string') return content
   return content
@@ -85,7 +91,7 @@ export function parseClaudeCodeTranscript(jsonl: string): Entry[] {
     const content = record.message?.content
 
     if (record.type === 'user' && typeof content === 'string') {
-      entries.push({ id: record.uuid ?? `user-${timestamp}`, role: 'user', content: truncate(content), timestamp })
+      entries.push({ id: record.uuid ?? `user-${timestamp}`, role: 'user', content: excerpt(content), timestamp })
       continue
     }
 
@@ -102,7 +108,7 @@ export function parseClaudeCodeTranscript(jsonl: string): Entry[] {
         entries.push({
           id: `${record.uuid ?? timestamp}:text:${index}`,
           role: record.type === 'user' ? 'user' : 'assistant',
-          content: truncate(block.text),
+          content: excerpt(block.text),
           timestamp,
         })
       } else if (block.type === 'tool_use') {
@@ -116,7 +122,7 @@ export function parseClaudeCodeTranscript(jsonl: string): Entry[] {
           id: block.tool_use_id,
           role: 'tool',
           toolName: name,
-          content: truncate(`${name}: ${resultText}`),
+          content: excerpt(`${name}: ${resultText}`),
           timestamp: pending?.timestamp ?? timestamp,
         })
       }
@@ -131,7 +137,7 @@ export function parseClaudeCodeTranscript(jsonl: string): Entry[] {
       id: toolUseId,
       role: 'tool',
       toolName: pending.name,
-      content: truncate(`${pending.name}: (no result — tool call never completed)`),
+      content: excerpt(`${pending.name}: (no result — tool call never completed)`),
       timestamp: pending.timestamp,
     })
   }

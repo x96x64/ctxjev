@@ -55,15 +55,20 @@ actually calls Jev — `scoreRelevance()`/`pruneContext()`, the CLI's `analyze` 
 server's two tools, and `packages/claude-plugin`'s `PreCompact` hook. It's kept in `.env.local` at
 the repo root (gitignored, never commit it) — `source .env.local` before running anything live.
 `--help`/`--version` and the pure-logic test files don't need it; every test file whose name ends
-in `.live.test.ts` across all four packages is skipped automatically when the key is absent rather
-than failing — that's also exactly what CI runs, since it never sets the key.
+in `.live.test.ts` (in `core`, `mcp-server`, and `claude-plugin` — `cli` has none) is skipped
+automatically when the key is absent rather than failing. CI only sets the key for the publish
+workflow's test step.
 
-**Never run any of this against this repo's own real session transcripts**
+**When developing or testing, never run any of this against real session transcripts**
 (`~/.claude/projects/*/*.jsonl`) — they can contain secrets pasted into chat (this project's own
 history does, from setting up `TYPESAFE_API_KEY` originally), and `preCompact.js`/`selectPreserved`
-*and now `ctxjev-cli analyze`* send entry content to the live Jev API. Use a synthetic fixture
-instead (see `packages/core/src/claudeCodeTranscript.test.ts` for the shape, or
-`examples/sample-transcripts/claude-code-session.jsonl` for a ready-made one).
+and `ctxjev-cli analyze` send entry content to the live Jev API. Use a synthetic fixture instead
+(see `packages/core/src/claudeCodeTranscript.test.ts` for the shape, or
+`examples/sample-transcripts/claude-code-session.jsonl` for a ready-made one). The *shipped*
+plugin does score its users' real transcripts — that's its purpose — which is why every request
+goes through `redactSecrets()` (`packages/core/src/redact.ts`) and the plugin README discloses it.
+Any new path that sends content to Jev must go through `buildJevRequest()` in `jevClient.ts` so it
+inherits that masking.
 
 `parseClaudeCodeTranscript()` skips `isSidechain: true` records (a subagent's own private
 conversation) — that content already shows up in the main thread as an ordinary

@@ -7,7 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](../../LICENSE)
 [![Verified](https://img.shields.io/badge/verified-desktop%20app%20%2B%20CLI-brightgreen)](../../ROADMAP.md)
 
-[Overview](#overview) · [How It Works](#how-it-works) · [Skills](#skills) · [Install](#install) · [Requirements](#requirements)
+[Overview](#overview) · [How It Works](#how-it-works) · [Skills](#skills) · [Install](#install) · [Requirements](#requirements) · [Privacy](#privacy)
 
 </div>
 
@@ -86,6 +86,24 @@ Code itself runs in. Get one at
 Without it, the `PreCompact` hook is a silent no-op: your session works exactly as it always did,
 just without the reminder afterward. A bug here can never block your actual compaction. That's by
 design, not a side effect.
+
+## Privacy
+
+Read this before installing. On every compaction, this plugin sends excerpts of your real session
+(your messages, Claude's replies, and tool calls with their output) to TypeSafe AI's Jev API for
+scoring. That's the whole mechanism, not a side channel, but it does mean conversation content
+leaves your machine.
+
+- **Secrets are masked first, on a best-effort basis.** Common key formats (Anthropic/OpenAI
+  `sk-…`, GitHub tokens, AWS access keys, Slack tokens, JWTs, bearer tokens, private-key blocks)
+  and the value of anything assigned to a name like `API_KEY`, `SECRET`, `TOKEN`, or `PASSWORD`
+  are replaced with `[REDACTED]` before sending. That narrows exposure; it can't recognize every
+  possible secret.
+- **Only short excerpts are sent**, not whole files or full tool output.
+- **The local cache stays out of git.** Scores and excerpts are written to `.ctxjev/` in your
+  project, which the plugin creates with its own `.gitignore` (`*`) so it can't be committed by
+  accident.
+- **Nothing is sent without a key.** With `TYPESAFE_API_KEY` unset, nothing leaves your machine.
 
 ---
 

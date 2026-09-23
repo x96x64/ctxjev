@@ -120,6 +120,11 @@ describe('parseClaudeCodeTranscript', () => {
     expect(entries[0].content).toContain('no result')
   })
 
+  it('masks secrets in parsed content', () => {
+    const jsonl = record({ type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: 'use TYPESAFE_API_KEY=abc123def456ghi please' } })
+    expect(parseClaudeCodeTranscript(jsonl)[0].content).toBe('use TYPESAFE_API_KEY=[REDACTED] please')
+  })
+
   it('truncates long content to a short excerpt', () => {
     const longText = 'x'.repeat(500)
     const jsonl = record({ type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: longText } })

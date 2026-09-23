@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -28,6 +28,18 @@ describe('preserve cache', () => {
 
   it('creates the .ctxjev directory if missing', async () => {
     await expect(writePreservedContext(cwd, sample)).resolves.not.toThrow()
+  })
+
+  it('gitignores the .ctxjev directory so cached transcript excerpts never get committed', async () => {
+    await writePreservedContext(cwd, sample)
+    expect(await readFile(join(cwd, '.ctxjev', '.gitignore'), 'utf8')).toBe('*\n')
+  })
+
+  it('leaves an existing .ctxjev/.gitignore untouched', async () => {
+    await mkdir(join(cwd, '.ctxjev'), { recursive: true })
+    await writeFile(join(cwd, '.ctxjev', '.gitignore'), 'custom\n', 'utf8')
+    await writePreservedContext(cwd, sample)
+    expect(await readFile(join(cwd, '.ctxjev', '.gitignore'), 'utf8')).toBe('custom\n')
   })
 
   it('returns undefined when no cache exists yet', async () => {

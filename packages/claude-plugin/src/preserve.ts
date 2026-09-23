@@ -1,6 +1,7 @@
-import { mkdir, readFile, rm } from 'node:fs/promises'
+import { readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { atomicWriteFile, type ScoredEntry } from 'ctxjev-core'
+import { ensureStateDir } from './stateDir.js'
 
 export type PreservedContext = {
   goal: string
@@ -13,7 +14,7 @@ function cachePath(cwd: string): string {
 }
 
 export async function writePreservedContext(cwd: string, data: PreservedContext): Promise<void> {
-  await mkdir(join(cwd, '.ctxjev'), { recursive: true })
+  await ensureStateDir(cwd)
   // Atomic write — a plain writeFile can interleave with another concurrent PreCompact run on
   // the same project (two sessions on the same repo) and corrupt the JSON.
   await atomicWriteFile(cachePath(cwd), JSON.stringify(data, null, 2))

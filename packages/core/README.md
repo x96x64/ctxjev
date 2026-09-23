@@ -37,6 +37,10 @@ npm install ctxjev-core
 Requires `TYPESAFE_API_KEY` in the environment. Get one at
 [console.typesafe.ai/settings/keys](https://console.typesafe.ai/settings/keys) (no waitlist).
 
+Entry content and the goal are sent to TypeSafe AI's Jev API. Every request passes through
+`redactSecrets()` first, masking common secret formats to `[REDACTED]` (best-effort, not
+exhaustive). It's exported too, if you want to apply the same masking elsewhere.
+
 ## How It Works
 
 Every entry becomes its own question, and every question in a batch is evaluated **in parallel

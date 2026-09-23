@@ -224,6 +224,11 @@ PreCompact  → score every entry with Jev, cache the top few to .ctxjev/preserv
 SessionStart (compact) → read that cache, print a digest; Claude Code adds it as a system reminder
 ```
 
+> **Privacy:** on every compaction, the plugin sends excerpts of your real session to TypeSafe AI's
+> Jev API. Common secret formats are masked to `[REDACTED]` first (best-effort, not exhaustive),
+> and the local `.ctxjev/` cache is created with its own `.gitignore` so it can't be committed. See
+> the plugin's [Privacy section](packages/claude-plugin/README.md#privacy) for exactly what's sent.
+
 The goal to score against is either set explicitly (`/ctxjev:set-goal <text>`, written to
 `.ctxjev/goal.txt`) or, if you never set one, inferred from your most recent chat message.
 `/ctxjev:status` shows the current goal and the last scoring pass without waiting for a real

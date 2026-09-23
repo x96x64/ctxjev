@@ -7,6 +7,7 @@ import { DEFAULT_POLICY, type Entry, type JevUsage, type PruneDecision, type Pru
 
 export * from './types.js'
 export { atomicWriteFile } from './atomicWrite.js'
+export { redactSecrets } from './redact.js'
 export { summarizeSavings, type SavingsReport } from './savings.js'
 export { estimateTokens } from './tokenEstimate.js'
 export { parseClaudeCodeTranscript, inferGoalFromEntries, truncate } from './claudeCodeTranscript.js'
