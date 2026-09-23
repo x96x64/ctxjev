@@ -42,7 +42,7 @@ export type PruningPolicy = {
 }
 
 export const DEFAULT_POLICY: PruningPolicy = {
-  dropBelow: 0.25,
+  dropBelow: 0.3,
   summarizeBelow: 0.6,
   recencyWeight: 0.1,
 }

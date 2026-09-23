@@ -58,7 +58,7 @@ estimated.
 | Flag | What it does |
 | --- | --- |
 | `--goal <text>` | Overrides the transcript's own goal (or the inferred one), if any. |
-| `--drop-below <0-1>` | Relevance floor below which an entry is dropped (default `0.25`). |
+| `--drop-below <0-1>` | Relevance floor below which an entry is dropped (default `0.3`). |
 | `--summarize-below <0-1>` | Relevance floor below which an entry is summarized (default `0.6`). |
 | `--json` | Prints machine-readable JSON (`{ decisions, savings, usage, scorer }`) instead of the report. |
 | `--no-cache` | Doesn't read or write the score cache (`~/.cache/ctxjev/score-cache.json`). |

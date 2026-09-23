@@ -1,0 +1,840 @@
+{
+ "language": "en",
+ "goal": "The OrderService integration test fails intermittently in CI, roughly one run in five. Find out why and fix it.",
+ "messages": [
+  {
+   "role": "user",
+   "content": "The OrderService integration test fails intermittently in CI, roughly one run in five. Find out why and fix it."
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "text",
+     "text": "I'll start with the CI history to see how the failure shows up."
+    },
+    {
+     "type": "tool_use",
+     "id": "toolu_runs_01",
+     "name": "Bash",
+     "input": {
+      "command": "gh run list --workflow ci.yml --limit 12"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_runs_01",
+     "content": "STATUS  TITLE                                   WORKFLOW  BRANCH  EVENT  ID          ELAPSED  AGE\n✓       Bump eslint-plugin-react to 7.37.2       CI        main    push   9921837461  3m41s    2h\nX       Add invoice PDF footer                   CI        main    push   9921650022  3m12s    5h\n✓       Add invoice PDF footer                   CI        main    push   9921649877  3m39s    5h\n✓       Refactor stock module into its own dir   CI        main    push   9920013344  3m45s    1d\n✓       Fix typo in onboarding copy              CI        main    push   9919887710  3m37s    1d\nX       Tweak dashboard chart colors             CI        main    push   9919502265  3m08s    2d\n✓       Tweak dashboard chart colors             CI        main    push   9919502101  3m40s    2d\n✓       Move stock reservation to event listener CI        main    push   9918330092  3m44s    3d\n✓       Update README badges                     CI        main    push   9917004451  3m35s    4d\n✓       Add order export endpoint                CI        main    push   9916998702  3m49s    4d\n✓       Bump vitest to 2.1.9                     CI        main    push   9916542233  3m33s    5d\n✓       Add customer notes field                 CI        main    push   9916011209  3m41s    6d"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_faillog_02",
+     "name": "Bash",
+     "input": {
+      "command": "gh run view 9921650022 --log-failed | tail -40"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_faillog_02",
+     "content": "test\tRun npm test\tFAIL src/orders/OrderService.test.ts\ntest\tRun npm test\t  ● OrderService › createOrder › creates the order and reserves stock\ntest\tRun npm test\ntest\tRun npm test\t    expect(received).toBe(expected) // Object.is equality\ntest\tRun npm test\ntest\tRun npm test\t    Expected: \"reserved\"\ntest\tRun npm test\t    Received: \"pending\"\ntest\tRun npm test\ntest\tRun npm test\t      42 |     const order = await service.createOrder({ sku: 'SKU-118', quantity: 2, customerId: 'c_91' })\ntest\tRun npm test\t      43 |     const stored = await orders.findById(order.id)\ntest\tRun npm test\t    > 44 |     expect(stored.stockStatus).toBe('reserved')\ntest\tRun npm test\t         |                                ^\ntest\tRun npm test\t      45 |     expect(await stock.available('SKU-118')).toBe(8)\ntest\tRun npm test\t      46 |   })\ntest\tRun npm test\ntest\tRun npm test\t      at Object.<anonymous> (src/orders/OrderService.test.ts:44:32)\ntest\tRun npm test\ntest\tRun npm test\tTest Suites: 1 failed, 57 passed, 58 total\ntest\tRun npm test\tTests:       1 failed, 412 passed, 413 total\ntest\tRun npm test\tTime:        61.382 s\ntest\tRun npm test\t##[error]Process completed with exit code 1.",
+     "is_error": true
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_pkg_03",
+     "name": "Read",
+     "input": {
+      "file_path": "package.json"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_pkg_03",
+     "content": "{\n  \"name\": \"shopfront-api\",\n  \"version\": \"3.14.0\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"tsx watch src/server.ts\",\n    \"build\": \"tsc -p tsconfig.build.json\",\n    \"test\": \"jest\",\n    \"lint\": \"eslint . --max-warnings 0\"\n  },\n  \"dependencies\": {\n    \"express\": \"^4.21.1\",\n    \"pg\": \"^8.13.1\",\n    \"zod\": \"^3.23.8\",\n    \"pino\": \"^9.5.0\"\n  },\n  \"devDependencies\": {\n    \"@types/jest\": \"^29.5.14\",\n    \"jest\": \"^29.7.0\",\n    \"ts-jest\": \"^29.2.5\",\n    \"typescript\": \"^5.6.3\"\n  }\n}"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_npmci_04",
+     "name": "Bash",
+     "input": {
+      "command": "npm ci"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_npmci_04",
+     "content": "npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it.\nnpm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported\nnpm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported\nnpm warn deprecated @humanwhocodes/config-array@0.11.14: Use @eslint/config-array instead\nnpm warn deprecated abab@2.0.6: Use your platform's native atob() and btoa() methods instead\nnpm warn deprecated domexception@4.0.0: Use your platform's native DOMException instead\nnpm http fetch GET 200 https://registry.npmjs.org/chalk/-/chalk-3.12.20.tgz 32ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/postcss/-/postcss-9.3.11.tgz 306ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/@babel/core/-/core-9.6.1.tgz 52ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/debug/-/debug-7.2.7.tgz 54ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/tslib/-/tslib-7.1.18.tgz 71ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/browserslist/-/browserslist-1.18.18.tgz 211ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/@babel/core/-/core-4.1.17.tgz 76ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/semver/-/semver-7.4.17.tgz 68ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/acorn/-/acorn-5.17.5.tgz 60ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/acorn/-/acorn-4.11.3.tgz 288ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/micromatch/-/micromatch-2.18.1.tgz 324ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/browserslist/-/browserslist-8.21.17.tgz 226ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/fsevents/-/fsevents-6.14.18.tgz 240ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/chalk/-/chalk-5.7.5.tgz 132ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/postcss/-/postcss-5.16.15.tgz 183ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/micromatch/-/micromatch-8.9.19.tgz 45ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/postcss/-/postcss-9.13.5.tgz 183ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/caniuse-lite/-/caniuse-lite-8.13.1.tgz 47ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/fsevents/-/fsevents-9.18.10.tgz 182ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/micromatch/-/micromatch-6.19.15.tgz 304ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/fsevents/-/fsevents-8.2.2.tgz 146ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/ms/-/ms-2.1.9.tgz 339ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/acorn/-/acorn-8.9.12.tgz 185ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/@babel/core/-/core-8.11.5.tgz 320ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/postcss/-/postcss-8.1.6.tgz 155ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/caniuse-lite/-/caniuse-lite-4.12.12.tgz 262ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/postcss/-/postcss-3.14.12.tgz 289ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/semver/-/semver-3.26.13.tgz 289ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/semver/-/semver-7.11.12.tgz 126ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/caniuse-lite/-/caniuse-lite-2.5.4.tgz 126ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/picomatch/-/picomatch-4.0.15.tgz 309ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/caniuse-lite/-/caniuse-lite-5.9.0.tgz 82ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/debug/-/debug-9.11.19.tgz 297ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/chalk/-/chalk-3.22.16.tgz 324ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/picomatch/-/picomatch-1.14.17.tgz 208ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/debug/-/debug-7.12.3.tgz 254ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/picomatch/-/picomatch-7.1.6.tgz 42ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/browserslist/-/browserslist-8.5.3.tgz 182ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/acorn/-/acorn-1.3.0.tgz 298ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/caniuse-lite/-/caniuse-lite-9.3.11.tgz 322ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/@babel/core/-/core-2.27.6.tgz 322ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/debug/-/debug-3.20.8.tgz 185ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/acorn/-/acorn-6.15.3.tgz 67ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/esbuild/-/esbuild-8.14.15.tgz 255ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/semver/-/semver-2.4.3.tgz 183ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/micromatch/-/micromatch-5.15.5.tgz 272ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/@babel/core/-/core-4.30.16.tgz 193ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/caniuse-lite/-/caniuse-lite-9.29.0.tgz 278ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/semver/-/semver-2.22.8.tgz 273ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/chalk/-/chalk-3.11.7.tgz 280ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/tslib/-/tslib-9.10.20.tgz 122ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/acorn/-/acorn-4.25.7.tgz 213ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/micromatch/-/micromatch-4.6.16.tgz 260ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/chalk/-/chalk-1.0.8.tgz 249ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/semver/-/semver-4.22.19.tgz 184ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/ms/-/ms-6.30.11.tgz 49ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/browserslist/-/browserslist-2.7.15.tgz 108ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/chalk/-/chalk-4.15.19.tgz 320ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/esbuild/-/esbuild-1.15.20.tgz 184ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/fsevents/-/fsevents-2.26.3.tgz 206ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/fsevents/-/fsevents-4.15.5.tgz 230ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/fsevents/-/fsevents-6.2.12.tgz 245ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/debug/-/debug-2.23.5.tgz 95ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/caniuse-lite/-/caniuse-lite-1.4.18.tgz 246ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/fsevents/-/fsevents-3.19.19.tgz 250ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/picomatch/-/picomatch-6.4.17.tgz 288ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/caniuse-lite/-/caniuse-lite-1.0.20.tgz 60ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/tslib/-/tslib-3.13.6.tgz 116ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/@babel/core/-/core-5.6.9.tgz 264ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/browserslist/-/browserslist-6.8.17.tgz 222ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/esbuild/-/esbuild-3.1.11.tgz 242ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/picomatch/-/picomatch-9.13.16.tgz 74ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/tslib/-/tslib-3.16.16.tgz 17ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/esbuild/-/esbuild-8.24.5.tgz 319ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/@babel/core/-/core-3.5.4.tgz 250ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/acorn/-/acorn-2.17.1.tgz 174ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/picomatch/-/picomatch-9.16.17.tgz 255ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/fsevents/-/fsevents-2.28.17.tgz 37ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/browserslist/-/browserslist-4.8.1.tgz 58ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/tslib/-/tslib-8.17.0.tgz 40ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/ms/-/ms-6.19.16.tgz 318ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/tslib/-/tslib-4.22.8.tgz 239ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/tslib/-/tslib-9.25.15.tgz 267ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/browserslist/-/browserslist-9.28.8.tgz 294ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/rollup/-/rollup-4.26.14.tgz 78ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/debug/-/debug-2.12.14.tgz 169ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/postcss/-/postcss-4.13.2.tgz 116ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/picomatch/-/picomatch-5.25.3.tgz 87ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/micromatch/-/micromatch-6.4.8.tgz 78ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/ms/-/ms-4.23.3.tgz 211ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/rollup/-/rollup-8.5.7.tgz 90ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/micromatch/-/micromatch-7.16.12.tgz 181ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/debug/-/debug-4.11.10.tgz 55ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/micromatch/-/micromatch-6.0.10.tgz 291ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/ms/-/ms-8.22.0.tgz 204ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/chalk/-/chalk-9.19.9.tgz 270ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/postcss/-/postcss-2.29.7.tgz 61ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/postcss/-/postcss-5.8.1.tgz 100ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/semver/-/semver-3.26.13.tgz 140ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/debug/-/debug-3.17.16.tgz 300ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/ms/-/ms-6.2.8.tgz 37ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/fsevents/-/fsevents-3.13.2.tgz 145ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/@babel/core/-/core-2.25.8.tgz 50ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/acorn/-/acorn-4.2.8.tgz 70ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/ms/-/ms-1.10.17.tgz 221ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/rollup/-/rollup-5.19.4.tgz 30ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/tslib/-/tslib-4.30.3.tgz 90ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/semver/-/semver-1.5.6.tgz 167ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/picomatch/-/picomatch-5.16.6.tgz 156ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/ms/-/ms-9.21.5.tgz 146ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/chalk/-/chalk-1.8.1.tgz 15ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/@babel/core/-/core-9.17.6.tgz 271ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/ms/-/ms-4.29.14.tgz 62ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/picomatch/-/picomatch-7.21.15.tgz 287ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/esbuild/-/esbuild-7.16.9.tgz 118ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/browserslist/-/browserslist-6.6.20.tgz 79ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/debug/-/debug-6.1.4.tgz 15ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/postcss/-/postcss-5.13.5.tgz 36ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/postcss/-/postcss-7.27.16.tgz 152ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/acorn/-/acorn-4.22.9.tgz 31ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/ms/-/ms-3.5.8.tgz 236ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/@babel/core/-/core-5.11.10.tgz 288ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/chalk/-/chalk-4.1.9.tgz 119ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/chalk/-/chalk-3.0.10.tgz 203ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/postcss/-/postcss-8.8.16.tgz 110ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/browserslist/-/browserslist-9.24.0.tgz 54ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/semver/-/semver-2.4.12.tgz 308ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/@babel/core/-/core-7.0.9.tgz 163ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/picomatch/-/picomatch-4.2.18.tgz 278ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/esbuild/-/esbuild-3.21.19.tgz 207ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/fsevents/-/fsevents-6.23.15.tgz 84ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/semver/-/semver-3.1.16.tgz 329ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/debug/-/debug-9.4.16.tgz 266ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/acorn/-/acorn-1.26.18.tgz 337ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/browserslist/-/browserslist-2.0.1.tgz 76ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/picomatch/-/picomatch-6.30.3.tgz 200ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/esbuild/-/esbuild-8.17.1.tgz 329ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/@babel/core/-/core-9.21.7.tgz 258ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/semver/-/semver-1.14.2.tgz 265ms (cache revalidated)\nnpm http fetch GET 200 https://registry.npmjs.org/rollup/-/rollup-9.2.16.tgz 41ms (cache revalidated)\n\nadded 1287 packages, and audited 1288 packages in 41s\n\n245 packages are looking for funding\n  run `npm fund` for details\n\n6 vulnerabilities (2 moderate, 4 high)\n\nTo address all issues, run:\n  npm audit fix"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_localpass_05",
+     "name": "Bash",
+     "input": {
+      "command": "for i in 1 2 3 4 5; do npx jest src/orders/OrderService.test.ts --silent | tail -3; done"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_localpass_05",
+     "content": "Tests:       6 passed, 6 total\nSnapshots:   0 total\nTime:        2.10 s\nTests:       6 passed, 6 total\nSnapshots:   0 total\nTime:        2.11 s\nTests:       6 passed, 6 total\nSnapshots:   0 total\nTime:        2.12 s\nTests:       6 passed, 6 total\nSnapshots:   0 total\nTime:        2.13 s\nTests:       6 passed, 6 total\nSnapshots:   0 total\nTime:        2.14 s"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_service_06",
+     "name": "Read",
+     "input": {
+      "file_path": "src/orders/OrderService.ts"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_service_06",
+     "content": "import { randomUUID } from 'node:crypto'\nimport type { OrderRepository } from './OrderRepository'\nimport type { EventBus } from '../lib/eventBus'\nimport type { Order, NewOrder } from './types'\n\nexport class OrderService {\n  constructor(private readonly orders: OrderRepository, private readonly events: EventBus) {}\n\n  async createOrder(input: NewOrder): Promise<Order> {\n    const order: Order = {\n      id: randomUUID(),\n      sku: input.sku,\n      quantity: input.quantity,\n      customerId: input.customerId,\n      stockStatus: 'pending',\n      createdAt: new Date(),\n    }\n    await this.orders.insert(order)\n    // Stock is reserved by StockListener when it handles this event (moved out of here in #482).\n    this.events.emit('order.created', { orderId: order.id, sku: order.sku, quantity: order.quantity })\n    return order\n  }\n\n  async cancelOrder(id: string): Promise<void> {\n    await this.orders.update(id, { stockStatus: 'released' })\n    this.events.emit('order.cancelled', { orderId: id })\n  }\n}"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_test_07",
+     "name": "Read",
+     "input": {
+      "file_path": "src/orders/OrderService.test.ts"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_test_07",
+     "content": "import { OrderService } from './OrderService'\nimport { createTestDb, resetDb } from '../../test/helpers/db'\nimport { createEventBus } from '../lib/eventBus'\nimport { registerStockListener } from '../stock/StockListener'\n\ndescribe('OrderService', () => {\n  let db: Awaited<ReturnType<typeof createTestDb>>\n  let service: OrderService\n\n  beforeAll(async () => { db = await createTestDb() })\n  beforeEach(async () => {\n    await resetDb(db)\n    const events = createEventBus()\n    registerStockListener(events, db.stock, db.orders)\n    service = new OrderService(db.orders, events)\n    await db.stock.set('SKU-118', 10)\n  })\n\n  describe('createOrder', () => {\n    it('creates the order and reserves stock', async () => {\n      const order = await service.createOrder({ sku: 'SKU-118', quantity: 2, customerId: 'c_91' })\n      const stored = await db.orders.findById(order.id)\n      expect(stored.stockStatus).toBe('reserved')\n      expect(await db.stock.available('SKU-118')).toBe(8)\n    })\n\n    it('rejects a quantity of zero', async () => {\n      await expect(service.createOrder({ sku: 'SKU-118', quantity: 0, customerId: 'c_91' })).rejects.toThrow('quantity')\n    })\n  })\n})"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_grepevent_08",
+     "name": "Grep",
+     "input": {
+      "pattern": "order.created",
+      "path": "src"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_grepevent_08",
+     "content": "src/orders/OrderService.ts:20:    this.events.emit('order.created', { orderId: order.id, sku: order.sku, quantity: order.quantity })\nsrc/stock/StockListener.ts:9:  events.on('order.created', async ({ orderId, sku, quantity }) => {\nsrc/analytics/track.ts:31:  events.on('order.created', ({ orderId }) => metrics.increment('orders.created', { orderId }))"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_listener_09",
+     "name": "Read",
+     "input": {
+      "file_path": "src/stock/StockListener.ts"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_listener_09",
+     "content": "import type { EventBus } from '../lib/eventBus'\nimport type { StockRepository } from './StockRepository'\nimport type { OrderRepository } from '../orders/OrderRepository'\n\nexport function registerStockListener(events: EventBus, stock: StockRepository, orders: OrderRepository) {\n  // Reserves stock for a new order. Runs after createOrder() has already returned.\n  events.on('order.created', async ({ orderId, sku, quantity }) => {\n    await stock.decrement(sku, quantity)\n    await orders.update(orderId, { stockStatus: 'reserved' })\n    events.emit('stock.reserved', { orderId })\n  })\n}"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_badge_10",
+     "name": "Read",
+     "input": {
+      "file_path": "src/ui/OrderStatusBadge.tsx"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_badge_10",
+     "content": "const COLORS: Record<string, string> = {\n  pending: 'bg-amber-100 text-amber-800',\n  reserved: 'bg-sky-100 text-sky-800',\n  shipped: 'bg-emerald-100 text-emerald-800',\n  released: 'bg-slate-100 text-slate-600',\n}\n\nexport function OrderStatusBadge({ status }: { status: string }) {\n  // Orders show as \"pending\" until stock is reserved, then \"reserved\".\n  return <span className={`rounded px-2 py-0.5 text-xs ${COLORS[status] ?? COLORS.pending}`}>{status}</span>\n}"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_docs_11",
+     "name": "Read",
+     "input": {
+      "file_path": "docs/orders.md"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_docs_11",
+     "content": "# Orders\n\nCustomers see an order as **pending** right after checkout. Once the warehouse system confirms the\nitems, the order moves to **reserved**, and to **shipped** once a tracking number exists. Support\ncan cancel a pending or reserved order from the admin panel; cancelling releases the stock.\n\n## Order statuses in exports\nThe CSV export uses the same status names. Integration partners should treat unknown statuses as\npending."
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_gitlog_12",
+     "name": "Bash",
+     "input": {
+      "command": "git log --oneline -12"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_gitlog_12",
+     "content": "f29d924 Bump eslint-plugin-react to 7.37.2\n811f828 Add invoice PDF footer\n261e4f6 Refactor stock module into its own dir\n87f73f7 Fix typo in onboarding copy\n7835d22 Tweak dashboard chart colors\n691245a Move stock reservation to event listener (#482)\n76230bb Update README badges\nebb1b14 Add order export endpoint\nfce6dab Bump vitest to 2.1.9\nc3def7a Add customer notes field\n274a72f Cache product list for 60s\nf540d1e Add health check endpoint"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_blame_13",
+     "name": "Bash",
+     "input": {
+      "command": "git log -p -1 --stat -- src/stock/StockListener.ts"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_blame_13",
+     "content": "commit 5c1e9a04d2b7f3a8e6c0d9b1f24a7e3c8d5b6a90\nAuthor: Priya Raman <priya@example.com>\nDate:   Fri Sep 19 16:02:11 2026 +0200\n\n    Move stock reservation to event listener (#482)\n\n    createOrder() no longer waits on the stock service; reservation happens in StockListener\n    when it receives order.created. Keeps checkout fast when the stock DB is slow.\n\n src/orders/OrderService.ts | 9 ++-------\n src/stock/StockListener.ts | 12 ++++++++++++\n 2 files changed, 14 insertions(+), 7 deletions(-)\n\ndiff --git a/src/orders/OrderService.ts b/src/orders/OrderService.ts\n@@ -17,12 +17,7 @@ export class OrderService {\n     await this.orders.insert(order)\n-    await this.stock.decrement(order.sku, order.quantity)\n-    await this.orders.update(order.id, { stockStatus: 'reserved' })\n-    order.stockStatus = 'reserved'\n+    this.events.emit('order.created', { orderId: order.id, sku: order.sku, quantity: order.quantity })\n     return order"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "text",
+     "text": "Hypothesis: since #482, stock is reserved asynchronously by StockListener after createOrder() returns, so the test's assertion races the listener. It only loses when the listener's two DB writes are slower than the test's findById, which is more likely on a loaded CI runner."
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": "Don't touch the production code for this. The async reservation is intentional; fix the tests."
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_repro_14",
+     "name": "Bash",
+     "input": {
+      "command": "for i in $(seq 1 20); do stress-ng --cpu 4 --timeout 20s >/dev/null & npx jest src/orders/OrderService.test.ts --runInBand --silent 2>&1 | grep -E 'Tests:'; done | sort | uniq -c"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_repro_14",
+     "content": "     16 Tests:       6 passed, 6 total\n      4 Tests:       1 failed, 5 passed, 6 total"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_ls_15",
+     "name": "Bash",
+     "input": {
+      "command": "ls src/orders test/helpers"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_ls_15",
+     "content": "src/orders:\nOrderRepository.ts\nOrderService.test.ts\nOrderService.ts\ntypes.ts\n\ntest/helpers:\ndb.ts\nevents.ts\nfixtures.ts"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_jestcfg_16",
+     "name": "Read",
+     "input": {
+      "file_path": "jest.config.js"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_jestcfg_16",
+     "content": "/** @type {import('jest').Config} */\nmodule.exports = {\n  preset: 'ts-jest',\n  testEnvironment: 'node',\n  setupFilesAfterEach: ['<rootDir>/test/setup.ts'],\n  testTimeout: 15000,\n  collectCoverageFrom: ['src/**/*.ts', '!src/**/*.test.ts'],\n}"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_bus_17",
+     "name": "Read",
+     "input": {
+      "file_path": "src/lib/eventBus.ts"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_bus_17",
+     "content": "type Handler = (payload: any) => unknown\n\nexport type EventBus = ReturnType<typeof createEventBus>\n\nexport function createEventBus() {\n  const handlers = new Map<string, Handler[]>()\n  return {\n    on(event: string, handler: Handler) {\n      handlers.set(event, [...(handlers.get(event) ?? []), handler])\n    },\n    // Fire-and-forget: handlers run on their own; emit() never waits for them or sees their errors.\n    emit(event: string, payload: unknown) {\n      for (const handler of handlers.get(event) ?? []) void Promise.resolve().then(() => handler(payload))\n    },\n  }\n}"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_grepwait_18",
+     "name": "Grep",
+     "input": {
+      "pattern": "waitFor",
+      "path": "test"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_grepwait_18",
+     "content": "test/helpers/events.ts:3:export function waitForEvent(events: EventBus, name: string, timeoutMs = 2000): Promise<unknown> {\ntest/helpers/events.ts:9:    events.on(name, (payload) => { clearTimeout(timer); resolve(payload) })"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_helper_19",
+     "name": "Read",
+     "input": {
+      "file_path": "test/helpers/events.ts"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_helper_19",
+     "content": "import type { EventBus } from '../../src/lib/eventBus'\n\nexport function waitForEvent(events: EventBus, name: string, timeoutMs = 2000): Promise<unknown> {\n  return new Promise((resolve, reject) => {\n    const timer = setTimeout(() => reject(new Error(`timed out waiting for ${name}`)), timeoutMs)\n    // Register before the caller triggers the event, or a fast handler can fire first.\n    events.on(name, (payload) => { clearTimeout(timer); resolve(payload) })\n  })\n}"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_lint_20",
+     "name": "Bash",
+     "input": {
+      "command": "npm run lint"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_lint_20",
+     "content": "\n> shopfront-api@3.14.0 lint\n> eslint . --max-warnings 0\n"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_tsc_21",
+     "name": "Bash",
+     "input": {
+      "command": "npx tsc --noEmit"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_tsc_21",
+     "content": ""
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_fix_22",
+     "name": "Edit",
+     "input": {
+      "file_path": "src/orders/OrderService.test.ts",
+      "old_string": "      const order = await service.createOrder(",
+      "new_string": "      const reserved = waitForEvent(events, 'stock.reserved')\n      const order = await service.createOrder("
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_fix_22",
+     "content": "The file src/orders/OrderService.test.ts has been updated. Here's the result of running `cat -n` on a snippet:\n    11\t  beforeEach(async () => {\n    12\t    await resetDb(db)\n    13\t    events = createEventBus()\n    14\t    registerStockListener(events, db.stock, db.orders)\n    ...\n    21\t    it('creates the order and reserves stock', async () => {\n    22\t      const reserved = waitForEvent(events, 'stock.reserved')\n    23\t      const order = await service.createOrder({ sku: 'SKU-118', quantity: 2, customerId: 'c_91' })\n    24\t      await reserved\n    25\t      const stored = await db.orders.findById(order.id)\n    26\t      expect(stored.stockStatus).toBe('reserved')"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_loop50_23",
+     "name": "Bash",
+     "input": {
+      "command": "for i in $(seq 1 50); do stress-ng --cpu 4 --timeout 20s >/dev/null & npx jest src/orders/OrderService.test.ts --runInBand --silent 2>&1 | grep -E 'Tests:'; done | sort | uniq -c"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_loop50_23",
+     "content": "     50 Tests:       6 passed, 6 total"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_refund_24",
+     "name": "Read",
+     "input": {
+      "file_path": "src/payments/refund.ts"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_refund_24",
+     "content": "export async function refundOrder(orderId: string, reason: string) {\n  const payment = await payments.findByOrder(orderId)\n  if (!payment) throw new NotFoundError(`no payment for order ${orderId}`)\n  const refund = await psp.refund(payment.pspId, { amount: payment.amount, reason })\n  await payments.update(payment.id, { status: 'refunded', refundId: refund.id })\n  return refund\n}"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "text",
+     "text": "The same pattern (asserting right after createOrder) may exist in other tests."
+    },
+    {
+     "type": "tool_use",
+     "id": "toolu_grepcreate_25",
+     "name": "Grep",
+     "input": {
+      "pattern": "createOrder\\(",
+      "path": "src",
+      "glob": "*.test.ts"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_grepcreate_25",
+     "content": "src/orders/OrderService.test.ts:23:      const order = await service.createOrder({ sku: 'SKU-118', quantity: 2, customerId: 'c_91' })\nsrc/orders/OrderService.test.ts:30:      await expect(service.createOrder({ sku: 'SKU-118', quantity: 0, customerId: 'c_91' })).rejects.toThrow('quantity')\nsrc/reports/InventoryReport.test.ts:18:    await service.createOrder({ sku: 'SKU-7', quantity: 5, customerId: 'c_3' })\nsrc/reports/InventoryReport.test.ts:19:    expect((await report.build()).find((r) => r.sku === 'SKU-7')?.reserved).toBe(5)"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_fix2_26",
+     "name": "Edit",
+     "input": {
+      "file_path": "src/reports/InventoryReport.test.ts",
+      "old_string": "    await service.createOrder({ sku: 'SKU-7'",
+      "new_string": "    const reserved = waitForEvent(events, 'stock.reserved')\n    await service.createOrder({ sku: 'SKU-7'"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_fix2_26",
+     "content": "The file src/reports/InventoryReport.test.ts has been updated (added `await reserved` before the report is built)."
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_suite_27",
+     "name": "Bash",
+     "input": {
+      "command": "npx jest --silent"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_suite_27",
+     "content": " PASS  src/orders/OrderService.test.ts (1.148 s)\n PASS  src/orders/OrderRepository.test.ts (2.236 s)\n PASS  src/stock/StockListener.test.ts (0.854 s)\n PASS  src/stock/StockRepository.test.ts (0.687 s)\n PASS  src/reports/InventoryReport.test.ts (2.350 s)\n PASS  src/payments/refund.test.ts (1.205 s)\n PASS  src/payments/charge.test.ts (0.640 s)\n PASS  src/customers/notes.test.ts (0.400 s)\n PASS  src/customers/CustomerService.test.ts (3.409 s)\n PASS  src/lib/eventBus.test.ts (2.484 s)\n PASS  src/lib/money.test.ts (1.816 s)\n PASS  src/api/orders.routes.test.ts (1.905 s)\n PASS  src/api/products.routes.test.ts (1.737 s)\n PASS  src/api/health.test.ts (0.591 s)\n PASS  src/ui/OrderStatusBadge.test.ts (0.858 s)\n PASS  src/exports/csv.test.ts (3.290 s)\n PASS  src/invoices/pdf.test.ts (1.156 s)\n PASS  src/orders/OrderService.test.ts (2.906 s)\n PASS  src/orders/OrderRepository.test.ts (3.480 s)\n PASS  src/stock/StockListener.test.ts (0.892 s)\n PASS  src/stock/StockRepository.test.ts (0.446 s)\n PASS  src/reports/InventoryReport.test.ts (0.668 s)\n PASS  src/payments/refund.test.ts (1.064 s)\n PASS  src/payments/charge.test.ts (0.638 s)\n PASS  src/customers/notes.test.ts (2.285 s)\n PASS  src/customers/CustomerService.test.ts (3.127 s)\n PASS  src/lib/eventBus.test.ts (1.405 s)\n PASS  src/lib/money.test.ts (3.162 s)\n PASS  src/api/orders.routes.test.ts (1.500 s)\n PASS  src/api/products.routes.test.ts (0.212 s)\n PASS  src/api/health.test.ts (2.449 s)\n PASS  src/ui/OrderStatusBadge.test.ts (1.196 s)\n PASS  src/exports/csv.test.ts (1.573 s)\n PASS  src/invoices/pdf.test.ts (1.243 s)\n PASS  src/orders/OrderService.test.ts (1.293 s)\n PASS  src/orders/OrderRepository.test.ts (2.677 s)\n PASS  src/stock/StockListener.test.ts (1.514 s)\n PASS  src/stock/StockRepository.test.ts (2.553 s)\n PASS  src/reports/InventoryReport.test.ts (1.156 s)\n PASS  src/payments/refund.test.ts (0.414 s)\n PASS  src/payments/charge.test.ts (3.496 s)\n PASS  src/customers/notes.test.ts (0.452 s)\n PASS  src/customers/CustomerService.test.ts (2.694 s)\n PASS  src/lib/eventBus.test.ts (0.359 s)\n PASS  src/lib/money.test.ts (0.370 s)\n PASS  src/api/orders.routes.test.ts (1.143 s)\n PASS  src/api/products.routes.test.ts (1.023 s)\n PASS  src/api/health.test.ts (1.640 s)\n PASS  src/ui/OrderStatusBadge.test.ts (0.827 s)\n PASS  src/exports/csv.test.ts (2.791 s)\n PASS  src/invoices/pdf.test.ts (3.118 s)\n\nTest Suites: 51 passed, 51 total\nTests:       302 passed, 302 total\nSnapshots:   0 total\nTime:        58.9 s\nRan all test suites."
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_readme_28",
+     "name": "Read",
+     "input": {
+      "file_path": "README.md"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_readme_28",
+     "content": "# shopfront-api\n\nBackend for the shop front. `npm run dev` starts it on :3000 with a local Postgres from docker compose.\n\n## Testing\n`npm test` runs every suite against a throwaway database."
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_diff_29",
+     "name": "Bash",
+     "input": {
+      "command": "git diff --stat && git diff src/reports"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_diff_29",
+     "content": " src/orders/OrderService.test.ts    | 6 ++++--\n src/reports/InventoryReport.test.ts | 4 +++-\n 2 files changed, 7 insertions(+), 3 deletions(-)\ndiff --git a/src/reports/InventoryReport.test.ts b/src/reports/InventoryReport.test.ts\n@@ -15,7 +15,9 @@ describe('InventoryReport', () => {\n   it('counts reserved stock per SKU', async () => {\n+    const reserved = waitForEvent(events, 'stock.reserved')\n     await service.createOrder({ sku: 'SKU-7', quantity: 5, customerId: 'c_3' })\n+    await reserved\n     expect((await report.build()).find((r) => r.sku === 'SKU-7')?.reserved).toBe(5)"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_dockerps_30",
+     "name": "Bash",
+     "input": {
+      "command": "docker compose ps"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_dockerps_30",
+     "content": "NAME                 IMAGE         STATUS         PORTS\nshopfront-db-1       postgres:16   Up 3 hours     0.0.0.0:5432->5432/tcp\nshopfront-redis-1    redis:7       Up 3 hours     0.0.0.0:6379->6379/tcp"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "text",
+     "text": "Both tests now wait for stock.reserved before asserting; 50/50 stressed runs pass and the full suite is green. Production code is unchanged, per your instruction."
+    }
+   ]
+  }
+ ],
+ "labels": {
+  "msg:0": true,
+  "msg:1:0": false,
+  "tool:toolu_runs_01": false,
+  "tool:toolu_faillog_02": true,
+  "tool:toolu_pkg_03": false,
+  "tool:toolu_npmci_04": false,
+  "tool:toolu_localpass_05": false,
+  "tool:toolu_service_06": true,
+  "tool:toolu_test_07": true,
+  "tool:toolu_grepevent_08": true,
+  "tool:toolu_listener_09": true,
+  "tool:toolu_badge_10": false,
+  "tool:toolu_docs_11": false,
+  "tool:toolu_gitlog_12": false,
+  "tool:toolu_blame_13": true,
+  "msg:27:0": true,
+  "msg:28": true,
+  "tool:toolu_repro_14": true,
+  "tool:toolu_ls_15": false,
+  "tool:toolu_jestcfg_16": false,
+  "tool:toolu_bus_17": true,
+  "tool:toolu_grepwait_18": true,
+  "tool:toolu_helper_19": true,
+  "tool:toolu_lint_20": false,
+  "tool:toolu_tsc_21": false,
+  "tool:toolu_fix_22": true,
+  "tool:toolu_loop50_23": true,
+  "tool:toolu_refund_24": false,
+  "msg:51:0": false,
+  "tool:toolu_grepcreate_25": true,
+  "tool:toolu_fix2_26": true,
+  "tool:toolu_suite_27": true,
+  "tool:toolu_readme_28": false,
+  "tool:toolu_diff_29": true,
+  "tool:toolu_dockerps_30": false,
+  "msg:63:0": true
+ },
+ "probes": [
+  {
+   "fact": "The failing assertion is stockStatus: expected 'reserved', received 'pending'",
+   "entryIds": [
+    "tool:toolu_faillog_02"
+   ]
+  },
+  {
+   "fact": "Stock is reserved asynchronously by StockListener on order.created, after createOrder returns",
+   "entryIds": [
+    "tool:toolu_service_06",
+    "tool:toolu_listener_09",
+    "msg:27:0"
+   ]
+  },
+  {
+   "fact": "The race was introduced by #482, which moved reservation into the listener",
+   "entryIds": [
+    "tool:toolu_blame_13"
+   ]
+  },
+  {
+   "fact": "EventBus.emit is fire-and-forget and never awaits handlers",
+   "entryIds": [
+    "tool:toolu_bus_17"
+   ]
+  },
+  {
+   "fact": "Reproduce with a CPU-stress loop: 4 of 20 runs fail",
+   "entryIds": [
+    "tool:toolu_repro_14"
+   ]
+  },
+  {
+   "fact": "A waitForEvent test helper already exists in test/helpers/events.ts",
+   "entryIds": [
+    "tool:toolu_grepwait_18",
+    "tool:toolu_helper_19"
+   ]
+  },
+  {
+   "fact": "Only test code may change; the async reservation is intentional",
+   "entryIds": [
+    "msg:28"
+   ]
+  },
+  {
+   "fact": "InventoryReport.test.ts had the same race and was fixed the same way",
+   "entryIds": [
+    "tool:toolu_grepcreate_25",
+    "tool:toolu_fix2_26",
+    "tool:toolu_diff_29"
+   ]
+  },
+  {
+   "fact": "The fix: wait for stock.reserved before asserting",
+   "entryIds": [
+    "tool:toolu_fix_22",
+    "tool:toolu_fix2_26",
+    "tool:toolu_diff_29"
+   ]
+  }
+ ]
+}

@@ -49,6 +49,7 @@ echo '{"cwd":"...","transcript_path":"...","session_id":"s1"}' | node packages/c
 echo '{"cwd":"...","session_id":"s1"}' | node packages/claude-plugin/dist/sessionStartCompact.js
 
 cd packages/core && pnpm eval   # score labeled fixtures: offline baseline always, Jev too with a key
+                                # (publish.yml runs `node eval/run.mjs --gate --runs 3`)
 ```
 
 `TYPESAFE_API_KEY` (from `console.typesafe.ai/settings/keys`) must be set for anything that

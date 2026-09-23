@@ -30,11 +30,13 @@ jobs:
         env:
           TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
 
-      # Scoring must still beat the offline keyword baseline and keep each labeled fixture's top
-      # entries — a regression the live tests alone (which only check "never drop relevant") miss.
+      # Scoring must still beat the offline keyword baseline, keep each labeled fixture's top
+      # entries, and keep more of the held-out sessions' key facts under a token budget than plain
+      # truncation does — regressions the live tests alone (which only check "never drop relevant")
+      # miss. Three runs, averaged, because Jev's answers vary slightly between calls.
       - name: Eval gate
         working-directory: packages/core
-        run: node eval/run.mjs --gate
+        run: node eval/run.mjs --gate --runs 3
         env:
           TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
 

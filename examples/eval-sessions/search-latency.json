@@ -1,0 +1,650 @@
+{
+ "language": "en",
+ "goal": "/api/search got about 4x slower after last week's release: p95 went from ~180ms to ~750ms. Find the cause and fix it.",
+ "messages": [
+  {
+   "role": "user",
+   "content": "/api/search got about 4x slower after last week's release: p95 went from ~180ms to ~750ms. Find the cause and fix it."
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "text",
+     "text": "Measuring the current state locally against a copy of production data first."
+    },
+    {
+     "type": "tool_use",
+     "id": "toolu_bench1_01",
+     "name": "Bash",
+     "input": {
+      "command": "npx autocannon -c 20 -d 30 'http://localhost:3000/api/search?q=wireless+headphones&limit=50'"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_bench1_01",
+     "content": "Running 30s test @ http://localhost:3000/api/search?q=wireless+headphones&limit=50\n20 connections\n\n┌─────────┬────────┬────────┬────────┬────────┬───────────┬──────────┬─────────┐\n│ Stat    │ 2.5%   │ 50%    │ 97.5%  │ 99%    │ Avg       │ Stdev    │ Max     │\n├─────────┼────────┼────────┼────────┼────────┼───────────┼──────────┼─────────┤\n│ Latency │ 247 ms │ 412 ms │ 731 ms │ 802 ms │ 453.20 ms │ 164.80 ms │ 1042 ms │\n└─────────┴────────┴────────┴────────┴────────┴───────────┴──────────┴─────────┘\n┌───────────┬─────────┬─────────┬─────────┬─────────┬──────────┬─────────┬─────────┐\n│ Stat      │ 1%      │ 2.5%    │ 50%     │ 97.5%   │ Avg      │ Stdev   │ Min     │\n├───────────┼─────────┼─────────┼─────────┼─────────┼──────────┼─────────┼─────────┤\n│ Req/Sec   │ 37     │ 39     │ 47     │ 51     │ 47.4    │ 9.12    │ 37     │\n└───────────┴─────────┴─────────┴─────────┴─────────┴──────────┴─────────┴─────────┘\n\nReq/Bytes counts sampled once per second.\n# of samples: 30\n\n1410 requests in 30.03s, 56 MB read"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_releasediff_02",
+     "name": "Bash",
+     "input": {
+      "command": "git log --oneline v4.11.0..v4.12.0"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_releasediff_02",
+     "content": "a5cd687 Release 4.12.0\n4d3c1a6 Search: include tags in results (#901)\nca264e1 Refactor SearchService into repository + mapper (#897)\n18b8ffa Add brand filter to search UI\n25165e6 Fix currency rounding in cart summary\n3031d02 Bump pg to 8.13.1\nbb3b93f Add search analytics events\n1db208e Debounce search box input to 250ms\n6deceb9 Add product archived_at column + index"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_index_03",
+     "name": "Bash",
+     "input": {
+      "command": "psql shop -c \"EXPLAIN ANALYZE SELECT p.id, p.name, p.price_cents, p.brand_id, ts_rank(p.search_vector, q) AS rank FROM products p, plainto_tsquery('english', 'wireless headphones') q WHERE p.search_vector @@ q AND p.archived_at IS NULL ORDER BY rank DESC LIMIT 50\""
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_index_03",
+     "content": "                                                              QUERY PLAN\n--------------------------------------------------------------------------------------------------------------------------------------\n Limit  (cost=1284.55..1284.67 rows=50 width=52) (actual time=31.902..31.915 rows=50 loops=1)\n   ->  Sort  (cost=1284.55..1285.91 rows=545 width=52) (actual time=31.900..31.908 rows=50 loops=1)\n         Sort Key: (ts_rank(p.search_vector, q.q)) DESC\n         Sort Method: top-N heapsort  Memory: 32kB\n         ->  Nested Loop  (cost=24.83..1266.45 rows=545 width=52) (actual time=0.612..31.402 rows=1873 loops=1)\n               ->  Function Scan on plainto_tsquery q  (cost=0.25..0.26 rows=1 width=32) (actual time=0.015..0.016 rows=1 loops=1)\n               ->  Bitmap Heap Scan on products p  (cost=24.58..1259.37 rows=545 width=84) (actual time=0.591..29.114 rows=1873 loops=1)\n                     Recheck Cond: (search_vector @@ q.q)\n                     Filter: (archived_at IS NULL)\n                     Rows Removed by Filter: 41\n                     Heap Blocks: exact=1502\n                     ->  Bitmap Index Scan on products_search_vector_idx  (cost=0.00..24.44 rows=548 width=0) (actual time=0.402..0.402 rows=1914 loops=1)\n                           Index Cond: (search_vector @@ q.q)\n Planning Time: 0.311 ms\n Execution Time: 32.004 ms\n(15 rows)"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "text",
+     "text": "The main search query uses the GIN index and runs in ~32ms, so the new archived_at filter isn't the problem."
+    },
+    {
+     "type": "tool_use",
+     "id": "toolu_pgconf_04",
+     "name": "Bash",
+     "input": {
+      "command": "psql shop -c 'SHOW log_min_duration_statement' && psql shop -c \"ALTER SYSTEM SET log_min_duration_statement = 0\" && psql shop -c 'SELECT pg_reload_conf()'"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_pgconf_04",
+     "content": " log_min_duration_statement\n----------------------------\n 250ms\n(1 row)\n\nALTER SYSTEM\n pg_reload_conf\n----------------\n t\n(1 row)"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_qlog_05",
+     "name": "Bash",
+     "input": {
+      "command": "curl -s 'localhost:3000/api/search?q=wireless+headphones&limit=50' > /dev/null && tail -n 102 /var/log/postgresql/postgresql-16-main.log"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_qlog_05",
+     "content": "2026-09-22 10:14:03.112 UTC [8841] LOG:  duration: 38.412 ms  execute <unnamed>: SELECT p.id, p.name, p.price_cents, p.brand_id, ts_rank(p.search_vector, q) AS rank FROM products p, plainto_tsquery('english', $1) q WHERE p.search_vector @@ q AND p.archived_at IS NULL ORDER BY rank DESC LIMIT $2\n2026-09-22 10:14:03.112 UTC [8841] DETAIL:  parameters: $1 = 'wireless headphones', $2 = '50'\n2026-09-22 10:14:03.150 UTC [8841] LOG:  duration: 7.213 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.150 UTC [8841] DETAIL:  parameters: $1 = '10438'\n2026-09-22 10:14:03.161 UTC [8841] LOG:  duration: 7.080 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.161 UTC [8841] DETAIL:  parameters: $1 = '10828'\n2026-09-22 10:14:03.172 UTC [8841] LOG:  duration: 11.074 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.172 UTC [8841] DETAIL:  parameters: $1 = '10492'\n2026-09-22 10:14:03.183 UTC [8841] LOG:  duration: 13.363 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.183 UTC [8841] DETAIL:  parameters: $1 = '10460'\n2026-09-22 10:14:03.194 UTC [8841] LOG:  duration: 14.364 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.194 UTC [8841] DETAIL:  parameters: $1 = '10526'\n2026-09-22 10:14:03.205 UTC [8841] LOG:  duration: 11.708 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.205 UTC [8841] DETAIL:  parameters: $1 = '11045'\n2026-09-22 10:14:03.216 UTC [8841] LOG:  duration: 11.290 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.216 UTC [8841] DETAIL:  parameters: $1 = '10463'\n2026-09-22 10:14:03.227 UTC [8841] LOG:  duration: 6.912 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.227 UTC [8841] DETAIL:  parameters: $1 = '10806'\n2026-09-22 10:14:03.238 UTC [8841] LOG:  duration: 6.887 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.238 UTC [8841] DETAIL:  parameters: $1 = '10626'\n2026-09-22 10:14:03.249 UTC [8841] LOG:  duration: 7.605 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.249 UTC [8841] DETAIL:  parameters: $1 = '11279'\n2026-09-22 10:14:03.260 UTC [8841] LOG:  duration: 7.697 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.260 UTC [8841] DETAIL:  parameters: $1 = '10829'\n2026-09-22 10:14:03.271 UTC [8841] LOG:  duration: 11.239 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.271 UTC [8841] DETAIL:  parameters: $1 = '10520'\n2026-09-22 10:14:03.282 UTC [8841] LOG:  duration: 13.274 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.282 UTC [8841] DETAIL:  parameters: $1 = '10973'\n2026-09-22 10:14:03.293 UTC [8841] LOG:  duration: 7.355 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.293 UTC [8841] DETAIL:  parameters: $1 = '10585'\n2026-09-22 10:14:03.304 UTC [8841] LOG:  duration: 11.803 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.304 UTC [8841] DETAIL:  parameters: $1 = '10984'\n2026-09-22 10:14:03.315 UTC [8841] LOG:  duration: 7.309 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.315 UTC [8841] DETAIL:  parameters: $1 = '10781'\n2026-09-22 10:14:03.326 UTC [8841] LOG:  duration: 7.021 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.326 UTC [8841] DETAIL:  parameters: $1 = '11129'\n2026-09-22 10:14:03.337 UTC [8841] LOG:  duration: 11.638 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.337 UTC [8841] DETAIL:  parameters: $1 = '10461'\n2026-09-22 10:14:03.348 UTC [8841] LOG:  duration: 12.147 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.348 UTC [8841] DETAIL:  parameters: $1 = '10908'\n2026-09-22 10:14:03.359 UTC [8841] LOG:  duration: 12.951 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.359 UTC [8841] DETAIL:  parameters: $1 = '10837'\n2026-09-22 10:14:03.370 UTC [8841] LOG:  duration: 11.360 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.370 UTC [8841] DETAIL:  parameters: $1 = '10876'\n2026-09-22 10:14:03.381 UTC [8841] LOG:  duration: 9.501 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.381 UTC [8841] DETAIL:  parameters: $1 = '10864'\n2026-09-22 10:14:03.392 UTC [8841] LOG:  duration: 13.093 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.392 UTC [8841] DETAIL:  parameters: $1 = '10654'\n2026-09-22 10:14:03.403 UTC [8841] LOG:  duration: 12.973 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.403 UTC [8841] DETAIL:  parameters: $1 = '11115'\n2026-09-22 10:14:03.414 UTC [8841] LOG:  duration: 11.268 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.414 UTC [8841] DETAIL:  parameters: $1 = '10483'\n2026-09-22 10:14:03.425 UTC [8841] LOG:  duration: 10.609 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.425 UTC [8841] DETAIL:  parameters: $1 = '10937'\n2026-09-22 10:14:03.436 UTC [8841] LOG:  duration: 12.554 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.436 UTC [8841] DETAIL:  parameters: $1 = '10751'\n2026-09-22 10:14:03.447 UTC [8841] LOG:  duration: 11.554 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.447 UTC [8841] DETAIL:  parameters: $1 = '10694'\n2026-09-22 10:14:03.458 UTC [8841] LOG:  duration: 7.480 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.458 UTC [8841] DETAIL:  parameters: $1 = '10474'\n2026-09-22 10:14:03.469 UTC [8841] LOG:  duration: 7.869 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.469 UTC [8841] DETAIL:  parameters: $1 = '10828'\n2026-09-22 10:14:03.480 UTC [8841] LOG:  duration: 7.761 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.480 UTC [8841] DETAIL:  parameters: $1 = '10750'\n2026-09-22 10:14:03.491 UTC [8841] LOG:  duration: 10.000 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.491 UTC [8841] DETAIL:  parameters: $1 = '10900'\n2026-09-22 10:14:03.502 UTC [8841] LOG:  duration: 7.144 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.502 UTC [8841] DETAIL:  parameters: $1 = '11084'\n2026-09-22 10:14:03.513 UTC [8841] LOG:  duration: 11.256 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.513 UTC [8841] DETAIL:  parameters: $1 = '10971'\n2026-09-22 10:14:03.524 UTC [8841] LOG:  duration: 13.292 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.524 UTC [8841] DETAIL:  parameters: $1 = '11296'\n2026-09-22 10:14:03.535 UTC [8841] LOG:  duration: 12.271 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.535 UTC [8841] DETAIL:  parameters: $1 = '10748'\n2026-09-22 10:14:03.546 UTC [8841] LOG:  duration: 10.622 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.546 UTC [8841] DETAIL:  parameters: $1 = '11008'\n2026-09-22 10:14:03.557 UTC [8841] LOG:  duration: 10.287 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.557 UTC [8841] DETAIL:  parameters: $1 = '11216'\n2026-09-22 10:14:03.568 UTC [8841] LOG:  duration: 7.277 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.568 UTC [8841] DETAIL:  parameters: $1 = '11260'\n2026-09-22 10:14:03.579 UTC [8841] LOG:  duration: 10.435 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.579 UTC [8841] DETAIL:  parameters: $1 = '10676'\n2026-09-22 10:14:03.590 UTC [8841] LOG:  duration: 7.039 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.590 UTC [8841] DETAIL:  parameters: $1 = '11080'\n2026-09-22 10:14:03.601 UTC [8841] LOG:  duration: 12.322 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.601 UTC [8841] DETAIL:  parameters: $1 = '11148'\n2026-09-22 10:14:03.612 UTC [8841] LOG:  duration: 11.297 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.612 UTC [8841] DETAIL:  parameters: $1 = '11062'\n2026-09-22 10:14:03.623 UTC [8841] LOG:  duration: 13.322 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.623 UTC [8841] DETAIL:  parameters: $1 = '11097'\n2026-09-22 10:14:03.634 UTC [8841] LOG:  duration: 12.448 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.634 UTC [8841] DETAIL:  parameters: $1 = '10691'\n2026-09-22 10:14:03.645 UTC [8841] LOG:  duration: 9.380 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.645 UTC [8841] DETAIL:  parameters: $1 = '11084'\n2026-09-22 10:14:03.656 UTC [8841] LOG:  duration: 9.450 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.656 UTC [8841] DETAIL:  parameters: $1 = '10872'\n2026-09-22 10:14:03.667 UTC [8841] LOG:  duration: 7.472 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.667 UTC [8841] DETAIL:  parameters: $1 = '11025'\n2026-09-22 10:14:03.678 UTC [8841] LOG:  duration: 8.311 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.678 UTC [8841] DETAIL:  parameters: $1 = '10460'\n2026-09-22 10:14:03.689 UTC [8841] LOG:  duration: 7.574 ms  execute <unnamed>: SELECT t.id, t.name, t.slug FROM tags t JOIN product_tags pt ON pt.tag_id = t.id WHERE pt.product_id = $1\n2026-09-22 10:14:03.689 UTC [8841] DETAIL:  parameters: $1 = '10694'"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "text",
+     "text": "One request runs the search query plus 50 separate tag queries, one per product: an N+1. At ~10ms each that's ~500ms, which matches the regression."
+    },
+    {
+     "type": "tool_use",
+     "id": "toolu_service_06",
+     "name": "Read",
+     "input": {
+      "file_path": "src/search/SearchService.ts"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_service_06",
+     "content": "import { SearchRepository } from './SearchRepository'\nimport { toSearchResult, type SearchResult } from './mapper'\n\nexport class SearchService {\n  constructor(private readonly repo: SearchRepository) {}\n\n  async search(query: string, limit = 20): Promise<SearchResult[]> {\n    const products = await this.repo.findByText(query, limit)\n    // #901: results now carry their tags for the chips in the UI.\n    return Promise.all(products.map(async (product) => toSearchResult(product, await product.getTags())))\n  }\n}"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_repo_07",
+     "name": "Read",
+     "input": {
+      "file_path": "src/search/SearchRepository.ts"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_repo_07",
+     "content": "import { Product, Tag } from '../db/models'\nimport { Op, literal } from 'sequelize'\n\nexport class SearchRepository {\n  findByText(query: string, limit: number) {\n    return Product.findAll({\n      attributes: ['id', 'name', 'priceCents', 'brandId', [literal(`ts_rank(search_vector, plainto_tsquery('english', :q))`), 'rank']],\n      where: { [Op.and]: [literal(`search_vector @@ plainto_tsquery('english', :q)`), { archivedAt: null }] },\n      replacements: { q: query },\n      order: [[literal('rank'), 'DESC']],\n      limit,\n    })\n  }\n}"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_debounce_08",
+     "name": "Read",
+     "input": {
+      "file_path": "src/client/search/SearchBox.tsx"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_debounce_08",
+     "content": "export function SearchBox({ onSearch }: { onSearch: (q: string) => void }) {\n  const [value, setValue] = useState('')\n  // Debounced so typing \"wireless headphones\" doesn't fire 19 requests.\n  const debounced = useDebouncedCallback(onSearch, 250)\n  return <input value={value} onChange={(e) => { setValue(e.target.value); debounced(e.target.value) }} placeholder=\"Search products\" />\n}"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_analytics_09",
+     "name": "Read",
+     "input": {
+      "file_path": "src/search/analytics.ts"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_analytics_09",
+     "content": "// Search analytics: fire-and-forget, never on the request's critical path.\nexport function trackSearch(query: string, resultCount: number, latencyMs: number) {\n  queueMicrotask(() => analytics.track('search.performed', { query, resultCount, latencyMs }))\n}"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_models_10",
+     "name": "Read",
+     "input": {
+      "file_path": "src/db/models.ts"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_models_10",
+     "content": "Product.belongsToMany(Tag, { through: ProductTag, foreignKey: 'productId', otherKey: 'tagId', as: 'tags' })\nTag.belongsToMany(Product, { through: ProductTag, foreignKey: 'tagId', otherKey: 'productId', as: 'products' })\nProduct.belongsTo(Brand, { foreignKey: 'brandId', as: 'brand' })\nBrand.hasMany(Product, { foreignKey: 'brandId', as: 'products' })"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_flame_11",
+     "name": "Bash",
+     "input": {
+      "command": "npx 0x -o flame -- node dist/server.js & sleep 5 && npx autocannon -c 20 -d 15 'localhost:3000/api/search?q=wireless+headphones&limit=50' >/dev/null; kill %1; cat flame/summary.txt"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_flame_11",
+     "content": "Top self-time frames (15s, 20 connections):\n  31.2%  Connection.parseMessage          node_modules/pg-protocol/dist/parser.js\n  18.7%  Query.handleDataRow              node_modules/pg/lib/query.js\n  11.4%  Model._injectAttributes          node_modules/sequelize/lib/model.js\n   9.8%  BelongsToMany.get                node_modules/sequelize/lib/associations/belongs-to-many.js\n   6.1%  JSON.stringify                   <native>\n   4.3%  toSearchResult                   dist/search/mapper.js\n   ..."
+    },
+    {
+     "type": "text",
+     "text": "The tag chips have to stay in the response, the mobile app depends on them."
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_fix_12",
+     "name": "Edit",
+     "input": {
+      "file_path": "src/search/SearchRepository.ts",
+      "old_string": "      order: [[literal('rank'), 'DESC']],\n      limit,",
+      "new_string": "      include: [{ model: Tag, as: 'tags', attributes: ['id', 'name', 'slug'], through: { attributes: [] } }],\n      order: [[literal('rank'), 'DESC']],\n      limit,\n      subQuery: true,"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_fix_12",
+     "content": "The file src/search/SearchRepository.ts has been updated."
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_fix2_13",
+     "name": "Edit",
+     "input": {
+      "file_path": "src/search/SearchService.ts",
+      "old_string": "    return Promise.all(products.map(async (product) => toSearchResult(product, await product.getTags())))",
+      "new_string": "    return products.map((product) => toSearchResult(product, product.tags ?? []))"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_fix2_13",
+     "content": "The file src/search/SearchService.ts has been updated."
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_qlog2_14",
+     "name": "Bash",
+     "input": {
+      "command": "curl -s 'localhost:3000/api/search?q=wireless+headphones&limit=50' | jq '.[0] | {name, tags}' && grep -c 'execute <unnamed>' <(tail -n 20 /var/log/postgresql/postgresql-16-main.log)"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_qlog2_14",
+     "content": "{\n  \"name\": \"Aurora ANC Wireless Headphones\",\n  \"tags\": [\n    { \"id\": 12, \"name\": \"Bluetooth\", \"slug\": \"bluetooth\" },\n    { \"id\": 31, \"name\": \"Noise cancelling\", \"slug\": \"noise-cancelling\" }\n  ]\n}\n1"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_limitbug_15",
+     "name": "Bash",
+     "input": {
+      "command": "curl -s 'localhost:3000/api/search?q=wireless+headphones&limit=50' | jq length"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_limitbug_15",
+     "content": "50"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_bench2_16",
+     "name": "Bash",
+     "input": {
+      "command": "npx autocannon -c 20 -d 30 'http://localhost:3000/api/search?q=wireless+headphones&limit=50'"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_bench2_16",
+     "content": "Running 30s test @ http://localhost:3000/api/search?q=wireless+headphones&limit=50\n20 connections\n\n┌─────────┬────────┬────────┬────────┬────────┬───────────┬──────────┬─────────┐\n│ Stat    │ 2.5%   │ 50%    │ 97.5%  │ 99%    │ Avg       │ Stdev    │ Max     │\n├─────────┼────────┼────────┼────────┼────────┼───────────┼──────────┼─────────┤\n│ Latency │ 52 ms │ 88 ms │ 164 ms │ 191 ms │ 96.80 ms │ 35.20 ms │ 248 ms │\n└─────────┴────────┴────────┴────────┴────────┴───────────┴──────────┴─────────┘\n┌───────────┬─────────┬─────────┬─────────┬─────────┬──────────┬─────────┬─────────┐\n│ Stat      │ 1%      │ 2.5%    │ 50%     │ 97.5%   │ Avg      │ Stdev   │ Min     │\n├───────────┼─────────┼─────────┼─────────┼─────────┼──────────┼─────────┼─────────┤\n│ Req/Sec   │ 171     │ 181     │ 214     │ 235     │ 214.4    │ 9.12    │ 171     │\n└───────────┴─────────┴─────────┴─────────┴─────────┴──────────┴─────────┴─────────┘\n\nReq/Bytes counts sampled once per second.\n# of samples: 30\n\n6420 requests in 30.03s, 257 MB read"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_tests_17",
+     "name": "Bash",
+     "input": {
+      "command": "npm test -- src/search"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_tests_17",
+     "content": " PASS  src/search/SearchService.test.ts\n PASS  src/search/mapper.test.ts\n PASS  src/search/SearchRepository.test.ts\n\nTest Suites: 3 passed, 3 total\nTests:       17 passed, 17 total"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_addtest_18",
+     "name": "Edit",
+     "input": {
+      "file_path": "src/search/SearchService.test.ts",
+      "old_string": "describe('SearchService', () => {",
+      "new_string": "describe('SearchService', () => {\n  it('loads tags for every result in one query', async () => {\n    const queries = await countQueries(() => service.search('headphones', 50))\n    expect(queries).toBe(1)\n  })\n"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_addtest_18",
+     "content": "The file src/search/SearchService.test.ts has been updated."
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_tests2_19",
+     "name": "Bash",
+     "input": {
+      "command": "npm test -- src/search"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_tests2_19",
+     "content": " PASS  src/search/SearchService.test.ts\n PASS  src/search/mapper.test.ts\n PASS  src/search/SearchRepository.test.ts\n\nTest Suites: 3 passed, 3 total\nTests:       18 passed, 18 total"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_cart_20",
+     "name": "Read",
+     "input": {
+      "file_path": "src/cart/summary.ts"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_cart_20",
+     "content": "export function cartTotal(items: CartItem[]): number {\n  // Round each line, not the total: matches what the payment provider charges.\n  return items.reduce((sum, i) => sum + Math.round(i.priceCents * i.quantity), 0)\n}"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_pgreset_21",
+     "name": "Bash",
+     "input": {
+      "command": "psql shop -c \"ALTER SYSTEM RESET log_min_duration_statement\" && psql shop -c 'SELECT pg_reload_conf()'"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_pgreset_21",
+     "content": "ALTER SYSTEM\n pg_reload_conf\n----------------\n t\n(1 row)"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_lint_22",
+     "name": "Bash",
+     "input": {
+      "command": "npm run lint"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_lint_22",
+     "content": "\n> shop-api@4.12.0 lint\n> eslint . --max-warnings 0\n"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_brand_23",
+     "name": "Read",
+     "input": {
+      "file_path": "src/client/search/BrandFilter.tsx"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_brand_23",
+     "content": "export function BrandFilter({ brands, selected, onChange }: Props) {\n  return (\n    <select value={selected ?? ''} onChange={(e) => onChange(e.target.value || null)}>\n      <option value=\"\">All brands</option>\n      {brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}\n    </select>\n  )\n}"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "text",
+     "text": "Fixed: tags are now eager-loaded in the search query (1 query instead of 51); p95 is back to ~164ms with the tags still in the response. Added a test that counts queries so the N+1 can't come back silently."
+    }
+   ]
+  }
+ ],
+ "labels": {
+  "msg:0": true,
+  "msg:1:0": false,
+  "tool:toolu_bench1_01": true,
+  "tool:toolu_releasediff_02": true,
+  "tool:toolu_index_03": false,
+  "msg:7:0": true,
+  "tool:toolu_pgconf_04": false,
+  "tool:toolu_qlog_05": true,
+  "msg:11:0": true,
+  "tool:toolu_service_06": true,
+  "tool:toolu_repo_07": true,
+  "tool:toolu_debounce_08": false,
+  "tool:toolu_analytics_09": false,
+  "tool:toolu_models_10": true,
+  "tool:toolu_flame_11": false,
+  "msg:22:1": true,
+  "tool:toolu_fix_12": true,
+  "tool:toolu_fix2_13": true,
+  "tool:toolu_qlog2_14": true,
+  "tool:toolu_limitbug_15": true,
+  "tool:toolu_bench2_16": true,
+  "tool:toolu_tests_17": true,
+  "tool:toolu_addtest_18": true,
+  "tool:toolu_tests2_19": true,
+  "tool:toolu_cart_20": false,
+  "tool:toolu_pgreset_21": false,
+  "tool:toolu_lint_22": false,
+  "tool:toolu_brand_23": false,
+  "msg:47:0": true
+ },
+ "probes": [
+  {
+   "fact": "Baseline measured locally: p95 ~731ms at 20 connections",
+   "entryIds": [
+    "tool:toolu_bench1_01"
+   ]
+  },
+  {
+   "fact": "Suspect range: #897 (SearchService refactor) and #901 (tags in results)",
+   "entryIds": [
+    "tool:toolu_releasediff_02"
+   ]
+  },
+  {
+   "fact": "The main search query uses its GIN index (~32ms): the index/archived_at change is ruled out",
+   "entryIds": [
+    "msg:7:0"
+   ]
+  },
+  {
+   "fact": "Each request runs 1 search query + 50 tag queries (N+1 from product.getTags())",
+   "entryIds": [
+    "tool:toolu_qlog_05",
+    "msg:11:0",
+    "tool:toolu_service_06"
+   ]
+  },
+  {
+   "fact": "Tags must stay in the response; the mobile app depends on them",
+   "entryIds": [
+    "msg:22:1"
+   ]
+  },
+  {
+   "fact": "Fix: eager-load tags with include in SearchRepository, no getTags() per product",
+   "entryIds": [
+    "tool:toolu_fix_12",
+    "tool:toolu_fix2_13"
+   ]
+  },
+  {
+   "fact": "After the fix: p95 ~164ms and a single query per request",
+   "entryIds": [
+    "tool:toolu_bench2_16",
+    "tool:toolu_qlog2_14",
+    "msg:47:0"
+   ]
+  }
+ ]
+}

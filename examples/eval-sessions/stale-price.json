@@ -1,0 +1,682 @@
+{
+ "language": "ja",
+ "goal": "管理画面で商品の価格を更新しても、商品ページには古い価格が最大1時間ほど表示され続ける。原因を調べて直して。",
+ "messages": [
+  {
+   "role": "user",
+   "content": "管理画面で商品の価格を更新しても、商品ページには古い価格が最大1時間ほど表示され続ける。原因を調べて直して。"
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "text",
+     "text": "まず更新処理と商品ページの取得経路を追います。"
+    },
+    {
+     "type": "tool_use",
+     "id": "toolu_update_01",
+     "name": "Read",
+     "input": {
+      "file_path": "src/admin/products/updatePrice.ts"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_update_01",
+     "content": "import { db } from '../../db'\nimport { productCache } from '../../cache/productCache'\n\n// 管理画面の価格更新。監査ログも残す。\nexport async function updatePrice(productId: number, priceYen: number, actorId: string) {\n  await db.tx(async (t) => {\n    await t.none('UPDATE products SET price_yen = $1, updated_at = now() WHERE id = $2', [priceYen, productId])\n    await t.none('INSERT INTO audit_log (actor_id, action, target) VALUES ($1, $2, $3)', [actorId, 'price.update', `product:${productId}`])\n  })\n  await productCache.invalidate(productId)\n}"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_cache_02",
+     "name": "Read",
+     "input": {
+      "file_path": "src/cache/productCache.ts"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_cache_02",
+     "content": "import { redis } from './redis'\n\nconst TTL_SECONDS = 3600\n\nfunction key(productId: number, locale: string) {\n  return `product:${productId}:${locale}`\n}\n\nexport const productCache = {\n  async get(productId: number, locale: string) {\n    const hit = await redis.get(key(productId, locale))\n    return hit ? JSON.parse(hit) : null\n  },\n  async set(productId: number, locale: string, value: unknown) {\n    await redis.set(key(productId, locale), JSON.stringify(value), 'EX', TTL_SECONDS)\n  },\n  async invalidate(productId: number) {\n    await redis.del(`product:${productId}`)\n  },\n}"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "text",
+     "text": "キャッシュのキーは `product:{id}:{locale}` なのに、invalidate は `product:{id}` を消している。存在しないキーを消しているだけなので、TTL の1時間が切れるまで古い価格が残る。"
+    },
+    {
+     "type": "tool_use",
+     "id": "toolu_redis_03",
+     "name": "Bash",
+     "input": {
+      "command": "redis-cli --scan --pattern 'product:1042*' && redis-cli TTL product:1042:ja && redis-cli GET product:1042:ja | jq .priceYen"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_redis_03",
+     "content": "product:1042:ja\nproduct:1042:en\nproduct:1042:zh-CN\n2771\n12800"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_psql_04",
+     "name": "Bash",
+     "input": {
+      "command": "psql shop -c 'SELECT id, price_yen, updated_at FROM products WHERE id = 1042'"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_psql_04",
+     "content": "  id  | price_yen |          updated_at\n------+-----------+-------------------------------\n 1042 |     11800 | 2026-09-23 10:41:07.52812+09\n(1 row)"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_gitblame_05",
+     "name": "Bash",
+     "input": {
+      "command": "git log -L '/function key/,+3:src/cache/productCache.ts' --oneline | head -20"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_gitblame_05",
+     "content": "a3f81c2 商品ページの多言語対応(ロケール別にキャッシュ)\ndiff --git a/src/cache/productCache.ts b/src/cache/productCache.ts\n@@ -5,3 +5,3 @@\n-function key(productId: number) {\n-  return `product:${productId}`\n+function key(productId: number, locale: string) {\n+  return `product:${productId}:${locale}`\n }"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_tax_06",
+     "name": "Read",
+     "input": {
+      "file_path": "src/cart/tax.ts"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_tax_06",
+     "content": "// カート内の税込価格。1円未満は切り捨て(国税庁の端数処理に合わせる)。\nexport function withTax(priceYen: number, rate = 0.1): number {\n  return Math.floor(priceYen * (1 + rate))\n}"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_format_07",
+     "name": "Read",
+     "input": {
+      "file_path": "src/web/components/Price.tsx"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_format_07",
+     "content": "// 価格の表示。ロケールごとに通貨表記を変える。\nexport function Price({ yen, locale }: { yen: number; locale: string }) {\n  return <span>{new Intl.NumberFormat(locale, { style: 'currency', currency: 'JPY' }).format(yen)}</span>\n}"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_stock_08",
+     "name": "Read",
+     "input": {
+      "file_path": "src/cache/stockCache.ts"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_stock_08",
+     "content": "// 在庫数のキャッシュは10秒だけ。在庫はロケールに依存しないのでキーは product-stock:{id}。\nexport const stockCache = createTtlCache<number>({ prefix: 'product-stock', ttlSeconds: 10 })"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_fix_09",
+     "name": "Edit",
+     "input": {
+      "file_path": "src/cache/productCache.ts",
+      "old_string": "  async invalidate(productId: number) {\n    await redis.del(`product:${productId}`)\n  },",
+      "new_string": "  async invalidate(productId: number) {\n    // Every locale's copy: keys are product:{id}:{locale}.\n    const keys = SUPPORTED_LOCALES.map((locale) => key(productId, locale))\n    await redis.del(...keys)\n  },"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_fix_09",
+     "content": "The file src/cache/productCache.ts has been updated."
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_locales_10",
+     "name": "Grep",
+     "input": {
+      "pattern": "SUPPORTED_LOCALES",
+      "path": "src"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_locales_10",
+     "content": "src/i18n/locales.ts:1:export const SUPPORTED_LOCALES = ['ja', 'en', 'zh-CN'] as const\nsrc/web/middleware/locale.ts:4:import { SUPPORTED_LOCALES } from '../../i18n/locales'"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_verify1_11",
+     "name": "Bash",
+     "input": {
+      "command": "curl -s -X PATCH localhost:3000/admin/products/1042/price -H 'Cookie: session=dev' -d '{\"priceYen\":11800}' -H 'content-type: application/json' && redis-cli --scan --pattern 'product:1042*' | wc -l && curl -s localhost:3000/products/1042 | grep -o 'data-price=\"[0-9]*\"'"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_verify1_11",
+     "content": "{\"ok\":true}\n0\ndata-price=\"11800\""
+    },
+    {
+     "type": "text",
+     "text": "ステージングで試したけど、ブラウザで商品ページを開くとまだ古い価格が出る。スーパーリロードすると新しい価格になる。"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_headers_12",
+     "name": "Bash",
+     "input": {
+      "command": "curl -sI https://staging.shop.example.jp/products/1042"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_headers_12",
+     "content": "HTTP/2 200\ncontent-type: text/html; charset=utf-8\ncache-control: public, max-age=3600\nage: 1604\nx-cache: Hit from cloudfront\nvia: 1.1 5f2c9e0a7b.cloudfront.net (CloudFront)\nx-amz-cf-pop: NRT57-P3\netag: W/\"1f3a-kS0bq3Qv\""
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "text",
+     "text": "2つ目の原因:商品ページの HTML が `cache-control: public, max-age=3600` で CloudFront にキャッシュされている(age: 1604 で Hit)。Redis を消しても CDN が古い HTML を返し続ける。"
+    },
+    {
+     "type": "tool_use",
+     "id": "toolu_cachemw_13",
+     "name": "Read",
+     "input": {
+      "file_path": "src/web/middleware/cacheHeaders.ts"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_cachemw_13",
+     "content": "// 商品ページは CDN に1時間キャッシュさせる(ブラックフライデーの負荷対策、#744)。\nexport function productPageCache(req: Request, res: Response, next: NextFunction) {\n  res.setHeader('Cache-Control', 'public, max-age=3600')\n  next()\n}"
+    },
+    {
+     "type": "text",
+     "text": "CDN のキャッシュ自体はやめたくない。負荷対策で入れたものなので。更新時にパージする方向でお願い。"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_cfdocs_14",
+     "name": "Bash",
+     "input": {
+      "command": "grep -rn 'CreateInvalidation\\|cloudfront' src infra | head"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_cfdocs_14",
+     "content": "infra/cdn.tf:12:resource \"aws_cloudfront_distribution\" \"shop\" {\ninfra/cdn.tf:48:  default_cache_behavior {\nsrc/ops/purgeCdn.ts:3:import { CloudFrontClient, CreateInvalidationCommand } from '@aws-sdk/client-cloudfront'"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_purge_15",
+     "name": "Read",
+     "input": {
+      "file_path": "src/ops/purgeCdn.ts"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_purge_15",
+     "content": "import { CloudFrontClient, CreateInvalidationCommand } from '@aws-sdk/client-cloudfront'\n\nconst client = new CloudFrontClient({ region: 'us-east-1' })\n\n// 既存のヘルパー。今はデプロイ時に '/*' を消すのにだけ使っている。\nexport async function purgePaths(paths: string[]) {\n  await client.send(new CreateInvalidationCommand({\n    DistributionId: process.env.CLOUDFRONT_DISTRIBUTION_ID,\n    InvalidationBatch: { CallerReference: `${Date.now()}`, Paths: { Quantity: paths.length, Items: paths } },\n  }))\n}"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_fix2_16",
+     "name": "Edit",
+     "input": {
+      "file_path": "src/admin/products/updatePrice.ts",
+      "old_string": "  await productCache.invalidate(productId)",
+      "new_string": "  await productCache.invalidate(productId)\n  // The page HTML is cached at the CDN for an hour too (cacheHeaders.ts), in every locale.\n  await purgePaths(SUPPORTED_LOCALES.map((l) => (l === 'ja' ? `/products/${productId}` : `/${l}/products/${productId}`)))"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_fix2_16",
+     "content": "The file src/admin/products/updatePrice.ts has been updated."
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_tests_17",
+     "name": "Bash",
+     "input": {
+      "command": "npx vitest run"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_tests_17",
+     "content": " PASS  src/admin/products/updatePrice.test.ts (3.328 s)\n PASS  src/cache/productCache.test.ts (2.348 s)\n PASS  src/cache/stockCache.test.ts (2.910 s)\n PASS  src/cart/tax.test.ts (1.407 s)\n PASS  src/web/components/Price.test.ts (3.202 s)\n PASS  src/web/middleware/locale.test.ts (0.324 s)\n PASS  src/web/middleware/cacheHeaders.test.ts (1.580 s)\n PASS  src/ops/purgeCdn.test.ts (0.499 s)\n PASS  src/i18n/locales.test.ts (0.395 s)\n PASS  src/admin/products/list.test.ts (0.609 s)\n PASS  src/admin/audit/log.test.ts (2.281 s)\n PASS  src/web/routes/product.test.ts (3.327 s)\n PASS  src/web/routes/category.test.ts (2.132 s)\n PASS  src/search/query.test.ts (3.422 s)\n PASS  src/payments/checkout.test.ts (2.037 s)\n PASS  src/admin/products/updatePrice.test.ts (1.156 s)\n PASS  src/cache/productCache.test.ts (1.984 s)\n PASS  src/cache/stockCache.test.ts (1.218 s)\n PASS  src/cart/tax.test.ts (2.451 s)\n PASS  src/web/components/Price.test.ts (2.119 s)\n PASS  src/web/middleware/locale.test.ts (0.820 s)\n PASS  src/web/middleware/cacheHeaders.test.ts (2.008 s)\n PASS  src/ops/purgeCdn.test.ts (2.062 s)\n PASS  src/i18n/locales.test.ts (0.880 s)\n PASS  src/admin/products/list.test.ts (1.955 s)\n PASS  src/admin/audit/log.test.ts (1.237 s)\n PASS  src/web/routes/product.test.ts (3.247 s)\n PASS  src/web/routes/category.test.ts (1.189 s)\n PASS  src/search/query.test.ts (0.793 s)\n PASS  src/payments/checkout.test.ts (1.006 s)\n\nTest Suites: 30 passed, 30 total\nTests:       166 passed, 166 total\nSnapshots:   0 total\nTime:        21.7 s\nRan all test suites."
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_addtest_18",
+     "name": "Edit",
+     "input": {
+      "file_path": "src/cache/productCache.test.ts",
+      "old_string": "describe('productCache', () => {",
+      "new_string": "describe('productCache', () => {\n  it('invalidate() removes every locale', async () => {\n    for (const l of SUPPORTED_LOCALES) await productCache.set(1, l, { priceYen: 100 })\n    await productCache.invalidate(1)\n    for (const l of SUPPORTED_LOCALES) expect(await productCache.get(1, l)).toBeNull()\n  })\n"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_addtest_18",
+     "content": "The file src/cache/productCache.test.ts has been updated."
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_gitlog_19",
+     "name": "Bash",
+     "input": {
+      "command": "git log --oneline -7"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_gitlog_19",
+     "content": "99ba40a 商品ページの多言語対応(ロケール別にキャッシュ)\nfd7fe40 ブラックフライデー向けに商品ページを CDN キャッシュ (#744)\nafdc0b9 カートの税計算を切り捨てに統一\ne5cd987 在庫キャッシュを10秒に短縮\n936c941 管理画面に監査ログ\n257a959 Node 22 に更新\n3c731e2 決済プロバイダを切り替え"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_lint_20",
+     "name": "Bash",
+     "input": {
+      "command": "npm run lint && npx tsc --noEmit"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_lint_20",
+     "content": "\n> shop@5.3.0 lint\n> eslint . --max-warnings 0\n"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_staging_21",
+     "name": "Bash",
+     "input": {
+      "command": "./scripts/deploy-staging.sh && sleep 60 && curl -s -X PATCH https://staging.shop.example.jp/admin/products/1042/price -d '{\"priceYen\":10800}' -H 'content-type: application/json' -H \"Cookie: $STAGING_COOKIE\" && sleep 30 && curl -sI https://staging.shop.example.jp/products/1042 | grep -i 'x-cache\\|age'"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_staging_21",
+     "content": "deploy: staging updated to 7c21d0e\n{\"ok\":true}\nx-cache: Miss from cloudfront"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_readme_22",
+     "name": "Read",
+     "input": {
+      "file_path": "docs/caching.md"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_readme_22",
+     "content": "# キャッシュ\n\n- Redis: 商品詳細(1時間、ロケール別)、在庫(10秒)\n- CDN: 商品ページHTML(1時間)。デプロイ時に全パージ。"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_docsfix_23",
+     "name": "Edit",
+     "input": {
+      "file_path": "docs/caching.md",
+      "old_string": "- CDN: 商品ページHTML(1時間)。デプロイ時に全パージ。",
+      "new_string": "- CDN: 商品ページHTML(1時間)。デプロイ時に全パージ、価格更新時にその商品のページを全ロケール分パージ。"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_docsfix_23",
+     "content": "The file docs/caching.md has been updated."
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "tool_use",
+     "id": "toolu_dockerps_24",
+     "name": "Bash",
+     "input": {
+      "command": "docker compose ps --format '{{.Name}} {{.Status}}'"
+     }
+    }
+   ]
+  },
+  {
+   "role": "user",
+   "content": [
+    {
+     "type": "tool_result",
+     "tool_use_id": "toolu_dockerps_24",
+     "content": "shop-db-1 Up 2 hours\nshop-redis-1 Up 2 hours"
+    }
+   ]
+  },
+  {
+   "role": "assistant",
+   "content": [
+    {
+     "type": "text",
+     "text": "原因は2つでした。(1) ロケール別キャッシュ導入時にキーが product:{id}:{locale} になったのに、invalidate が product:{id} を消していた。(2) 商品ページ HTML が CDN に1時間キャッシュされていた。invalidate を全ロケール分の削除に直し、価格更新時にその商品ページを全ロケール分 CloudFront からパージするようにしました。CDN キャッシュ自体は残しています。"
+    }
+   ]
+  }
+ ],
+ "labels": {
+  "msg:0": true,
+  "msg:1:0": false,
+  "tool:toolu_update_01": true,
+  "tool:toolu_cache_02": true,
+  "msg:5:0": true,
+  "tool:toolu_redis_03": true,
+  "tool:toolu_psql_04": true,
+  "tool:toolu_gitblame_05": true,
+  "tool:toolu_tax_06": false,
+  "tool:toolu_format_07": false,
+  "tool:toolu_stock_08": false,
+  "tool:toolu_fix_09": true,
+  "tool:toolu_locales_10": true,
+  "tool:toolu_verify1_11": true,
+  "msg:22:1": true,
+  "tool:toolu_headers_12": true,
+  "msg:25:0": true,
+  "tool:toolu_cachemw_13": true,
+  "msg:26:1": true,
+  "tool:toolu_cfdocs_14": true,
+  "tool:toolu_purge_15": true,
+  "tool:toolu_fix2_16": true,
+  "tool:toolu_tests_17": true,
+  "tool:toolu_addtest_18": true,
+  "tool:toolu_gitlog_19": false,
+  "tool:toolu_lint_20": false,
+  "tool:toolu_staging_21": true,
+  "tool:toolu_readme_22": true,
+  "tool:toolu_docsfix_23": false,
+  "tool:toolu_dockerps_24": false,
+  "msg:49:0": true
+ },
+ "probes": [
+  {
+   "fact": "Redis のキーは product:{id}:{locale} なのに invalidate は product:{id} を消していた",
+   "entryIds": [
+    "tool:toolu_cache_02",
+    "msg:5:0"
+   ]
+  },
+  {
+   "fact": "キーの不一致は多言語対応のコミット a3f81c2 で入った",
+   "entryIds": [
+    "tool:toolu_gitblame_05"
+   ]
+  },
+  {
+   "fact": "ロケールは ja / en / zh-CN の3つ(SUPPORTED_LOCALES)",
+   "entryIds": [
+    "tool:toolu_locales_10",
+    "tool:toolu_redis_03"
+   ]
+  },
+  {
+   "fact": "2つ目の原因:商品ページ HTML が CloudFront に max-age=3600 でキャッシュされている",
+   "entryIds": [
+    "tool:toolu_headers_12",
+    "msg:25:0",
+    "tool:toolu_cachemw_13"
+   ]
+  },
+  {
+   "fact": "CDN キャッシュはやめず、更新時にパージする(負荷対策 #744)",
+   "entryIds": [
+    "msg:26:1"
+   ]
+  },
+  {
+   "fact": "既存の purgePaths ヘルパー(src/ops/purgeCdn.ts)を使ってパージする",
+   "entryIds": [
+    "tool:toolu_purge_15",
+    "tool:toolu_fix2_16"
+   ]
+  },
+  {
+   "fact": "修正後、ステージングで価格更新直後に CDN が Miss になることを確認",
+   "entryIds": [
+    "tool:toolu_staging_21"
+   ]
+  }
+ ]
+}
