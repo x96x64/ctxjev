@@ -5,7 +5,7 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 (`.claude-plugin/marketplace.json`, `packages/claude-plugin/.claude-plugin/plugin.json`,
 `plugins/ctxjev/plugin.json`). A bump in one is a bump in all, even when only one changed.
 
-## Unreleased
+## 0.5.0 — 2026-09-23
 
 - `ctxjev-core`: `pruneMessages()` no longer removes what the user wrote (`keepUserText`, default on).
   That's where constraints and changes of plan live, and it costs few tokens.
