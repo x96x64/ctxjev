@@ -83,6 +83,30 @@ for (const line of readFileSync(transcriptPath, 'utf8').split('\n')) {
   else messages.push({ role: record.type, content: blocks })
 }
 
+// Claude Code writes a parallel tool call's results as each one finishes, so a slow one can land
+// after the next assistant record. The API wants every result in the message right after its call,
+// ahead of any text, so move each result there.
+const resultById = new Map()
+for (const m of messages) {
+  if (m.role !== 'user') continue
+  for (const b of m.content) if (b.type === 'tool_result') resultById.set(b.tool_use_id, b)
+  m.content = m.content.filter((b) => b.type !== 'tool_result')
+}
+const paired = []
+for (const m of messages) {
+  const uses = m.role === 'assistant' ? m.content.filter((b) => b.type === 'tool_use') : []
+  if (m.role === 'user' && paired.at(-1)?.role === 'user') paired.at(-1).content.push(...m.content)
+  else if (m.content.length > 0) paired.push(m)
+  if (uses.length > 0) paired.push({ role: 'user', content: uses.map((u) => resultById.get(u.id) ?? { type: 'tool_result', tool_use_id: u.id, content: '(no result recorded)', is_error: true }) })
+}
+messages.length = 0
+messages.push(...paired.filter((m) => m.content.length > 0))
+messages.forEach((m, i) => {
+  const uses = m.role === 'assistant' ? m.content.filter((b) => b.type === 'tool_use').map((b) => b.id) : []
+  const next = messages[i + 1]?.content ?? []
+  for (const id of uses) if (!next.some((b) => b.type === 'tool_result' && b.tool_use_id === id)) throw new Error(`tool_use ${id} has no result in the next message`)
+})
+
 // Plain-text user messages as strings, like a hand-written conversation.
 for (const m of messages) if (m.role === 'user' && m.content.length === 1 && m.content[0].type === 'text') m.content = m.content[0].text
 

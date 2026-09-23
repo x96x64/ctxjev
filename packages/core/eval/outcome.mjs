@@ -8,93 +8,111 @@
  * Claude Sonnet 5 judges whether the answer conveys the probe's fact. Two reference conditions
  * bracket it: `full` (nothing removed) and `goal-only` (just the task, which measures guessing).
  *
- * Not part of the release gate: it needs ANTHROPIC_API_KEY, costs real money (about $1 a run,
- * printed at the end), and a model's answers vary. Run it by hand when scoring changes:
+ * Every question for one condition shares that condition's conversation, so it's cached: the first
+ * question writes it, the rest read it at a tenth of the price.
  *
- *   node eval/outcome.mjs [--runs N] [--out results.json] [--session <name prefix>]   (from packages/core, after `pnpm build`)
- *   node eval/outcome.mjs --report eval/results/outcome.json   (re-print a saved run's table, no API calls)
+ * Not part of the release gate: it needs ANTHROPIC_API_KEY (and TYPESAFE_API_KEY for the Jev
+ * condition), costs real money (printed at the end), and a model's answers vary. By hand:
  *
- * Needs TYPESAFE_API_KEY too, for the Jev condition.
+ *   node eval/outcome.mjs --max-usd 3 [--runs N] [--session <name prefix>] [--out results.json] [--merge previous.json]
+ *   node eval/outcome.mjs --report eval/results/outcome.json   (re-print a saved table, no API calls)
+ *
+ * --merge keeps the previous results for every session this run didn't cover.
  */
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 import Anthropic from '@anthropic-ai/sdk'
-import { DEFAULT_POLICY, messagesToEntries, pruneMessages, scoreEntries } from '../dist/index.js'
+import { ANSWER_MODEL, JUDGE_MODEL, SpendLimitError, createLimiter, createSpend, firstText, pruneTo, rankings, withCacheBreakpoint } from './lib.mjs'
 
-const ANSWER_MODEL = 'claude-haiku-4-5'
-const JUDGE_MODEL = 'claude-sonnet-5'
-// $ per million tokens (input, output), from the Claude API price list.
-const PRICES = { [ANSWER_MODEL]: [1, 5], [JUDGE_MODEL]: [2, 10] }
 const BUDGETS = [0.25, 0.5]
-const CONCURRENCY = 5
 
-const { values: args } = parseArgs({ options: { runs: { type: 'string', default: '1' }, out: { type: 'string' }, session: { type: 'string' }, report: { type: 'string' } } })
-const runs = Number(args.runs)
-if (!Number.isInteger(runs) || runs < 1) throw new Error(`--runs must be a whole number of at least 1, got ${args.runs}`)
+const { values: args } = parseArgs({
+  options: {
+    runs: { type: 'string', default: '1' },
+    out: { type: 'string' },
+    merge: { type: 'string' },
+    session: { type: 'string' },
+    report: { type: 'string' },
+    'max-usd': { type: 'string' },
+  },
+})
 
 function printTable(rows, header) {
   const rate = (rs) => (rs.length === 0 ? NaN : rs.filter((r) => r.correct).length / rs.length)
   const pct = (x) => (Number.isNaN(x) ? '   -  ' : `${(x * 100).toFixed(1)}%`.padStart(6))
   const labelOf = (strategy, budget) => (budget === 1 || budget === 0 ? strategy : `${strategy} @${budget * 100}%`)
   const cells = [...new Map(rows.map((r) => [labelOf(r.strategy, r.budget), [r.strategy, r.budget]])).entries()]
+  const columns = [
+    ['all', () => true],
+    ['written', (r) => !r.recorded],
+    ['recorded', (r) => r.recorded],
+    ['en', (r) => r.language === 'en'],
+    ['ja', (r) => r.language === 'ja'],
+  ]
   console.log(`\n${header}\n`)
-  console.log(`  ${'condition'.padEnd(18)}${'all'.padStart(8)}${'en'.padStart(8)}${'ja'.padStart(8)}`)
+  console.log(`  ${'condition'.padEnd(18)}${columns.map(([name]) => name.padStart(10)).join('')}`)
   for (const [label, [strategy, budget]] of cells) {
     const rs = rows.filter((r) => r.strategy === strategy && r.budget === budget)
-    console.log(`  ${label.padEnd(18)}${pct(rate(rs)).padStart(8)}${pct(rate(rs.filter((r) => r.language === 'en'))).padStart(8)}${pct(rate(rs.filter((r) => r.language === 'ja'))).padStart(8)}`)
+    console.log(`  ${label.padEnd(18)}${columns.map(([, keep]) => pct(rate(rs.filter(keep))).padStart(10)).join('')}`)
   }
+}
+
+const describe = (rows, answerModel, judgeModel) => {
+  const sessions = new Set(rows.map((r) => r.session)).size
+  const questions = new Set(rows.map((r) => `${r.session}|${r.question}`)).size
+  return `Probe questions answered correctly (${answerModel}, judged by ${judgeModel}; ${sessions} sessions, ${questions} questions)`
 }
 
 if (args.report) {
   const saved = JSON.parse(readFileSync(args.report, 'utf8'))
-  const sessionCount = new Set(saved.rows.map((r) => r.session)).size
-  printTable(saved.rows, `Probe questions answered correctly (${saved.answerModel}, judged by ${saved.judgeModel}; ${sessionCount} sessions, ${saved.runs} run(s))`)
+  printTable(saved.rows, describe(saved.rows, saved.answerModel, saved.judgeModel))
   process.exit(0)
 }
 
+const runs = Number(args.runs)
+if (!Number.isInteger(runs) || runs < 1) throw new Error(`--runs must be a whole number of at least 1, got ${args.runs}`)
+const maxUsd = Number(args['max-usd'])
+if (!(maxUsd > 0)) throw new Error('--max-usd is required: the most this run may spend, in dollars')
 for (const key of ['ANTHROPIC_API_KEY', 'TYPESAFE_API_KEY']) {
   if (!process.env[key]) throw new Error(`${key} is not set`)
 }
 
 const client = new Anthropic()
+const spend = createSpend(maxUsd)
+const limit = createLimiter(5)
 const sessionsDir = join(dirname(fileURLToPath(import.meta.url)), '../../../examples/eval-sessions')
 const sessions = readdirSync(sessionsDir)
   .filter((f) => f.endsWith('.json') && (!args.session || f.startsWith(args.session)))
   .map((f) => ({ name: f, ...JSON.parse(readFileSync(join(sessionsDir, f), 'utf8')) }))
 
-const usage = {}
-function record(model, u) {
-  usage[model] ??= { input: 0, output: 0 }
-  usage[model].input += u.input_tokens + (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0)
-  usage[model].output += u.output_tokens
-}
-
-async function pool(items, fn) {
-  const results = new Array(items.length)
-  let next = 0
-  await Promise.all(
-    Array.from({ length: Math.min(CONCURRENCY, items.length) }, async () => {
-      for (let i = next++; i < items.length; i = next++) results[i] = await fn(items[i])
-    }),
-  )
-  return results
-}
-
 // Histories carry tool_use blocks, so the request declares those tools, but never lets the model call one.
 function toolsFor(messages) {
   const names = new Set()
   for (const m of messages) if (Array.isArray(m.content)) for (const b of m.content) if (b.type === 'tool_use') names.add(b.name)
-  return [...names].map((name) => ({ name, description: `The ${name} tool used earlier in this session.`, input_schema: { type: 'object', additionalProperties: true } }))
+  return [...names].sort().map((name) => ({ name, description: `The ${name} tool used earlier in this session.`, input_schema: { type: 'object', additionalProperties: true } }))
 }
 
-const firstText = (message) => message.content.find((b) => b.type === 'text')?.text?.trim() ?? ''
+async function call(model, params) {
+  spend.check()
+  const response = await limit(() => client.messages.create({ model, ...params }))
+  spend.record(model, response.usage)
+  return response
+}
+
+// Without the note, a model primed by a tool-heavy session sometimes answers with a tool call,
+// which tool_choice "none" strips to an empty reply; the first run lost 8% of its answers that way.
+const PLAIN_TEXT_NOTE = '\n\n(Answer in plain text from the conversation above. No tools are available for this question.)'
 
 async function answer(history, question) {
+  const reply = await ask(history, `${question}${PLAIN_TEXT_NOTE}`)
+  return reply || ask(history, `${question}${PLAIN_TEXT_NOTE} Do not call any tool; write the answer.`)
+}
+
+async function ask(history, question) {
   const tools = toolsFor(history)
-  const response = await client.messages.create({
-    model: ANSWER_MODEL,
+  const response = await call(ANSWER_MODEL, {
     max_tokens: 400,
     temperature: 0,
     system:
@@ -102,15 +120,13 @@ async function answer(history, question) {
       'do not propose next steps or ask to look at code. Answer using only what the conversation shows, in one or two sentences, ' +
       'in the language of the question. If the conversation does not say, reply exactly "NOT IN CONTEXT".',
     ...(tools.length > 0 && { tools, tool_choice: { type: 'none' } }),
-    messages: [...history, { role: 'user', content: question }],
+    messages: [...withCacheBreakpoint(history), { role: 'user', content: question }],
   })
-  record(ANSWER_MODEL, response.usage)
   return firstText(response)
 }
 
 async function judge(probe, reply) {
-  const response = await client.messages.create({
-    model: JUDGE_MODEL,
+  const response = await call(JUDGE_MODEL, {
     max_tokens: 2000,
     output_config: { effort: 'low' },
     messages: [
@@ -123,57 +139,56 @@ async function judge(probe, reply) {
       },
     ],
   })
-  record(JUDGE_MODEL, response.usage)
   return /^\s*YES\b/i.test(firstText(response))
 }
 
-async function pruneTo(session, scoreOf, recencyWeight, budget) {
-  const total = messagesToEntries(session.messages).reduce((sum, e) => sum + e.sourceTokens, 0)
-  const { messages } = await pruneMessages(session.messages, session.goal, {
-    scorer: async (_goal, entries) => entries.map((e) => scoreOf(e.id)),
-    policy: { dropBelow: 0, summarizeBelow: 0, recencyWeight },
-    targetTokens: Math.floor(total * budget),
-  })
-  return messages
-}
-
 async function conditionsFor(session) {
-  const entries = messagesToEntries(session.messages)
-  const jev = new Map((await scoreEntries(entries, session.goal, 0, { scorer: 'jev' })).map((s) => [s.entryId, s.relevance]))
-  const local = new Map((await scoreEntries(entries, session.goal, 0, { scorer: 'local' })).map((s) => [s.entryId, s.relevance]))
-  const order = new Map(entries.map((e, i) => [e.id, i / (entries.length - 1)]))
+  const ranked = await rankings(session.messages, session.goal)
   const conditions = [
     { strategy: 'full', budget: 1, messages: session.messages },
     { strategy: 'goal-only', budget: 0, messages: [session.messages[0]] },
   ]
   for (const budget of BUDGETS) {
-    conditions.push({ strategy: 'jev', budget, messages: await pruneTo(session, (id) => jev.get(id), DEFAULT_POLICY.recencyWeight, budget) })
-    conditions.push({ strategy: 'keywords', budget, messages: await pruneTo(session, (id) => local.get(id), DEFAULT_POLICY.recencyWeight, budget) })
-    conditions.push({ strategy: 'recency', budget, messages: await pruneTo(session, (id) => order.get(id), 0, budget) })
+    for (const strategy of ['jev', 'keywords', 'recency']) {
+      conditions.push({ strategy, budget, messages: await pruneTo(session.messages, session.goal, ranked[strategy], strategy, budget) })
+    }
   }
   return conditions
 }
 
-const rows = []
-for (let run = 0; run < runs; run++) {
-  for (const session of sessions) {
-    const conditions = await conditionsFor(session)
-    const jobs = conditions.flatMap((c) => session.probes.map((probe) => ({ c, probe })))
-    const graded = await pool(jobs, async ({ c, probe }) => {
-      const reply = await answer(c.messages, probe.question)
-      return { run, session: session.name, language: session.language, strategy: c.strategy, budget: c.budget, question: probe.question, fact: probe.fact, reply, correct: await judge(probe, reply) }
-    })
-    rows.push(...graded)
-    process.stderr.write(`run ${run + 1}/${runs}: ${session.name} done\n`)
+// The first question for a condition writes its cache; the rest follow once it's there.
+async function gradeCondition(session, condition, run) {
+  const grade = async (probe) => {
+    const reply = await answer(condition.messages, probe.question)
+    const correct = await judge(probe, reply)
+    return { run, session: session.name, recorded: Boolean(session.recorded), language: session.language, strategy: condition.strategy, budget: condition.budget, question: probe.question, fact: probe.fact, reply, correct }
   }
+  const [first, ...rest] = session.probes
+  return [await grade(first), ...(await Promise.all(rest.map(grade)))]
 }
 
-printTable(rows, `Probe questions answered correctly (${ANSWER_MODEL}, judged by ${JUDGE_MODEL}; ${sessions.length} sessions, ${runs} run(s))`)
+const rows = []
+try {
+  for (let run = 0; run < runs; run++) {
+    for (const session of sessions) {
+      const conditions = await conditionsFor(session)
+      for (const graded of await Promise.all(conditions.map((c) => gradeCondition(session, c, run)))) rows.push(...graded)
+      process.stderr.write(`run ${run + 1}/${runs}: ${session.name} done — $${spend.total.toFixed(2)} so far\n`)
+    }
+  }
+} catch (err) {
+  console.error(`Stopped: ${err instanceof SpendLimitError ? err.message : err.stack}. Nothing is written for a partial run.`)
+  console.error(`API usage before stopping: ${spend.summary()}`)
+  process.exit(1)
+}
 
-const cost = Object.entries(usage).reduce((sum, [model, u]) => sum + (u.input * PRICES[model][0] + u.output * PRICES[model][1]) / 1e6, 0)
-console.log(`\nAPI usage: ${Object.entries(usage).map(([m, u]) => `${m} ${u.input.toLocaleString()} in / ${u.output.toLocaleString()} out`).join(', ')} — about $${cost.toFixed(2)}`)
+const ran = new Set(rows.map((r) => r.session))
+const kept = args.merge ? JSON.parse(readFileSync(args.merge, 'utf8')).rows.filter((r) => !ran.has(r.session)) : []
+const allRows = [...kept, ...rows]
+printTable(allRows, describe(allRows, ANSWER_MODEL, JUDGE_MODEL))
+console.log(`\nAPI usage this run: ${spend.summary()}`)
 
 if (args.out) {
-  writeFileSync(args.out, `${JSON.stringify({ answerModel: ANSWER_MODEL, judgeModel: JUDGE_MODEL, runs, rows }, null, 1)}\n`)
-  console.log(`Wrote every answer and verdict to ${args.out}`)
+  writeFileSync(args.out, `${JSON.stringify({ answerModel: ANSWER_MODEL, judgeModel: JUDGE_MODEL, runs, rows: allRows }, null, 1)}\n`)
+  console.log(`Wrote every answer and verdict to ${args.out}${kept.length ? ` (${kept.length} rows kept from ${args.merge})` : ''}`)
 }
