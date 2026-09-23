@@ -27,6 +27,18 @@ describe('scoreEntries', () => {
     expect(onUsage).not.toHaveBeenCalled()
   })
 
+  it("ranks by position alone with scorer: 'recency', oldest 0 to newest 1", async () => {
+    const entries: Entry[] = [
+      { id: 'a', role: 'tool', content: 'the fix', timestamp: 5 },
+      { id: 'b', role: 'tool', content: 'unrelated', timestamp: 5 },
+      { id: 'c', role: 'user', content: 'latest', timestamp: 6 },
+    ]
+    const onUsage = vi.fn()
+    const scored = await scoreEntries(entries, 'goal', 0, { scorer: 'recency', onUsage })
+    expect(scored.map((s) => s.relevance)).toEqual([0, 0.5, 1])
+    expect(onUsage).not.toHaveBeenCalled()
+  })
+
   describe('with a custom scorer', () => {
     const many: Entry[] = Array.from({ length: 120 }, (_, i) => ({ id: `e${i}`, role: 'tool', content: `entry ${i}`, timestamp: i }))
 

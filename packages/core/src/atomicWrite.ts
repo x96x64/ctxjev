@@ -7,8 +7,8 @@ import { rename, writeFile } from 'node:fs/promises'
  * it. Shared by `ctxjev-cli`'s score cache and `ctxjev-claude`'s preserved-context cache, which
  * each write one JSON file that can be read and written by more than one process at a time.
  */
-export async function atomicWriteFile(path: string, content: string): Promise<void> {
+export async function atomicWriteFile(path: string, content: string, options: { mode?: number } = {}): Promise<void> {
   const tempPath = `${path}.${randomUUID()}.tmp`
-  await writeFile(tempPath, content, 'utf8')
+  await writeFile(tempPath, content, { encoding: 'utf8', ...(options.mode !== undefined && { mode: options.mode }) })
   await rename(tempPath, path)
 }

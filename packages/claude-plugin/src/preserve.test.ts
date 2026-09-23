@@ -1,17 +1,23 @@
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { clearPreservedContext, readPreservedContext, sessionKey, writePreservedContext, type PreservedContext } from './preserve.js'
+import { clearPreservedContext, readPreservedContext, writePreservedContext, type PreservedContext } from './preserve.js'
+import { removeLegacyState, sessionKey } from './stateDir.js'
 
 let cwd: string
+let state: string
 
 beforeEach(async () => {
-  cwd = await mkdtemp(join(tmpdir(), 'ctxjev-preserve-test-'))
+  cwd = await mkdtemp(join(tmpdir(), 'ctxjev-preserve-project-'))
+  state = await mkdtemp(join(tmpdir(), 'ctxjev-preserve-state-'))
+  process.env.CTXJEV_STATE_DIR = state
 })
 
 afterEach(async () => {
+  delete process.env.CTXJEV_STATE_DIR
   await rm(cwd, { recursive: true, force: true })
+  await rm(state, { recursive: true, force: true })
 })
 
 const sample: PreservedContext = {
@@ -27,20 +33,15 @@ describe('preserve cache', () => {
     expect(await readPreservedContext(cwd, 'session-a')).toEqual(sample)
   })
 
-  it('creates the .ctxjev directory if missing', async () => {
-    await expect(writePreservedContext(cwd, 'session-a', sample)).resolves.not.toThrow()
+  it('writes nothing into the project', async () => {
+    await writePreservedContext(cwd, 'session-a', sample)
+    expect(await readdir(cwd)).toEqual([])
   })
 
-  it('gitignores the .ctxjev directory so cached transcript excerpts never get committed', async () => {
+  it('keeps the snapshot readable only by the user', async () => {
     await writePreservedContext(cwd, 'session-a', sample)
-    expect(await readFile(join(cwd, '.ctxjev', '.gitignore'), 'utf8')).toBe('*\n')
-  })
-
-  it('leaves an existing .ctxjev/.gitignore untouched', async () => {
-    await mkdir(join(cwd, '.ctxjev'), { recursive: true })
-    await writeFile(join(cwd, '.ctxjev', '.gitignore'), 'custom\n', 'utf8')
-    await writePreservedContext(cwd, 'session-a', sample)
-    expect(await readFile(join(cwd, '.ctxjev', '.gitignore'), 'utf8')).toBe('custom\n')
+    const mode = (await stat(join(state, 'sessions', 'session-a', 'preserved.json'))).mode & 0o777
+    expect(mode).toBe(0o600)
   })
 
   it('returns undefined when no cache exists yet', async () => {
@@ -58,21 +59,36 @@ describe('preserve cache', () => {
     expect(await readPreservedContext(cwd, 'session-b')).toBeDefined()
   })
 
-  it('falls back to a shared key for a missing or unsafe session id', () => {
-    expect(sessionKey('3f2b9c1e-7d4a-4c1b-9e0f-1a2b3c4d5e6f')).toBe('3f2b9c1e-7d4a-4c1b-9e0f-1a2b3c4d5e6f')
-    expect(sessionKey(undefined)).toBe('default')
-    expect(sessionKey('../../etc/passwd')).toBe('default')
+  it('falls back to a per-project key for a missing or unsafe session id', () => {
+    expect(sessionKey('3f2b9c1e-7d4a-4c1b-9e0f-1a2b3c4d5e6f', cwd)).toBe('3f2b9c1e-7d4a-4c1b-9e0f-1a2b3c4d5e6f')
+    expect(sessionKey(undefined, cwd)).toMatch(/^default-[0-9a-f]{16}$/)
+    expect(sessionKey('../../etc/passwd', cwd)).toBe(sessionKey(undefined, cwd))
+    expect(sessionKey(undefined, '/some/other/project')).not.toBe(sessionKey(undefined, cwd))
   })
 
-  it('keeps only the 20 most recent sessions', async () => {
-    for (let i = 0; i < 25; i++) await writePreservedContext(cwd, `s${i}`, sample)
-    expect((await readdir(join(cwd, '.ctxjev', 'preserved'))).length).toBe(20)
+  it('keeps only the 50 most recent sessions', async () => {
+    for (let i = 0; i < 55; i++) await writePreservedContext(cwd, `s${i}`, sample)
+    expect((await readdir(join(state, 'sessions'))).length).toBe(50)
+  })
+})
+
+describe('removeLegacyState', () => {
+  it('removes what earlier versions wrote into the project, and the directory once empty', async () => {
+    await mkdir(join(cwd, '.ctxjev', 'preserved'), { recursive: true })
+    for (const f of ['last-run.json', 'goal.txt', '.gitignore', 'preserved-context.json']) await writeFile(join(cwd, '.ctxjev', f), 'x')
+    await removeLegacyState(cwd)
+    expect(await readdir(cwd)).toEqual([])
   })
 
-  it('removes the pre-0.3.0 single-file snapshot when clearing', async () => {
+  it('leaves files it did not write, and the directory holding them', async () => {
     await mkdir(join(cwd, '.ctxjev'), { recursive: true })
-    await writeFile(join(cwd, '.ctxjev', 'preserved-context.json'), '{}', 'utf8')
-    await clearPreservedContext(cwd, 'session-a')
-    await expect(readFile(join(cwd, '.ctxjev', 'preserved-context.json'), 'utf8')).rejects.toThrow()
+    await writeFile(join(cwd, '.ctxjev', 'last-run.json'), 'x')
+    await writeFile(join(cwd, '.ctxjev', 'notes.md'), 'mine')
+    await removeLegacyState(cwd)
+    expect(await readdir(join(cwd, '.ctxjev'))).toEqual(['notes.md'])
+  })
+
+  it('does nothing without a .ctxjev directory', async () => {
+    await expect(removeLegacyState(cwd)).resolves.toBeUndefined()
   })
 })

@@ -3,14 +3,15 @@ import { readFile } from 'node:fs/promises'
 import { parseClaudeCodeTranscript, resolveClaudeCodeGoal, type Entry } from 'ctxjev-core'
 import { writeLastRun, type LastRun } from './lastRun.js'
 import { clearPreservedContext, writePreservedContext } from './preserve.js'
+import { removeLegacyState } from './stateDir.js'
 import { readStdin } from './readStdin.js'
 import { preserveLimitFromEnv, selectPreserved, type Scorer, type SelectedEntry } from './select.js'
 
 type PreCompactInput = { cwd?: string; transcript_path?: string; session_id?: string }
 
-// hooks/hooks.json gives this hook 60s. Jev gets well under that, so a slow or retrying request
-// falls back to offline scoring and still records what happened, instead of being killed mid-run.
-const DEFAULT_JEV_TIMEOUT_MS = 40_000
+// Compaction waits on this hook, and hooks/hooks.json gives it 15s. A Jev request normally takes
+// well under a second; past this, scoring falls back to offline instead of holding the user up.
+const DEFAULT_JEV_TIMEOUT_MS = 8_000
 
 /**
  * Runs just before Claude Code compacts the conversation. Scores the transcript (with Jev, or
@@ -18,8 +19,8 @@ const DEFAULT_JEV_TIMEOUT_MS = 40_000
  * sessionStartCompact.ts to re-inject once compaction finishes.
  *
  * This can only ever exit 0 (a hook error must never block the user's actual compaction) — every
- * outcome, including a failure, is recorded in `.ctxjev/last-run.json` instead of surfaced
- * mid-compaction.
+ * outcome, including a failure, is recorded in the session's `last-run.json` (see stateDir.ts)
+ * instead of surfaced mid-compaction.
  */
 async function main() {
   const input: PreCompactInput = JSON.parse(await readStdin())
@@ -28,6 +29,7 @@ async function main() {
 
   // A stale snapshot from an earlier compaction must never survive any of the early returns below.
   await clearPreservedContext(cwd, sessionId)
+  await removeLegacyState(cwd).catch(() => {})
 
   let result: Omit<LastRun, 'at' | 'sessionId'>
   try {

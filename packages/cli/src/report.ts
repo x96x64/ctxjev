@@ -23,7 +23,7 @@ export function formatReport(
   decisions: PruneDecision[],
   savings: SavingsReport,
   usage: JevUsage,
-  scorer: 'jev' | 'local' = 'jev',
+  scorer: 'jev' | 'local' | 'recency' = 'jev',
 ): string {
   const decisionByEntryId = new Map(decisions.map((d) => [d.entryId, d]))
   const lines: string[] = []
@@ -67,6 +67,10 @@ export function formatReport(
 
   if (scorer === 'local') {
     lines.push(pc.dim('Scored offline by keyword overlap — no Jev call, nothing sent. Much cruder than Jev; treat the decisions as a rough guide.'))
+    return lines.join('\n')
+  }
+  if (scorer === 'recency') {
+    lines.push(pc.dim('Scored by position alone (newest kept, like plain truncation) — no Jev call, nothing sent.'))
     return lines.join('\n')
   }
 

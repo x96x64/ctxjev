@@ -77,7 +77,7 @@ export async function rankings(messages, goal) {
   return {
     jev: await byId('jev'),
     keywords: await byId('local'),
-    recency: new Map(entries.map((e, i) => [e.id, entries.length === 1 ? 1 : i / (entries.length - 1)])),
+    recency: await byId('recency'),
   }
 }
 

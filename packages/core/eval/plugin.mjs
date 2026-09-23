@@ -104,8 +104,9 @@ function toTranscript(messages, sessionId, cwd) {
     .join('\n')
 }
 
-function runHook(script, input) {
-  const r = spawnSync('node', [join(pluginDist, script)], { input: JSON.stringify(input), encoding: 'utf8', env: { PATH: process.env.PATH, TYPESAFE_API_KEY: process.env.TYPESAFE_API_KEY }, timeout: 90_000 })
+function runHook(script, input, stateDir) {
+  const env = { PATH: process.env.PATH, TYPESAFE_API_KEY: process.env.TYPESAFE_API_KEY, CTXJEV_STATE_DIR: stateDir }
+  const r = spawnSync('node', [join(pluginDist, script)], { input: JSON.stringify(input), encoding: 'utf8', env, timeout: 30_000 })
   if (r.status !== 0) throw new Error(`${script} exited ${r.status}: ${r.stderr}`)
   return r.stdout.trim()
 }
@@ -118,9 +119,10 @@ function pluginDigest(history, task, goal) {
     // With a goal, the transcript ends in the record that running /ctxjev:set-goal <goal> leaves.
     const setGoal = goal && `\n${JSON.stringify({ type: 'user', uuid: 'set-goal', sessionId, cwd, message: { role: 'user', content: `<command-name>/ctxjev:set-goal</command-name>\n<command-args>${goal}</command-args>` } })}`
     writeFileSync(transcriptPath, toTranscript(history, sessionId, cwd) + (setGoal || ''))
-    runHook('preCompact.js', { cwd, transcript_path: transcriptPath, session_id: sessionId })
-    const lastRun = JSON.parse(readFileSync(join(cwd, '.ctxjev', 'last-run.json'), 'utf8'))
-    const digest = runHook('sessionStartCompact.js', { cwd, session_id: sessionId })
+    const stateDir = join(cwd, 'state')
+    runHook('preCompact.js', { cwd, transcript_path: transcriptPath, session_id: sessionId }, stateDir)
+    const lastRun = JSON.parse(readFileSync(join(stateDir, 'sessions', sessionId, 'last-run.json'), 'utf8'))
+    const digest = runHook('sessionStartCompact.js', { cwd, session_id: sessionId }, stateDir)
     return { digest, lastRun: { outcome: lastRun.outcome, scorer: lastRun.scorer, preserved: lastRun.preserved, goal: lastRun.goal, reason: lastRun.reason } }
   } finally {
     rmSync(cwd, { recursive: true, force: true })

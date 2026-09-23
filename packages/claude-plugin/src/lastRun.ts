@@ -1,16 +1,15 @@
+import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { atomicWriteFile } from 'ctxjev-core'
 import type { Scorer } from './select.js'
-import { ensureStateDir } from './stateDir.js'
+import { ensureSessionDir, sessionDir } from './stateDir.js'
 
 /**
- * What the most recent PreCompact run did and why. A hook's failures are invisible to the user by
- * design (it must never block compaction), so without this a missing API key or an empty
- * transcript looks exactly like "working, nothing to show" — `/ctxjev:status` reads it back.
+ * What the most recent PreCompact run in a session did and why. A hook's failures are invisible by
+ * design (it must never block compaction), so `/ctxjev:status` reads this back.
  */
 export type LastRun = {
   at: string
-  /** Claude Code's session id — the preserved snapshot for this run is `.ctxjev/preserved/<sessionId>.json`. */
   sessionId?: string
   outcome: 'preserved' | 'skipped' | 'error'
   reason?: string
@@ -23,11 +22,17 @@ export type LastRun = {
   note?: string
 }
 
-function lastRunPath(cwd: string): string {
-  return join(cwd, '.ctxjev', 'last-run.json')
-}
+const FILE = 'last-run.json'
 
 export async function writeLastRun(cwd: string, run: LastRun): Promise<void> {
-  await ensureStateDir(cwd)
-  await atomicWriteFile(lastRunPath(cwd), JSON.stringify(run, null, 2))
+  const dir = await ensureSessionDir(cwd, run.sessionId)
+  await atomicWriteFile(join(dir, FILE), JSON.stringify(run, null, 2), { mode: 0o600 })
+}
+
+export async function readLastRun(cwd: string, sessionId: string | undefined): Promise<LastRun | undefined> {
+  try {
+    return JSON.parse(await readFile(join(sessionDir(cwd, sessionId), FILE), 'utf8'))
+  } catch {
+    return undefined
+  }
 }

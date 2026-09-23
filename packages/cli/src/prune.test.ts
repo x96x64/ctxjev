@@ -160,3 +160,30 @@ describe('ctxjev prune', () => {
     expect(result.stderr).toContain("can't write back a Claude Code transcript")
   }, 15_000)
 })
+
+describe('--scorer', () => {
+  const entries = JSON.stringify({
+    goal: 'fix the checkout double charge on retry',
+    entries: [
+      { id: 'a', role: 'tool', content: 'chargeCustomer() is called again by the retry handler', timestamp: 1 },
+      { id: 'b', role: 'tool', content: 'listed public/audio', timestamp: 2 },
+    ],
+  })
+
+  it('recency keeps the newest, whatever it says, with no key', async () => {
+    const file = join(dir, 't.json')
+    await writeFile(file, entries)
+    const result = await run(['prune', file, '--scorer', 'recency'])
+    expect(result.exitCode).toBe(0)
+    expect(JSON.parse(result.stdout).entries.map((e: { id: string }) => e.id)).toEqual(['b'])
+    expect(result.stderr).toContain('scored by position alone')
+  }, 15_000)
+
+  it('rejects an unknown scorer', async () => {
+    const file = join(dir, 't.json')
+    await writeFile(file, entries)
+    const result = await run(['analyze', file, '--scorer', 'magic'])
+    expect(result.exitCode).toBe(1)
+    expect(result.stderr).toContain('--scorer must be one of jev, local, recency')
+  }, 15_000)
+})

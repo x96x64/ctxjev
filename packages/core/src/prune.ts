@@ -22,12 +22,12 @@ export type ScoreEntriesOptions = {
   /** Checked before, and populated after, each Jev request — see `ScoreCache`. Jev only. */
   cache?: ScoreCache
   /**
-   * `'jev'` (default) asks Jev. `'local'` uses an offline keyword-overlap heuristic instead
-   * (`localRelevance`): no API key, no network, nothing sent anywhere — and much cruder, so its
-   * scores aren't comparable to Jev's. A function is used as-is (see `CustomScorer`). Neither of
-   * the last two reads or writes `cache` or calls `onUsage`: both are keyed to Jev's own question.
+   * `'jev'` (default) asks Jev. `'local'` scores by keyword overlap with the goal, offline and
+   * much cruder. `'recency'` ranks by position alone, newest 1 to oldest 0: plain truncation, the
+   * baseline any other scorer has to beat. A function is used as-is (see `CustomScorer`). Only
+   * `'jev'` reads or writes `cache` and calls `onUsage`.
    */
-  scorer?: 'jev' | 'local' | CustomScorer
+  scorer?: 'jev' | 'local' | 'recency' | CustomScorer
 }
 
 // A large transcript can chunk into hundreds of requests; firing all of them at once relies
@@ -89,6 +89,11 @@ function scoreLocally(entries: Entry[], goal: string): RelevanceVerdict[] {
   return entries.map((entry) => ({ entryId: entry.id, relevance: localRelevance(goal, entry.content) }))
 }
 
+// By position in the list, not timestamp: entries from one message share a timestamp but still have an order.
+function scoreByRecency(entries: Entry[]): RelevanceVerdict[] {
+  return entries.map((entry, i) => ({ entryId: entry.id, relevance: entries.length === 1 ? 1 : i / (entries.length - 1) }))
+}
+
 /**
  * Score every entry's relevance to `goal` via Jev, blended with its recency within this batch
  * (see `recency.ts`) per `recencyWeight` — but stop short of deciding what to actually do about
@@ -112,7 +117,13 @@ export async function scoreEntries(
 
   const { scorer } = options
   const verdicts =
-    scorer === 'local' ? scoreLocally(entries, goal) : typeof scorer === 'function' ? await scoreWithCustom(entries, goal, scorer) : await scoreWithJev(entries, goal, options)
+    scorer === 'local'
+      ? scoreLocally(entries, goal)
+      : scorer === 'recency'
+        ? scoreByRecency(entries)
+        : typeof scorer === 'function'
+          ? await scoreWithCustom(entries, goal, scorer)
+          : await scoreWithJev(entries, goal, options)
 
   const verdictByEntryId = new Map(verdicts.map((v) => [v.entryId, v]))
   const recencyByEntryId = computeRecency(entries)

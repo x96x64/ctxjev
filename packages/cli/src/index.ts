@@ -42,8 +42,9 @@ ${pc.bold('Options')}
   --goal <text>              Overrides the transcript's own goal (or the inferred one), if any.
   --drop-below <0-1>         Relevance floor below which an entry is dropped.      (default ${DEFAULT_POLICY.dropBelow})
   --summarize-below <0-1>    Relevance floor below which an entry is summarized.   (default ${DEFAULT_POLICY.summarizeBelow})
-  --offline                  Score by keyword overlap instead of Jev: no API key, nothing sent.
-                             Much cruder, so the default thresholds are only a rough guide.
+  --scorer <name>            jev (default), local (keyword overlap, offline), or recency (by
+                             position alone, offline: plain truncation). Only jev sends anything.
+  --offline                  Same as --scorer local.
   --no-cache                 Don't read or write the score cache (${DEFAULT_CACHE_PATH}).
   --json                     analyze: print machine-readable JSON instead of the report.
   --out <file>               prune: write the result here instead of to stdout.
@@ -61,8 +62,8 @@ ${pc.bold('Options')}
   --help                     Show this help.
   --version                  Print the installed version.
 
-Scores are cached by goal + entry content (not by transcript or entry id), so re-running the same
-analysis, or reusing a tool result across transcripts, costs nothing the second time.
+Jev scores are cached by goal, entry content, and the latest activity (not by transcript or entry
+id), so re-running the same analysis costs nothing the second time.
 
 ${pc.bold('Transcript formats (auto-detected)')}
   ctxjev's own:        { "goal": "...", "entries": [{ "id", "role", "toolName"?, "content", "timestamp" }] }
@@ -83,7 +84,8 @@ function failAll(messages: string[]): never {
   process.exit(1)
 }
 
-type Scorer = 'jev' | 'local'
+type Scorer = 'jev' | 'local' | 'recency'
+const SCORERS: Scorer[] = ['jev', 'local', 'recency']
 
 type Setup = {
   transcript: TranscriptFile
@@ -104,6 +106,7 @@ async function setUp(argv: string[], extraOptions: Record<string, { type: 'strin
       'summarize-below': { type: 'string' },
       'no-cache': { type: 'boolean', default: false },
       offline: { type: 'boolean', default: false },
+      scorer: { type: 'string' },
       help: { type: 'boolean', short: 'h', default: false },
       ...extraOptions,
     },
@@ -121,9 +124,12 @@ async function setUp(argv: string[], extraOptions: Record<string, { type: 'strin
   // missing the key, pointing at a bad path, AND passing a bad threshold should hear about all
   // three in one run, not fix one only to discover the next on the following try.
   const problems: string[] = []
-  const scorer: Scorer = values.offline ? 'local' : 'jev'
-  if (scorer === 'jev' && !process.env.TYPESAFE_API_KEY) {
-    problems.push('TYPESAFE_API_KEY is not set — get one at console.typesafe.ai/settings/keys, or pass --offline')
+  const requested = typeof values.scorer === 'string' ? values.scorer : values.offline ? 'local' : 'jev'
+  const scorer: Scorer = SCORERS.includes(requested as Scorer) ? (requested as Scorer) : 'jev'
+  if (!SCORERS.includes(requested as Scorer)) problems.push(`--scorer must be one of ${SCORERS.join(', ')}, got "${requested}"`)
+  else if (values.offline && values.scorer !== undefined && values.scorer !== 'local') problems.push('--offline means --scorer local; pass one or the other')
+  else if (scorer === 'jev' && !process.env.TYPESAFE_API_KEY) {
+    problems.push('TYPESAFE_API_KEY is not set — get one at console.typesafe.ai/settings/keys, or pass --scorer local / --scorer recency')
   }
 
   let raw: string | undefined
@@ -167,7 +173,7 @@ async function setUp(argv: string[], extraOptions: Record<string, { type: 'strin
  */
 async function withScoreCache<T>(setup: Setup, score: (options: { cache?: ScoreCache; onUsage: (u: JevUsage) => void }) => Promise<T>) {
   // The cache holds Jev's scores only; offline scoring is free and must never mix into it.
-  const { cache, save } = setup.noCache || setup.scorer === 'local' ? { cache: undefined, save: async () => {} } : await loadFileScoreCache()
+  const { cache, save } = setup.noCache || setup.scorer !== 'jev' ? { cache: undefined, save: async () => {} } : await loadFileScoreCache()
   const { usage, onUsage } = createUsageAccumulator()
   try {
     return { result: await score({ cache, onUsage }), usage }
@@ -257,7 +263,7 @@ async function writeOutput(output: unknown, out: string | undefined): Promise<vo
 }
 
 function offlineNote(scorer: Scorer): string {
-  return scorer === 'local' ? ' · scored offline by keyword overlap' : ''
+  return scorer === 'local' ? ' · scored offline by keyword overlap' : scorer === 'recency' ? ' · scored by position alone' : ''
 }
 
 function messagesSummary(total: number, result: PruneMessagesResult): string {

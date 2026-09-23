@@ -5,12 +5,12 @@ import { readdir, rm } from 'node:fs/promises'
 // Claude Code installs this plugin by cloning its repo, never running an install step, so the
 // hooks can't rely on node_modules resolution for cross-package imports (e.g. `ctxjev-core`,
 // only linked here via the pnpm workspace). Bundle the two hook entry points so they carry their
-// own dependencies and need nothing but Node itself.
-const OUTPUT_FILES = ['preCompact.js', 'sessionStartCompact.js']
+// own dependencies and need nothing but Node itself. status.js is run by the status skill.
+const OUTPUT_FILES = ['preCompact.js', 'sessionStartCompact.js', 'status.js']
 const MAX_BUNDLE_BYTES = 200_000
 
 const result = await build({
-  entryPoints: ['src/preCompact.ts', 'src/sessionStartCompact.ts'],
+  entryPoints: ['src/preCompact.ts', 'src/sessionStartCompact.ts', 'src/status.ts'],
   bundle: true,
   platform: 'node',
   format: 'esm',
