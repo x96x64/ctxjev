@@ -2,7 +2,7 @@
   "name": "ctxjev",
   "displayName": "ctxjev",
   "description": "Keeps what matters through Claude Code's own compaction — scores your session's context with Jev right before compaction runs, then hands the highest-scoring entries back as a reminder the moment it finishes. No configuration required; set an explicit goal with /ctxjev:set-goal when you want scoring aimed at something specific.",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "author": { "name": "x96x64", "url": "https://github.com/x96x64" },
   "homepage": "https://github.com/x96x64/ctxjev/tree/main/packages/claude-plugin#readme",
   "repository": "https://github.com/x96x64/ctxjev",

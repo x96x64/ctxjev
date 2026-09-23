@@ -5,6 +5,23 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 (`.claude-plugin/marketplace.json`, `packages/claude-plugin/.claude-plugin/plugin.json`,
 `plugins/ctxjev/plugin.json`). A bump in one is a bump in all, even when only one changed.
 
+## 0.4.0 — 2026-09-23
+
+- `ctxjev-core`: `pruneMessages()` takes `targetTokens`, to keep removing the lowest-scoring
+  entries until the conversation fits a budget.
+- `ctxjev-core`: `pruneMessages()` can shorten entries marked `summarize` instead of only
+  reporting them: `summarize: 'excerpt'` keeps their head and tail, or pass your own summarizer.
+- `ctxjev-core`: `pruneMessages()` reports what pruning costs a prompt cache
+  (`cache.invalidatedTokens`), and `minSavedTokens` leaves the conversation untouched when the
+  saving is too small to be worth that.
+- `ctxjev-core`: `scorer` accepts your own scoring function alongside `'jev'` and `'local'`. It
+  receives content with secrets already masked.
+- `ctxjev-cli`: `ctxjev prune` gains `--target-tokens`, `--summarize-excerpts`, and
+  `--min-saved-tokens` for Anthropic Messages transcripts, and prints the prompt-cache impact.
+- `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`, `ctxjev-claude`: the default `dropBelow` is 0.3
+  (was 0.25). It drops more of what's stale without losing anything labeled relevant in the
+  eval (see the README's "Does It Work?").
+
 ## 0.3.1 — 2026-09-23
 
 - `ctxjev-cli`, `ctxjev-core`: token savings count what removing an entry actually saves. They
