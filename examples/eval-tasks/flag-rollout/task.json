@@ -1,4 +1,5 @@
 {
+  "split": "dev",
   "language": "en",
   "goal": "Beta customers were told they can pick Express (next-day) shipping, but checkout never shows it (logs/checkout-2026-09-21.txt). Figure out why, and how we gate features like this today. Investigate only, no edits yet.",
   "prompts": [

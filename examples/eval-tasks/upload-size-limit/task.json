@@ -1,0 +1,32 @@
+{
+  "split": "holdout",
+  "language": "en",
+  "goal": "The mobile team says uploads just under the app's 10 MB limit are being rejected by the server — see logs/upload-errors-2026-09-17.txt. Find out why. Don't change anything yet; investigate and tell me what you find.",
+  "prompts": [
+    "Thanks. For the fix: the limit is 10 MiB, 10 × 1024 × 1024 bytes, and a file of exactly that size is allowed. Keep the 413 status, and the error message has to be exactly `File too large: max 10 MiB`, the apps match on that string. Don't change config/upload.json, the ops dashboard parses it. And storage quotas are sold in decimal gigabytes, so the quota numbers must not change. Check what else uses parseSize with that in mind. Still no edits.",
+    "Product just told me PDFs get a bigger limit: 25 MiB for application/pdf, 10 MiB for everything else, and the message says the matching number, e.g. `File too large: max 25 MiB`. Summarize the fix you plan to make and which tests would change. No edits yet.",
+    "Go ahead and implement the fix now, then run the tests."
+  ],
+  "history": [
+    {
+      "message": "media-upload: accept images and PDFs",
+      "date": "2026-03-17T08:30:00+00:00",
+      "author": "Tomasz Nowak"
+    },
+    {
+      "message": "Storage quotas per plan",
+      "date": "2026-05-26T12:10:00+00:00",
+      "author": "Grace Liu"
+    },
+    {
+      "message": "Generate webp thumbnails",
+      "date": "2026-07-07T09:45:00+00:00",
+      "author": "Tomasz Nowak"
+    },
+    {
+      "message": "Read the upload limit from config/upload.json instead of a constant",
+      "date": "2026-09-12T17:20:00+00:00",
+      "author": "Grace Liu"
+    }
+  ]
+}

@@ -1,4 +1,5 @@
 {
+  "split": "dev",
   "language": "en",
   "goal": "Security review SEC-311 says our logs contain full email addresses and phone numbers (sample in logs/security-review-2026-09.txt). Find every place in this service where that happens. Investigate only, don't change anything yet.",
   "prompts": [

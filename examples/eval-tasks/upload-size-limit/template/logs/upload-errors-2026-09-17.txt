@@ -1,0 +1,9 @@
+upload rejections, 2026-09-17 (413 only)
+
+09:12:04 user=u_1842 file=IMG_2231.HEIC size=10,207,334 type=image/heic  -> 413 File too large (limit 10MB)
+09:40:51 user=u_0917 file=scan.pdf       size=10,485,760 type=application/pdf -> 413 File too large (limit 10MB)
+11:02:13 user=u_5530 file=IMG_0042.JPG   size=9,998,120  type=image/jpeg -> accepted
+13:27:45 user=u_2208 file=contract.pdf   size=18,874,368 type=application/pdf -> 413 File too large (limit 10MB)
+15:55:09 user=u_1842 file=IMG_2240.HEIC  size=10,000,000 type=image/heic -> 413 File too large (limit 10MB)
+
+mobile: the iOS and Android apps allow files up to 10 * 1024 * 1024 bytes and show "max 10 MB".

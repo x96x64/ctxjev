@@ -2,11 +2,12 @@
 /**
  * Evaluates scoring against hand-labeled fixtures, in two sets:
  *
- * - dev (examples/sample-transcripts/*.json with `groundTruth`): short one-line entries. Used to
- *   tune `DEFAULT_POLICY`, so its numbers are optimistic by construction.
- * - held-out (examples/eval-sessions/*.json): raw Anthropic Messages conversations with realistic
+ * - short (examples/sample-transcripts/*.json with `groundTruth`): one-line entries. Used to tune
+ *   `DEFAULT_POLICY`, so its numbers are optimistic by construction.
+ * - sessions (examples/eval-sessions/*.json): raw Anthropic Messages conversations with realistic
  *   tool output (multi-line logs, diffs, stack traces, thousands of tokens), English and Japanese.
- *   Never used for tuning — only for checking that what was tuned on dev holds up.
+ *   Every session so far has informed design (see split.mjs), so none of them is held out; the
+ *   `holdout` split is reserved for PREREGISTRATION.md.
  *
  * Labeling policy (both sets): an entry is relevant if someone picking the task up from here would
  * need it — the symptom, evidence for the cause, a constraint the user stated, the current state
@@ -21,7 +22,7 @@
  * - top-K hits at the default weight: of the top K by combined score (K = 5, or fewer if the
  *   fixture has fewer relevant entries) — what the Claude Code plugin re-injects after compaction —
  *   how many are actually labeled relevant?
- * - held-out only, budget retention: pruneMessages() with `targetTokens` at 25% / 50% of the
+ * - sessions only, budget retention: pruneMessages() with `targetTokens` at 25% / 50% of the
  *   conversation, ranking by each strategy's scores. How many probes survive, and what share of the
  *   relevant tokens? Baselines: `recency` (keep the newest, which is what plain truncation does),
  *   `random` (seeded, averaged), and `labels` (relevant entries first, by the labels themselves).
@@ -34,15 +35,20 @@
  * With --gate (publish.yml runs this with --runs 3), exits 1 if:
  * - Jev's mean drop accuracy at the default weight falls below the offline baseline's,
  * - Jev misses more than one of any fixture's top K on average, or
- * - on held-out at a 50% budget, Jev's mean probe retention falls below recency's or local's.
+ * - on the sessions at a 50% budget, Jev's mean probe retention falls below recency's or local's.
+ * The gate needs TYPESAFE_API_KEY and at least 3 runs, and fails without them (`--allow-skip` passes
+ * without a key, for local use). It only ever reads the dev split, so holdout sessions can't be
+ * tuned against by way of a failing release.
  *
- * Usage: node eval/run.mjs [--gate] [--runs N] [--json]   (from packages/core, after `pnpm build`)
+ * Usage: node eval/run.mjs [--gate [--allow-skip]] [--runs N] [--split dev|holdout|all] [--json]
+ *        (from packages/core, after `pnpm build`)
  */
 import { readFileSync, readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 import { DEFAULT_POLICY, messagesToEntries, pruneMessages, scoreEntries } from '../dist/index.js'
+import { inSplit, parseSplit, sessionSplit } from './split.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const examplesDir = join(__dirname, '../../../examples')
@@ -52,8 +58,24 @@ const TOP_K = 5
 const BUDGETS = [0.25, 0.5]
 const RANDOM_SEEDS = 20
 
-const { values: args } = parseArgs({ options: { gate: { type: 'boolean' }, json: { type: 'boolean' }, runs: { type: 'string', default: '1' } } })
+const { values: args } = parseArgs({
+  options: { gate: { type: 'boolean' }, 'allow-skip': { type: 'boolean' }, json: { type: 'boolean' }, runs: { type: 'string', default: '1' }, split: { type: 'string' } },
+})
 const runs = Number(args.runs)
+const split = parseSplit(args.split ?? (args.gate ? 'dev' : 'all'))
+if (args.gate && split !== 'dev') throw new Error('--gate only reads the dev split')
+if (args.gate && runs < 3) {
+  console.error(`GATE FAILED: --gate needs --runs 3 or more (got ${runs}): Jev's answers vary between calls`)
+  process.exit(1)
+}
+if (args.gate && !process.env.TYPESAFE_API_KEY) {
+  if (args['allow-skip']) {
+    console.log('--gate: TYPESAFE_API_KEY not set; skipping, as --allow-skip asked.')
+    process.exit(0)
+  }
+  console.error('GATE FAILED: TYPESAFE_API_KEY is not set, so there is no Jev result to check (pass --allow-skip to skip locally)')
+  process.exit(1)
+}
 if (!Number.isInteger(runs) || runs < 1) throw new Error(`--runs must be a whole number of at least 1, got ${args.runs}`)
 const log = args.json ? () => {} : console.log
 
@@ -70,8 +92,10 @@ function readJson(dir) {
 const fixtures = [
   ...readJson(join(examplesDir, 'sample-transcripts'))
     .filter((f) => f.groundTruth)
-    .map((f) => ({ ...f, set: 'dev', labels: f.groundTruth })),
-  ...readJson(join(examplesDir, 'eval-sessions')).map((f) => ({ ...f, set: 'held-out', entries: messagesToEntries(f.messages) })),
+    .map((f) => ({ ...f, set: 'short', labels: f.groundTruth })),
+  ...readJson(join(examplesDir, 'eval-sessions'))
+    .filter((f) => inSplit(sessionSplit(f.name), split))
+    .map((f) => ({ ...f, set: 'sessions', entries: messagesToEntries(f.messages) })),
 ]
 if (fixtures.length === 0) {
   console.error('No labeled fixtures found under examples/')
@@ -81,7 +105,7 @@ if (fixtures.length === 0) {
 const scorers = process.env.TYPESAFE_API_KEY ? ['local', 'jev'] : ['local']
 if (scorers.length === 1) log('TYPESAFE_API_KEY not set — running the offline baseline only.\n')
 log(`Policy: dropBelow=${DEFAULT_POLICY.dropBelow}, summarizeBelow=${DEFAULT_POLICY.summarizeBelow}, recencyWeight=${DEFAULT_POLICY.recencyWeight} (only "drop" counts as "not relevant")`)
-for (const set of ['dev', 'held-out']) {
+for (const set of ['short', 'sessions']) {
   const fs = fixtures.filter((f) => f.set === set)
   log(`${set.padEnd(8)}: ${fs.map((f) => `${f.name} (${f.entries.length})`).join(', ')}`)
 }
@@ -152,14 +176,14 @@ for (const scorer of scorers) {
       const relevance = await relevanceById(fixture, scorer)
       results[scorer][fixture.name].push({
         classification: classification(fixture, relevance),
-        ...(fixture.set === 'held-out' && { retention: await retention(fixture, (id) => relevance.get(id), DEFAULT_POLICY.recencyWeight) }),
+        ...(fixture.set === 'sessions' && { retention: await retention(fixture, (id) => relevance.get(id), DEFAULT_POLICY.recencyWeight) }),
       })
     }
   }
 }
 
 const baselines = {}
-for (const fixture of fixtures.filter((f) => f.set === 'held-out')) {
+for (const fixture of fixtures.filter((f) => f.set === 'sessions')) {
   const order = new Map(fixture.entries.map((e, i) => [e.id, i / (fixture.entries.length - 1)]))
   const randoms = []
   for (let seed = 1; seed <= RANDOM_SEEDS; seed++) {
@@ -177,7 +201,7 @@ for (const fixture of fixtures.filter((f) => f.set === 'held-out')) {
 // --- report ----------------------------------------------------------------------------------
 
 const summary = { runs, sets: {} }
-for (const set of ['dev', 'held-out', 'all']) {
+for (const set of ['short', 'sessions', 'all']) {
   const inSet = fixtures.filter((f) => set === 'all' || f.set === set)
   summary.sets[set] = {}
   for (const scorer of scorers) {
@@ -196,7 +220,7 @@ for (const set of ['dev', 'held-out', 'all']) {
 }
 
 const retentionSummary = {}
-const heldOut = fixtures.filter((f) => f.set === 'held-out')
+const heldOut = fixtures.filter((f) => f.set === 'sessions')
 for (const strategy of [...scorers, 'recency', 'random', 'labels']) {
   const perFixture = heldOut.map((f) => (scorers.includes(strategy) ? averageRetention(results[strategy][f.name].map((r) => r.retention)) : baselines[f.name][strategy]))
   retentionSummary[strategy] = {
@@ -207,7 +231,7 @@ for (const strategy of [...scorers, 'recency', 'random', 'labels']) {
 }
 summary.retention = retentionSummary
 
-for (const set of ['dev', 'held-out', 'all']) {
+for (const set of ['short', 'sessions', 'all']) {
   log(`== ${set} ==`)
   for (const scorer of scorers) {
     const s = summary.sets[set][scorer]
@@ -222,7 +246,7 @@ for (const set of ['dev', 'held-out', 'all']) {
   log()
 }
 
-log(`== held-out: budget retention (${heldOut.length} sessions; probe retention / relevant-token recall) ==`)
+log(`== sessions (${split} split): budget retention (${heldOut.length} sessions; probe retention / relevant-token recall) ==`)
 log(`  ${'strategy'.padEnd(9)}${BUDGETS.map((b) => `budget ${b * 100}%`.padEnd(22)).join('')}by language and kind (probes at 25% / 50%)`)
 for (const [strategy, r] of Object.entries(retentionSummary)) {
   const cols = BUDGETS.map((b) => `${pct(r[b].probes)} / ${pct(r[b].relevantTokens)}`.padEnd(22)).join('')
@@ -234,10 +258,6 @@ log()
 if (args.json) console.log(JSON.stringify(summary, null, 2))
 
 if (args.gate) {
-  if (!summary.sets.all.jev) {
-    log('--gate: TYPESAFE_API_KEY not set, so there is no Jev result to check — skipping.')
-    process.exit(0)
-  }
   const failures = []
   const w = DEFAULT_POLICY.recencyWeight
   const jevAccuracy = summary.sets.all.jev.accuracyByWeight[w]
@@ -249,7 +269,7 @@ if (args.gate) {
   const jevRetention = retentionSummary.jev[0.5].probes
   for (const baseline of ['recency', 'local']) {
     const other = retentionSummary[baseline][0.5].probes
-    if (jevRetention < other) failures.push(`held-out at a 50% budget: Jev keeps ${pct(jevRetention).trim()} of probes, below ${baseline}'s ${pct(other).trim()}`)
+    if (jevRetention < other) failures.push(`sessions at a 50% budget: Jev keeps ${pct(jevRetention).trim()} of probes, below ${baseline}'s ${pct(other).trim()}`)
   }
   if (failures.length > 0) {
     for (const f of failures) console.error(`GATE FAILED: ${f}`)

@@ -1,4 +1,5 @@
 {
+  "split": "dev",
   "language": "en",
   "goal": "Finance says some invoice totals are off by one cent compared with the ledger — see logs/reconcile-2026-09-18.txt from last night's reconciliation job. Find out why. Don't change any files yet; just investigate and tell me what you find.",
   "prompts": [

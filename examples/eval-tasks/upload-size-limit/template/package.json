@@ -1,0 +1,9 @@
+{
+  "name": "media-upload",
+  "version": "1.9.3",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test \"test/*.test.js\""
+  }
+}

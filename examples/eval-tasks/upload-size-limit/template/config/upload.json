@@ -1,0 +1,4 @@
+{
+  "maxSize": "10MB",
+  "allowedTypes": ["image/jpeg", "image/png", "image/heic", "application/pdf"]
+}

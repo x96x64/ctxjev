@@ -16,7 +16,7 @@
  *
  * Not in CI (needs ANTHROPIC_API_KEY and TYPESAFE_API_KEY, costs money). By hand:
  *
- *   node eval/tasks.mjs --max-usd 6 [--runs N] [--task <prefix>] [--conditions full,jev] [--out results.json] [--merge previous.json]
+ *   node eval/tasks.mjs --max-usd 6 [--runs N] [--split dev|holdout|all] [--task <prefix>] [--conditions full,jev] [--out results.json] [--merge previous.json]
  *   node eval/tasks.mjs --report eval/results/tasks.json
  *   node eval/tasks.mjs --selftest   (no API calls: solution applied through the tools passes, untouched fails)
  */
@@ -27,6 +27,7 @@ import { parseArgs } from 'node:util'
 import Anthropic from '@anthropic-ai/sdk'
 import { ANSWER_MODEL, SpendLimitError, bootstrap, createLimiter, createSpend, pruneTo, rankings, rateDifference, successRate } from './lib.mjs'
 import { createAgentRunner, freshRepo, grade, tasksDir, workspaceTools } from './agent.mjs'
+import { inSplit, parseSplit, taskSplit } from './split.mjs'
 
 const BUDGET = 0.25
 const ALL_CONDITIONS = ['full', 'jev', 'keywords', 'recency', 'goal-only']
@@ -46,6 +47,8 @@ const { values: args } = parseArgs({
   options: {
     runs: { type: 'string', default: '1' },
     task: { type: 'string' },
+    // dev (the ten tasks 0.5.0 was designed on), holdout (see PREREGISTRATION.md), or all.
+    split: { type: 'string', default: 'all' },
     conditions: { type: 'string' },
     out: { type: 'string' },
     merge: { type: 'string' },
@@ -103,7 +106,10 @@ if (args.report) {
   process.exit(0)
 }
 
-const taskNames = readdirSync(tasksDir).filter((d) => statSync(join(tasksDir, d)).isDirectory() && (!args.task || args.task.split(',').some((p) => d.startsWith(p))))
+const split = parseSplit(args.split)
+const taskNames = readdirSync(tasksDir).filter(
+  (d) => statSync(join(tasksDir, d)).isDirectory() && inSplit(taskSplit(d), split) && (!args.task || args.task.split(',').some((p) => d.startsWith(p))),
+)
 
 if (args.selftest) {
   let ok = true

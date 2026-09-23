@@ -1,4 +1,5 @@
 {
+  "split": "dev",
   "language": "ja",
   "goal": "取引先Aの CSV は全件エラーで取り込めず、取引先Bの CSV は商品名が文字化けする(logs/import-2026-09-22.txt、samples/ に実物あり)。原因を調べて。まだ変更はしないで、調査だけで。",
   "prompts": [

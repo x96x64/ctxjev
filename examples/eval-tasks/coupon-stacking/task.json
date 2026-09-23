@@ -1,0 +1,32 @@
+{
+  "split": "holdout",
+  "language": "en",
+  "goal": "Finance flagged orders where stacked coupons gave absurd discounts, a few even came out negative and triggered refunds — see logs/orders-2026-09-20.txt. Find out what's going on in the coupon logic. No edits yet, just investigate and report back.",
+  "prompts": [
+    "Thanks. Finance's rules for the fix: only one percentage coupon counts per order, the largest; any others are ignored and shouldn't show up in `applied`. The percentage comes off the subtotal before any fixed-amount coupons. The total can never go below zero. applyCoupons(cart, codes) must keep returning { total, applied } in integer cents, the checkout UI and the receipts service both read it. Unknown codes stay ignored. Check what else calls applyCoupons with that in mind. Still no edits.",
+    "Finance came back after looking at the numbers: fixed-amount coupons together can take off at most half of the subtotal (the subtotal before any coupons). And a code entered more than once only counts once. Summarize the fix you plan to make and which tests would change. No edits yet.",
+    "Implement the coupon fix now and run the tests."
+  ],
+  "history": [
+    {
+      "message": "checkout-pricing: subtotal and tax",
+      "date": "2026-04-02T11:00:00+00:00",
+      "author": "Alex Moreau"
+    },
+    {
+      "message": "Coupons: percent and fixed codes",
+      "date": "2026-06-09T15:20:00+00:00",
+      "author": "Alex Moreau"
+    },
+    {
+      "message": "Receipts: list applied coupons",
+      "date": "2026-07-28T10:05:00+00:00",
+      "author": "Nia Brooks"
+    },
+    {
+      "message": "Allow entering several coupon codes at checkout",
+      "date": "2026-09-15T13:40:00+00:00",
+      "author": "Nia Brooks"
+    }
+  ]
+}

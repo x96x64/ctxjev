@@ -1,0 +1,9 @@
+finance: flagged orders, 2026-09-20
+
+#88213  subtotal $30.00  codes BIGSPENDER, WELCOME5, HALF     charged -$0.00  refund issued $2.50 (!)
+#88240  subtotal $120.00 codes SAVE10, SPRING20, HALF         charged $43.20
+#88251  subtotal $45.00  codes FIVEOFF, FIVEOFF, FIVEOFF      charged $30.00
+#88262  subtotal $80.00  codes WELCOME5, SAVE10               charged $67.50 (ledger expected $67.00)
+#88270  subtotal $15.00  codes BIGSPENDER                     charged -$5.00
+
+Payment service treats a negative total as a refund. 3 refunds went out before the job was paused.

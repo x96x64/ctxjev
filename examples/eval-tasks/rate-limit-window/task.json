@@ -1,0 +1,32 @@
+{
+  "split": "holdout",
+  "language": "en",
+  "goal": "Customers are reporting that once our rate limiter blocks them, they stay blocked for hours — see logs/support-2026-09-19.txt. Figure out why. Don't change any files yet; just investigate and tell me what you find.",
+  "prompts": [
+    "Thanks. Here's what the fix has to respect. The limit itself stays 100 requests per 60 seconds. Limit per API key (the x-api-key header), and only fall back to the client IP when a request has no key: the mobile customers share carrier NAT IPs. A blocked request gets a 429 with a Retry-After header: whole seconds until the window resets, rounded up, and never 0. Don't change config/limits.json, the ops dashboard parses it. With that in mind, look at what else reads the limiter or the config. Still no edits.",
+    "One more thing from support: the internal health checker sends x-internal-health: 1 and must never be rate limited. Everything else stays as I said. Go through test/ and tell me which tests would need to change, then summarize the fix you plan to make. Still no edits.",
+    "Go ahead and implement the fix now, then run the tests."
+  ],
+  "history": [
+    {
+      "message": "Initial gateway: routing and auth passthrough",
+      "date": "2026-05-11T09:00:00+00:00",
+      "author": "Sam Okafor"
+    },
+    {
+      "message": "Latency metrics per route",
+      "date": "2026-06-20T14:30:00+00:00",
+      "author": "Mei Tanaka"
+    },
+    {
+      "message": "Move rate limiting from nginx into the gateway",
+      "date": "2026-08-18T10:15:00+00:00",
+      "author": "Sam Okafor"
+    },
+    {
+      "message": "Rate limiter: configurable window from config/limits.json",
+      "date": "2026-09-16T16:45:00+00:00",
+      "author": "Jordan Reyes"
+    }
+  ]
+}

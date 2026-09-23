@@ -1,0 +1,9 @@
+{
+  "name": "ec-shipping",
+  "version": "2.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test \"test/*.test.js\""
+  }
+}

@@ -1,4 +1,5 @@
 {
+  "split": "dev",
   "language": "en",
   "goal": "Follow-up from INC-2291 (docs/incidents/INC-2291.md, logs/sync-2026-09-17.txt): our sync kept hammering the warehouse API during its outage. Work out exactly what our retry behavior is today and why it made things worse. Investigate only for now.",
   "prompts": [

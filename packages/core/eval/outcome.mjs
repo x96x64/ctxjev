@@ -14,7 +14,7 @@
  * Not part of the release gate: it needs ANTHROPIC_API_KEY (and TYPESAFE_API_KEY for the Jev
  * condition), costs real money (printed at the end), and a model's answers vary. By hand:
  *
- *   node eval/outcome.mjs --max-usd 3 [--runs N] [--session <name prefix>] [--out results.json] [--merge previous.json]
+ *   node eval/outcome.mjs --max-usd 3 [--runs N] [--split dev|holdout|all] [--session <name prefix>] [--out results.json] [--merge previous.json]
  *   node eval/outcome.mjs --report eval/results/outcome.json   (re-print a saved table, no API calls)
  *
  * --merge keeps the previous results for every session this run didn't cover.
@@ -24,6 +24,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 import Anthropic from '@anthropic-ai/sdk'
+import { inSplit, parseSplit, sessionSplit } from './split.mjs'
 import { ANSWER_MODEL, JUDGE_MODEL, SpendLimitError, bootstrap, createLimiter, createQA, createSpend, pruneTo, rankings, rateDifference, successRate } from './lib.mjs'
 
 const BUDGETS = [0.25, 0.5]
@@ -34,6 +35,7 @@ const { values: args } = parseArgs({
     out: { type: 'string' },
     merge: { type: 'string' },
     session: { type: 'string' },
+    split: { type: 'string', default: 'all' },
     report: { type: 'string' },
     'max-usd': { type: 'string' },
   },
@@ -99,7 +101,7 @@ const spend = createSpend(maxUsd)
 const limit = createLimiter(5)
 const sessionsDir = join(dirname(fileURLToPath(import.meta.url)), '../../../examples/eval-sessions')
 const sessions = readdirSync(sessionsDir)
-  .filter((f) => f.endsWith('.json') && (!args.session || args.session.split(',').some((p) => f.startsWith(p))))
+  .filter((f) => f.endsWith('.json') && inSplit(sessionSplit(f), parseSplit(args.split)) && (!args.session || args.session.split(',').some((p) => f.startsWith(p))))
   .map((f) => ({ name: f, ...JSON.parse(readFileSync(join(sessionsDir, f), 'utf8')) }))
 
 const { answer, judge } = createQA({ client, spend, limit })

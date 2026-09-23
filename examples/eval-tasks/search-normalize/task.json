@@ -1,4 +1,5 @@
 {
+  "split": "dev",
   "language": "ja",
   "goal": "「usb」や「ケーブル」で検索しても出てこない商品があるという声が多い(logs/search-misses-2026-09.txt)。原因を調べて。まだコードは変更しないで、調査だけで。",
   "prompts": [

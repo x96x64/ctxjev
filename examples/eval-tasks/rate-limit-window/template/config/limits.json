@@ -1,0 +1,3 @@
+{
+  "default": { "requests": 100, "windowSeconds": 60 }
+}

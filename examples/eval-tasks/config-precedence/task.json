@@ -1,4 +1,5 @@
 {
+  "split": "dev",
   "language": "en",
   "goal": "Production is hitting DB pool exhaustion even though the k8s manifest raises the pool size (see logs/prod-incident-2026-09-19.txt and deploy/k8s/). Figure out why the setting is not taking effect. Investigate only for now, no file changes.",
   "prompts": [

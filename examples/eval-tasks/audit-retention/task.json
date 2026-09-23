@@ -1,0 +1,32 @@
+{
+  "split": "holdout",
+  "language": "en",
+  "goal": "Security noticed the audit log only goes back a few hours after last night's purge — see logs/purge-2026-09-21.txt. Figure out why the retention purge deleted so much. Investigate only, no edits yet.",
+  "prompts": [
+    "Thanks. Retention rules from legal for the fix: security events (category 'security') are kept 400 days, everything else 90 days. Anything with legalHold: true is never purged, whatever its age. Keep selectForPurge(entries, now) with the same signature, the purge script and the compliance report both call it. And don't touch scripts/purge.js; its dry-run default was signed off by legal. Look at what else depends on the retention logic. Still no edits.",
+    "Legal clarified how to count age: an event is purged only once it's more than its retention period old. One exactly 90 days old, to the millisecond, stays. Summarize the fix you plan to make and which tests would change. No edits yet.",
+    "Go ahead and implement the fix now, then run the tests."
+  ],
+  "history": [
+    {
+      "message": "audit-service: event store and API",
+      "date": "2026-02-09T10:00:00+00:00",
+      "author": "Rafael Costa"
+    },
+    {
+      "message": "Monthly compliance report",
+      "date": "2026-04-14T15:30:00+00:00",
+      "author": "Hannah Weiss"
+    },
+    {
+      "message": "Nightly purge script, dry run by default",
+      "date": "2026-06-03T09:20:00+00:00",
+      "author": "Rafael Costa"
+    },
+    {
+      "message": "retention: compute the cutoff with a DAY constant",
+      "date": "2026-09-18T18:05:00+00:00",
+      "author": "Hannah Weiss"
+    }
+  ]
+}

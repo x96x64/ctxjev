@@ -1,0 +1,6 @@
+2026-09-21 02:00:03 purge: purging 1,847,220 of 1,851,904 events
+2026-09-21 02:00:41 purge: done
+2026-09-21 09:15:00 security: audit query for 2026-09-14..2026-09-20 returned 0 rows. Oldest event
+                    in the store is 2026-09-20T23:44:10Z. Restored from the 09-20 backup into
+                    audit-restore; legal hold list for case L-2291 was in the purged range.
+2026-09-21 09:31:12 on-call: pausing the purge cron until this is understood (--apply removed).

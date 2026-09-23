@@ -1,0 +1,9 @@
+{
+  "name": "checkout-pricing",
+  "version": "3.4.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test \"test/*.test.js\""
+  }
+}

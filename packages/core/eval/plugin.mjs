@@ -19,7 +19,7 @@
  *
  * Needs ANTHROPIC_API_KEY and TYPESAFE_API_KEY. By hand:
  *
- *   node eval/plugin.mjs --max-usd 3 [--runs N] [--task <prefix>] [--out results.json]
+ *   node eval/plugin.mjs --max-usd 3 [--runs N] [--split dev|holdout|all] [--task <prefix>] [--out results.json]
  *   node eval/plugin.mjs --report eval/results/plugin.json
  */
 import { spawnSync } from 'node:child_process'
@@ -31,6 +31,7 @@ import { parseArgs } from 'node:util'
 import Anthropic from '@anthropic-ai/sdk'
 import { messagesToEntries } from '../dist/index.js'
 import { createAgentRunner, tasksDir } from './agent.mjs'
+import { inSplit, parseSplit, taskSplit } from './split.mjs'
 import { ANSWER_MODEL, SpendLimitError, bootstrap, createLimiter, createQA, createSpend, firstText, rateDifference, successRate, withCacheBreakpoint } from './lib.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -41,6 +42,7 @@ const { values: args } = parseArgs({
   options: {
     runs: { type: 'string', default: '1' },
     task: { type: 'string' },
+    split: { type: 'string', default: 'all' },
     out: { type: 'string' },
     report: { type: 'string' },
     'max-usd': { type: 'string' },
@@ -165,7 +167,10 @@ function taskAndLatestGoal(history) {
 const continuation = (summary) =>
   `This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation.\n\n${summary}`
 
-const taskNames = readdirSync(tasksDir).filter((d) => statSync(join(tasksDir, d)).isDirectory() && (!args.task || args.task.split(',').some((p) => d.startsWith(p))))
+const split = parseSplit(args.split)
+const taskNames = readdirSync(tasksDir).filter(
+  (d) => statSync(join(tasksDir, d)).isDirectory() && inSplit(taskSplit(d), split) && (!args.task || args.task.split(',').some((p) => d.startsWith(p))),
+)
 const rows = []
 try {
   for (const task of taskNames) {

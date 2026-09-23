@@ -1,0 +1,11 @@
+2026-09-19 support digest (gateway)
+
+#4812 acme-mobile: hit 429 at 10:02 during a sync burst. Still getting 429 at 16:40, six hours
+      later. They only send ~20 requests a minute outside the burst.
+#4815 northwind: "rate limited for the whole afternoon" after a retry loop at 13:10.
+#4817 two customers (lumen-app, pixelcart) both on the same mobile carrier: when one of them hits
+      the limit the other starts getting 429s too.
+#4820 uptime monitor: /healthz returning 429 intermittently since 09-16 deploy.
+#4821 billing-exporter job: 429 on /v2/orders, running at ~40 req/min, well under the limit.
+
+Gateway p95 latency normal (18ms). No backend incidents.

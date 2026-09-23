@@ -31,9 +31,10 @@ jobs:
           TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
 
       # Scoring must still beat the offline keyword baseline, keep each labeled fixture's top
-      # entries, and keep more of the held-out sessions' key facts under a token budget than plain
+      # entries, and keep as many of the dev sessions' key facts under a token budget as plain
       # truncation does — regressions the live tests alone (which only check "never drop relevant")
-      # miss. Three runs, averaged, because Jev's answers vary slightly between calls.
+      # miss. Three runs, averaged, because Jev's answers vary slightly between calls. Fails without
+      # the TYPESAFE_API_KEY secret, rather than passing with nothing checked.
       - name: Eval gate
         working-directory: packages/core
         run: node eval/run.mjs --gate --runs 3
