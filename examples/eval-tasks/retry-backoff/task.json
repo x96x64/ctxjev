@@ -1,0 +1,31 @@
+{
+  "language": "en",
+  "goal": "Follow-up from INC-2291 (docs/incidents/INC-2291.md, logs/sync-2026-09-17.txt): our sync kept hammering the warehouse API during its outage. Work out exactly what our retry behavior is today and why it made things worse. Investigate only for now.",
+  "prompts": [
+    "Agreed. The numbers the warehouse team and I settled on: at most 5 attempts in total, counting the first one. Exponential backoff starting at 200ms and doubling, capped at 5 seconds, with ±20% jitter around that value. Retry only on 429, 503, and network errors — never on other 4xx or 5xx. Check both sync jobs to see whether anything relies on today's infinite retries. No edits yet.",
+    "Also check whether the tests can control time and randomness today, and summarize the plan. Still no edits.",
+    "Implement it now and run the tests."
+  ],
+  "history": [
+    {
+      "message": "inventory-sync: stock sync every minute",
+      "date": "2026-02-11T09:30:00+00:00",
+      "author": "Maya Singh"
+    },
+    {
+      "message": "Price sync",
+      "date": "2026-04-03T10:00:00+00:00",
+      "author": "Maya Singh"
+    },
+    {
+      "message": "HTTP client: retry failed requests",
+      "date": "2026-06-19T15:10:00+00:00",
+      "author": "Tom Becker"
+    },
+    {
+      "message": "Scale sync to 12 pods",
+      "date": "2026-08-30T07:50:00+00:00",
+      "author": "Platform Bot"
+    }
+  ]
+}

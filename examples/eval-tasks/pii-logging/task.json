@@ -1,0 +1,31 @@
+{
+  "language": "en",
+  "goal": "Security review SEC-311 says our logs contain full email addresses and phone numbers (sample in logs/security-review-2026-09.txt). Find every place in this service where that happens. Investigate only, don't change anything yet.",
+  "prompts": [
+    "Thanks. Rules for the fix: mask, don't remove the fields — on-call still needs to see the payload shape. Emails become first letter + *** + @domain (grace.lee@example.net -> g***@example.net). Phone numbers become *** plus the last two digits (+1-415-555-0142 -> ***42). And don't touch src/audit/, legal needs the raw values there. Check docs/data-handling.md for anything else that applies. Still no edits.",
+    "Also check whether any other log line in the service prints the request body, then summarize the plan. Still no edits.",
+    "Go ahead and implement the fix now, then run the tests."
+  ],
+  "history": [
+    {
+      "message": "accounts-api: sign-up and profile",
+      "date": "2026-01-20T09:00:00+00:00",
+      "author": "Lena Fischer"
+    },
+    {
+      "message": "Structured request logging",
+      "date": "2026-03-05T13:10:00+00:00",
+      "author": "Lena Fischer"
+    },
+    {
+      "message": "Audit trail for sign-up (legal hold)",
+      "date": "2026-05-14T08:40:00+00:00",
+      "author": "Omar Haddad"
+    },
+    {
+      "message": "Error log includes request body for on-call",
+      "date": "2026-08-22T17:25:00+00:00",
+      "author": "Omar Haddad"
+    }
+  ]
+}

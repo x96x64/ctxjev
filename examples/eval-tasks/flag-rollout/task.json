@@ -1,0 +1,36 @@
+{
+  "language": "en",
+  "goal": "Beta customers were told they can pick Express (next-day) shipping, but checkout never shows it (logs/checkout-2026-09-21.txt). Figure out why, and how we gate features like this today. Investigate only, no edits yet.",
+  "prompts": [
+    "OK. Let's gate Express behind an environment variable, EXPRESS_SHIPPING=on, like gift wrap. Look at how GIFT_WRAP flows from config into the options so we follow the same pattern. No edits yet.",
+    "Change of plan: product wants a per-user rollout they can turn off without a deploy, so use the flags service with the flag name express-shipping instead — drop the env var idea entirely. Standard must stay first in the list. Check the flags docs and how reviews use the client, then summarize the plan. Still no edits.",
+    "Go ahead and implement it now, then run the tests."
+  ],
+  "history": [
+    {
+      "message": "checkout-web: shipping options",
+      "date": "2026-03-02T09:00:00+00:00",
+      "author": "Ada Brooks"
+    },
+    {
+      "message": "Gift wrap option behind GIFT_WRAP env var",
+      "date": "2026-04-18T11:20:00+00:00",
+      "author": "Ada Brooks"
+    },
+    {
+      "message": "Flags service client",
+      "date": "2026-05-27T14:00:00+00:00",
+      "author": "Kenji Mori"
+    },
+    {
+      "message": "Reviews widget behind product-reviews flag",
+      "date": "2026-06-09T10:30:00+00:00",
+      "author": "Kenji Mori"
+    },
+    {
+      "message": "Add EXPRESS shipping option constant (not shown yet)",
+      "date": "2026-09-12T16:45:00+00:00",
+      "author": "Ada Brooks"
+    }
+  ]
+}

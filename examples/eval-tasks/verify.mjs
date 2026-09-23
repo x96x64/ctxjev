@@ -13,7 +13,7 @@ const tasks = readdirSync(root).filter((d) => statSync(join(root, d)).isDirector
 
 function passes(cwd, args) {
   try {
-    execFileSync('node', ['--test', ...args], { cwd, stdio: 'pipe', env: { PATH: process.env.PATH } })
+    execFileSync('node', ['--test', ...args], { cwd, stdio: 'pipe', env: { PATH: process.env.PATH }, timeout: 60_000 })
     return true
   } catch {
     return false

@@ -1,0 +1,429 @@
+2026-09-18T02:00:05.663Z ##[group]Checking out repository
+2026-09-18T02:00:11.552Z ##[group]Setting up Node 22.11.0
+2026-09-18T02:00:15.022Z ##[group]Restoring cache
+2026-09-18T02:00:19.937Z ##[group]Installing dependencies
+2026-09-18T02:00:20.761Z ##[group]Running migrations
+2026-09-18T02:00:26.389Z ##[group]Running log export: checkout-web prod
+2026-09-18T02:00:26.571Z [db] query ok rows=2350 duration=252ms
+2026-09-18T02:00:26.592Z [worker 2] processed batch 2423 (3016 records) in 225ms
+2026-09-18T02:00:26.612Z [worker 8] processed batch 8455 (859 records) in 670ms
+2026-09-18T02:00:26.994Z debug: heartbeat worker=1 rss=1899MB
+2026-09-18T02:00:27.327Z [worker 1] processed batch 5922 (53 records) in 862ms
+2026-09-18T02:00:27.389Z [worker 1] processed batch 4956 (1700 records) in 632ms
+2026-09-18T02:00:27.399Z npm http fetch GET 200 https://registry.npmjs.org/zod 619ms (cache hit)
+2026-09-18T02:00:27.445Z [worker 4] processed batch 6635 (1118 records) in 588ms
+2026-09-18T02:00:27.581Z [cache] miss key=rates:4702 ttl=300
+2026-09-18T02:00:27.939Z [worker 4] processed batch 4925 (2084 records) in 493ms
+2026-09-18T02:00:28.292Z [worker 7] processed batch 5130 (2035 records) in 148ms
+2026-09-18T02:00:28.400Z [db] query ok rows=3198 duration=868ms
+2026-09-18T02:00:28.679Z npm http fetch GET 200 https://registry.npmjs.org/dotenv 268ms (cache hit)
+2026-09-18T02:00:29.022Z [db] query ok rows=2337 duration=347ms
+2026-09-18T02:00:29.109Z [db] query ok rows=1891 duration=544ms
+2026-09-18T02:00:29.204Z debug: heartbeat worker=5 rss=898MB
+2026-09-18T02:00:29.363Z npm http fetch GET 200 https://registry.npmjs.org/decimal.js 600ms (cache hit)
+2026-09-18T02:00:29.413Z npm http fetch GET 200 https://registry.npmjs.org/semver 456ms (cache hit)
+2026-09-18T02:00:29.578Z debug: heartbeat worker=4 rss=1015MB
+2026-09-18T02:00:29.961Z [worker 8] processed batch 9135 (3125 records) in 511ms
+2026-09-18T02:00:30.331Z debug: heartbeat worker=4 rss=703MB
+2026-09-18T02:00:30.642Z npm http fetch GET 200 https://registry.npmjs.org/pg 840ms (cache hit)
+2026-09-18T02:00:30.799Z [worker 1] processed batch 8048 (114 records) in 16ms
+2026-09-18T02:00:31.154Z npm http fetch GET 200 https://registry.npmjs.org/pino 218ms (cache hit)
+2026-09-18T02:00:31.507Z debug: heartbeat worker=2 rss=2415MB
+2026-09-18T02:00:31.602Z [worker 7] processed batch 7025 (1118 records) in 257ms
+2026-09-18T02:00:31.944Z [db] query ok rows=3610 duration=436ms
+2026-09-18T02:00:32.055Z [worker 7] processed batch 4839 (805 records) in 729ms
+2026-09-18T02:00:32.380Z [db] query ok rows=854 duration=122ms
+2026-09-18T02:00:32.394Z [cache] miss key=rates:6537 ttl=300
+2026-09-18T02:00:32.662Z debug: heartbeat worker=8 rss=470MB
+2026-09-18T02:00:32.693Z npm http fetch GET 200 https://registry.npmjs.org/uuid 541ms (cache hit)
+2026-09-18T02:00:33.056Z [cache] miss key=rates:7518 ttl=300
+2026-09-18T02:00:33.374Z [worker 3] processed batch 8305 (2040 records) in 679ms
+2026-09-18T02:00:33.484Z [db] query ok rows=3998 duration=396ms
+2026-09-18T02:00:33.764Z [cache] miss key=rates:3448 ttl=300
+2026-09-18T02:00:33.994Z [db] query ok rows=3381 duration=655ms
+2026-09-18T02:00:34.245Z npm http fetch GET 200 https://registry.npmjs.org/decimal.js 206ms (cache hit)
+2026-09-18T02:00:34.303Z npm http fetch GET 200 https://registry.npmjs.org/uuid 742ms (cache hit)
+2026-09-18T02:00:34.518Z npm http fetch GET 200 https://registry.npmjs.org/semver 289ms (cache hit)
+2026-09-18T02:00:34.860Z [worker 8] processed batch 2617 (3869 records) in 594ms
+2026-09-18T02:00:35.251Z [db] query ok rows=3361 duration=887ms
+2026-09-18T02:00:35.637Z npm http fetch GET 200 https://registry.npmjs.org/semver 6ms (cache hit)
+2026-09-18T02:00:35.710Z [cache] miss key=rates:8381 ttl=300
+2026-09-18T02:00:35.734Z [cache] miss key=rates:3884 ttl=300
+2026-09-18T02:00:35.925Z [cache] miss key=rates:1499 ttl=300
+2026-09-18T02:00:36.198Z [worker 1] processed batch 4119 (276 records) in 524ms
+2026-09-18T02:00:36.317Z [worker 8] processed batch 3739 (1735 records) in 227ms
+2026-09-18T02:00:36.488Z [worker 6] processed batch 1585 (2533 records) in 700ms
+2026-09-18T02:00:36.537Z [cache] miss key=rates:1603 ttl=300
+2026-09-18T02:00:36.691Z npm http fetch GET 200 https://registry.npmjs.org/undici 108ms (cache hit)
+2026-09-18T02:00:36.821Z debug: heartbeat worker=3 rss=825MB
+2026-09-18T02:00:36.839Z [cache] miss key=rates:4185 ttl=300
+2026-09-18T02:00:37.011Z [cache] miss key=rates:3994 ttl=300
+2026-09-18T02:00:37.043Z [worker 6] processed batch 1000 (1506 records) in 425ms
+2026-09-18T02:00:37.108Z [worker 5] processed batch 7314 (4539 records) in 252ms
+2026-09-18T02:00:37.450Z npm http fetch GET 200 https://registry.npmjs.org/semver 822ms (cache hit)
+2026-09-18T02:00:37.523Z [worker 5] processed batch 8952 (4421 records) in 678ms
+2026-09-18T02:00:37.546Z [cache] miss key=rates:5803 ttl=300
+2026-09-18T02:00:37.693Z [cache] miss key=rates:5945 ttl=300
+2026-09-18T02:00:37.724Z npm http fetch GET 200 https://registry.npmjs.org/decimal.js 242ms (cache hit)
+2026-09-18T02:00:37.835Z debug: heartbeat worker=8 rss=3964MB
+2026-09-18T02:00:37.927Z [cache] miss key=rates:1980 ttl=300
+2026-09-18T02:00:38.061Z debug: heartbeat worker=3 rss=600MB
+2026-09-18T02:00:38.182Z npm http fetch GET 200 https://registry.npmjs.org/dotenv 774ms (cache hit)
+2026-09-18T02:00:38.350Z [worker 1] processed batch 9755 (1605 records) in 325ms
+2026-09-18T02:00:38.403Z npm http fetch GET 200 https://registry.npmjs.org/pino 893ms (cache hit)
+2026-09-18T02:00:38.535Z [cache] miss key=rates:1833 ttl=300
+2026-09-18T02:00:38.730Z debug: heartbeat worker=6 rss=406MB
+2026-09-18T02:00:38.846Z [worker 8] processed batch 2180 (636 records) in 410ms
+2026-09-18T02:00:39.046Z [worker 7] processed batch 3798 (801 records) in 73ms
+2026-09-18T02:00:39.145Z [db] query ok rows=986 duration=363ms
+2026-09-18T02:00:39.407Z npm http fetch GET 200 https://registry.npmjs.org/undici 591ms (cache hit)
+2026-09-18T02:00:39.669Z npm http fetch GET 200 https://registry.npmjs.org/dotenv 662ms (cache hit)
+2026-09-18T02:00:39.827Z npm http fetch GET 200 https://registry.npmjs.org/dotenv 4ms (cache hit)
+2026-09-18T02:00:40.113Z npm http fetch GET 200 https://registry.npmjs.org/dotenv 496ms (cache hit)
+2026-09-18T02:00:40.423Z debug: heartbeat worker=3 rss=2230MB
+2026-09-18T02:00:40.491Z [db] query ok rows=1912 duration=222ms
+2026-09-18T02:00:40.758Z npm http fetch GET 200 https://registry.npmjs.org/uuid 393ms (cache hit)
+2026-09-18T02:00:40.848Z npm http fetch GET 200 https://registry.npmjs.org/pino 366ms (cache hit)
+2026-09-18T02:00:41.112Z [worker 3] processed batch 5110 (524 records) in 878ms
+2026-09-18T02:00:41.470Z [worker 3] processed batch 7428 (19 records) in 129ms
+2026-09-18T02:00:41.529Z npm http fetch GET 200 https://registry.npmjs.org/pg 305ms (cache hit)
+2026-09-18T02:00:41.669Z [worker 1] processed batch 5531 (1809 records) in 293ms
+2026-09-18T02:00:41.929Z [worker 4] processed batch 6236 (999 records) in 743ms
+2026-09-18T02:00:42.013Z [cache] miss key=rates:1286 ttl=300
+2026-09-18T02:00:42.403Z [worker 2] processed batch 2501 (2287 records) in 310ms
+2026-09-18T02:00:42.748Z [cache] miss key=rates:5238 ttl=300
+2026-09-18T02:00:42.760Z [db] query ok rows=1922 duration=298ms
+2026-09-18T02:00:42.830Z [worker 5] processed batch 3376 (1279 records) in 682ms
+2026-09-18T02:00:43.054Z [db] query ok rows=4082 duration=407ms
+2026-09-18T02:00:43.429Z [db] query ok rows=1852 duration=558ms
+2026-09-18T02:00:43.695Z [db] query ok rows=4679 duration=412ms
+2026-09-18T02:00:44.065Z [db] query ok rows=736 duration=420ms
+2026-09-18T02:00:44.214Z [worker 6] processed batch 6177 (1304 records) in 460ms
+2026-09-18T02:00:44.264Z npm http fetch GET 200 https://registry.npmjs.org/dotenv 596ms (cache hit)
+2026-09-18T02:00:44.552Z npm http fetch GET 200 https://registry.npmjs.org/zod 792ms (cache hit)
+2026-09-18T02:00:44.679Z [cache] miss key=rates:1520 ttl=300
+2026-09-18T02:00:44.906Z [cache] miss key=rates:4357 ttl=300
+2026-09-18T02:00:44.951Z npm http fetch GET 200 https://registry.npmjs.org/uuid 704ms (cache hit)
+2026-09-18T02:00:45.052Z debug: heartbeat worker=1 rss=2627MB
+2026-09-18T02:00:45.283Z [worker 6] processed batch 3797 (4879 records) in 221ms
+2026-09-18T02:00:45.420Z [db] query ok rows=1222 duration=635ms
+2026-09-18T02:00:45.471Z debug: heartbeat worker=1 rss=3353MB
+2026-09-18T02:00:45.681Z [worker 5] processed batch 7292 (4650 records) in 320ms
+2026-09-18T02:00:45.836Z [db] query ok rows=1276 duration=216ms
+2026-09-18T02:00:45.938Z npm http fetch GET 200 https://registry.npmjs.org/decimal.js 154ms (cache hit)
+2026-09-18T02:00:46.149Z debug: heartbeat worker=2 rss=2285MB
+2026-09-18T02:00:46.492Z [db] query ok rows=2306 duration=200ms
+2026-09-18T02:00:46.859Z [cache] miss key=rates:9920 ttl=300
+2026-09-18T02:00:47.231Z [cache] miss key=rates:9883 ttl=300
+2026-09-18T02:00:47.602Z [worker 2] processed batch 2247 (2209 records) in 222ms
+2026-09-18T02:00:47.902Z debug: heartbeat worker=1 rss=3344MB
+2026-09-18T02:00:48.222Z [worker 4] processed batch 9507 (626 records) in 16ms
+2026-09-18T02:00:48.439Z npm http fetch GET 200 https://registry.npmjs.org/semver 772ms (cache hit)
+2026-09-18T02:00:48.766Z [worker 3] processed batch 2694 (4322 records) in 885ms
+2026-09-18T02:00:48.880Z [db] query ok rows=1352 duration=63ms
+2026-09-18T02:00:48.997Z [cache] miss key=rates:2696 ttl=300
+2026-09-18T02:00:49.380Z [worker 8] processed batch 3225 (4524 records) in 193ms
+2026-09-18T02:00:49.699Z [db] query ok rows=1984 duration=677ms
+2026-09-18T02:00:49.895Z [db] query ok rows=3660 duration=528ms
+2026-09-18T02:00:49.934Z [cache] miss key=rates:7368 ttl=300
+2026-09-18T02:00:50.228Z npm http fetch GET 200 https://registry.npmjs.org/semver 113ms (cache hit)
+2026-09-18T02:00:50.390Z [worker 2] processed batch 3718 (568 records) in 650ms
+2026-09-18T02:00:50.712Z [cache] miss key=rates:9819 ttl=300
+2026-09-18T02:00:50.913Z debug: heartbeat worker=7 rss=239MB
+2026-09-18T02:00:51.147Z [db] query ok rows=3140 duration=336ms
+2026-09-18T02:00:51.265Z [db] query ok rows=3178 duration=618ms
+2026-09-18T02:00:51.497Z [db] query ok rows=4017 duration=786ms
+2026-09-18T02:00:51.842Z [worker 4] processed batch 2188 (150 records) in 211ms
+2026-09-18T02:00:52.047Z debug: heartbeat worker=6 rss=1227MB
+2026-09-18T02:00:52.210Z [cache] miss key=rates:4556 ttl=300
+2026-09-18T02:00:52.403Z [db] query ok rows=3557 duration=762ms
+2026-09-18T02:00:52.732Z [db] query ok rows=3917 duration=153ms
+2026-09-18T02:00:52.987Z [db] query ok rows=4216 duration=343ms
+2026-09-18T02:00:53.197Z debug: heartbeat worker=2 rss=4002MB
+2026-09-18T02:00:53.450Z [cache] miss key=rates:1130 ttl=300
+2026-09-18T02:00:53.495Z [worker 4] processed batch 8148 (4097 records) in 767ms
+2026-09-18T02:00:53.562Z [cache] miss key=rates:3718 ttl=300
+2026-09-18T02:00:53.793Z [worker 4] processed batch 1114 (1740 records) in 636ms
+2026-09-18T02:00:53.860Z [cache] miss key=rates:6216 ttl=300
+2026-09-18T02:00:53.881Z [cache] miss key=rates:5362 ttl=300
+2026-09-18T02:00:53.900Z [db] query ok rows=947 duration=333ms
+2026-09-18T02:00:54.280Z [db] query ok rows=1545 duration=466ms
+2026-09-18T02:00:54.497Z [cache] miss key=rates:7888 ttl=300
+2026-09-18T02:00:54.754Z [cache] miss key=rates:7078 ttl=300
+2026-09-18T02:00:55.040Z [cache] miss key=rates:1545 ttl=300
+2026-09-18T02:00:55.213Z npm http fetch GET 200 https://registry.npmjs.org/decimal.js 58ms (cache hit)
+2026-09-18T02:00:55.511Z [worker 1] processed batch 1469 (4056 records) in 638ms
+2026-09-18T02:00:55.583Z npm http fetch GET 200 https://registry.npmjs.org/semver 743ms (cache hit)
+2026-09-18T02:00:55.749Z [db] query ok rows=4906 duration=226ms
+2026-09-18T02:00:56.077Z [cache] miss key=rates:6061 ttl=300
+2026-09-18T02:00:56.462Z [cache] miss key=rates:1133 ttl=300
+2026-09-18T02:00:56.507Z [worker 3] processed batch 9254 (2857 records) in 727ms
+2026-09-18T02:00:56.814Z [db] query ok rows=3794 duration=444ms
+2026-09-18T02:00:56.851Z debug: heartbeat worker=5 rss=3157MB
+2026-09-18T02:00:57.143Z npm http fetch GET 200 https://registry.npmjs.org/semver 149ms (cache hit)
+2026-09-18T02:00:57.474Z debug: heartbeat worker=5 rss=1443MB
+2026-09-18T02:00:57.796Z [db] query ok rows=4148 duration=3ms
+2026-09-18T02:00:58.134Z npm http fetch GET 200 https://registry.npmjs.org/zod 428ms (cache hit)
+2026-09-18T02:00:58.514Z [worker 1] processed batch 4997 (3765 records) in 642ms
+2026-09-18T02:00:58.880Z [worker 8] processed batch 1376 (3240 records) in 871ms
+2026-09-18T02:00:58.957Z [worker 2] processed batch 2705 (3100 records) in 833ms
+2026-09-18T02:00:59.227Z debug: heartbeat worker=6 rss=3261MB
+2026-09-18T02:00:59.508Z debug: heartbeat worker=2 rss=875MB
+2026-09-18T02:00:59.736Z debug: heartbeat worker=3 rss=4214MB
+2026-09-18T02:00:59.985Z [cache] miss key=rates:1424 ttl=300
+2026-09-18T02:00:59.997Z debug: heartbeat worker=1 rss=4852MB
+2026-09-18T02:01:00.295Z [cache] miss key=rates:1284 ttl=300
+2026-09-18T02:01:00.677Z [worker 6] processed batch 6652 (1745 records) in 837ms
+2026-09-18T02:01:00.846Z debug: heartbeat worker=7 rss=3561MB
+2026-09-18T02:01:01.219Z [worker 2] processed batch 1826 (4930 records) in 436ms
+2026-09-18T02:01:01.507Z [worker 1] processed batch 4022 (2205 records) in 756ms
+2026-09-18T02:01:01.840Z npm http fetch GET 200 https://registry.npmjs.org/pino 666ms (cache hit)
+2026-09-18T02:01:02.237Z npm http fetch GET 200 https://registry.npmjs.org/decimal.js 511ms (cache hit)
+2026-09-18T02:01:02.385Z [cache] miss key=rates:1224 ttl=300
+2026-09-18T02:01:02.668Z debug: heartbeat worker=5 rss=1800MB
+2026-09-18T02:01:02.886Z [db] query ok rows=15 duration=790ms
+2026-09-18T02:01:03.201Z [worker 8] processed batch 5475 (848 records) in 236ms
+2026-09-18T02:01:03.242Z npm http fetch GET 200 https://registry.npmjs.org/zod 528ms (cache hit)
+2026-09-18T02:01:03.419Z debug: heartbeat worker=4 rss=1905MB
+2026-09-18T02:01:03.630Z [worker 6] processed batch 7060 (3797 records) in 653ms
+2026-09-18T02:01:03.824Z debug: heartbeat worker=2 rss=1791MB
+2026-09-18T02:01:04.052Z debug: heartbeat worker=1 rss=4422MB
+2026-09-18T02:01:04.419Z [cache] miss key=rates:3863 ttl=300
+2026-09-18T02:01:04.433Z [db] query ok rows=4697 duration=641ms
+2026-09-18T02:01:04.755Z debug: heartbeat worker=1 rss=1178MB
+2026-09-18T02:01:05.090Z npm http fetch GET 200 https://registry.npmjs.org/semver 172ms (cache hit)
+2026-09-18T02:01:05.412Z [worker 8] processed batch 7790 (578 records) in 526ms
+2026-09-18T02:01:05.739Z npm http fetch GET 200 https://registry.npmjs.org/undici 494ms (cache hit)
+2026-09-18T02:01:05.878Z [db] query ok rows=663 duration=164ms
+2026-09-18T02:01:06.049Z debug: heartbeat worker=8 rss=525MB
+2026-09-18T02:01:06.218Z npm http fetch GET 200 https://registry.npmjs.org/dotenv 157ms (cache hit)
+2026-09-18T02:01:06.337Z [cache] miss key=rates:1783 ttl=300
+2026-09-18T02:01:06.572Z npm http fetch GET 200 https://registry.npmjs.org/pg 33ms (cache hit)
+2026-09-18T02:01:06.825Z [cache] miss key=rates:9046 ttl=300
+2026-09-18T02:01:07.054Z debug: heartbeat worker=3 rss=63MB
+2026-09-18T02:01:07.386Z [cache] miss key=rates:6827 ttl=300
+2026-09-18T02:01:07.462Z npm http fetch GET 200 https://registry.npmjs.org/semver 647ms (cache hit)
+2026-09-18T02:01:07.483Z npm http fetch GET 200 https://registry.npmjs.org/undici 181ms (cache hit)
+2026-09-18T02:01:07.848Z npm http fetch GET 200 https://registry.npmjs.org/uuid 500ms (cache hit)
+2026-09-18T02:01:08.144Z [db] query ok rows=2770 duration=781ms
+2026-09-18T02:01:08.540Z npm http fetch GET 200 https://registry.npmjs.org/decimal.js 43ms (cache hit)
+2026-09-18T02:01:08.872Z [cache] miss key=rates:6322 ttl=300
+2026-09-18T02:01:08.959Z debug: heartbeat worker=8 rss=76MB
+2026-09-18T02:01:09.032Z [cache] miss key=rates:2736 ttl=300
+2026-09-18T02:01:09.280Z [cache] miss key=rates:6923 ttl=300
+2026-09-18T02:01:09.483Z [worker 2] processed batch 8803 (1498 records) in 117ms
+2026-09-18T02:01:09.771Z npm http fetch GET 200 https://registry.npmjs.org/undici 322ms (cache hit)
+2026-09-18T02:01:09.795Z [cache] miss key=rates:3611 ttl=300
+2026-09-18T02:01:09.994Z [checkout] options user=u_48121 shown=standard,pickup
+2026-09-18T02:01:09.994Z [support] ticket #9120: beta customer asked where next-day delivery is; product confirmed Express was announced to the beta group on 2026-09-15
+2026-09-18T02:01:09.994Z npm http fetch GET 200 https://registry.npmjs.org/pg 496ms (cache hit)
+2026-09-18T02:01:10.163Z [worker 3] processed batch 3021 (3001 records) in 537ms
+2026-09-18T02:01:10.197Z [worker 4] processed batch 6486 (3930 records) in 523ms
+2026-09-18T02:01:10.550Z [db] query ok rows=3404 duration=469ms
+2026-09-18T02:01:10.880Z [db] query ok rows=1472 duration=681ms
+2026-09-18T02:01:11.056Z [db] query ok rows=4654 duration=727ms
+2026-09-18T02:01:11.328Z debug: heartbeat worker=5 rss=3411MB
+2026-09-18T02:01:11.556Z npm http fetch GET 200 https://registry.npmjs.org/undici 468ms (cache hit)
+2026-09-18T02:01:11.650Z [db] query ok rows=3596 duration=75ms
+2026-09-18T02:01:11.675Z npm http fetch GET 200 https://registry.npmjs.org/uuid 646ms (cache hit)
+2026-09-18T02:01:11.775Z [cache] miss key=rates:2478 ttl=300
+2026-09-18T02:01:11.795Z [cache] miss key=rates:5916 ttl=300
+2026-09-18T02:01:11.918Z debug: heartbeat worker=3 rss=3454MB
+2026-09-18T02:01:12.162Z npm http fetch GET 200 https://registry.npmjs.org/dotenv 504ms (cache hit)
+2026-09-18T02:01:12.488Z [worker 1] processed batch 7346 (2429 records) in 283ms
+2026-09-18T02:01:12.740Z [db] query ok rows=4626 duration=436ms
+2026-09-18T02:01:13.053Z [worker 6] processed batch 9159 (1432 records) in 275ms
+2026-09-18T02:01:13.188Z debug: heartbeat worker=2 rss=1153MB
+2026-09-18T02:01:13.275Z [db] query ok rows=2373 duration=381ms
+2026-09-18T02:01:13.384Z debug: heartbeat worker=7 rss=681MB
+2026-09-18T02:01:13.779Z debug: heartbeat worker=7 rss=513MB
+2026-09-18T02:01:13.814Z [cache] miss key=rates:3909 ttl=300
+2026-09-18T02:01:14.007Z [db] query ok rows=1962 duration=442ms
+2026-09-18T02:01:14.022Z [worker 5] processed batch 9237 (1743 records) in 2ms
+2026-09-18T02:01:14.250Z [cache] miss key=rates:2742 ttl=300
+2026-09-18T02:01:14.601Z debug: heartbeat worker=7 rss=3698MB
+2026-09-18T02:01:14.981Z debug: heartbeat worker=5 rss=4610MB
+2026-09-18T02:01:15.327Z [worker 6] processed batch 7149 (4865 records) in 165ms
+2026-09-18T02:01:15.688Z debug: heartbeat worker=6 rss=306MB
+2026-09-18T02:01:15.801Z [db] query ok rows=1665 duration=506ms
+2026-09-18T02:01:15.823Z debug: heartbeat worker=3 rss=1958MB
+2026-09-18T02:01:16.131Z debug: heartbeat worker=4 rss=109MB
+2026-09-18T02:01:16.336Z [worker 2] processed batch 9411 (879 records) in 815ms
+2026-09-18T02:01:16.524Z debug: heartbeat worker=5 rss=2126MB
+2026-09-18T02:01:16.879Z [cache] miss key=rates:7221 ttl=300
+2026-09-18T02:01:17.079Z [cache] miss key=rates:9759 ttl=300
+2026-09-18T02:01:17.277Z [cache] miss key=rates:7696 ttl=300
+2026-09-18T02:01:17.363Z debug: heartbeat worker=4 rss=1410MB
+2026-09-18T02:01:17.748Z debug: heartbeat worker=1 rss=2676MB
+2026-09-18T02:01:17.973Z [db] query ok rows=1618 duration=170ms
+2026-09-18T02:01:18.105Z [db] query ok rows=4061 duration=327ms
+2026-09-18T02:01:18.415Z [worker 6] processed batch 5483 (1646 records) in 303ms
+2026-09-18T02:01:18.439Z [worker 7] processed batch 9504 (1973 records) in 206ms
+2026-09-18T02:01:18.551Z [cache] miss key=rates:7502 ttl=300
+2026-09-18T02:01:18.620Z [db] query ok rows=1383 duration=667ms
+2026-09-18T02:01:18.768Z [db] query ok rows=3961 duration=871ms
+2026-09-18T02:01:19.111Z [worker 1] processed batch 4015 (2656 records) in 770ms
+2026-09-18T02:01:19.345Z debug: heartbeat worker=5 rss=3664MB
+2026-09-18T02:01:19.429Z [worker 5] processed batch 2004 (4821 records) in 105ms
+2026-09-18T02:01:19.624Z debug: heartbeat worker=1 rss=3101MB
+2026-09-18T02:01:19.927Z npm http fetch GET 200 https://registry.npmjs.org/uuid 693ms (cache hit)
+2026-09-18T02:01:20.304Z [worker 1] processed batch 1684 (1667 records) in 485ms
+2026-09-18T02:01:20.546Z [worker 1] processed batch 7536 (1963 records) in 430ms
+2026-09-18T02:01:20.930Z [worker 3] processed batch 3108 (4921 records) in 647ms
+2026-09-18T02:01:21.087Z npm http fetch GET 200 https://registry.npmjs.org/pino 670ms (cache hit)
+2026-09-18T02:01:21.320Z [cache] miss key=rates:3815 ttl=300
+2026-09-18T02:01:21.660Z npm http fetch GET 200 https://registry.npmjs.org/zod 596ms (cache hit)
+2026-09-18T02:01:21.728Z debug: heartbeat worker=7 rss=3023MB
+2026-09-18T02:01:21.892Z debug: heartbeat worker=4 rss=1697MB
+2026-09-18T02:01:21.998Z [worker 2] processed batch 7937 (2198 records) in 643ms
+2026-09-18T02:01:22.109Z [cache] miss key=rates:4213 ttl=300
+2026-09-18T02:01:22.151Z debug: heartbeat worker=4 rss=309MB
+2026-09-18T02:01:22.549Z npm http fetch GET 200 https://registry.npmjs.org/undici 157ms (cache hit)
+2026-09-18T02:01:22.931Z debug: heartbeat worker=7 rss=3527MB
+2026-09-18T02:01:23.025Z debug: heartbeat worker=1 rss=205MB
+2026-09-18T02:01:23.131Z [cache] miss key=rates:7507 ttl=300
+2026-09-18T02:01:23.507Z [db] query ok rows=3498 duration=579ms
+2026-09-18T02:01:23.715Z npm http fetch GET 200 https://registry.npmjs.org/pg 586ms (cache hit)
+2026-09-18T02:01:23.844Z [db] query ok rows=2741 duration=160ms
+2026-09-18T02:01:23.894Z debug: heartbeat worker=5 rss=4575MB
+2026-09-18T02:01:23.930Z npm http fetch GET 200 https://registry.npmjs.org/dotenv 795ms (cache hit)
+2026-09-18T02:01:24.305Z debug: heartbeat worker=5 rss=3361MB
+2026-09-18T02:01:24.418Z debug: heartbeat worker=2 rss=2847MB
+2026-09-18T02:01:24.535Z [db] query ok rows=2479 duration=210ms
+2026-09-18T02:01:24.761Z [cache] miss key=rates:5545 ttl=300
+2026-09-18T02:01:25.127Z npm http fetch GET 200 https://registry.npmjs.org/uuid 632ms (cache hit)
+2026-09-18T02:01:25.435Z [cache] miss key=rates:1401 ttl=300
+2026-09-18T02:01:25.704Z debug: heartbeat worker=2 rss=231MB
+2026-09-18T02:01:25.962Z npm http fetch GET 200 https://registry.npmjs.org/zod 262ms (cache hit)
+2026-09-18T02:01:26.131Z [cache] miss key=rates:4364 ttl=300
+2026-09-18T02:01:26.402Z npm http fetch GET 200 https://registry.npmjs.org/pg 562ms (cache hit)
+2026-09-18T02:01:26.449Z [db] query ok rows=2939 duration=394ms
+2026-09-18T02:01:26.638Z debug: heartbeat worker=7 rss=2231MB
+2026-09-18T02:01:26.726Z [db] query ok rows=1152 duration=14ms
+2026-09-18T02:01:26.866Z [db] query ok rows=1665 duration=202ms
+2026-09-18T02:01:27.118Z [cache] miss key=rates:6334 ttl=300
+2026-09-18T02:01:27.250Z debug: heartbeat worker=4 rss=3433MB
+2026-09-18T02:01:27.372Z npm http fetch GET 200 https://registry.npmjs.org/dotenv 523ms (cache hit)
+2026-09-18T02:01:27.535Z npm http fetch GET 200 https://registry.npmjs.org/uuid 636ms (cache hit)
+2026-09-18T02:01:27.904Z [cache] miss key=rates:4217 ttl=300
+2026-09-18T02:01:27.958Z [cache] miss key=rates:7915 ttl=300
+2026-09-18T02:01:28.289Z [cache] miss key=rates:7995 ttl=300
+2026-09-18T02:01:28.664Z [worker 7] processed batch 4574 (2922 records) in 133ms
+2026-09-18T02:01:28.811Z [worker 3] processed batch 1639 (3573 records) in 520ms
+2026-09-18T02:01:28.870Z [cache] miss key=rates:7141 ttl=300
+2026-09-18T02:01:28.932Z [cache] miss key=rates:3150 ttl=300
+2026-09-18T02:01:29.262Z [worker 7] processed batch 4326 (4840 records) in 572ms
+2026-09-18T02:01:29.306Z [cache] miss key=rates:1908 ttl=300
+2026-09-18T02:01:29.334Z [cache] miss key=rates:3592 ttl=300
+2026-09-18T02:01:29.461Z [db] query ok rows=3704 duration=866ms
+2026-09-18T02:01:29.583Z [cache] miss key=rates:8720 ttl=300
+2026-09-18T02:01:29.949Z debug: heartbeat worker=2 rss=2679MB
+2026-09-18T02:01:30.207Z debug: heartbeat worker=2 rss=3106MB
+2026-09-18T02:01:30.472Z [worker 6] processed batch 2938 (2742 records) in 329ms
+2026-09-18T02:01:30.605Z [db] query ok rows=2675 duration=565ms
+2026-09-18T02:01:30.951Z debug: heartbeat worker=5 rss=1070MB
+2026-09-18T02:01:31.188Z npm http fetch GET 200 https://registry.npmjs.org/undici 798ms (cache hit)
+2026-09-18T02:01:31.386Z [db] query ok rows=1179 duration=773ms
+2026-09-18T02:01:31.572Z npm http fetch GET 200 https://registry.npmjs.org/zod 414ms (cache hit)
+2026-09-18T02:01:31.790Z [worker 2] processed batch 4171 (4577 records) in 94ms
+2026-09-18T02:01:32.045Z [worker 5] processed batch 5975 (1438 records) in 546ms
+2026-09-18T02:01:32.335Z [worker 1] processed batch 9491 (1177 records) in 496ms
+2026-09-18T02:01:32.538Z [worker 5] processed batch 5896 (3880 records) in 120ms
+2026-09-18T02:01:32.583Z [cache] miss key=rates:7533 ttl=300
+2026-09-18T02:01:32.728Z debug: heartbeat worker=6 rss=1470MB
+2026-09-18T02:01:32.995Z npm http fetch GET 200 https://registry.npmjs.org/dotenv 64ms (cache hit)
+2026-09-18T02:01:33.015Z [cache] miss key=rates:7395 ttl=300
+2026-09-18T02:01:33.095Z [cache] miss key=rates:4416 ttl=300
+2026-09-18T02:01:33.467Z npm http fetch GET 200 https://registry.npmjs.org/zod 412ms (cache hit)
+2026-09-18T02:01:33.647Z [db] query ok rows=2056 duration=637ms
+2026-09-18T02:01:33.884Z [worker 6] processed batch 1922 (3820 records) in 118ms
+2026-09-18T02:01:33.909Z [worker 5] processed batch 5820 (1485 records) in 516ms
+2026-09-18T02:01:34.188Z [cache] miss key=rates:2929 ttl=300
+2026-09-18T02:01:34.360Z debug: heartbeat worker=6 rss=4428MB
+2026-09-18T02:01:34.701Z debug: heartbeat worker=5 rss=111MB
+2026-09-18T02:01:34.969Z [worker 8] processed batch 3708 (2466 records) in 805ms
+2026-09-18T02:01:35.336Z [cache] miss key=rates:5537 ttl=300
+2026-09-18T02:01:35.595Z [db] query ok rows=1592 duration=868ms
+2026-09-18T02:01:35.758Z debug: heartbeat worker=3 rss=2760MB
+2026-09-18T02:01:36.141Z [worker 5] processed batch 7978 (1250 records) in 376ms
+2026-09-18T02:01:36.165Z [cache] miss key=rates:6373 ttl=300
+2026-09-18T02:01:36.319Z npm http fetch GET 200 https://registry.npmjs.org/undici 457ms (cache hit)
+2026-09-18T02:01:36.609Z debug: heartbeat worker=2 rss=380MB
+2026-09-18T02:01:36.924Z [db] query ok rows=3 duration=545ms
+2026-09-18T02:01:37.206Z [cache] miss key=rates:4226 ttl=300
+2026-09-18T02:01:37.586Z [cache] miss key=rates:1890 ttl=300
+2026-09-18T02:01:37.899Z [db] query ok rows=323 duration=690ms
+2026-09-18T02:01:38.110Z debug: heartbeat worker=3 rss=2208MB
+2026-09-18T02:01:38.370Z [cache] miss key=rates:9611 ttl=300
+2026-09-18T02:01:38.757Z npm http fetch GET 200 https://registry.npmjs.org/undici 670ms (cache hit)
+2026-09-18T02:01:39.000Z [db] query ok rows=4520 duration=897ms
+2026-09-18T02:01:39.232Z [worker 8] processed batch 4093 (4649 records) in 208ms
+2026-09-18T02:01:39.499Z [worker 2] processed batch 4330 (2528 records) in 577ms
+2026-09-18T02:01:39.803Z npm http fetch GET 200 https://registry.npmjs.org/decimal.js 769ms (cache hit)
+2026-09-18T02:01:39.948Z [cache] miss key=rates:9500 ttl=300
+2026-09-18T02:01:40.175Z debug: heartbeat worker=1 rss=800MB
+2026-09-18T02:01:40.216Z debug: heartbeat worker=7 rss=454MB
+2026-09-18T02:01:40.549Z [cache] miss key=rates:2150 ttl=300
+2026-09-18T02:01:40.658Z [db] query ok rows=4060 duration=121ms
+2026-09-18T02:01:40.698Z [cache] miss key=rates:9988 ttl=300
+2026-09-18T02:01:41.010Z debug: heartbeat worker=3 rss=4051MB
+2026-09-18T02:01:41.240Z [db] query ok rows=4397 duration=875ms
+2026-09-18T02:01:41.558Z debug: heartbeat worker=3 rss=2524MB
+2026-09-18T02:01:41.870Z npm http fetch GET 200 https://registry.npmjs.org/pg 333ms (cache hit)
+2026-09-18T02:01:41.931Z debug: heartbeat worker=3 rss=3093MB
+2026-09-18T02:01:41.989Z debug: heartbeat worker=5 rss=2381MB
+2026-09-18T02:01:42.078Z [db] query ok rows=296 duration=52ms
+2026-09-18T02:01:42.182Z [cache] miss key=rates:6259 ttl=300
+2026-09-18T02:01:42.198Z [cache] miss key=rates:4250 ttl=300
+2026-09-18T02:01:42.363Z npm http fetch GET 200 https://registry.npmjs.org/zod 868ms (cache hit)
+2026-09-18T02:01:42.575Z [db] query ok rows=4613 duration=208ms
+2026-09-18T02:01:42.917Z debug: heartbeat worker=1 rss=4598MB
+2026-09-18T02:01:43.040Z debug: heartbeat worker=4 rss=4379MB
+2026-09-18T02:01:43.267Z debug: heartbeat worker=7 rss=3184MB
+2026-09-18T02:01:43.505Z [worker 3] processed batch 1676 (2296 records) in 763ms
+2026-09-18T02:01:43.857Z [worker 4] processed batch 7870 (2952 records) in 302ms
+2026-09-18T02:01:43.870Z [worker 2] processed batch 2811 (4227 records) in 804ms
+2026-09-18T02:01:43.964Z [worker 7] processed batch 7468 (1630 records) in 823ms
+2026-09-18T02:01:44.296Z [db] query ok rows=4234 duration=417ms
+2026-09-18T02:01:44.520Z npm http fetch GET 200 https://registry.npmjs.org/dotenv 647ms (cache hit)
+2026-09-18T02:01:44.865Z [worker 1] processed batch 2409 (2716 records) in 478ms
+2026-09-18T02:01:45.086Z debug: heartbeat worker=1 rss=3900MB
+2026-09-18T02:01:45.153Z [db] query ok rows=4131 duration=54ms
+2026-09-18T02:01:45.455Z npm http fetch GET 200 https://registry.npmjs.org/zod 286ms (cache hit)
+2026-09-18T02:01:45.535Z debug: heartbeat worker=3 rss=584MB
+2026-09-18T02:01:45.695Z debug: heartbeat worker=5 rss=3687MB
+2026-09-18T02:01:46.026Z [cache] miss key=rates:7366 ttl=300
+2026-09-18T02:01:46.180Z npm http fetch GET 200 https://registry.npmjs.org/decimal.js 736ms (cache hit)
+2026-09-18T02:01:46.323Z [worker 2] processed batch 7280 (231 records) in 839ms
+2026-09-18T02:01:46.667Z npm http fetch GET 200 https://registry.npmjs.org/uuid 600ms (cache hit)
+2026-09-18T02:01:46.931Z [db] query ok rows=2314 duration=539ms
+2026-09-18T02:01:46.980Z [worker 8] processed batch 8132 (853 records) in 145ms
+2026-09-18T02:01:47.169Z [cache] miss key=rates:5456 ttl=300
+2026-09-18T02:01:47.388Z [cache] miss key=rates:6673 ttl=300
+2026-09-18T02:01:47.425Z [cache] miss key=rates:3768 ttl=300
+2026-09-18T02:01:47.502Z debug: heartbeat worker=7 rss=1757MB
+2026-09-18T02:01:47.520Z debug: heartbeat worker=8 rss=4780MB
+2026-09-18T02:01:47.709Z [db] query ok rows=2807 duration=893ms
+2026-09-18T02:01:47.761Z npm http fetch GET 200 https://registry.npmjs.org/decimal.js 289ms (cache hit)
+2026-09-18T02:01:48.021Z [db] query ok rows=2326 duration=103ms
+2026-09-18T02:01:48.399Z npm http fetch GET 200 https://registry.npmjs.org/zod 889ms (cache hit)
+2026-09-18T02:01:48.649Z [worker 7] processed batch 1410 (2410 records) in 580ms
+2026-09-18T02:01:48.969Z debug: heartbeat worker=1 rss=4696MB
+2026-09-18T02:01:49.213Z npm http fetch GET 200 https://registry.npmjs.org/zod 365ms (cache hit)
+2026-09-18T02:01:49.544Z npm http fetch GET 200 https://registry.npmjs.org/uuid 498ms (cache hit)
+2026-09-18T02:01:49.595Z debug: heartbeat worker=7 rss=1024MB
+2026-09-18T02:01:49.967Z npm http fetch GET 200 https://registry.npmjs.org/zod 451ms (cache hit)
+2026-09-18T02:01:50.349Z [cache] miss key=rates:3331 ttl=300
+2026-09-18T02:01:50.745Z [db] query ok rows=4522 duration=577ms
+2026-09-18T02:01:51.081Z npm http fetch GET 200 https://registry.npmjs.org/decimal.js 756ms (cache hit)
+2026-09-18T02:01:51.341Z debug: heartbeat worker=8 rss=2010MB
+2026-09-18T02:01:51.624Z [db] query ok rows=4291 duration=306ms
+2026-09-18T02:01:51.754Z npm http fetch GET 200 https://registry.npmjs.org/pino 340ms (cache hit)
+2026-09-18T02:01:52.105Z [cache] miss key=rates:4896 ttl=300
+2026-09-18T02:01:52.193Z debug: heartbeat worker=8 rss=4804MB
+2026-09-18T02:01:52.404Z [cache] miss key=rates:7608 ttl=300
+2026-09-18T02:01:52.459Z npm http fetch GET 200 https://registry.npmjs.org/pg 466ms (cache hit)
+2026-09-18T02:01:52.772Z debug: heartbeat worker=5 rss=4062MB
+2026-09-18T02:01:52.894Z [cache] miss key=rates:8061 ttl=300
+2026-09-18T02:01:52.973Z [db] query ok rows=1034 duration=602ms
+2026-09-18T02:01:52.973Z ##[error]Process completed with exit code 1.

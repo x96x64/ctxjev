@@ -20,14 +20,13 @@
  *   node eval/tasks.mjs --report eval/results/tasks.json
  *   node eval/tasks.mjs --selftest   (no API calls: solution applied through the tools passes, untouched fails)
  */
-import { execFileSync, spawnSync } from 'node:child_process'
-import { cpSync, existsSync, globSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
+import { existsSync, globSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 import Anthropic from '@anthropic-ai/sdk'
-import { ANSWER_MODEL, SpendLimitError, costOf, createLimiter, createSpend, pruneTo, rankings, withCacheBreakpoint } from './lib.mjs'
+import { ANSWER_MODEL, SpendLimitError, bootstrap, createLimiter, createSpend, pruneTo, rankings, rateDifference, successRate } from './lib.mjs'
+import { createAgentRunner, freshRepo, grade, tasksDir, workspaceTools } from './agent.mjs'
 
 const BUDGET = 0.25
 const ALL_CONDITIONS = ['full', 'jev', 'keywords', 'recency', 'goal-only']
@@ -40,10 +39,8 @@ function parseCondition(condition) {
   }
   return { base, extra: Object.fromEntries(flags.map((f) => [FLAGS[f], true])) }
 }
-const OUTPUT_LIMIT = 30_000
 
 const examples = join(dirname(fileURLToPath(import.meta.url)), '../../../examples')
-const tasksDir = join(examples, 'eval-tasks')
 
 const { values: args } = parseArgs({
   options: {
@@ -59,111 +56,40 @@ const { values: args } = parseArgs({
   },
 })
 
-// --- tools, run against a temporary copy of the task's repo ------------------------------------
-
-const TOOLS = [
-  { name: 'Bash', description: 'Run a shell command in the repository.', input_schema: { type: 'object', properties: { command: { type: 'string' }, description: { type: 'string' } }, required: ['command'] } },
-  { name: 'Read', description: 'Read a file; lines are numbered.', input_schema: { type: 'object', properties: { file_path: { type: 'string' }, offset: { type: 'number' }, limit: { type: 'number' } }, required: ['file_path'] } },
-  { name: 'Edit', description: 'Replace old_string with new_string in a file. old_string must match exactly once unless replace_all is set.', input_schema: { type: 'object', properties: { file_path: { type: 'string' }, old_string: { type: 'string' }, new_string: { type: 'string' }, replace_all: { type: 'boolean' } }, required: ['file_path', 'old_string', 'new_string'] } },
-  { name: 'Write', description: 'Write a whole file.', input_schema: { type: 'object', properties: { file_path: { type: 'string' }, content: { type: 'string' } }, required: ['file_path', 'content'] } },
-  { name: 'Grep', description: 'Search file contents with a regular expression.', input_schema: { type: 'object', properties: { pattern: { type: 'string' }, path: { type: 'string' }, glob: { type: 'string' }, output_mode: { type: 'string', enum: ['content', 'files_with_matches', 'count'] }, '-i': { type: 'boolean' } }, required: ['pattern'] } },
-  { name: 'Glob', description: 'List files matching a glob pattern.', input_schema: { type: 'object', properties: { pattern: { type: 'string' }, path: { type: 'string' } }, required: ['pattern'] } },
-]
-
-function workspaceTools(task, repo) {
-  const virtualRoot = `/workspace/${task}`
-  const toReal = (text) => text.split(virtualRoot).join(repo)
-  const toVirtual = (text) => text.split(repo).join(virtualRoot)
-  const clip = (text) => (text.length > OUTPUT_LIMIT ? `${text.slice(0, OUTPUT_LIMIT)}\n... (output truncated)` : text)
-  const env = { PATH: process.env.PATH, HOME: repo, LANG: 'en_US.UTF-8', GIT_CONFIG_NOSYSTEM: '1' }
-
-  function inRepo(path) {
-    const real = resolve(repo, toReal(path ?? '.'))
-    const rel = relative(repo, real)
-    if (rel.startsWith('..') || isAbsolute(rel)) throw new Error(`${path} is outside the repository`)
-    return real
-  }
-
-  const handlers = {
-    Bash({ command }) {
-      const r = spawnSync('bash', ['-c', toReal(command)], { cwd: repo, env, encoding: 'utf8', timeout: 60_000, maxBuffer: 16 * 1024 * 1024 })
-      const out = `${r.stdout ?? ''}${r.stderr ?? ''}`.trim()
-      if (r.error?.code === 'ETIMEDOUT') throw new Error(`command timed out after 60s\n${out}`)
-      if (r.status !== 0) throw new Error(`Exit code ${r.status}\n${out}`)
-      return out || '(no output)'
-    },
-    Read({ file_path, offset = 1, limit = 2000 }) {
-      const lines = readFileSync(inRepo(file_path), 'utf8').split('\n')
-      return lines.slice(offset - 1, offset - 1 + limit).map((line, i) => `${String(offset + i).padStart(6)}\t${line}`).join('\n')
-    },
-    Edit({ file_path, old_string, new_string, replace_all = false }) {
-      const path = inRepo(file_path)
-      const text = readFileSync(path, 'utf8')
-      const count = old_string === '' ? 0 : text.split(old_string).length - 1
-      if (count === 0) throw new Error('old_string not found in the file')
-      if (count > 1 && !replace_all) throw new Error(`old_string matches ${count} times; add context or set replace_all`)
-      writeFileSync(path, replace_all ? text.split(old_string).join(new_string) : text.replace(old_string, () => new_string))
-      return `The file ${file_path} has been updated.`
-    },
-    Write({ file_path, content }) {
-      writeFileSync(inRepo(file_path), content)
-      return `File written: ${file_path}`
-    },
-    Grep({ pattern, path, glob, output_mode = 'files_with_matches', ...flags }) {
-      const target = relative(repo, inRepo(path)) || '.'
-      const mode = { content: ['-n'], files_with_matches: ['-l'], count: ['-c'] }[output_mode] ?? ['-l']
-      const r = spawnSync('grep', ['-rE', ...mode, ...(flags['-i'] ? ['-i'] : []), ...(glob ? [`--include=${glob}`] : []), '--exclude-dir=.git', '--exclude-dir=test-hidden', '-e', pattern, target], { cwd: repo, env, encoding: 'utf8' })
-      if (r.status === 2) throw new Error(r.stderr.trim())
-      return r.stdout.trim() || 'No matches found'
-    },
-    Glob({ pattern, path }) {
-      const base = inRepo(path)
-      const found = globSync(pattern, { cwd: base }).filter((p) => !p.startsWith('.git/'))
-      return found.length ? found.map((p) => relative(repo, join(base, p))).join('\n') : 'No files found'
-    },
-  }
-
-  return (name, input) => {
-    try {
-      if (!handlers[name]) throw new Error(`No such tool: ${name}`)
-      return { content: clip(toVirtual(String(handlers[name](input)))) }
-    } catch (err) {
-      return { content: clip(toVirtual(err.message)), is_error: true }
-    }
-  }
-}
-
-function freshRepo(task) {
-  const work = mkdtempSync(join(tmpdir(), `ctxjev-eval-${task}-`))
-  const repo = join(work, 'repo')
-  execFileSync('node', [join(tasksDir, 'setup.mjs'), task, repo], { stdio: 'pipe' })
-  return { work, repo }
-}
-
-function grade(task, repo) {
-  cpSync(join(tasksDir, task, 'hidden'), join(repo, 'test-hidden'), { recursive: true })
-  const r = spawnSync('node', ['--test', '--test-reporter=tap', 'test-hidden/*.test.js'], { cwd: repo, env: { PATH: process.env.PATH }, encoding: 'utf8', timeout: 120_000 })
-  const count = (key) => Number(new RegExp(`^# ${key} (\\d+)`, 'm').exec(r.stdout)?.[1] ?? 0)
-  const failedTests = [...r.stdout.matchAll(/^not ok \d+ - (.+)$/gm)].map((m) => m[1])
-  return { success: r.status === 0, passed: count('pass'), failed: count('fail'), failedTests }
-}
-
 // --- report ------------------------------------------------------------------------------------
 
 function printTable(rows) {
   const conditions = [...new Set(rows.map((r) => r.condition))].sort((a, b) => ALL_CONDITIONS.indexOf(a.split('+')[0]) - ALL_CONDITIONS.indexOf(b.split('+')[0]) || a.localeCompare(b))
-  const pct = (xs) => (xs.length === 0 ? '   -  ' : `${((xs.filter((r) => r.success).length / xs.length) * 100).toFixed(0)}%`.padStart(6))
+  const pct = (x) => (Number.isNaN(x) ? '-' : `${Math.round(x * 100)}%`)
+  const rate = (xs) => (xs.length === 0 ? '   -  ' : pct(successRate('success')(xs)).padStart(6))
+  const ci = (xs) => {
+    const [lo, hi] = bootstrap(xs, (r) => r.task, successRate('success'))
+    return `[${pct(lo)}, ${pct(hi)}]`
+  }
   const tasks = [...new Set(rows.map((r) => r.task))]
-  console.log(`\nHidden acceptance tests passed (${ANSWER_MODEL} as the agent; history pruned to ${BUDGET * 100}% except full / goal-only)\n`)
-  console.log(`  ${'condition'.padEnd(20)}${'all'.padStart(8)}${'en'.padStart(8)}${'ja'.padStart(8)}${'turns'.padStart(8)}${'$/run'.padStart(8)}   ${tasks.map((t) => t.slice(0, 10).padStart(11)).join('')}`)
+  console.log(`\nHidden acceptance tests passed (${ANSWER_MODEL} as the agent; history pruned to ${BUDGET * 100}% except full / goal-only; 95% intervals resample tasks)\n`)
+  console.log(`  ${'condition'.padEnd(20)}${'all'.padStart(6)}${'95% CI'.padStart(13)}${'en'.padStart(7)}${'ja'.padStart(7)}${'turns'.padStart(7)}   ${tasks.map((t) => t.slice(0, 9).padStart(10)).join('')}`)
   for (const c of conditions) {
     const rs = rows.filter((r) => r.condition === c)
-    const mean = (f) => rs.reduce((s, r) => s + f(r), 0) / rs.length
-    const costs = rs.filter((r) => typeof r.costUsd === 'number')
+    const turns = rs.reduce((s, r) => s + r.turns, 0) / rs.length
     console.log(
-      `  ${c.padEnd(20)}${pct(rs).padStart(8)}${pct(rs.filter((r) => r.language === 'en')).padStart(8)}${pct(rs.filter((r) => r.language === 'ja')).padStart(8)}` +
-        `${mean((r) => r.turns).toFixed(1).padStart(8)}${(costs.length ? `$${(costs.reduce((s, r) => s + r.costUsd, 0) / costs.length).toFixed(3)}` : '-').padStart(8)}   ${tasks.map((t) => pct(rs.filter((r) => r.task === t)).padStart(11)).join('')}`,
+      `  ${c.padEnd(20)}${rate(rs)}${ci(rs).padStart(13)}${rate(rs.filter((r) => r.language === 'en')).padStart(7)}${rate(rs.filter((r) => r.language === 'ja')).padStart(7)}` +
+        `${turns.toFixed(1).padStart(7)}   ${tasks.map((t) => rate(rs.filter((r) => r.task === t)).padStart(10)).join('')}`,
     )
+  }
+  const jevLike = conditions.filter((c) => c.startsWith('jev'))
+  const others = conditions.filter((c) => /^(recency|keywords)/.test(c))
+  if (jevLike.length && others.length) {
+    console.log('\n  Differences in tasks passed (same tasks resampled together):')
+    for (const a of jevLike) {
+      for (const b of others) {
+        const both = rows.filter((r) => r.condition === a || r.condition === b)
+        const diff = rateDifference('success', (r) => r.condition === a, (r) => r.condition === b)
+        const [lo, hi] = bootstrap(both, (r) => r.task, diff)
+        const signed = (x) => `${x >= 0 ? '+' : ''}${Math.round(x * 100)}`
+        console.log(`    ${`${a} − ${b}`.padEnd(40)}${signed(diff(both)).padStart(5)} pp   [${signed(lo)}, ${signed(hi)}]`)
+      }
+    }
   }
 }
 
@@ -172,7 +98,7 @@ if (args.report) {
   process.exit(0)
 }
 
-const taskNames = readdirSync(tasksDir).filter((d) => statSync(join(tasksDir, d)).isDirectory() && (!args.task || d.startsWith(args.task)))
+const taskNames = readdirSync(tasksDir).filter((d) => statSync(join(tasksDir, d)).isDirectory() && (!args.task || args.task.split(',').some((p) => d.startsWith(p))))
 
 if (args.selftest) {
   let ok = true
@@ -214,49 +140,7 @@ const client = new Anthropic()
 const spend = createSpend(maxUsd)
 const limit = createLimiter(5)
 
-async function runAgent(task, history, fixPrompt) {
-  const { work, repo } = freshRepo(task)
-  const runTool = workspaceTools(task, repo)
-  const last = history[history.length - 1]
-  const messages =
-    last.role === 'user'
-      ? [...history.slice(0, -1), { role: 'user', content: [...(typeof last.content === 'string' ? [{ type: 'text', text: last.content }] : last.content), { type: 'text', text: fixPrompt }] }]
-      : [...history, { role: 'user', content: fixPrompt }]
-  let costUsd = 0
-  let turns = 0
-  let toolCalls = 0
-  let stoppedBy = 'max_turns'
-  let finalText = ''
-  try {
-    while (turns < maxTurns) {
-      spend.check()
-      turns++
-      const response = await limit(() =>
-        client.messages.create({
-          model: ANSWER_MODEL,
-          max_tokens: 8000,
-          system: `You are a coding agent working in the repository at /workspace/${task}. Use the tools to do what the user asks, then reply with a short summary and stop.`,
-          tools: TOOLS,
-          messages: withCacheBreakpoint(messages),
-        }),
-      )
-      spend.record(ANSWER_MODEL, response.usage)
-      costUsd += costOf(ANSWER_MODEL, response.usage)
-      messages.push({ role: 'assistant', content: response.content })
-      finalText = response.content.filter((b) => b.type === 'text').map((b) => b.text).join('\n').slice(0, 2000)
-      const uses = response.content.filter((b) => b.type === 'tool_use')
-      if (response.stop_reason !== 'tool_use' || uses.length === 0) {
-        stoppedBy = response.stop_reason
-        break
-      }
-      toolCalls += uses.length
-      messages.push({ role: 'user', content: uses.map((u) => ({ type: 'tool_result', tool_use_id: u.id, ...runTool(u.name, u.input) })) })
-    }
-    return { ...grade(task, repo), turns, toolCalls, stoppedBy, finalText, costUsd }
-  } finally {
-    rmSync(work, { recursive: true, force: true })
-  }
-}
+const runAgent = createAgentRunner({ client, spend, limit, model: ANSWER_MODEL, maxTurns })
 
 const rows = []
 try {

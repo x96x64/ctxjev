@@ -38,7 +38,8 @@ const replacements = [
   [homedir(), '/home/dev'],
   [new RegExp(`-Users-${user}\\b`, 'g'), '-home-dev'],
   [new RegExp(`\\b${user}\\b`, 'g'), 'dev'],
-  [/[\w.+-]+@(?!example\.com\b)[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}\b/g, 'dev@example.com'],
+  // Addresses at the reserved example domains (RFC 2606) are the task repos' own fictional data.
+  [/[\w.+-]+@(?!(?:[\w-]+\.)*example\.(?:com|net|org)\b)[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}\b/g, 'dev@example.com'],
   // Claude Code saves oversized tool output under a directory named after the escaped cwd.
   [/\.claude\/projects\/[^/\s]+\//g, `.claude/projects/-workspace-${task}/`],
 ]

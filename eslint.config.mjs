@@ -2,7 +2,8 @@ import js from '@eslint/js'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  { ignores: ['**/dist/**', '**/node_modules/**', '.claude/**'] },
+  // examples/eval-tasks holds deliberately buggy throwaway repos, not project code.
+  { ignores: ['**/dist/**', '**/node_modules/**', '.claude/**', 'examples/eval-tasks/*/template/**', 'examples/eval-tasks/*/solution/**', 'examples/eval-tasks/*/hidden/**'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

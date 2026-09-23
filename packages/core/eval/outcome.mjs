@@ -24,7 +24,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 import Anthropic from '@anthropic-ai/sdk'
-import { ANSWER_MODEL, JUDGE_MODEL, SpendLimitError, createLimiter, createSpend, firstText, pruneTo, rankings, withCacheBreakpoint } from './lib.mjs'
+import { ANSWER_MODEL, JUDGE_MODEL, SpendLimitError, bootstrap, createLimiter, createQA, createSpend, pruneTo, rankings, rateDifference, successRate } from './lib.mjs'
 
 const BUDGETS = [0.25, 0.5]
 
@@ -51,11 +51,26 @@ function printTable(rows, header) {
     ['en', (r) => r.language === 'en'],
     ['ja', (r) => r.language === 'ja'],
   ]
+  const interval = (rs) => {
+    const [lo, hi] = bootstrap(rs, (r) => r.session, successRate('correct'))
+    return `[${(lo * 100).toFixed(0)}, ${(hi * 100).toFixed(0)}]`
+  }
   console.log(`\n${header}\n`)
-  console.log(`  ${'condition'.padEnd(18)}${columns.map(([name]) => name.padStart(10)).join('')}`)
+  console.log(`  ${'condition'.padEnd(18)}${columns.map(([name]) => name.padStart(10)).join('')}${'95% CI (all)'.padStart(15)}`)
   for (const [label, [strategy, budget]] of cells) {
     const rs = rows.filter((r) => r.strategy === strategy && r.budget === budget)
-    console.log(`  ${label.padEnd(18)}${columns.map(([, keep]) => pct(rate(rs.filter(keep))).padStart(10)).join('')}`)
+    console.log(`  ${label.padEnd(18)}${columns.map(([, keep]) => pct(rate(rs.filter(keep))).padStart(10)).join('')}${interval(rs).padStart(15)}`)
+  }
+  console.log('\n  Jev minus each alternative, same sessions resampled together (percentage points, 95% CI):')
+  for (const budget of [...new Set(rows.map((r) => r.budget))].filter((b) => b > 0 && b < 1)) {
+    for (const other of ['recency', 'keywords']) {
+      const both = rows.filter((r) => r.budget === budget && (r.strategy === 'jev' || r.strategy === other))
+      if (!both.some((r) => r.strategy === other)) continue
+      const diff = rateDifference('correct', (r) => r.strategy === 'jev', (r) => r.strategy === other)
+      const [lo, hi] = bootstrap(both, (r) => r.session, diff)
+      const signed = (x) => `${x >= 0 ? '+' : ''}${(x * 100).toFixed(0)}`
+      console.log(`    @${budget * 100}% jev − ${other.padEnd(9)}${signed(diff(both)).padStart(5)}   [${signed(lo)}, ${signed(hi)}]`)
+    }
   }
 }
 
@@ -84,63 +99,10 @@ const spend = createSpend(maxUsd)
 const limit = createLimiter(5)
 const sessionsDir = join(dirname(fileURLToPath(import.meta.url)), '../../../examples/eval-sessions')
 const sessions = readdirSync(sessionsDir)
-  .filter((f) => f.endsWith('.json') && (!args.session || f.startsWith(args.session)))
+  .filter((f) => f.endsWith('.json') && (!args.session || args.session.split(',').some((p) => f.startsWith(p))))
   .map((f) => ({ name: f, ...JSON.parse(readFileSync(join(sessionsDir, f), 'utf8')) }))
 
-// Histories carry tool_use blocks, so the request declares those tools, but never lets the model call one.
-function toolsFor(messages) {
-  const names = new Set()
-  for (const m of messages) if (Array.isArray(m.content)) for (const b of m.content) if (b.type === 'tool_use') names.add(b.name)
-  return [...names].sort().map((name) => ({ name, description: `The ${name} tool used earlier in this session.`, input_schema: { type: 'object', additionalProperties: true } }))
-}
-
-async function call(model, params) {
-  spend.check()
-  const response = await limit(() => client.messages.create({ model, ...params }))
-  spend.record(model, response.usage)
-  return response
-}
-
-// Without the note, a model primed by a tool-heavy session sometimes answers with a tool call,
-// which tool_choice "none" strips to an empty reply; the first run lost 8% of its answers that way.
-const PLAIN_TEXT_NOTE = '\n\n(Answer in plain text from the conversation above. No tools are available for this question.)'
-
-async function answer(history, question) {
-  const reply = await ask(history, `${question}${PLAIN_TEXT_NOTE}`)
-  return reply || ask(history, `${question}${PLAIN_TEXT_NOTE} Do not call any tool; write the answer.`)
-}
-
-async function ask(history, question) {
-  const tools = toolsFor(history)
-  const response = await call(ANSWER_MODEL, {
-    max_tokens: 400,
-    temperature: 0,
-    system:
-      'The conversation above is a coding session. The last message is a question about it, not a request to continue the work: ' +
-      'do not propose next steps or ask to look at code. Answer using only what the conversation shows, in one or two sentences, ' +
-      'in the language of the question. If the conversation does not say, reply exactly "NOT IN CONTEXT".',
-    ...(tools.length > 0 && { tools, tool_choice: { type: 'none' } }),
-    messages: [...withCacheBreakpoint(history), { role: 'user', content: question }],
-  })
-  return firstText(response)
-}
-
-async function judge(probe, reply) {
-  const response = await call(JUDGE_MODEL, {
-    max_tokens: 2000,
-    output_config: { effort: 'low' },
-    messages: [
-      {
-        role: 'user',
-        content:
-          `Question: ${probe.question}\nReference fact: ${probe.fact}\nAnswer to grade: ${reply}\n\n` +
-          'Does the answer state the reference fact, including its key specifics, without contradicting it? ' +
-          'An answer that says the information is missing is NO. Reply with exactly YES or NO.',
-      },
-    ],
-  })
-  return /^\s*YES\b/i.test(firstText(response))
-}
+const { answer, judge } = createQA({ client, spend, limit })
 
 async function conditionsFor(session) {
   const ranked = await rankings(session.messages, session.goal)

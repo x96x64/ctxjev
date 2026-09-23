@@ -95,3 +95,98 @@ export async function pruneTo(messages, goal, ranking, strategy, budget, extra =
   })
   return pruned
 }
+
+function seededRandom(seed) {
+  return () => {
+    seed = (seed + 0x6d2b79f5) | 0
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+/**
+ * 95% bootstrap interval for `stat(rows)`, resampling whole clusters (a task or a session) rather
+ * than single rows: runs of the same task aren't independent, and treating them as if they were
+ * would make the interval look tighter than the evidence is. Seeded, so reruns print the same.
+ */
+export function bootstrap(rows, clusterOf, stat, resamples = 5000) {
+  const clusters = [...Map.groupBy(rows, clusterOf).values()]
+  const random = seededRandom(20260923)
+  const values = []
+  for (let i = 0; i < resamples; i++) {
+    const sample = Array.from({ length: clusters.length }, () => clusters[Math.floor(random() * clusters.length)]).flat()
+    const v = stat(sample)
+    if (!Number.isNaN(v)) values.push(v)
+  }
+  values.sort((a, b) => a - b)
+  return [values[Math.floor(values.length * 0.025)], values[Math.floor(values.length * 0.975)]]
+}
+
+export const successRate = (key) => (rows) => (rows.length === 0 ? NaN : rows.filter((r) => r[key]).length / rows.length)
+
+/** Mean of `key` under condition a minus under condition b, within the same resampled clusters. */
+export const rateDifference = (key, isA, isB) => (rows) => successRate(key)(rows.filter(isA)) - successRate(key)(rows.filter(isB))
+
+/**
+ * Answering a probe question from a (possibly pruned) conversation, and grading the answer against
+ * the probe's fact. Shared by outcome.mjs and plugin.mjs so both ask and grade the same way.
+ */
+export function createQA({ client, spend, limit }) {
+  // Histories carry tool_use blocks, so the request declares those tools, but never lets the model call one.
+  function toolsFor(messages) {
+    const names = new Set()
+    for (const m of messages) if (Array.isArray(m.content)) for (const b of m.content) if (b.type === 'tool_use') names.add(b.name)
+    return [...names].sort().map((name) => ({ name, description: `The ${name} tool used earlier in this session.`, input_schema: { type: 'object', additionalProperties: true } }))
+  }
+
+  async function call(model, params) {
+    spend.check()
+    const response = await limit(() => client.messages.create({ model, ...params }))
+    spend.record(model, response.usage)
+    return response
+  }
+
+  // Without the note, a model primed by a tool-heavy session sometimes answers with a tool call,
+  // which tool_choice "none" strips to an empty reply; the first run lost 8% of its answers that way.
+  const PLAIN_TEXT_NOTE = '\n\n(Answer in plain text from the conversation above. No tools are available for this question.)'
+
+  async function answer(history, question) {
+    const reply = await ask(history, `${question}${PLAIN_TEXT_NOTE}`)
+    return reply || ask(history, `${question}${PLAIN_TEXT_NOTE} Do not call any tool; write the answer.`)
+  }
+
+  async function ask(history, question) {
+    const tools = toolsFor(history)
+    const response = await call(ANSWER_MODEL, {
+      max_tokens: 400,
+      temperature: 0,
+      system:
+        'The conversation above is a coding session. The last message is a question about it, not a request to continue the work: ' +
+        'do not propose next steps or ask to look at code. Answer using only what the conversation shows, in one or two sentences, ' +
+        'in the language of the question. If the conversation does not say, reply exactly "NOT IN CONTEXT".',
+      ...(tools.length > 0 && { tools, tool_choice: { type: 'none' } }),
+      messages: [...withCacheBreakpoint(history), { role: 'user', content: question }],
+    })
+    return firstText(response)
+  }
+
+  async function judge(probe, reply) {
+    const response = await call(JUDGE_MODEL, {
+      max_tokens: 2000,
+      output_config: { effort: 'low' },
+      messages: [
+        {
+          role: 'user',
+          content:
+            `Question: ${probe.question}\nReference fact: ${probe.fact}\nAnswer to grade: ${reply}\n\n` +
+            'Does the answer state the reference fact, including its key specifics, without contradicting it? ' +
+            'An answer that says the information is missing is NO. Reply with exactly YES or NO.',
+        },
+      ],
+    })
+    return /^\s*YES\b/i.test(firstText(response))
+  }
+
+  return { answer, judge }
+}
