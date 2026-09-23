@@ -6,8 +6,9 @@
  * Two measures, per scorer:
  * - drop accuracy by recencyWeight: does "drop vs. not drop" at the default thresholds match the
  *   labels? (Each fixture is scored once; every weight is evaluated locally from those scores.)
- * - precision@5 at the default weight: of the top 5 by combined score — what the Claude Code
- *   plugin re-injects after compaction — how many are actually labeled relevant?
+ * - top-K hits at the default weight: of the top K by combined score (K = 5, or fewer if the
+ *   fixture has fewer relevant entries) — what the Claude Code plugin re-injects after compaction —
+ *   how many are actually labeled relevant?
  *
  * The offline `local` scorer always runs, as a baseline. Jev runs too when TYPESAFE_API_KEY is set.
  *
@@ -60,9 +61,13 @@ for (const scorer of scorers) {
     }
 
     const w = DEFAULT_POLICY.recencyWeight
-    const topK = [...labeled].sort((a, b) => combine(b.relevance, b.recency, w) - combine(a.relevance, a.recency, w)).slice(0, TOP_K)
+    // Out of however many relevant entries could fit in the top K — a fixture with 2 relevant
+    // entries can't score better than 2/5, which would read as a failure rather than a ceiling.
+    const relevantCount = labeled.filter((s) => fixture.groundTruth[s.entryId]).length
+    const k = Math.min(TOP_K, relevantCount)
+    const topK = [...labeled].sort((a, b) => combine(b.relevance, b.recency, w) - combine(a.relevance, a.recency, w)).slice(0, k)
     const hits = topK.filter((s) => fixture.groundTruth[s.entryId]).length
-    console.log(`  ${fixture.name.padEnd(24)} precision@${TOP_K}=${hits}/${topK.length}   ${accuracies.join('  ')}`)
+    console.log(`  ${fixture.name.padEnd(24)} top-${k} hits=${hits}/${k}   ${accuracies.join('  ')}`)
   }
 
   console.log('  aggregate drop accuracy:')

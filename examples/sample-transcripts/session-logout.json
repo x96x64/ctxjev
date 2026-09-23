@@ -1,0 +1,229 @@
+{
+  "goal": "Users are being logged out at random while they're in the middle of using the app.",
+  "entries": [
+    {
+      "id": "s1",
+      "role": "user",
+      "content": "Users are being logged out at random while they're in the middle of using the app.",
+      "timestamp": 1758300001000
+    },
+    {
+      "id": "s2",
+      "role": "tool",
+      "toolName": "bash",
+      "content": "ran: git status — clean working tree",
+      "timestamp": 1758300002000
+    },
+    {
+      "id": "s3",
+      "role": "tool",
+      "toolName": "read",
+      "content": "read src/components/LogoutButton.tsx — styling for the log out button in the header",
+      "timestamp": 1758300003000
+    },
+    {
+      "id": "s4",
+      "role": "tool",
+      "toolName": "read",
+      "content": "read src/app/layout.tsx — app shell, top nav, and footer",
+      "timestamp": 1758300004000
+    },
+    {
+      "id": "s5",
+      "role": "tool",
+      "toolName": "bash",
+      "content": "ran: grep -rn 'random' src — only Math.random in the confetti animation",
+      "timestamp": 1758300005000
+    },
+    {
+      "id": "s6",
+      "role": "tool",
+      "toolName": "read",
+      "content": "read src/users/avatar.ts — user avatar upload and resizing",
+      "timestamp": 1758300006000
+    },
+    {
+      "id": "s7",
+      "role": "tool",
+      "toolName": "bash",
+      "content": "ran: tail server access log — 401 responses spike on /api/* about 15 minutes after each sign-in, then the client redirects to /signin",
+      "timestamp": 1758300007000
+    },
+    {
+      "id": "s8",
+      "role": "tool",
+      "toolName": "read",
+      "content": "read package.json — react, express, jsonwebtoken, vitest",
+      "timestamp": 1758300008000
+    },
+    {
+      "id": "s9",
+      "role": "tool",
+      "toolName": "read",
+      "content": "read docs/user-guide.md — how users change their display name in the app",
+      "timestamp": 1758300009000
+    },
+    {
+      "id": "s10",
+      "role": "tool",
+      "toolName": "read",
+      "content": "read src/auth/token.ts — access token lifetime is 15 minutes; renewal happens lazily on the first 401",
+      "timestamp": 1758300010000
+    },
+    {
+      "id": "s11",
+      "role": "tool",
+      "toolName": "read",
+      "content": "read src/app/analytics.ts — tracks page views while users are in the middle of checkout",
+      "timestamp": 1758300011000
+    },
+    {
+      "id": "s12",
+      "role": "tool",
+      "toolName": "bash",
+      "content": "ran: npm install — added 388 packages",
+      "timestamp": 1758300012000
+    },
+    {
+      "id": "s13",
+      "role": "tool",
+      "toolName": "read",
+      "content": "read src/auth/refresh.ts — the refresh endpoint rotates the refresh token and invalidates the previous one immediately",
+      "timestamp": 1758300013000
+    },
+    {
+      "id": "s14",
+      "role": "tool",
+      "toolName": "read",
+      "content": "read src/users/list.tsx — admin table of users, paginated",
+      "timestamp": 1758300014000
+    },
+    {
+      "id": "s15",
+      "role": "tool",
+      "toolName": "bash",
+      "content": "ran: npm run lint — 0 errors",
+      "timestamp": 1758300015000
+    },
+    {
+      "id": "s16",
+      "role": "tool",
+      "toolName": "grep",
+      "content": "grep 'clearCredentials' src — called from the 403 handler in src/api/client.ts",
+      "timestamp": 1758300016000
+    },
+    {
+      "id": "s17",
+      "role": "tool",
+      "toolName": "bash",
+      "content": "ran: npm run build — app bundle is 412kb",
+      "timestamp": 1758300017000
+    },
+    {
+      "id": "s18",
+      "role": "tool",
+      "toolName": "bash",
+      "content": "ran: opened two tabs, waited 15 minutes, clicked in both — the second tab's refresh gets 403 'refresh token reused', which clears credentials and bounces to /signin",
+      "timestamp": 1758300018000
+    },
+    {
+      "id": "s19",
+      "role": "tool",
+      "toolName": "read",
+      "content": "read CHANGELOG.md — 'app: new onboarding flow for users'",
+      "timestamp": 1758300019000
+    },
+    {
+      "id": "s20",
+      "role": "tool",
+      "toolName": "bash",
+      "content": "ran: docker ps — api and postgres containers running",
+      "timestamp": 1758300020000
+    },
+    {
+      "id": "s21",
+      "role": "assistant",
+      "content": "Two tabs race to renew with the same token. Rotation invalidates it on first use, so the second renewal fails and the client treats that as a revoked credential.",
+      "timestamp": 1758300021000
+    },
+    {
+      "id": "s22",
+      "role": "tool",
+      "toolName": "read",
+      "content": "read src/app/theme.ts — light and dark color tokens",
+      "timestamp": 1758300022000
+    },
+    {
+      "id": "s23",
+      "role": "tool",
+      "toolName": "bash",
+      "content": "ran: git log --oneline -5 — recent commits about the onboarding copy",
+      "timestamp": 1758300023000
+    },
+    {
+      "id": "s24",
+      "role": "tool",
+      "toolName": "edit",
+      "content": "edited src/auth/refresh.ts — accept the previous refresh token for a 30-second grace window after rotation",
+      "timestamp": 1758300024000
+    },
+    {
+      "id": "s25",
+      "role": "tool",
+      "toolName": "read",
+      "content": "read src/users/settings.tsx — notification preferences form",
+      "timestamp": 1758300025000
+    },
+    {
+      "id": "s26",
+      "role": "tool",
+      "toolName": "bash",
+      "content": "ran: npm test -- auth.test.ts — new concurrent-renewal test passes",
+      "timestamp": 1758300026000
+    },
+    {
+      "id": "s27",
+      "role": "tool",
+      "toolName": "bash",
+      "content": "ran: ls public — favicon, robots.txt, images/",
+      "timestamp": 1758300027000
+    },
+    {
+      "id": "s28",
+      "role": "tool",
+      "toolName": "read",
+      "content": "read .github/workflows/ci.yml — runs lint and test on node 22",
+      "timestamp": 1758300028000
+    }
+  ],
+  "groundTruth": {
+    "s1": true,
+    "s2": false,
+    "s3": false,
+    "s4": false,
+    "s5": false,
+    "s6": false,
+    "s7": true,
+    "s8": false,
+    "s9": false,
+    "s10": true,
+    "s11": false,
+    "s12": false,
+    "s13": true,
+    "s14": false,
+    "s15": false,
+    "s16": true,
+    "s17": false,
+    "s18": true,
+    "s19": false,
+    "s20": false,
+    "s21": true,
+    "s22": false,
+    "s23": false,
+    "s24": true,
+    "s25": false,
+    "s26": true,
+    "s27": false,
+    "s28": false
+  }
+}

@@ -5,7 +5,7 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 (`.claude-plugin/marketplace.json`, `packages/claude-plugin/.claude-plugin/plugin.json`,
 `plugins/ctxjev/plugin.json`). A bump in one is a bump in all, even when only one changed.
 
-## Unreleased
+## 0.2.0 — 2026-09-23
 
 **Breaking:** `SavingsReport.savedTokens` is replaced by `droppedTokens` and `summarizableTokens`.
 
@@ -30,6 +30,8 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
   `--offline`.
 - `ctxjev-core`: excerpts parsed from Claude Code transcripts are up to 600 characters (was 300).
 - README: leads with what each package actually does, and states the MCP server's limits up front.
+- Eval: two new labeled fixtures, an offline baseline, and a top-K metric. On the hard one, Jev puts
+  5 of 5 relevant entries in its top 5; keyword overlap puts 1.
 
 ## 0.1.12 — 2026-09-21
 

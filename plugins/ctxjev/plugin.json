@@ -1,6 +1,6 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "ctxjev",
-  "version": "0.1.12",
+  "version": "0.2.0",
   "description": "Score AI agent context for relevance with Jev, and prune what's no longer useful — score_relevance and prune_history as MCP tools."
 }

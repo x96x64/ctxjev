@@ -354,14 +354,20 @@ things that made the plugin less useful or less safe than it looked.
 - **Honest numbers.** Savings no longer count `summarize` as saved — the README's sample went from
   "39% saved" to the true 21% (plus a separate summarize-candidate figure).
 - **Scoring.** Every chunk sees the batch's latest activity (cross-chunk supersession); an offline
-  keyword scorer works with no key, labeled wherever it's used; the eval gained a 60-entry fixture,
-  precision@5, and an offline baseline.
+  keyword scorer works with no key, labeled wherever it's used; the eval gained two new fixtures,
+  a top-K metric, and an offline baseline.
 - **Positioning.** The README leads with what each package actually does. The MCP server's
   structural limit (it can't change host context, and sending history as tool arguments costs the
   host model tokens) is stated up front rather than implied away.
 - **Process.** CI fails if the committed plugin bundle is stale; release policy lives in
   `CLAUDE.md`; the CHANGELOG is one line per change.
 
-**Still open:** the Jev side of the new eval, and a live run of the updated scoring prompt, need a
-`TYPESAFE_API_KEY` — see CHANGELOG 0.2.0.
+**What the eval found:** with the offline baseline in place, Jev and keyword overlap *tied* on
+all three existing fixtures (61/73 each) — those fixtures' relevant entries reuse the goal's own
+words, so they couldn't show whether Jev adds anything. A fourth fixture,
+`session-logout.json`, describes the real cause without any of the goal's words and fills the
+distractors with them: keyword overlap got 1 of its top 5 right, Jev got 5 of 5, and aggregate
+drop accuracy is 83% (Jev) vs. 78% (keywords) over 101 labels. `recencyWeight = 0.1` held up
+again: Jev ties from 0 to 0.1 and degrades from 0.2. The live regression test (never drop an entry
+labeled relevant) passes on all four fixtures with the new chunk-context prompt.
 

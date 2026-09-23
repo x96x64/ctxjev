@@ -325,10 +325,14 @@ exact call lives in [`server.live.test.ts`](packages/mcp-server/src/server.live.
   one of them deliberately adversarial: a root-cause entry that's both early and critical. Accuracy
   tied from `w=0` to `w=0.2`, but the adversarial fixture started degrading at `w=0.2`, so `0.1`
   sits on the safe side. [`recencyWeight.live.test.ts`](packages/core/src/recencyWeight.live.test.ts)
-  keeps that as a regression test. The eval now also covers a 60-entry fixture that spans two
-  chunks and includes a ruled-out hypothesis, reports precision@5 (the plugin's actual output),
-  and always runs the offline scorer as a baseline that Jev has to beat. The drop/summarize
-  thresholds keep their original, untuned defaults until there's more labeled data.
+  keeps that as a regression test. The drop/summarize thresholds keep their original, untuned
+  defaults until there's more labeled data.
+- **Jev has to beat a keyword baseline, and does — where it matters.** The eval always runs the
+  offline scorer alongside Jev. On fixtures whose relevant entries share the goal's words, the two
+  tie. On [`session-logout.json`](examples/sample-transcripts/session-logout.json), where the real
+  cause (a token-renewal race) never uses the goal's words and the distractors do ("user", "app",
+  "log out"), keyword overlap put 1 relevant entry in its top 5 and Jev put 5. Across all four
+  fixtures (101 labels), drop accuracy at the default weight is 83% for Jev and 78% for keywords.
 - **Token counts are computed, not judged.** [`tokenEstimate.ts`](packages/core/src/tokenEstimate.ts)
   uses a real tokenizer, [`gpt-tokenizer`](https://www.npmjs.com/package/gpt-tokenizer), since Jev
   is explicitly bad at arithmetic and this project never asks it to count anything.
