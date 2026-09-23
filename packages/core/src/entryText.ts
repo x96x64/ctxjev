@@ -15,9 +15,15 @@ export function truncate(text: string, max: number = MAX_CONTENT_LENGTH): string
 // not a description of the work.
 const MIN_SUBSTANTIVE_LENGTH = 20
 
+// CJK packs roughly twice the meaning per character as English, so each wide character counts
+// double — otherwise "ログイン画面のバグを直して" (13 chars) would read as an acknowledgment.
+const WIDE_CHAR = /[\p{sc=Han}\p{sc=Hiragana}\p{sc=Katakana}\p{sc=Hangul}　-〿＀-￯]/gu
+
 /** Whether a user message says something on its own, rather than acknowledging what came before. */
 export function isSubstantiveMessage(text: string): boolean {
-  return text.trim().length >= MIN_SUBSTANTIVE_LENGTH
+  const trimmed = text.trim()
+  const wide = trimmed.match(WIDE_CHAR)?.length ?? 0
+  return [...trimmed].length + wide >= MIN_SUBSTANTIVE_LENGTH
 }
 
 /** Masked before it's cut, so a secret straddling the cut can't survive as a partial match. */

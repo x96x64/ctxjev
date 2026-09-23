@@ -276,6 +276,15 @@ describe('inferGoalFromEntries', () => {
     expect(inferGoalFromEntries(parseClaudeCodeTranscript(jsonl))).toBe('Users are being logged out at random mid-session.')
   })
 
+  it('treats a short Japanese instruction as substantive, but not a Japanese acknowledgment', () => {
+    const jsonl = [
+      record({ type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: 'ログイン画面のバグを直して' } }),
+      record({ type: 'assistant', uuid: 'a1', timestamp: '2026-01-01T00:00:01.000Z', message: { role: 'assistant', content: [{ type: 'text', text: '猶予期間を追加しますか？' }] } }),
+      record({ type: 'user', uuid: 'u2', timestamp: '2026-01-01T00:00:02.000Z', message: { role: 'user', content: 'はい、お願いします' } }),
+    ].join('\n')
+    expect(inferGoalFromEntries(parseClaudeCodeTranscript(jsonl))).toBe('ログイン画面のバグを直して')
+  })
+
   it('falls back to a short message when nothing longer exists', () => {
     const jsonl = record({ type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: 'fix the bug' } })
     expect(inferGoalFromEntries(parseClaudeCodeTranscript(jsonl))).toBe('fix the bug')
