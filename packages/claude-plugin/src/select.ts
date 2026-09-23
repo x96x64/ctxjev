@@ -1,4 +1,4 @@
-import { scoreEntries, type Entry, type ScoredEntry } from 'ctxjev-core'
+import { DEFAULT_POLICY, scoreEntries, type Entry, type ScoredEntry } from 'ctxjev-core'
 
 export type SelectedEntry = ScoredEntry & { content: string }
 
@@ -14,18 +14,21 @@ export async function selectPreserved(entries: Entry[], goal: string, limit = DE
   if (entries.length === 0) return []
 
   const scored = await scoreEntries(entries, goal, undefined, { scorer })
-  return rankForPreservation(scored, entries, goal, limit)
+  // Jev's probabilities share pruneContext's scale, so anything it would drop doesn't earn a slot
+  // either. Keyword overlap isn't on that scale — any overlap at all is its only meaningful bar.
+  const minRelevance = scorer === 'jev' ? DEFAULT_POLICY.dropBelow : Number.MIN_VALUE
+  return rankForPreservation(scored, entries, goal, limit, minRelevance)
 }
 
 /**
  * Leaves out the message the goal came from (the reminder's header already shows it), and anything
- * with zero relevance, which shouldn't take a slot just for being recent.
+ * below `minRelevance`, which shouldn't take a slot just for being recent.
  */
-export function rankForPreservation(scored: ScoredEntry[], entries: Entry[], goal: string, limit: number): SelectedEntry[] {
+export function rankForPreservation(scored: ScoredEntry[], entries: Entry[], goal: string, limit: number, minRelevance: number): SelectedEntry[] {
   const contentByEntryId = new Map(entries.map((e) => [e.id, e.content]))
   return scored
     .map((s) => ({ ...s, content: contentByEntryId.get(s.entryId) ?? '' }))
-    .filter((s) => s.relevance > 0 && s.content.trim() !== goal.trim())
+    .filter((s) => s.relevance >= minRelevance && s.content.trim() !== goal.trim())
     .sort((a, b) => b.combinedScore - a.combinedScore)
     .slice(0, limit)
 }

@@ -50,7 +50,7 @@ async function run(cwd: string, transcriptPath: string | undefined): Promise<Omi
   const limit = preserveLimitFromEnv(process.env.CTXJEV_PRESERVE_LIMIT)
   const { selected, scorer, note } = await scoreForPreservation(entries, resolved.goal, limit)
   const info = { goal: resolved.goal, goalSource: resolved.source, ignoredStaleGoal: resolved.ignoredStaleGoal, entriesScored: entries.length, scorer, note }
-  if (selected.length === 0) return { outcome: 'skipped', reason: 'nothing besides the goal itself to preserve', ...info }
+  if (selected.length === 0) return { outcome: 'skipped', reason: 'nothing scored relevant enough to preserve', ...info }
 
   await writePreservedContext(cwd, { goal: resolved.goal, scoredAt: new Date().toISOString(), scorer, entries: selected })
   return { outcome: 'preserved', preserved: selected.length, ...info }

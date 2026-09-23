@@ -161,6 +161,26 @@ describe('parseClaudeCodeTranscript', () => {
     expect(parseClaudeCodeTranscript(jsonl)).toEqual([])
   })
 
+  it('keeps both the head and the tail of long tool output, where a summary line usually is', () => {
+    const output = `running 200 tests ${'. '.repeat(600)} 198 passed, 2 failed: charge.test.ts`
+    const jsonl = [
+      record({ type: 'assistant', uuid: 'a1', timestamp: '2026-01-01T00:00:01.000Z', message: { role: 'assistant', content: [{ type: 'tool_use', id: 'c1', name: 'Bash', input: { command: 'npm test' } }] } }),
+      record({ type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:02.000Z', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'c1', content: output }] } }),
+    ].join('\n')
+    const content = parseClaudeCodeTranscript(jsonl)[0].content
+    expect(content.startsWith('Bash(npm test): running 200 tests')).toBe(true)
+    expect(content.endsWith('198 passed, 2 failed: charge.test.ts')).toBe(true)
+    expect(content.length).toBeLessThanOrEqual(600)
+  })
+
+  it('marks a failed tool call as an error', () => {
+    const jsonl = [
+      record({ type: 'assistant', uuid: 'a1', timestamp: '2026-01-01T00:00:01.000Z', message: { role: 'assistant', content: [{ type: 'tool_use', id: 'c1', name: 'Bash', input: { command: 'npm run build' } }] } }),
+      record({ type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:02.000Z', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'c1', is_error: true, content: 'exit code 1' }] } }),
+    ].join('\n')
+    expect(parseClaudeCodeTranscript(jsonl)[0].content).toBe('Bash(npm run build) [error]: exit code 1')
+  })
+
   it('masks secrets in parsed content', () => {
     const jsonl = record({ type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: 'use TYPESAFE_API_KEY=abc123def456ghi please' } })
     expect(parseClaudeCodeTranscript(jsonl)[0].content).toBe('use TYPESAFE_API_KEY=[REDACTED] please')
@@ -245,6 +265,20 @@ describe('inferGoalFromEntries', () => {
     ].join('\n')
 
     expect(inferGoalFromEntries(parseClaudeCodeTranscript(jsonl))).toBe('/deploy the hotfix now')
+  })
+
+  it('skips a short acknowledgment in favor of the last message that describes the work', () => {
+    const jsonl = [
+      record({ type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: 'Users are being logged out at random mid-session.' } }),
+      record({ type: 'assistant', uuid: 'a1', timestamp: '2026-01-01T00:00:01.000Z', message: { role: 'assistant', content: [{ type: 'text', text: 'Want me to add a grace window?' }] } }),
+      record({ type: 'user', uuid: 'u2', timestamp: '2026-01-01T00:00:02.000Z', message: { role: 'user', content: 'yes, go ahead' } }),
+    ].join('\n')
+    expect(inferGoalFromEntries(parseClaudeCodeTranscript(jsonl))).toBe('Users are being logged out at random mid-session.')
+  })
+
+  it('falls back to a short message when nothing longer exists', () => {
+    const jsonl = record({ type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: 'fix the bug' } })
+    expect(inferGoalFromEntries(parseClaudeCodeTranscript(jsonl))).toBe('fix the bug')
   })
 
   it('returns undefined when every user entry is a slash command', () => {

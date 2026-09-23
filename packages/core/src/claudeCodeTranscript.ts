@@ -59,6 +59,16 @@ function excerpt(text: string): string {
   return truncate(redactSecrets(text))
 }
 
+// Tool output keeps its head *and* tail: a test run's summary line or an error's final message is
+// usually at the end, exactly what a head-only cut throws away.
+function toolExcerpt(text: string, max: number = MAX_CONTENT_LENGTH): string {
+  const oneLine = redactSecrets(text).replace(/\s+/g, ' ').trim()
+  if (oneLine.length <= max) return oneLine
+  const headLength = Math.ceil(max * 0.6)
+  const tailLength = max - headLength - 3
+  return `${oneLine.slice(0, headLength)} … ${oneLine.slice(-tailLength)}`
+}
+
 function toolResultText(content: string | Array<{ type: string; text?: string }>): string {
   if (typeof content === 'string') return content
   return content
@@ -167,7 +177,7 @@ export function parseClaudeCodeTranscript(jsonl: string): Entry[] {
           id: block.tool_use_id,
           role: 'tool',
           toolName: name,
-          content: excerpt(`${toolLabel(name, pending?.input)}: ${resultText}`),
+          content: toolExcerpt(`${toolLabel(name, pending?.input)}${block.is_error ? ' [error]' : ''}: ${resultText}`),
           timestamp: pending?.timestamp ?? timestamp,
         })
       }
@@ -182,7 +192,7 @@ export function parseClaudeCodeTranscript(jsonl: string): Entry[] {
       id: toolUseId,
       role: 'tool',
       toolName: pending.name,
-      content: excerpt(`${toolLabel(pending.name, pending.input)}: (no result — tool call never completed)`),
+      content: toolExcerpt(`${toolLabel(pending.name, pending.input)}: (no result — tool call never completed)`),
       timestamp: pending.timestamp,
     })
   }
@@ -223,12 +233,17 @@ function isSlashCommand(content: string): boolean {
   return words.length === 1 && SLASH_COMMAND_TOKEN.test(words[0])
 }
 
+// Shorter than this, a message is usually an acknowledgment ("yes", "go ahead", "続けて"), not a
+// description of the work — a bad thing to score the whole session against.
+const MIN_GOAL_LENGTH = 20
+
 /**
- * The most recent real user chat message, as a fallback goal when none was set explicitly.
- * Skips slash-command invocations (`/compact`, `/ctxjev:status`, ...): `PreCompact` fires right
- * after one is run, so without this the "most recent user message" would almost always be the
- * command itself rather than anything describing what the session was actually about.
+ * A fallback goal when none was set explicitly: the most recent user message that actually
+ * describes something. Slash commands (`/compact`, ...) are skipped — `PreCompact` fires right
+ * after one — and so are short acknowledgments, unless nothing longer exists, in which case the
+ * most recent non-command message is still better than no goal at all.
  */
 export function inferGoalFromEntries(entries: Entry[]): string | undefined {
-  return [...entries].reverse().find((e) => e.role === 'user' && !isSlashCommand(e.content))?.content
+  const candidates = [...entries].reverse().filter((e) => e.role === 'user' && !isSlashCommand(e.content))
+  return (candidates.find((e) => e.content.trim().length >= MIN_GOAL_LENGTH) ?? candidates[0])?.content
 }

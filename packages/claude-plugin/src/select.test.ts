@@ -22,7 +22,7 @@ describe('selectPreserved', () => {
 
 describe('rankForPreservation', () => {
   it('ranks by combined score and carries each entry’s content', () => {
-    expect(rankForPreservation(scored, entries, 'something else', 5).map((s) => [s.entryId, s.content])).toEqual([
+    expect(rankForPreservation(scored, entries, 'something else', 5, Number.MIN_VALUE).map((s) => [s.entryId, s.content])).toEqual([
       ['goal', 'fix the double charge'],
       ['a', 'the retry handler re-charges'],
       ['b', 'unrelated listing'],
@@ -30,16 +30,21 @@ describe('rankForPreservation', () => {
   })
 
   it('leaves out the message the goal itself came from', () => {
-    expect(rankForPreservation(scored, entries, 'fix the double charge', 5).map((s) => s.entryId)).toEqual(['a', 'b'])
+    expect(rankForPreservation(scored, entries, 'fix the double charge', 5, Number.MIN_VALUE).map((s) => s.entryId)).toEqual(['a', 'b'])
   })
 
   it('respects the limit', () => {
-    expect(rankForPreservation(scored, entries, 'x', 1)).toHaveLength(1)
+    expect(rankForPreservation(scored, entries, 'x', 1, Number.MIN_VALUE)).toHaveLength(1)
   })
 
   it('leaves out entries with zero relevance, however recent', () => {
     const withZero: ScoredEntry[] = [...scored.slice(0, 2), { entryId: 'b', relevance: 0, recency: 1, combinedScore: 0.1 }]
-    expect(rankForPreservation(withZero, entries, 'x', 5).map((s) => s.entryId)).toEqual(['goal', 'a'])
+    expect(rankForPreservation(withZero, entries, 'x', 5, Number.MIN_VALUE).map((s) => s.entryId)).toEqual(['goal', 'a'])
+  })
+
+  it('leaves out entries below the minimum relevance, even when that leaves slots empty', () => {
+    // b's relevance (0.1) is below 0.25, even though recency pushes its combined score up
+    expect(rankForPreservation(scored, entries, 'x', 5, 0.25).map((s) => s.entryId)).toEqual(['goal', 'a'])
   })
 })
 
