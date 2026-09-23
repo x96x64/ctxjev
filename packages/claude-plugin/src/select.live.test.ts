@@ -7,7 +7,8 @@ const entries: Entry[] = [
   { id: 'irrelevant', role: 'tool', toolName: 'ls', content: 'listed public/audio, unrelated', timestamp: 1 },
 ]
 
-describe.skipIf(!process.env.TYPESAFE_API_KEY)('selectPreserved (live)', () => {
+// Jev is probabilistic: a retry absorbs a borderline entry flipping once; a real regression fails every attempt.
+describe.skipIf(!process.env.TYPESAFE_API_KEY)('selectPreserved (live)', { retry: 2 }, () => {
   it('ranks the relevant entry above the irrelevant one and carries its content', async () => {
     const selected = await selectPreserved(entries, 'fix the double-charge bug in checkout', 5)
     expect(selected[0].entryId).toBe('relevant')

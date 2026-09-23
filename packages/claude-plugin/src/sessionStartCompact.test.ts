@@ -51,9 +51,9 @@ describe('sessionStartCompact.js (dist)', () => {
   }, 10_000)
 
   it('prints the preserved context, framed as quoted excerpts rather than instructions', async () => {
-    await mkdir(join(cwd, '.ctxjev'), { recursive: true })
+    await mkdir(join(cwd, '.ctxjev', 'preserved'), { recursive: true })
     await writeFile(
-      join(cwd, '.ctxjev', 'preserved-context.json'),
+      join(cwd, '.ctxjev', 'preserved', 'sess-1.json'),
       JSON.stringify({
         goal: 'fix the bug',
         scoredAt: '2026-01-01T00:00:00.000Z',
@@ -62,7 +62,7 @@ describe('sessionStartCompact.js (dist)', () => {
       'utf8',
     )
 
-    const result = await run(JSON.stringify({ cwd }))
+    const result = await run(JSON.stringify({ cwd, session_id: 'sess-1' }))
     expect(result.exitCode).toBe(0)
     expect(result.stdout).toContain('fix the bug')
     expect(result.stdout).toContain('the actual fix')
@@ -71,14 +71,27 @@ describe('sessionStartCompact.js (dist)', () => {
   }, 10_000)
 
   it('says when the preserved context was scored offline', async () => {
-    await mkdir(join(cwd, '.ctxjev'), { recursive: true })
+    await mkdir(join(cwd, '.ctxjev', 'preserved'), { recursive: true })
     await writeFile(
-      join(cwd, '.ctxjev', 'preserved-context.json'),
+      join(cwd, '.ctxjev', 'preserved', 'sess-1.json'),
       JSON.stringify({ goal: 'g', scoredAt: '2026-01-01T00:00:00.000Z', scorer: 'local', entries: [{ entryId: 'a', relevance: 0.5, recency: 1, combinedScore: 0.55, content: 'x' }] }),
       'utf8',
     )
 
-    const result = await run(JSON.stringify({ cwd }))
+    const result = await run(JSON.stringify({ cwd, session_id: 'sess-1' }))
     expect(result.stdout).toContain('scored offline by keyword overlap')
+  }, 10_000)
+
+  it('never prints another session’s preserved context', async () => {
+    await mkdir(join(cwd, '.ctxjev', 'preserved'), { recursive: true })
+    await writeFile(
+      join(cwd, '.ctxjev', 'preserved', 'other-session.json'),
+      JSON.stringify({ goal: 'g', scoredAt: '2026-01-01T00:00:00.000Z', scorer: 'jev', entries: [{ entryId: 'a', relevance: 0.9, recency: 1, combinedScore: 0.9, content: 'x' }] }),
+      'utf8',
+    )
+
+    const result = await run(JSON.stringify({ cwd, session_id: 'this-session' }))
+    expect(result.exitCode).toBe(0)
+    expect(result.stdout).toBe('')
   }, 10_000)
 })

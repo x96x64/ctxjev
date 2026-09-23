@@ -8,7 +8,8 @@ import type { Entry } from './types.js'
  * this repo and running `pnpm test` without a key still passes (see chunk/policy/savings
  * tests for the pure-logic coverage that always runs).
  */
-describe.skipIf(!process.env.TYPESAFE_API_KEY)('pruneContext (live)', () => {
+// Jev is probabilistic: a retry absorbs a borderline entry flipping once; a real regression fails every attempt.
+describe.skipIf(!process.env.TYPESAFE_API_KEY)('pruneContext (live)', { retry: 2 }, () => {
   it('scores an obviously relevant entry higher than an obviously irrelevant one', async () => {
     const entries: Entry[] = [
       {

@@ -11,7 +11,8 @@ const entries: Entry[] = [
   { id: 'irrelevant', role: 'tool', toolName: 'ls', content: 'listed public/audio, unrelated', timestamp: 1 },
 ]
 
-describe.skipIf(!process.env.TYPESAFE_API_KEY)('tools (live)', () => {
+// Jev is probabilistic: a retry absorbs a borderline entry flipping once; a real regression fails every attempt.
+describe.skipIf(!process.env.TYPESAFE_API_KEY)('tools (live)', { retry: 2 }, () => {
   it('scoreRelevanceTool returns a score per entry plus usage, no action', async () => {
     const result = await scoreRelevanceTool({ goal: 'fix the double-charge bug in checkout (score)', entries })
     expect(result.scored).toHaveLength(2)

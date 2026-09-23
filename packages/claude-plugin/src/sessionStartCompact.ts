@@ -2,7 +2,7 @@
 import { readPreservedContext } from './preserve.js'
 import { readStdin } from './readStdin.js'
 
-type SessionStartInput = { cwd?: string }
+type SessionStartInput = { cwd?: string; session_id?: string }
 
 /**
  * Runs right after Claude Code finishes compacting (SessionStart, matcher "compact"). Reads
@@ -14,7 +14,7 @@ async function main() {
   const input: SessionStartInput = JSON.parse(await readStdin())
   if (!input.cwd) return
 
-  const preserved = await readPreservedContext(input.cwd)
+  const preserved = await readPreservedContext(input.cwd, input.session_id)
   if (!preserved || preserved.entries.length === 0) return
 
   // Entry content is a verbatim excerpt from before compaction, not something ctxjev authored —

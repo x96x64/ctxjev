@@ -5,7 +5,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/dist/preCompact.js\""
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/dist/preCompact.js\"",
+            "timeout": 60
           }
         ]
       }
@@ -16,7 +17,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/dist/sessionStartCompact.js\""
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/dist/sessionStartCompact.js\"",
+            "timeout": 10
           }
         ]
       }

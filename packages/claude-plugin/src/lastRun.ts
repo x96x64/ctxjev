@@ -10,6 +10,8 @@ import { ensureStateDir } from './stateDir.js'
  */
 export type LastRun = {
   at: string
+  /** Claude Code's session id — the preserved snapshot for this run is `.ctxjev/preserved/<sessionId>.json`. */
+  sessionId?: string
   outcome: 'preserved' | 'skipped' | 'error'
   reason?: string
   goal?: string

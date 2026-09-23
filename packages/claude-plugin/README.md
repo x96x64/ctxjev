@@ -90,7 +90,7 @@ Code itself runs in. Get one at
 [console.typesafe.ai/settings/keys](https://console.typesafe.ai/settings/keys) (no waitlist).
 Without it, the plugin falls back to scoring offline by keyword overlap: nothing is sent anywhere,
 and the reminder says it was scored offline. It's much cruder than Jev, and `/ctxjev:status` tells
-you why it fell back. The same fallback kicks in if a Jev request fails. A bug here can never block
+you why it fell back. The same fallback kicks in if a Jev request fails or takes more than 40 seconds. A bug here can never block
 your actual compaction. That's by design, not a side effect.
 
 The Claude Code desktop app doesn't inherit variables exported in your shell profile. If
@@ -112,7 +112,8 @@ leaves your machine.
   possible secret.
 - **Only short excerpts are sent**, not whole files or full tool output.
 - **The local cache stays out of git.** Scores and excerpts are written to `.ctxjev/` in your
-  project, which the plugin creates with its own `.gitignore` (`*`) so it can't be committed by
+  project, one file per session (so two sessions open on the same project never see each
+  other's), which the plugin creates with its own `.gitignore` (`*`) so it can't be committed by
   accident.
 - **Nothing is sent without a key.** With `TYPESAFE_API_KEY` unset, nothing leaves your machine.
 

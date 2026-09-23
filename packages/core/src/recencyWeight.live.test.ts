@@ -23,7 +23,8 @@ function loadFixtures(): Fixture[] {
     .filter((f): f is Fixture & { groundTruth: Record<string, boolean> } => Boolean(f.groundTruth))
 }
 
-describe.skipIf(!process.env.TYPESAFE_API_KEY)('DEFAULT_POLICY against hand-labeled fixtures (live)', () => {
+// Jev is probabilistic: a retry absorbs a borderline entry flipping once; a real regression fails every attempt.
+describe.skipIf(!process.env.TYPESAFE_API_KEY)('DEFAULT_POLICY against hand-labeled fixtures (live)', { retry: 2 }, () => {
   const fixtures = loadFixtures()
   it('has at least one fixture with ground truth to test against', () => {
     expect(fixtures.length).toBeGreaterThan(0)

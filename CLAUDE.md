@@ -44,8 +44,8 @@ node packages/cli/dist/index.js analyze <transcript.json> --goal "..."
 node packages/mcp-server/dist/index.js   # stdio MCP server — expects an MCP client, not a terminal
 
 # Simulate what Claude Code's hooks actually send a plugin script over stdin:
-echo '{"cwd":"...","transcript_path":"..."}' | node packages/claude-plugin/dist/preCompact.js
-echo '{"cwd":"..."}' | node packages/claude-plugin/dist/sessionStartCompact.js
+echo '{"cwd":"...","transcript_path":"...","session_id":"s1"}' | node packages/claude-plugin/dist/preCompact.js
+echo '{"cwd":"...","session_id":"s1"}' | node packages/claude-plugin/dist/sessionStartCompact.js
 
 cd packages/core && pnpm eval   # score labeled fixtures: offline baseline always, Jev too with a key
 ```

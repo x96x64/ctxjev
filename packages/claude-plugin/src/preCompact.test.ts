@@ -66,15 +66,15 @@ describe('preCompact.js (dist)', () => {
       'utf8',
     )
 
-    const result = await run(JSON.stringify({ cwd, transcript_path: transcriptPath }), { TYPESAFE_API_KEY: undefined })
+    const result = await run(JSON.stringify({ cwd, transcript_path: transcriptPath, session_id: 'sess-1' }), { TYPESAFE_API_KEY: undefined })
     expect(result.exitCode).toBe(0)
     expect(result.stderr).toBe('')
 
     const lastRun = JSON.parse(await readFile(join(cwd, '.ctxjev', 'last-run.json'), 'utf8'))
-    expect(lastRun).toMatchObject({ outcome: 'preserved', scorer: 'local', goalSource: 'inferred', preserved: 1 })
+    expect(lastRun).toMatchObject({ outcome: 'preserved', scorer: 'local', goalSource: 'inferred', preserved: 1, sessionId: 'sess-1' })
     expect(lastRun.note).toContain('TYPESAFE_API_KEY')
 
-    const preserved = JSON.parse(await readFile(join(cwd, '.ctxjev', 'preserved-context.json'), 'utf8'))
+    const preserved = JSON.parse(await readFile(join(cwd, '.ctxjev', 'preserved', 'sess-1.json'), 'utf8'))
     expect(preserved.scorer).toBe('local')
     expect(preserved.entries.map((e: { entryId: string }) => e.entryId)).toEqual(['c1'])
     expect(await readFile(join(cwd, '.ctxjev', '.gitignore'), 'utf8')).toBe('*\n')
@@ -90,17 +90,41 @@ describe('preCompact.js (dist)', () => {
   }, 10_000)
 
   it('clears a stale snapshot from an earlier compaction instead of leaving it for sessionStartCompact.js to re-inject', async () => {
-    await mkdir(join(cwd, '.ctxjev'), { recursive: true })
+    await mkdir(join(cwd, '.ctxjev', 'preserved'), { recursive: true })
     await writeFile(
-      join(cwd, '.ctxjev', 'preserved-context.json'),
+      join(cwd, '.ctxjev', 'preserved', 'sess-1.json'),
       JSON.stringify({ goal: 'an unrelated earlier task', scoredAt: '2020-01-01T00:00:00.000Z', entries: [] }),
       'utf8',
     )
 
     // No API key — this hits an early return, the exact case the bug report described (a stale
     // file surviving because a *later* PreCompact run bailed out before ever writing a fresh one).
-    const result = await run(JSON.stringify({ cwd, transcript_path: join(cwd, 'transcript.jsonl') }), { TYPESAFE_API_KEY: undefined })
+    const result = await run(JSON.stringify({ cwd, transcript_path: join(cwd, 'transcript.jsonl'), session_id: 'sess-1' }), { TYPESAFE_API_KEY: undefined })
     expect(result.exitCode).toBe(0)
-    await expect(readFile(join(cwd, '.ctxjev', 'preserved-context.json'), 'utf8')).rejects.toThrow()
+    await expect(readFile(join(cwd, '.ctxjev', 'preserved', 'sess-1.json'), 'utf8')).rejects.toThrow()
+  }, 10_000)
+
+  it('falls back to offline scoring when Jev misses the deadline, and says why', async () => {
+    const transcriptPath = join(cwd, 'transcript.jsonl')
+    await writeFile(
+      transcriptPath,
+      [
+        { type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: 'fix the checkout double charge on retry' } },
+        { type: 'assistant', uuid: 'a1', timestamp: '2026-01-01T00:00:01.000Z', message: { role: 'assistant', content: [{ type: 'text', text: 'the retry handler charges twice' }] } },
+      ]
+        .map((r) => JSON.stringify(r))
+        .join('\n'),
+      'utf8',
+    )
+
+    const result = await run(JSON.stringify({ cwd, transcript_path: transcriptPath, session_id: 'sess-1' }), {
+      TYPESAFE_API_KEY: 'not-a-real-key',
+      CTXJEV_JEV_TIMEOUT_MS: '1',
+    })
+    expect(result.exitCode).toBe(0)
+
+    const lastRun = JSON.parse(await readFile(join(cwd, '.ctxjev', 'last-run.json'), 'utf8'))
+    expect(lastRun).toMatchObject({ outcome: 'preserved', scorer: 'local' })
+    expect(lastRun.note).toContain('within')
   }, 10_000)
 })

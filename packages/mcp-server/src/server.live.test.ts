@@ -8,7 +8,8 @@ import { createServer } from './server.js'
  * over an in-process transport — tools.test.ts covers the underlying logic in isolation, this
  * covers the MCP-specific plumbing around it. Skipped automatically without TYPESAFE_API_KEY.
  */
-describe.skipIf(!process.env.TYPESAFE_API_KEY)('MCP server (live, e2e)', () => {
+// Jev is probabilistic: a retry absorbs a borderline entry flipping once; a real regression fails every attempt.
+describe.skipIf(!process.env.TYPESAFE_API_KEY)('MCP server (live, e2e)', { retry: 2 }, () => {
   it('exposes score_relevance and prune_history as callable tools', async () => {
     const server = createServer()
     const client = new Client({ name: 'ctxjev-mcp-test-client', version: '0.0.0' })

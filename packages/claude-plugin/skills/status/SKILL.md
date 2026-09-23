@@ -15,9 +15,10 @@ The user is invoking `/ctxjev:status`. Report, concisely, reading files in the p
    present, say that an explicit goal from an earlier session was ignored and show it. Then, if
    `.ctxjev/goal.txt` exists, show its contents as the goal that the *next* compaction will use —
    but only if it's set during that session.
-3. **Preserved entries**: read `.ctxjev/preserved-context.json` (if it exists) and show each
-   entry's `entryId`, `combinedScore`, and a short excerpt of its content, sorted by score
-   descending.
+3. **Preserved entries**: read `.ctxjev/preserved/<sessionId>.json`, using the `sessionId` from
+   `last-run.json` (or `.ctxjev/preserved/default.json` if it has none), and show each entry's
+   `entryId`, `combinedScore`, and a short excerpt of its content, sorted by score descending. If
+   the file doesn't exist, say nothing was preserved by that run.
 
 Don't editorialize beyond that — this is a diagnostic read, not an invitation to re-score
 anything yourself.
