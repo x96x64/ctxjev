@@ -75,7 +75,7 @@ both the scoring and the reminder know which command or file a result came from.
 in context counts: anything before the previous compaction is skipped.
 
 The goal to score against is either set explicitly with `/ctxjev:set-goal <text>`, which applies
-to the current session only, or inferred from your most recent chat message. `/ctxjev:status`
+to the current session only, or inferred from your first request plus your latest instruction. `/ctxjev:status`
 shows what the last run did, including why if it skipped, failed, or fell back to offline scoring.
 
 > **Privacy:** on every compaction, the plugin sends excerpts of your real session to TypeSafe AI's
@@ -143,7 +143,7 @@ entries: `ctxjev prune --summarize-excerpts` cuts them to their head and tail, a
 
 The `entries` array above is the one shape every agent's history maps onto, regardless of host.
 `ctxjev analyze` also auto-detects a real Claude Code session `.jsonl` and infers the goal from
-your most recent chat message unless `--goal` overrides it. See
+your first request plus your latest instruction unless `--goal` overrides it. See
 [`examples/sample-transcripts/claude-code-session.jsonl`](examples/sample-transcripts/claude-code-session.jsonl)
 for a synthetic one. **Be careful pointing it at a real session log**: entry content is sent to the
 live Jev API, and although common secret formats are masked first, that masking can't catch
@@ -151,82 +151,84 @@ everything.
 
 ## Does It Work?
 
-Three evals, each run on a **held-out set** that was never used for tuning:
-[`examples/eval-sessions`](examples/eval-sessions), 10 coding sessions (6 English, 4 Japanese).
+Every number here comes from a **held-out set** that was never used for tuning:
+[`examples/eval-sessions`](examples/eval-sessions), 15 coding sessions (9 English, 6 Japanese).
 
-- **Written sessions (5).** Written by hand, with raw tool output: multi-line test logs, stack
-  traces, diffs, installer noise, and 5k-token logs. They include dead ends that were later reverted,
-  and distractors that share the goal's words.
-- **Recorded sessions (5).** Real Claude Code sessions, recorded on throwaway task repos in
+- **Written sessions (5).** Written by hand, with raw tool output, dead ends, and distractors that
+  share the goal's words.
+- **Recorded sessions (10).** Real Claude Code sessions, recorded on the throwaway task repos in
   [`examples/eval-tasks`](examples/eval-tasks). Each task has a planted bug. The user states
-  constraints partway through ("banker's rounding", "keep the full-width tilde"), and the session
-  ends with the fix.
+  constraints partway through, and in two of them changes the plan. The session ends with the fix.
 
-Each session lists the facts the task still needs later, with the entries that state them.
+Intervals are 95% bootstrap intervals that resample whole sessions or tasks. With 10 tasks they're
+wide, and they're shown so you can see how wide.
 
-**1. Do the facts survive?** Each session is squeezed into a token budget with
-`pruneMessages({ targetTokens })`, and we count how many of those facts are still there. This is the
-mean of 3 Jev runs, and every release is gated on it (`eval/run.mjs --gate --runs 3`).
+**1. Can an agent still finish the job?** [`eval/tasks.mjs`](packages/core/eval/tasks.mjs) cuts
+each recorded session before "now implement the fix" and prunes the history to 25% of its tokens.
+Claude Haiku 4.5 then does the fix with real tools in a fresh copy of the repo. It passes if the
+hidden acceptance tests pass, and those tests include the constraints the user stated mid-session.
+10 tasks × 2 runs:
 
-| Ranking by | 50% budget | 25% budget |
+| History given to the agent | Tasks passed | 95% CI |
 | --- | --- | --- |
-| **Jev** | **94%** | **86%** |
-| Newest first (plain truncation) | 79% | 64% |
-| Keyword overlap (offline) | 76% | 61% |
-| Random | 69% | 61% |
+| Everything | 100% | [100, 100] |
+| **Pruned to 25% by Jev, as shipped** (keeps user text, marks the gap) | **100%** | [100, 100] |
+| Pruned by Jev ranking alone | 90% | [75, 100] |
+| Newest kept (plain truncation) | 90% | [70, 100] |
+| Pruned by keyword overlap | 75% | [55, 95] |
+| Only the task | 40% | [15, 70] |
+
+As shipped, Jev beats truncation by +10 points [0, +30].
+
+The misses were agents that lost something the user said and filled the gap with their own guess.
+One lost "keep the mark for 24 hours" and kept a later "maybe 25h for margin". Another lost the
+exact masking format. That's why `pruneMessages()` now keeps what the user wrote and adds a
+one-line note where it removed history. Jev with both passed every task, and neither change hurt
+any other task.
 
 **2. Can a model still answer from what's left?** [`eval/outcome.mjs`](packages/core/eval/outcome.mjs)
-has Claude Haiku 4.5 answer each fact as a question from the pruned conversation, and Claude
-Sonnet 5 grade the answer. That's 69 questions, 2 runs, about $3.50 a run.
+has Claude Haiku 4.5 answer each needed fact as a question from the pruned conversation, and Claude
+Sonnet 5 grade it (102 questions, 2 runs):
 
-| Context given to the model | 50% budget | 25% budget |
+| Context | 25% budget | 50% budget |
 | --- | --- | --- |
-| Everything (nothing removed) | 93% | 93% |
-| **Pruned by Jev** | **88%** | **78%** |
-| Plain truncation (newest kept) | 80% | 67% |
-| Pruned by keyword overlap | 67% | 62% |
-| Only the task (guessing) | 0% | 0% |
+| Everything | 95% | 95% |
+| **Pruned by Jev** | **79%** | **91%** |
+| Plain truncation | 71% | 83% |
+| Keyword overlap | 67% | 74% |
 
-**3. Can an agent still finish the job?** [`eval/tasks.mjs`](packages/core/eval/tasks.mjs) cuts
-each recorded session before "now implement the fix". It prunes that history to 25% of its tokens
-and gives Claude Haiku 4.5 the fix request, with real tools in a fresh copy of the repo. Success
-means the task's hidden acceptance tests pass, and those tests include the constraints the user
-stated mid-session. That's 5 tasks, 2 runs each, $2.38 for all 50 runs.
+Jev minus truncation is +8 points at both budgets, and the interval just includes zero
+([−1, +18]). Jev minus keywords is +13 / +17, clearly above zero. Scoring alone keeps 84% / 95%
+of the facts under the budget, against 66% / 80% for truncation. Every release is gated on that
+(`eval/run.mjs --gate --runs 3`).
 
-| History given to the agent | Tasks passed |
-| --- | --- |
-| Everything | 100% |
-| **Pruned to 25% by Jev** | **90%** |
-| Pruned to 25%, newest kept | 80% |
-| Pruned to 25% by keyword overlap | 70% |
-| Only the task | 30% |
+**3. Does the Claude Code plugin help after a compaction?**
+[`eval/plugin.mjs`](packages/core/eval/plugin.mjs) runs the shipped hooks on each recorded
+history. Claude Haiku 4.5 simulates the compaction summary; Claude Code's own compaction prompt
+isn't public, so ours only approximates it, and it asks for every user instruction. The agent then
+finishes the task from the summary, with or without the plugin's digest (10 tasks × 2 runs):
 
-The failures are the interesting part:
+| After compaction | Tasks passed | Answers right |
+| --- | --- | --- |
+| Summary alone | 95% | 89% |
+| Summary + digest (goal = latest message, as in 0.4.0) | 90% | 91% |
+| Summary + digest (goal = first request + latest instruction, 0.5.0) | 100% | 90% |
 
-- **Where the misses were:** all but one miss under pruning was on the webhook task: Jev's one,
-  both of truncation's, and two of keyword overlap's three. We re-ran truncation there with failing test
-  names recorded. Its history had lost the message where the user said "keep the mark for 24
-  hours", so the agent picked its own TTL instead of re-reading the docs.
-- **The agent with only the task passed that task:** with no history at all, it investigated from
-  scratch and found the 24-hour window in the provider's docs. So a partial history can be worse
-  than none, when it looks complete but has lost a constraint.
-- **Truncation on the recorded sessions:** at a 50% budget, truncation keeps as many facts as Jev
-  there (100% vs 94%), because a real agent restates its findings near the end. It falls behind
-  when the budget is tight (77% vs 90% at 25%).
-
-On the same held-out set, Jev's keep/drop matches the labels 74% of the time (keywords: 52%), and
-puts only relevant entries in every session's top 5, the part the Claude Code plugin re-injects. On
-the dev fixtures it was tuned on, it's 90%.
+**Honest reading:** against a summary that already keeps every user instruction, the digest adds
+little. The 0.4.0 plugin aimed its scoring at the latest message ("also check the tests"), not the
+task, and did no better than the summary alone. 0.5.0 infers the goal from the first request plus
+the latest instruction. That passed every task, but +5 points [0, +15] is within the noise. The
+plugin's value depends on how much the compaction summary drops, and this eval can't measure
+Claude Code's real compaction.
 
 What this doesn't show:
 
-- The tasks are small, and 5 tasks × 2 runs is a small sample.
-- The agent is Claude Haiku 4.5, not the model you'd run in production.
-- The recorded sessions come from one recording model (Claude Sonnet 5) on tasks written for this
-  eval.
+- The tasks are small, and 10 tasks × 2 runs is a small sample.
+- The agent is Claude Haiku 4.5. A stronger agent (Sonnet) wasn't tested, to stay within budget.
+- The recordings come from one recording model on tasks written for this eval.
 - Token counts come from `gpt-tokenizer`, an approximation of Claude's tokenizer.
 
-Every answer, verdict, and agent run is in
+Every answer, verdict, digest, summary, and agent run is in
 [`eval/results/`](packages/core/eval/results).
 
 ## Quick Start

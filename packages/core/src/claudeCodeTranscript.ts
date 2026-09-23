@@ -199,12 +199,18 @@ function isSlashCommand(content: string): boolean {
 }
 
 /**
- * A fallback goal when none was set explicitly: the most recent user message that actually
- * describes something. Slash commands (`/compact`, ...) are skipped — `PreCompact` fires right
- * after one — and so are short acknowledgments, unless nothing longer exists, in which case the
- * most recent non-command message is still better than no goal at all.
+ * A fallback goal when none was set explicitly: the first user message that describes something
+ * (the task) plus the most recent one (where the work is now). The latest alone is usually a step
+ * like "also check the tests", which aims scoring at the step instead of the task; in the plugin
+ * eval, the combined goal passed every task and the latest-only one missed two of twenty.
+ * Slash commands (`/compact`, ...) are skipped — `PreCompact` fires right after one — and so are
+ * short acknowledgments, unless nothing longer exists, in which case the most recent non-command
+ * message is still better than no goal at all.
  */
 export function inferGoalFromEntries(entries: Entry[]): string | undefined {
-  const candidates = [...entries].reverse().filter((e) => e.role === 'user' && !isSlashCommand(e.content))
-  return (candidates.find((e) => isSubstantiveMessage(e.content)) ?? candidates[0])?.content
+  const candidates = entries.filter((e) => e.role === 'user' && !isSlashCommand(e.content))
+  const substantive = candidates.filter((e) => isSubstantiveMessage(e.content))
+  const latest = (substantive.at(-1) ?? candidates.at(-1))?.content
+  const task = substantive[0]?.content
+  return task && latest && task !== latest ? `${task}\n\nLatest instruction: ${latest}` : latest
 }

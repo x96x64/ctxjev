@@ -68,8 +68,8 @@ ${pc.bold('Transcript formats (auto-detected)')}
   ctxjev's own:        { "goal": "...", "entries": [{ "id", "role", "toolName"?, "content", "timestamp" }] }
   Anthropic Messages:  a "messages" array, bare or as { "goal"?, "messages" }. prune keeps every
                        tool_use/tool_result pair intact, so the result is still a valid request.
-  Claude Code:         a real session .jsonl (analyze only). The goal is inferred from your most
-                       recent chat message unless --goal overrides it.
+  Claude Code:         a real session .jsonl (analyze only). The goal is inferred from your first
+                       request plus your latest instruction unless --goal overrides it.
   See examples/sample-transcripts in the ctxjev repo for examples.
 `
 

@@ -13,6 +13,9 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
   on), so the model re-reads files instead of trusting what it half-remembers. In the task eval, the
   two together took Jev-pruned runs from 90% to 100% of tasks passed.
 - `ctxjev-cli`: `ctxjev prune --drop-user-text` / `--no-marker` turn those two off.
+- `ctxjev-claude`, `ctxjev-cli`: the inferred goal is your first request plus your latest
+  instruction, not the latest message alone. That one is usually a step like "also check the
+  tests", which aimed scoring at the step instead of the task.
 
 ## 0.4.0 — 2026-09-23
 

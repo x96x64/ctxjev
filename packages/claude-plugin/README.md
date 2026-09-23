@@ -44,7 +44,7 @@ SessionStart(compact) → read that cache, print a short digest; Claude Code add
 ```
 
 Scoring runs against whichever goal is active: an explicit one you set with `/ctxjev:set-goal`,
-or, if you never set one, your most recent message, inferred automatically. Either way, this is
+or, if you never set one, your first request plus your latest instruction, inferred automatically. Either way, this is
 the same relevance judgment [`ctxjev-mcp`](https://www.npmjs.com/package/ctxjev-mcp) and
 [`ctxjev-cli`](https://www.npmjs.com/package/ctxjev-cli) expose elsewhere, applied here at exactly
 the moment it matters most.

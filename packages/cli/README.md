@@ -79,7 +79,7 @@ Auto-detected, no flag needed:
 - **ctxjev's own format** is a single JSON document: `{ "goal": "...", "entries": [{ "id", "role", "toolName"?, "content", "timestamp" }] }`.
 - **An Anthropic Messages conversation** is a `messages` array, bare or as `{ "goal"?, "messages" }`.
 - **A Claude Code session** is a real `.jsonl` transcript (`transcript_path`, or anything under
-  `~/.claude/projects`). The goal is inferred from your most recent chat message unless `--goal`
+  `~/.claude/projects`). The goal is inferred from your first request plus your latest instruction unless `--goal`
   overrides it.
 
 > Never point this at a real, sensitive session log without checking its contents first. Entry

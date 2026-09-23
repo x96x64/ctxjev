@@ -517,5 +517,48 @@ now counts its own usage, and failing test names are recorded.
 The README's "Does It Work?" section now shows all three evals, with their limits. That section is
 docs only, so it waits for the next release.
 
-**Still open:** tasks larger than these five and a stronger agent than Haiku; checking
-`session_id` continuity across a real `/compact` (from Phase 12).
+## Phase 23 — Fixes the task eval asked for (v0.5.0)
+
+The task eval's misses were agents that lost something the user said and filled the gap with their
+own guess. `pruneMessages()` now keeps what the user wrote (`keepUserText`) and adds a one-line
+note where it removed history (`marker`). Both are on by default. On the five tasks, Jev went from
+90% to 100% of tasks passed, and no task got worse. User text alone wasn't enough: the history
+still ended with the recorded assistant's "maybe 25h for margin". The note made agents re-check,
+and the docs say 24 hours. ($1.03)
+
+## Phase 24 — Ten tasks and intervals (2026-09-23)
+
+Five more recorded tasks, two of them with a change of plan partway through. In one of those, the
+change landed in the protected tail, so it tests "follow the later of two instructions it can see".
+The converter was also rewriting the tasks' own fictional `example.net` addresses, which is fixed.
+Reports now show 95% bootstrap intervals that resample whole tasks or sessions.
+
+- Tasks (10 × 2 runs), shipped defaults: 100%, against truncation 90%, keywords 75%, and only the
+  task 40%. That's +10 points over truncation [0, +30].
+- Answers (15 sessions, 102 questions): Jev 79% / 91% at 25% / 50%, against truncation 71% / 83%.
+  The difference, +8, has an interval that includes zero.
+
+These cost $4.53.
+
+## Phase 25 — The plugin, measured (2026-09-23)
+
+`eval/plugin.mjs` runs the shipped hooks on each recorded history after a simulated compaction.
+Our summary prompt asks for every user instruction, and against it the 0.4.0 digest added nothing:
+90% of tasks passed vs 95% for the summary alone. It inferred its goal from the latest message,
+which was always a step ("also check the tests", "summarize the plan"), never the task. Scoring
+against the first request plus the latest instruction passed every task (+5 [0, +15], within
+noise), and that's now how the goal is inferred. Honest conclusion: the plugin's value depends on
+what the real compaction drops, which this eval can't observe. ($4.28)
+
+## Phase 26 — Stronger agent: not run
+
+Skipped by the budget rule set before starting (only if the total so far was under $9; it was about
+$10). The results above are Haiku-only.
+
+## Phase 27 — Docs and release (v0.5.0)
+
+"Does It Work?" now shows all three evals with intervals, the plugin result as measured, and what
+isn't shown.
+
+**Still open:** a stronger agent; tasks bigger than these ten; Claude Code's real compaction instead
+of a simulated one; `session_id` continuity across a real `/compact` (from Phase 12).

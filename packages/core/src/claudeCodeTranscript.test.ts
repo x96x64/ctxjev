@@ -231,7 +231,17 @@ describe('inferGoalFromEntries', () => {
     expect(inferGoalFromEntries(parseClaudeCodeTranscript(jsonl))).toBe('latest')
   })
 
-  it('returns undefined when there is no user entry', () => {
+  it('combines the first request with the latest instruction when they differ', () => {
+    const jsonl = [
+      record({ type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: 'Fix the invoice totals that are off by a cent.' } }),
+      record({ type: 'assistant', uuid: 'a1', timestamp: '2026-01-01T00:00:01.000Z', message: { role: 'assistant', content: [{ type: 'text', text: 'Found it.' }] } }),
+      record({ type: 'user', uuid: 'u2', timestamp: '2026-01-01T00:00:02.000Z', message: { role: 'user', content: 'Also go through the tests and summarize the plan.' } }),
+    ].join('\n')
+
+    expect(inferGoalFromEntries(parseClaudeCodeTranscript(jsonl))).toBe('Fix the invoice totals that are off by a cent.\n\nLatest instruction: Also go through the tests and summarize the plan.')
+  })
+
+    it('returns undefined when there is no user entry', () => {
     const jsonl = record({
       type: 'assistant',
       uuid: 'a1',

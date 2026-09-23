@@ -11,7 +11,7 @@ The user is invoking `/ctxjev:status`. Report, concisely, reading files in the p
    otherwise-silent problems become visible, so don't soften them. If the file doesn't exist, say
    no compaction has happened in this project since the plugin was installed.
 2. **Goal**: from `last-run.json`, the `goal` and whether it was `explicit` (set with
-   `/ctxjev:set-goal`) or `inferred` (the most recent chat message). If `ignoredStaleGoal` is
+   `/ctxjev:set-goal`) or `inferred` (your first request plus your latest message). If `ignoredStaleGoal` is
    present, say that an explicit goal from an earlier session was ignored and show it. Then, if
    `.ctxjev/goal.txt` exists, show its contents as the goal that the *next* compaction will use —
    but only if it's set during that session.

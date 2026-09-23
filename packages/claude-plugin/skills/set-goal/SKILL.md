@@ -1,5 +1,5 @@
 ---
-description: Point ctxjev's context scoring at a specific goal instead of guessing from your most recent message — use this when your session's focus shifts, or right before a compaction you know is coming, so the reminder afterward is aimed at what actually matters.
+description: Point ctxjev's context scoring at a specific goal instead of guessing from your first request and latest message — use this when your session's focus shifts, or right before a compaction you know is coming, so the reminder afterward is aimed at what actually matters.
 ---
 
 The user is invoking `/ctxjev:set-goal <text>`. Take everything after `set-goal` as the goal text
@@ -11,10 +11,10 @@ containing a single line `*` — this directory holds transcript excerpts and mu
 committed. Then confirm back to the user what was saved, in one short line.
 
 The goal applies to the current session only: a goal set in an earlier session is ignored at the
-next compaction (ctxjev falls back to the most recent chat message instead), so a stale goal can't
+next compaction (ctxjev falls back to your first request plus your latest message instead), so a stale goal can't
 silently steer unrelated work. Mention this in your confirmation only if the user seems to expect
 it to carry over.
 
 If the user ran `/ctxjev:set-goal` with no text, don't write anything — tell them the current
 contents of `.ctxjev/goal.txt` if it exists, or that no goal is set (in which case ctxjev's
-PreCompact hook falls back to the most recent user message as a proxy goal).
+PreCompact hook falls back to your first request plus your latest message as a proxy goal).

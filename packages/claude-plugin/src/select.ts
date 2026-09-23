@@ -21,7 +21,7 @@ export async function selectPreserved(entries: Entry[], goal: string, limit = DE
 }
 
 /**
- * Leaves out the message the goal came from (the reminder's header already shows it), a short
+ * Leaves out the messages the goal came from (the reminder's header already shows them), a short
  * acknowledgment like "yes, go ahead" (meaningless once what it answered is gone), and anything
  * below `minRelevance`, which shouldn't take a slot just for being recent.
  */
@@ -29,7 +29,7 @@ export function rankForPreservation(scored: ScoredEntry[], entries: Entry[], goa
   const entryById = new Map(entries.map((e) => [e.id, e]))
   return scored
     .map((s) => ({ ...s, content: entryById.get(s.entryId)?.content ?? '', role: entryById.get(s.entryId)?.role }))
-    .filter((s) => s.relevance >= minRelevance && s.content.trim() !== goal.trim())
+    .filter((s) => s.relevance >= minRelevance && !goal.includes(s.content.trim()))
     .filter((s) => s.role !== 'user' || isSubstantiveMessage(s.content))
     .sort((a, b) => b.combinedScore - a.combinedScore)
     .slice(0, limit)
