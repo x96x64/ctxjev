@@ -55,7 +55,11 @@ cd packages/core && node eval/outcome.mjs --runs 2 --max-usd 6 --out eval/result
                                 # .env.local) and costs ~$4 a run; by hand, not in CI
 cd packages/core && node eval/tasks.mjs --runs 2 --max-usd 4 --out eval/results/tasks.json
                                 # task-completion eval on examples/eval-tasks (~$2.50 a run);
-                                # `--selftest` checks the harness with no API calls
+                                # `--selftest` checks the harness with no API calls;
+                                # `--agent-model claude-sonnet-5` for a stronger agent, and
+                                # `--run-offset N --merge` to add runs to saved results
+cd packages/core && node eval/plugin.mjs --runs 2 --max-usd 4.5 --out eval/results/plugin.json
+                                # the Claude Code plugin's hooks after a simulated compaction
 ```
 
 `TYPESAFE_API_KEY` (from `console.typesafe.ai/settings/keys`) must be set for anything that

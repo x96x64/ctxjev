@@ -53,12 +53,16 @@ const { values: args } = parseArgs({
     selftest: { type: 'boolean' },
     'max-usd': { type: 'string' },
     'max-turns': { type: 'string', default: '25' },
+    // Claude Sonnet 5 runs at effort low, to spend less on thinking.
+    'agent-model': { type: 'string', default: ANSWER_MODEL },
+    // Numbers this invocation's runs from N, so a later invocation can add runs to --merge'd results.
+    'run-offset': { type: 'string', default: '0' },
   },
 })
 
 // --- report ------------------------------------------------------------------------------------
 
-function printTable(rows) {
+function printTable(rows, model = ANSWER_MODEL) {
   const conditions = [...new Set(rows.map((r) => r.condition))].sort((a, b) => ALL_CONDITIONS.indexOf(a.split('+')[0]) - ALL_CONDITIONS.indexOf(b.split('+')[0]) || a.localeCompare(b))
   const pct = (x) => (Number.isNaN(x) ? '-' : `${Math.round(x * 100)}%`)
   const rate = (xs) => (xs.length === 0 ? '   -  ' : pct(successRate('success')(xs)).padStart(6))
@@ -67,7 +71,7 @@ function printTable(rows) {
     return `[${pct(lo)}, ${pct(hi)}]`
   }
   const tasks = [...new Set(rows.map((r) => r.task))]
-  console.log(`\nHidden acceptance tests passed (${ANSWER_MODEL} as the agent; history pruned to ${BUDGET * 100}% except full / goal-only; 95% intervals resample tasks)\n`)
+  console.log(`\nHidden acceptance tests passed (${model} as the agent; history pruned to ${BUDGET * 100}% except full / goal-only; 95% intervals resample tasks)\n`)
   console.log(`  ${'condition'.padEnd(20)}${'all'.padStart(6)}${'95% CI'.padStart(13)}${'en'.padStart(7)}${'ja'.padStart(7)}${'turns'.padStart(7)}   ${tasks.map((t) => t.slice(0, 9).padStart(10)).join('')}`)
   for (const c of conditions) {
     const rs = rows.filter((r) => r.condition === c)
@@ -94,7 +98,8 @@ function printTable(rows) {
 }
 
 if (args.report) {
-  printTable(JSON.parse(readFileSync(args.report, 'utf8')).rows)
+  const saved = JSON.parse(readFileSync(args.report, 'utf8'))
+  printTable(saved.rows, saved.agentModel)
   process.exit(0)
 }
 
@@ -140,7 +145,8 @@ const client = new Anthropic()
 const spend = createSpend(maxUsd)
 const limit = createLimiter(5)
 
-const runAgent = createAgentRunner({ client, spend, limit, model: ANSWER_MODEL, maxTurns })
+const agentModel = args['agent-model']
+const runAgent = createAgentRunner({ client, spend, limit, model: agentModel, maxTurns, extraParams: agentModel === ANSWER_MODEL ? {} : { output_config: { effort: 'low' } } })
 
 const rows = []
 try {
@@ -159,23 +165,25 @@ try {
       const { base, extra } = parseCondition(c)
       histories[c] = base === 'full' ? history : base === 'goal-only' ? [history[0]] : await pruneTo(history, session.goal, ranked[base], base, BUDGET, extra)
     }
-    const jobs = conditions.flatMap((condition) => Array.from({ length: runs }, (_, run) => ({ condition, run })))
+    const offset = Number(args['run-offset'])
+    const jobs = conditions.flatMap((condition) => Array.from({ length: runs }, (_, run) => ({ condition, run: run + offset })))
     const results = await Promise.all(jobs.map(async ({ condition, run }) => ({ task, language, condition, run, ...(await runAgent(task, histories[condition], prompts[prompts.length - 1])) })))
     rows.push(...results)
     for (const r of results) process.stderr.write(`${task} ${r.condition} #${r.run + 1}: ${r.success ? 'PASS' : 'fail'} (${r.passed}/${r.passed + r.failed} tests, ${r.turns} turns, $${r.costUsd.toFixed(3)})\n`)
   }
 } catch (err) {
-  console.error(`Stopped: ${err instanceof SpendLimitError ? err.message : err.stack}. Nothing is written for a partial run.`)
-  console.error(`API usage before stopping: ${spend.summary()}`)
-  process.exit(1)
+  if (!(err instanceof SpendLimitError)) throw err
+  // Tasks that finished before the limit are kept; the task in progress is lost.
+  console.error(`Stopped: ${err.message}. Writing the ${rows.length} runs from tasks that finished.`)
 }
 
-const ran = new Set(rows.map((r) => `${r.task}|${r.condition}`))
-const kept = args.merge ? JSON.parse(readFileSync(args.merge, 'utf8')).rows.filter((r) => !ran.has(`${r.task}|${r.condition}`)) : []
+const key = (r) => `${r.task}|${r.condition}|${r.run}`
+const ran = new Set(rows.map(key))
+const kept = args.merge ? JSON.parse(readFileSync(args.merge, 'utf8')).rows.filter((r) => !ran.has(key(r))) : []
 const allRows = [...kept, ...rows]
-printTable(allRows)
+printTable(allRows, agentModel)
 console.log(`\nAPI usage this run: ${spend.summary()}`)
 if (args.out) {
-  writeFileSync(args.out, `${JSON.stringify({ agentModel: ANSWER_MODEL, budget: BUDGET, maxTurns, rows: allRows }, null, 1)}\n`)
+  writeFileSync(args.out, `${JSON.stringify({ agentModel, budget: BUDGET, maxTurns, rows: allRows }, null, 1)}\n`)
   console.log(`Wrote every run to ${args.out}${kept.length ? ` (${kept.length} rows kept from ${args.merge})` : ''}`)
 }

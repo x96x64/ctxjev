@@ -99,7 +99,7 @@ export function grade(task, repo) {
 }
 
 /** An agent loop bound to one client, spend tracker, limiter, and model. */
-export function createAgentRunner({ client, spend, limit, model, maxTurns }) {
+export function createAgentRunner({ client, spend, limit, model, maxTurns, extraParams = {} }) {
   return async function runAgent(task, history, fixPrompt) {
     const { work, repo } = freshRepo(task)
     const runTool = workspaceTools(task, repo)
@@ -121,6 +121,7 @@ export function createAgentRunner({ client, spend, limit, model, maxTurns }) {
           client.messages.create({
             model: model,
             max_tokens: 8000,
+            ...extraParams,
             system: `You are a coding agent working in the repository at /workspace/${task}. Use the tools to do what the user asks, then reply with a short summary and stop.`,
             tools: TOOLS,
             messages: withCacheBreakpoint(messages),

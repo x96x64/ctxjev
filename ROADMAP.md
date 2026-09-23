@@ -550,15 +550,24 @@ against the first request plus the latest instruction passed every task (+5 [0, 
 noise), and that's now how the goal is inferred. Honest conclusion: the plugin's value depends on
 what the real compaction drops, which this eval can't observe. ($4.28)
 
-## Phase 26 — Stronger agent: not run
+## Phase 26 — Stronger agent (2026-09-23)
 
-Skipped by the budget rule set before starting (only if the total so far was under $9; it was about
-$10). The results above are Haiku-only.
+With the remaining credit, Claude Sonnet 5 (effort low) ran the task eval, 10 tasks × 2 runs:
+shipped defaults 90%, truncation with the same options 95% (−5 [−15, 0]). Nine tasks passed every
+time either way. The tenth, where the recorded assistant's "maybe 25h" contradicts the user's
+"24 hours", failed Jev twice and truncation once. The Haiku advantage doesn't carry over: a strong
+agent recovers from a 25% cut on tasks this size, however it's ranked. The honest claim is
+narrower: ranking matters for weaker or cheaper agents, and for keeping facts (evals 1 and 2), not
+for Sonnet-class task completion here.
+
+One run hit its spend limit partway and lost $0.81 of work, because a stopped run wrote nothing.
+tasks.mjs now writes every task that finished, and `--run-offset` adds runs to merged results.
+Sonnet cost $2.93 in total.
 
 ## Phase 27 — Docs and release (v0.5.0)
 
 "Does It Work?" now shows all three evals with intervals, the plugin result as measured, and what
 isn't shown.
 
-**Still open:** a stronger agent; tasks bigger than these ten; Claude Code's real compaction instead
+**Still open:** tasks bigger than these ten, where a strong agent can't simply re-read everything; Claude Code's real compaction instead
 of a simulated one; `session_id` continuity across a real `/compact` (from Phase 12).

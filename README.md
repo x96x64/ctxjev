@@ -186,6 +186,14 @@ exact masking format. That's why `pruneMessages()` now keeps what the user wrote
 one-line note where it removed history. Jev with both passed every task, and neither change hurt
 any other task.
 
+**With a stronger agent (Claude Sonnet 5), the difference goes away.** Same 10 tasks, 2 runs,
+effort low: Jev as shipped passed 90%, and truncation with the same options passed 95% (−5 points
+[−15, 0]). Both passed every run on nine of the ten tasks. The tenth is the "24 hours vs. maybe 25h"
+task, where the recorded assistant's later suggestion contradicts the user: Jev lost it both times,
+truncation once. So at a 25% budget on tasks this size, a strong agent recovers from pruning
+whichever way it's done. What made the difference for Haiku was the weaker agent, not the ranking
+alone.
+
 **2. Can a model still answer from what's left?** [`eval/outcome.mjs`](packages/core/eval/outcome.mjs)
 has Claude Haiku 4.5 answer each needed fact as a question from the pruned conversation, and Claude
 Sonnet 5 grade it (102 questions, 2 runs):
@@ -224,7 +232,8 @@ Claude Code's real compaction.
 What this doesn't show:
 
 - The tasks are small, and 10 tasks × 2 runs is a small sample.
-- The agent is Claude Haiku 4.5. A stronger agent (Sonnet) wasn't tested, to stay within budget.
+- Most runs use Claude Haiku 4.5. Claude Sonnet 5 was checked on the task eval only, with 2 runs
+  and two conditions.
 - The recordings come from one recording model on tasks written for this eval.
 - Token counts come from `gpt-tokenizer`, an approximation of Claude's tokenizer.
 
