@@ -82,13 +82,16 @@ export async function rankings(messages, goal) {
 }
 
 /** `messages` cut to `budget` (a share of its own tokens) by dropping lowest-ranked entries first.
- * Jev and keywords blend in recency at the shipped default; the recency ranking is recency alone. */
-export async function pruneTo(messages, goal, ranking, strategy, budget) {
+ * Jev and keywords blend in recency at the shipped default; the recency ranking is recency alone.
+ * `extra` passes further pruneMessages options (keepUserText, marker). */
+export async function pruneTo(messages, goal, ranking, strategy, budget, extra = {}) {
   const total = messagesToEntries(messages).reduce((sum, e) => sum + e.sourceTokens, 0)
   const { messages: pruned } = await pruneMessages(messages, goal, {
     scorer: async (_goal, entries) => entries.map((e) => ranking.get(e.id)),
     policy: { dropBelow: 0, summarizeBelow: 0, recencyWeight: strategy === 'recency' ? 0 : DEFAULT_POLICY.recencyWeight },
     targetTokens: Math.floor(total * budget),
+    keepUserText: extra.keepUserText ?? false,
+    marker: extra.marker ?? false,
   })
   return pruned
 }

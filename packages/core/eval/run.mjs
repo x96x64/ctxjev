@@ -115,6 +115,9 @@ async function retention(fixture, score, recencyWeight) {
       scorer: async (_goal, entries) => entries.map((e) => score(e.id)),
       policy: { dropBelow: 0, summarizeBelow: 0, recencyWeight },
       targetTokens: Math.floor(total * budget),
+      // Compares rankings alone; the shipped keepUserText would keep user-stated facts for every strategy.
+      keepUserText: false,
+      marker: false,
     })
     const gone = new Set(removed)
     const kept = fixture.entries.filter((e) => !gone.has(e.id))

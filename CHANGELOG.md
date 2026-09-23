@@ -5,6 +5,15 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 (`.claude-plugin/marketplace.json`, `packages/claude-plugin/.claude-plugin/plugin.json`,
 `plugins/ctxjev/plugin.json`). A bump in one is a bump in all, even when only one changed.
 
+## Unreleased
+
+- `ctxjev-core`: `pruneMessages()` no longer removes what the user wrote (`keepUserText`, default on).
+  That's where constraints and changes of plan live, and it costs few tokens.
+- `ctxjev-core`: `pruneMessages()` adds a one-line note where it removed history (`marker`, default
+  on), so the model re-reads files instead of trusting what it half-remembers. In the task eval, the
+  two together took Jev-pruned runs from 90% to 100% of tasks passed.
+- `ctxjev-cli`: `ctxjev prune --drop-user-text` / `--no-marker` turn those two off.
+
 ## 0.4.0 — 2026-09-23
 
 - `ctxjev-core`: `pruneMessages()` takes `targetTokens`, to keep removing the lowest-scoring

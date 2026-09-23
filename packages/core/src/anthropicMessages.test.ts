@@ -214,6 +214,56 @@ describe('pruneMessages', () => {
     })
   })
 
+  describe('keepUserText and marker', () => {
+    const conversation: AnthropicMessage[] = [
+      { role: 'user', content: 'Fix the flaky checkout test' },
+      { role: 'assistant', content: [{ type: 'tool_use', id: 'a', name: 'Bash', input: { command: 'cat a.log' } }] },
+      { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'a', content: bigLog('a.log') }, { type: 'text', text: 'Keep the mark for 24 hours.' }] },
+      { role: 'assistant', content: 'Understood, 24 hours.' },
+      { role: 'user', content: 'Also check the retry path.' },
+      { role: 'assistant', content: [{ type: 'tool_use', id: 'b', name: 'Bash', input: { command: 'cat b.log' } }] },
+      { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'b', content: bigLog('b.log') }] },
+      { role: 'assistant', content: 'Done looking.' },
+      { role: 'user', content: 'go' },
+    ]
+    const lowEverything: CustomScorer = async (_goal, entries) => entries.map(() => 0.01)
+
+    it('keeps what the user wrote while removing tool output around it', async () => {
+      const result = await pruneMessages(conversation, 'goal', { scorer: lowEverything, policy: noRecency, targetTokens: 1, keepUserText: true })
+      const texts = result.messages.flatMap((m) => (typeof m.content === 'string' ? [m.content] : m.content.filter((b) => b.type === 'text').map((b) => (b as { text: string }).text)))
+      expect(texts).toContain('Keep the mark for 24 hours.')
+      expect(texts).toContain('Also check the retry path.')
+      expect(result.removed).toEqual(expect.arrayContaining(['tool:a', 'tool:b']))
+      expect(result.removed.some((id) => id === 'msg:2:1' || id === 'msg:4')).toBe(false)
+      expectValidToolPairing(result.messages)
+    })
+
+    it('with keepUserText: false, the same user text can go', async () => {
+      const result = await pruneMessages(conversation, 'goal', { scorer: lowEverything, policy: noRecency, targetTokens: 1, keepUserText: false })
+      expect(result.removed).toEqual(expect.arrayContaining(['msg:2:1', 'msg:4']))
+    })
+
+    it('keeps user text and adds the note by default', async () => {
+      const result = await pruneMessages(conversation, 'goal', { scorer: lowEverything, policy: noRecency, targetTokens: 1 })
+      expect(result.removed.some((id) => id === 'msg:2:1' || id === 'msg:4')).toBe(false)
+      expect(JSON.stringify(result.messages)).toContain('[ctxjev:')
+    })
+
+    it('adds one note where history was removed, outside the protected tail', async () => {
+      const result = await pruneMessages(conversation, 'goal', { scorer: scoresById({ 'tool:a': 0.01 }), policy: noRecency, marker: true })
+      const notes = result.messages.flatMap((m, i) => (Array.isArray(m.content) ? m.content.filter((b) => b.type === 'text' && String((b as { text: string }).text).startsWith('[ctxjev:')).map(() => i) : []))
+      expect(notes).toHaveLength(1)
+      expect(result.messages.slice(-2)).toEqual(conversation.slice(-2))
+      expect(result.messages[0]).toBe(conversation[0])
+      expectValidToolPairing(result.messages)
+    })
+
+    it('adds no note when nothing was removed', async () => {
+      const result = await pruneMessages(conversation, 'goal', { scorer: scoresById({}), policy: noRecency, marker: true })
+      expect(result.messages).toBe(conversation)
+    })
+  })
+
   // Seeded random conversations × random scores × every option: the result must always be a request
   // the Messages API accepts, and never touch the first message or the protected tail.
   it('keeps every invariant across randomized conversations and options', async () => {
@@ -257,6 +307,8 @@ describe('pruneMessages', () => {
         ...(random() < 0.5 && { summarize: 'excerpt' as const }),
         ...(random() < 0.5 && { targetTokens: Math.floor(random() * 2000) }),
         ...(random() < 0.3 && { minSavedTokens: Math.floor(random() * 3000) }),
+        ...(random() < 0.5 && { keepUserText: true }),
+        ...(random() < 0.5 && { marker: true }),
       }
       const result = await pruneMessages(messages, 'goal', options)
 

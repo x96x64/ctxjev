@@ -107,6 +107,19 @@ export type PruneMessagesOptions = ScoreEntriesOptions & {
    * small saving can cost more than it saves. Default 0.
    */
   minSavedTokens?: number
+  /**
+   * Never remove what the user wrote (their text, not tool results). It costs few tokens, and it's
+   * where constraints and changes of plan live: an agent that lost "keep the mark for 24 hours"
+   * picked its own value rather than asking or re-checking. Default true.
+   */
+  keepUserText?: boolean
+  /**
+   * Add a one-line note where history was removed, so the model knows its view of the conversation
+   * is incomplete and re-reads files instead of trusting what it half-remembers. It goes at the end
+   * of the first unprotected user message after the first change; with none, no note is added.
+   * Default true.
+   */
+  marker?: boolean
 }
 
 export type PruneMessagesResult = {
@@ -142,14 +155,15 @@ type Replacement = { text: string; saved: number }
  * a prompt-cache rewrite. Consecutive same-role messages can result; the Messages API accepts those.
  */
 export async function pruneMessages(messages: AnthropicMessage[], goal: string, options: PruneMessagesOptions = {}): Promise<PruneMessagesResult> {
-  const { policy = DEFAULT_POLICY, protectLast = 2, targetTokens, summarize, minSavedTokens = 0, ...scoreOptions } = options
+  const { policy = DEFAULT_POLICY, protectLast = 2, targetTokens, summarize, minSavedTokens = 0, keepUserText = true, marker = true, ...scoreOptions } = options
   const mapped = mapMessages(messages)
   const decisions = await pruneContext(mapped.map(toEntry), goal, policy, scoreOptions)
   const decisionById = new Map(decisions.map((d) => [d.entryId, d]))
   const entryById = new Map(mapped.map((e) => [e.id, e]))
 
   const lastProtected = messages.length - Math.max(1, protectLast)
-  const isProtected = (entry: MappedEntry) => entry.locations.some((l) => l.message === 0 || l.message >= lastProtected)
+  const inProtectedMessage = (entry: MappedEntry) => entry.locations.some((l) => l.message === 0 || l.message >= lastProtected)
+  const isProtected = (entry: MappedEntry) => inProtectedMessage(entry) || (keepUserText && entry.role === 'user')
   const prunable = mapped.filter((entry) => !isProtected(entry))
   const tokensOf = (entry: MappedEntry) => entry.sourceTokens ?? 0
 
@@ -210,8 +224,10 @@ export async function pruneMessages(messages: AnthropicMessage[], goal: string, 
   }
 
   const pruned: AnthropicMessage[] = []
+  const originalIndex: number[] = []
   messages.forEach((message, m) => {
     if (removedMessages.has(m)) return
+    originalIndex[pruned.length] = m
     if (typeof message.content === 'string') {
       const text = replaceAt.get(`${m}`)
       pruned.push(text === undefined ? message : { ...message, content: text })
@@ -234,20 +250,32 @@ export async function pruneMessages(messages: AnthropicMessage[], goal: string, 
     if (!changed) pruned.push(message)
     // Thinking from an earlier turn isn't used by the API, so a message left holding only that is removed too.
     else if (content.some((block) => block.type !== 'thinking' && block.type !== 'redacted_thinking')) pruned.push({ ...message, content })
+    else originalIndex.pop()
   })
 
   const changedAt = [...removedEntries.flatMap((e) => e.locations), ...[...replacements.keys()].map((id) => entryById.get(id)!.at!)].map((l) => l.message)
   const firstChangedMessage = Math.min(...changedAt)
-  const invalidatedTokens = mapped
-    .filter((e) => !removed.has(e.id) && e.locations.some((l) => l.message >= firstChangedMessage))
-    .reduce((sum, e) => sum + sizeOf(e), 0)
+  let markerTokens = 0
+  if (marker && removedEntries.length > 0) {
+    const k = pruned.findIndex((m, i) => m.role === 'user' && originalIndex[i] >= firstChangedMessage && originalIndex[i] > 0 && originalIndex[i] < lastProtected)
+    if (k >= 0) {
+      const removedTokens = removedEntries.reduce((sum, e) => sum + tokensOf(e), 0)
+      const note = `[ctxjev: ${removedEntries.length} earlier entries (~${removedTokens.toLocaleString('en-US')} tokens) were removed from this conversation to save space. Re-read files or re-run commands rather than relying on what they said.]`
+      const target = pruned[k]
+      const blocks = typeof target.content === 'string' ? [{ type: 'text' as const, text: target.content }] : target.content
+      pruned[k] = { ...target, content: [...blocks, { type: 'text', text: note }] }
+      markerTokens = estimateTokens(note)
+    }
+  }
+  const invalidatedTokens =
+    mapped.filter((e) => !removed.has(e.id) && e.locations.some((l) => l.message >= firstChangedMessage)).reduce((sum, e) => sum + sizeOf(e), 0) + markerTokens
 
   return {
     messages: pruned,
     decisions,
     removed: removedEntries.map((e) => e.id),
     summarized: [...replacements.keys()],
-    savedTokens,
+    savedTokens: savedTokens - markerTokens,
     cache: { firstChangedMessage, invalidatedTokens },
     overBudget: targetTokens !== undefined && remaining > targetTokens,
   }

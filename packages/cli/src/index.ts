@@ -54,6 +54,10 @@ ${pc.bold('Options')}
                              head and tail of their text instead of leaving them as they are.
   --min-saved-tokens <n>     prune, Anthropic Messages only: change nothing unless it saves at least
                              n tokens (any change invalidates a prompt cache from that point on).
+  --drop-user-text           prune, Anthropic Messages only: let what the user wrote be removed too
+                             (by default it's kept: it's where constraints and changes of plan live).
+  --no-marker                prune, Anthropic Messages only: don't add the one-line note saying where
+                             history was removed.
   --help                     Show this help.
   --version                  Print the installed version.
 
@@ -197,6 +201,8 @@ async function runPrune(argv: string[]) {
     'target-tokens': { type: 'string' },
     'min-saved-tokens': { type: 'string' },
     'summarize-excerpts': { type: 'boolean', default: false },
+    'drop-user-text': { type: 'boolean', default: false },
+    'no-marker': { type: 'boolean', default: false },
   })
   const { transcript, goal, policy, scorer, values } = setup
 
@@ -216,7 +222,7 @@ async function runPrune(argv: string[]) {
   const summarize = values['summarize-excerpts'] ? ('excerpt' as const) : undefined
 
   if (transcript.format !== 'anthropic-messages') {
-    const messagesOnly = ['target-tokens', 'min-saved-tokens', 'summarize-excerpts'].filter((flag) => values[flag] !== undefined && values[flag] !== false)
+    const messagesOnly = ['target-tokens', 'min-saved-tokens', 'summarize-excerpts', 'drop-user-text', 'no-marker'].filter((flag) => values[flag] !== undefined && values[flag] !== false)
     if (messagesOnly.length > 0) fail(`${messagesOnly.map((f) => `--${f}`).join(', ')} only apply to an Anthropic Messages transcript`)
 
     const { result: decisions } = await withScoreCache(setup, (options) => pruneContext(transcript.entries, goal, policy, { ...options, scorer }))
@@ -228,7 +234,17 @@ async function runPrune(argv: string[]) {
   }
 
   const { result } = await withScoreCache(setup, (options) =>
-    pruneMessages(transcript.messages, goal, { ...options, scorer, policy, protectLast, targetTokens, minSavedTokens, summarize }),
+    pruneMessages(transcript.messages, goal, {
+      ...options,
+      scorer,
+      policy,
+      protectLast,
+      targetTokens,
+      minSavedTokens,
+      summarize,
+      keepUserText: !values['drop-user-text'],
+      marker: !values['no-marker'],
+    }),
   )
   await writeOutput(transcript.wrapped ? { goal, messages: result.messages } : result.messages, values.out as string | undefined)
   console.error(messagesSummary(transcript.entries.length, result))

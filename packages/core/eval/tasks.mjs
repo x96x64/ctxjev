@@ -31,6 +31,15 @@ import { ANSWER_MODEL, SpendLimitError, costOf, createLimiter, createSpend, prun
 
 const BUDGET = 0.25
 const ALL_CONDITIONS = ['full', 'jev', 'keywords', 'recency', 'goal-only']
+// A pruned condition can add pruneMessages options: `jev+user` (keepUserText), `jev+user+marker`.
+const FLAGS = { user: 'keepUserText', marker: 'marker' }
+function parseCondition(condition) {
+  const [base, ...flags] = condition.split('+')
+  if (!ALL_CONDITIONS.includes(base) || flags.some((f) => !(f in FLAGS)) || (flags.length > 0 && (base === 'full' || base === 'goal-only'))) {
+    throw new Error(`unknown condition ${condition}`)
+  }
+  return { base, extra: Object.fromEntries(flags.map((f) => [FLAGS[f], true])) }
+}
 const OUTPUT_LIMIT = 30_000
 
 const examples = join(dirname(fileURLToPath(import.meta.url)), '../../../examples')
@@ -142,17 +151,17 @@ function grade(task, repo) {
 // --- report ------------------------------------------------------------------------------------
 
 function printTable(rows) {
-  const conditions = ALL_CONDITIONS.filter((c) => rows.some((r) => r.condition === c))
+  const conditions = [...new Set(rows.map((r) => r.condition))].sort((a, b) => ALL_CONDITIONS.indexOf(a.split('+')[0]) - ALL_CONDITIONS.indexOf(b.split('+')[0]) || a.localeCompare(b))
   const pct = (xs) => (xs.length === 0 ? '   -  ' : `${((xs.filter((r) => r.success).length / xs.length) * 100).toFixed(0)}%`.padStart(6))
   const tasks = [...new Set(rows.map((r) => r.task))]
   console.log(`\nHidden acceptance tests passed (${ANSWER_MODEL} as the agent; history pruned to ${BUDGET * 100}% except full / goal-only)\n`)
-  console.log(`  ${'condition'.padEnd(12)}${'all'.padStart(8)}${'en'.padStart(8)}${'ja'.padStart(8)}${'turns'.padStart(8)}${'$/run'.padStart(8)}   ${tasks.map((t) => t.slice(0, 10).padStart(11)).join('')}`)
+  console.log(`  ${'condition'.padEnd(20)}${'all'.padStart(8)}${'en'.padStart(8)}${'ja'.padStart(8)}${'turns'.padStart(8)}${'$/run'.padStart(8)}   ${tasks.map((t) => t.slice(0, 10).padStart(11)).join('')}`)
   for (const c of conditions) {
     const rs = rows.filter((r) => r.condition === c)
     const mean = (f) => rs.reduce((s, r) => s + f(r), 0) / rs.length
     const costs = rs.filter((r) => typeof r.costUsd === 'number')
     console.log(
-      `  ${c.padEnd(12)}${pct(rs).padStart(8)}${pct(rs.filter((r) => r.language === 'en')).padStart(8)}${pct(rs.filter((r) => r.language === 'ja')).padStart(8)}` +
+      `  ${c.padEnd(20)}${pct(rs).padStart(8)}${pct(rs.filter((r) => r.language === 'en')).padStart(8)}${pct(rs.filter((r) => r.language === 'ja')).padStart(8)}` +
         `${mean((r) => r.turns).toFixed(1).padStart(8)}${(costs.length ? `$${(costs.reduce((s, r) => s + r.costUsd, 0) / costs.length).toFixed(3)}` : '-').padStart(8)}   ${tasks.map((t) => pct(rs.filter((r) => r.task === t)).padStart(11)).join('')}`,
     )
   }
@@ -198,7 +207,7 @@ const maxUsd = Number(args['max-usd'])
 if (!(maxUsd > 0)) throw new Error('--max-usd is required: the most this run may spend, in dollars')
 const maxTurns = Number(args['max-turns'])
 const conditions = args.conditions ? args.conditions.split(',') : ALL_CONDITIONS
-for (const c of conditions) if (!ALL_CONDITIONS.includes(c)) throw new Error(`unknown condition ${c}`)
+for (const c of conditions) parseCondition(c)
 for (const key of ['ANTHROPIC_API_KEY', 'TYPESAFE_API_KEY']) if (!process.env[key]) throw new Error(`${key} is not set`)
 
 const client = new Anthropic()
@@ -263,7 +272,8 @@ try {
     const ranked = await rankings(history, session.goal)
     const histories = {}
     for (const c of conditions) {
-      histories[c] = c === 'full' ? history : c === 'goal-only' ? [history[0]] : await pruneTo(history, session.goal, ranked[c], c, BUDGET)
+      const { base, extra } = parseCondition(c)
+      histories[c] = base === 'full' ? history : base === 'goal-only' ? [history[0]] : await pruneTo(history, session.goal, ranked[base], base, BUDGET, extra)
     }
     const jobs = conditions.flatMap((condition) => Array.from({ length: runs }, (_, run) => ({ condition, run })))
     const results = await Promise.all(jobs.map(async ({ condition, run }) => ({ task, language, condition, run, ...(await runAgent(task, histories[condition], prompts[prompts.length - 1])) })))

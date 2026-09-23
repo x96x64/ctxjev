@@ -86,6 +86,11 @@ the two per `PruningPolicy.recencyWeight` before `action` is decided.
     `'excerpt'` (the head and tail of the text) or your own `(entry, text) => Promise<string>`.
     A tool call keeps its `tool_use`; only its result is replaced.
   - `minSavedTokens`: change nothing unless it saves at least this many tokens.
+  - `keepUserText` (default `true`): never remove what the user wrote. It costs few tokens and holds
+    the constraints; in the task eval, an agent that lost "keep the mark for 24 hours" chose its own
+    TTL.
+  - `marker` (default `true`): add a one-line note where history was removed, so the model knows to
+    re-read rather than trust what it half-remembers.
 
   The result reports `savedTokens`, `summarized`, and `cache` (see below).
 - **`parseClaudeCodeTranscript(jsonl, { countTokens? })`** / **`inferGoalFromEntries(entries)`**
