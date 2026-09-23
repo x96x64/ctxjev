@@ -99,6 +99,58 @@ describe('ctxjev prune', () => {
     expect(result.stdout).toContain('Usage')
   }, 15_000)
 
+  it('fits a budget, shortens summarize entries, and reports the prompt-cache cost', async () => {
+    const file = join(dir, 'budget.json')
+    const out = join(dir, 'budget-out.json')
+    const log = (name: string) => `${name}\n${'checkout retry charge log line\n'.repeat(400)}`
+    await writeFile(
+      file,
+      JSON.stringify([
+        { role: 'user', content: 'fix the checkout double charge on retry' },
+        { role: 'assistant', content: [{ type: 'tool_use', id: 't1', name: 'Bash', input: { command: 'cat retry.log' } }] },
+        { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't1', content: log('retry.log') }] },
+        { role: 'assistant', content: [{ type: 'tool_use', id: 't2', name: 'Bash', input: { command: 'cat charge.log' } }] },
+        { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't2', content: log('charge.log') }] },
+        { role: 'assistant', content: 'the retry handler re-charges on checkout' },
+        { role: 'user', content: 'ok' },
+      ]),
+    )
+
+    const result = await run(['prune', file, '--offline', '--out', out, '--target-tokens', '3000', '--summarize-excerpts', '--summarize-below', '1'])
+    expect(result.exitCode).toBe(0)
+    expect(result.stderr).toMatch(/shortened \d+/)
+    expect(result.stderr).toMatch(/prompt cache: rewritten from message \d+ on/)
+    const blocks = JSON.parse(await readFile(out, 'utf8')).flatMap((m: { content: unknown }) => (Array.isArray(m.content) ? m.content : []))
+    const uses = blocks.filter((b: { type: string }) => b.type === 'tool_use').map((b: { id: string }) => b.id)
+    const results = blocks.filter((b: { type: string }) => b.type === 'tool_result').map((b: { tool_use_id: string }) => b.tool_use_id)
+    expect(results).toEqual(uses)
+  }, 15_000)
+
+  it('leaves the conversation alone when --min-saved-tokens is not met', async () => {
+    const file = join(dir, 'small.json')
+    const messages = [
+      { role: 'user', content: 'fix the checkout double charge on retry' },
+      { role: 'assistant', content: [{ type: 'tool_use', id: 't1', name: 'Bash', input: { command: 'ls public' } }] },
+      { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't1', content: 'favicon.ico' }] },
+      { role: 'assistant', content: 'the retry handler re-charges on checkout' },
+      { role: 'user', content: 'ok' },
+    ]
+    await writeFile(file, JSON.stringify(messages))
+
+    const result = await run(['prune', file, '--offline', '--min-saved-tokens', '5000'])
+    expect(result.exitCode).toBe(0)
+    expect(JSON.parse(result.stdout)).toEqual(messages)
+    expect(result.stderr).toContain('left unchanged')
+  }, 15_000)
+
+  it('rejects Messages-only flags on a ctxjev-format transcript', async () => {
+    const file = join(dir, 'c.json')
+    await writeFile(file, JSON.stringify({ goal: 'g', entries: [{ id: 'a', role: 'tool', content: 'x', timestamp: 1 }] }))
+    const result = await run(['prune', file, '--offline', '--target-tokens', '10'])
+    expect(result.exitCode).toBe(1)
+    expect(result.stderr).toContain('--target-tokens only apply to an Anthropic Messages transcript')
+  }, 15_000)
+
   it('refuses to write back a Claude Code transcript', async () => {
     const file = join(dir, 's.jsonl')
     await writeFile(file, JSON.stringify({ type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: 'fix the bug please now' } }))

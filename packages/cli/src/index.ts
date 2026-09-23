@@ -12,9 +12,8 @@ import {
   pruneContext,
   pruneMessages,
   summarizeSavings,
-  type Entry,
   type JevUsage,
-  type PruneDecision,
+  type PruneMessagesResult,
   type PruningPolicy,
   type ScoreCache,
 } from 'ctxjev-core'
@@ -49,6 +48,12 @@ ${pc.bold('Options')}
   --json                     analyze: print machine-readable JSON instead of the report.
   --out <file>               prune: write the result here instead of to stdout.
   --protect-last <n>         prune, Anthropic Messages only: never touch the last n messages. (default 2)
+  --target-tokens <n>        prune, Anthropic Messages only: after the drops, keep removing the
+                             lowest-scoring entries until the conversation fits in n tokens.
+  --summarize-excerpts       prune, Anthropic Messages only: shorten entries marked summarize to the
+                             head and tail of their text instead of leaving them as they are.
+  --min-saved-tokens <n>     prune, Anthropic Messages only: change nothing unless it saves at least
+                             n tokens (any change invalidates a prompt cache from that point on).
   --help                     Show this help.
   --version                  Print the installed version.
 
@@ -186,47 +191,77 @@ async function runAnalyze(argv: string[]) {
 }
 
 async function runPrune(argv: string[]) {
-  const setup = await setUp(argv, { out: { type: 'string' }, 'protect-last': { type: 'string' } })
+  const setup = await setUp(argv, {
+    out: { type: 'string' },
+    'protect-last': { type: 'string' },
+    'target-tokens': { type: 'string' },
+    'min-saved-tokens': { type: 'string' },
+    'summarize-excerpts': { type: 'boolean', default: false },
+  })
   const { transcript, goal, policy, scorer, values } = setup
 
   if (transcript.format === 'claude-code') {
     fail("prune can't write back a Claude Code transcript — Claude Code doesn't load an edited one. Use `ctxjev analyze`, or the ctxjev Claude Code plugin.")
   }
 
-  let protectLast = 2
-  if (values['protect-last'] !== undefined) {
-    protectLast = Number(values['protect-last'])
-    if (!Number.isInteger(protectLast) || protectLast < 1) fail(`--protect-last must be a whole number of at least 1, got "${values['protect-last']}"`)
+  const wholeNumber = (flag: string, min: number): number | undefined => {
+    if (values[flag] === undefined) return undefined
+    const n = Number(values[flag])
+    if (!Number.isInteger(n) || n < min) fail(`--${flag} must be a whole number of at least ${min}, got "${values[flag]}"`)
+    return n
+  }
+  const protectLast = wholeNumber('protect-last', 1) ?? 2
+  const targetTokens = wholeNumber('target-tokens', 0)
+  const minSavedTokens = wholeNumber('min-saved-tokens', 0)
+  const summarize = values['summarize-excerpts'] ? ('excerpt' as const) : undefined
+
+  if (transcript.format !== 'anthropic-messages') {
+    const messagesOnly = ['target-tokens', 'min-saved-tokens', 'summarize-excerpts'].filter((flag) => values[flag] !== undefined && values[flag] !== false)
+    if (messagesOnly.length > 0) fail(`${messagesOnly.map((f) => `--${f}`).join(', ')} only apply to an Anthropic Messages transcript`)
+
+    const { result: decisions } = await withScoreCache(setup, (options) => pruneContext(transcript.entries, goal, policy, { ...options, scorer }))
+    const removed = new Set(decisions.filter((d) => d.action === 'drop').map((d) => d.entryId))
+    await writeOutput({ goal, entries: transcript.entries.filter((e) => !removed.has(e.id)) }, values.out as string | undefined)
+    const savedTokens = transcript.entries.filter((e) => removed.has(e.id)).reduce((sum, e) => sum + (e.sourceTokens ?? estimateTokens(e.content)), 0)
+    console.error(pc.dim(`removed ${removed.size} of ${transcript.entries.length} entries, ~${savedTokens.toLocaleString()} tokens${offlineNote(scorer)}`))
+    return
   }
 
-  let output: unknown
-  let decisions: PruneDecision[]
-  let removed: Set<string>
-  if (transcript.format === 'anthropic-messages') {
-    const { result } = await withScoreCache(setup, (options) => pruneMessages(transcript.messages, goal, { ...options, scorer, policy, protectLast }))
-    output = transcript.wrapped ? { goal, messages: result.messages } : result.messages
-    decisions = result.decisions
-    removed = new Set(result.removed)
-  } else {
-    const { result } = await withScoreCache(setup, (options) => pruneContext(transcript.entries, goal, policy, { ...options, scorer }))
-    decisions = result
-    removed = new Set(result.filter((d) => d.action === 'drop').map((d) => d.entryId))
-    output = { goal, entries: transcript.entries.filter((e) => !removed.has(e.id)) }
-  }
-
-  const json = `${JSON.stringify(output, null, 2)}\n`
-  if (values.out) await writeFile(values.out as string, json, 'utf8')
-  else process.stdout.write(json)
-
-  console.error(pruneSummary(transcript.entries, decisions, removed, scorer))
+  const { result } = await withScoreCache(setup, (options) =>
+    pruneMessages(transcript.messages, goal, { ...options, scorer, policy, protectLast, targetTokens, minSavedTokens, summarize }),
+  )
+  await writeOutput(transcript.wrapped ? { goal, messages: result.messages } : result.messages, values.out as string | undefined)
+  console.error(messagesSummary(transcript.entries.length, result))
 }
 
-function pruneSummary(entries: Entry[], decisions: PruneDecision[], removed: Set<string>, scorer: Scorer): string {
-  const removedTokens = entries.filter((e) => removed.has(e.id)).reduce((sum, e) => sum + (e.sourceTokens ?? estimateTokens(e.content)), 0)
-  const kept = decisions.filter((d) => d.action === 'drop').length - removed.size
-  const protectedNote = kept > 0 ? ` (${kept} marked drop but protected)` : ''
-  const offline = scorer === 'local' ? ' · scored offline by keyword overlap' : ''
-  return pc.dim(`removed ${removed.size} of ${entries.length} entries, ~${removedTokens.toLocaleString()} tokens${protectedNote}${offline}`)
+async function writeOutput(output: unknown, out: string | undefined): Promise<void> {
+  const json = `${JSON.stringify(output, null, 2)}\n`
+  if (out) await writeFile(out, json, 'utf8')
+  else process.stdout.write(json)
+}
+
+function offlineNote(scorer: Scorer): string {
+  return scorer === 'local' ? ' · scored offline by keyword overlap' : ''
+}
+
+function messagesSummary(total: number, result: PruneMessagesResult): string {
+  if (result.heldBack !== undefined) {
+    return pc.dim(`left unchanged: pruning would save only ~${result.heldBack.toLocaleString()} tokens, under --min-saved-tokens`)
+  }
+  const removed = new Set(result.removed)
+  const protectedDrops = result.decisions.filter((d) => d.action === 'drop' && !removed.has(d.entryId)).length
+  const parts = [
+    `removed ${result.removed.length} of ${total} entries`,
+    ...(result.summarized.length > 0 ? [`shortened ${result.summarized.length}`] : []),
+    `~${result.savedTokens.toLocaleString()} tokens saved`,
+    ...(protectedDrops > 0 ? [`${protectedDrops} marked drop but protected`] : []),
+  ]
+  const cache =
+    result.cache.firstChangedMessage === null
+      ? ''
+      : `\nprompt cache: rewritten from message ${result.cache.firstChangedMessage} on (~${result.cache.invalidatedTokens.toLocaleString()} tokens on the next request)`
+  const budget = result.overBudget ? `\n${pc.yellow('⚠')} still over --target-tokens: what's left is protected` : ''
+  return pc.dim(`${parts.join(', ')}${cache}`) + budget
 }
 
 async function main() {

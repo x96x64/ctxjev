@@ -32,7 +32,7 @@ export type ScoreEntriesOptions = {
 
 // A large transcript can chunk into hundreds of requests; firing all of them at once relies
 // entirely on the SDK's own retry/backoff to survive the resulting rate-limit thundering herd.
-const MAX_CONCURRENT_CHUNK_REQUESTS = 5
+export const MAX_CONCURRENT_CHUNK_REQUESTS = 5
 
 // How much of the batch's most recent activity every chunk gets to see (see buildJevRequest).
 const LATEST_CONTEXT_SIZE = 8
@@ -41,7 +41,7 @@ function latestEntries(entries: Entry[], count: number): Entry[] {
   return [...entries].sort((a, b) => a.timestamp - b.timestamp).slice(-count)
 }
 
-async function mapWithConcurrencyLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+export async function mapWithConcurrencyLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
   const results: R[] = new Array(items.length)
   let nextIndex = 0
 

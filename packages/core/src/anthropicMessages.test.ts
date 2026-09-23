@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { messagesToEntries, pruneMessages, type AnthropicMessage } from './anthropicMessages.js'
+import { messagesToEntries, pruneMessages, type AnthropicContentBlock, type AnthropicMessage, type PruneMessagesOptions } from './anthropicMessages.js'
+import type { CustomScorer } from './prune.js'
 import { estimateTokens } from './tokenEstimate.js'
 
 // Every tool_result must follow its tool_use, and every tool_use outside the final message must
@@ -24,6 +25,22 @@ function expectValidToolPairing(messages: AnthropicMessage[]) {
   }
   for (const message of messages) expect(message.content.length, 'no empty messages').toBeGreaterThan(0)
 }
+
+// Deterministic scores by entry id, so budget and summarize behavior can be pinned down exactly.
+const scoresById = (scores: Record<string, number>): CustomScorer => async (_goal, entries) => entries.map((e) => scores[e.id] ?? 0.9)
+const noRecency = { dropBelow: 0.25, summarizeBelow: 0.6, recencyWeight: 0 }
+const bigLog = (label: string) => `${label}\n${'GET /static/asset.png 200 12ms\n'.repeat(300)}build finished: 3 warnings`
+
+const withBigResults: AnthropicMessage[] = [
+  { role: 'user', content: 'Fix the flaky checkout test' },
+  { role: 'assistant', content: [{ type: 'tool_use', id: 'a', name: 'Bash', input: { command: 'cat a.log' } }] },
+  { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'a', content: bigLog('a.log') }] },
+  { role: 'assistant', content: [{ type: 'tool_use', id: 'b', name: 'Bash', input: { command: 'cat b.log' } }] },
+  { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'b', content: bigLog('b.log'), is_error: true }] },
+  { role: 'assistant', content: [{ type: 'text', text: 'Both logs read. The test races the retry timer.' }] },
+  { role: 'user', content: 'ok, go on' },
+  { role: 'assistant', content: 'Patching the timer now.' },
+]
 
 const conversation: AnthropicMessage[] = [
   { role: 'user', content: 'Fix the checkout double charge on retry' },
@@ -122,5 +139,137 @@ describe('pruneMessages', () => {
     })
     expect(decisions.every((d) => d.action === 'summarize')).toBe(true)
     expect(messages).toEqual(conversation)
+  })
+
+  describe('targetTokens', () => {
+    it('removes the lowest-scoring unprotected entries until the conversation fits', async () => {
+      const total = messagesToEntries(withBigResults).reduce((sum, e) => sum + (e.sourceTokens ?? 0), 0)
+      const result = await pruneMessages(withBigResults, 'goal', { scorer: scoresById({ 'tool:a': 0.7, 'tool:b': 0.8 }), policy: noRecency, targetTokens: total - 100 })
+      expect(result.removed).toEqual(['tool:a'])
+      expect(result.overBudget).toBe(false)
+      expectValidToolPairing(result.messages)
+    })
+
+    it('reports overBudget when only protected entries are left', async () => {
+      const result = await pruneMessages(withBigResults, 'goal', { scorer: scoresById({}), policy: noRecency, targetTokens: 1 })
+      expect(result.removed.sort()).toEqual(['msg:5:0', 'tool:a', 'tool:b'])
+      expect(result.overBudget).toBe(true)
+      expect(result.messages[0]).toBe(withBigResults[0])
+      expectValidToolPairing(result.messages)
+    })
+  })
+
+  describe('summarize', () => {
+    it("'excerpt' shortens a tool result in place, keeping its tool_use and is_error", async () => {
+      const result = await pruneMessages(withBigResults, 'goal', { scorer: scoresById({ 'tool:b': 0.4 }), policy: noRecency, summarize: 'excerpt' })
+      expect(result.summarized).toEqual(['tool:b'])
+      expect(result.removed).toEqual([])
+      const block = (result.messages[4].content as AnthropicContentBlock[])[0] as { content: string; is_error: boolean }
+      expect(block.content).toMatch(/^\[shortened by ctxjev from ~\d+ tokens\] b\.log/)
+      expect(block.content).toContain('build finished: 3 warnings')
+      expect(block.is_error).toBe(true)
+      expect(result.messages[3]).toBe(withBigResults[3])
+      expect(result.savedTokens).toBeGreaterThan(1000)
+    })
+
+    it('hands a custom summarizer the masked full text and skips a replacement that is no shorter', async () => {
+      const seen: string[] = []
+      const conversation: AnthropicMessage[] = [
+        { role: 'user', content: 'start' },
+        { role: 'assistant', content: [{ type: 'text', text: `export TYPESAFE_API_KEY=abc123def456ghi ${'long reasoning '.repeat(50)}` }] },
+        { role: 'user', content: 'short note' },
+        { role: 'assistant', content: 'end' },
+        { role: 'user', content: 'go' },
+      ]
+      const result = await pruneMessages(conversation, 'goal', {
+        scorer: async (_goal, entries) => entries.map(() => 0.4),
+        policy: noRecency,
+        summarize: async (_entry, text) => {
+          seen.push(text)
+          return text.startsWith('short') ? `${text} and then some more words` : 'a one-line summary'
+        },
+      })
+      expect(seen.some((t) => t.includes('TYPESAFE_API_KEY=[REDACTED]'))).toBe(true)
+      expect(result.summarized).toEqual(['msg:1:0'])
+      expect((result.messages[1].content as AnthropicContentBlock[])[0]).toEqual({ type: 'text', text: 'a one-line summary' })
+      expect(result.messages[2]).toBe(conversation[2])
+    })
+  })
+
+  describe('minSavedTokens and cache impact', () => {
+    it('leaves the conversation untouched when the saving is below minSavedTokens', async () => {
+      const result = await pruneMessages(withBigResults, 'goal', { scorer: scoresById({ 'tool:a': 0.1 }), policy: noRecency, minSavedTokens: 1_000_000 })
+      expect(result.messages).toBe(withBigResults)
+      expect(result.removed).toEqual([])
+      expect(result.heldBack).toBeGreaterThan(1000)
+      expect(result.cache).toEqual({ firstChangedMessage: null, invalidatedTokens: 0 })
+    })
+
+    it('reports where the cache breaks and how much after it must be written again', async () => {
+      const result = await pruneMessages(withBigResults, 'goal', { scorer: scoresById({ 'tool:b': 0.1 }), policy: noRecency })
+      expect(result.removed).toEqual(['tool:b'])
+      expect(result.cache.firstChangedMessage).toBe(3)
+      const after = messagesToEntries(withBigResults).filter((e) => e.timestamp >= 5)
+      expect(result.cache.invalidatedTokens).toBe(after.reduce((sum, e) => sum + (e.sourceTokens ?? 0), 0))
+    })
+  })
+
+  // Seeded random conversations × random scores × every option: the result must always be a request
+  // the Messages API accepts, and never touch the first message or the protected tail.
+  it('keeps every invariant across randomized conversations and options', async () => {
+    let seed = 42
+    const random = () => {
+      seed = (seed + 0x6d2b79f5) | 0
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed)
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+    }
+    const pick = <T,>(items: T[]) => items[Math.floor(random() * items.length)]
+    let changedRuns = 0
+
+    for (let run = 0; run < 150; run++) {
+      const messages: AnthropicMessage[] = [{ role: 'user', content: 'the original task' }]
+      let pending: string[] = []
+      const turns = 2 + Math.floor(random() * 10)
+      for (let t = 0; t < turns; t++) {
+        const blocks: AnthropicContentBlock[] = []
+        if (random() < 0.3) blocks.push({ type: 'thinking', thinking: 'hmm', signature: 's' })
+        if (random() < 0.6) blocks.push({ type: 'text', text: pick(['looking', 'found it '.repeat(40), 'next step']) })
+        const calls = Math.floor(random() * 3)
+        for (let c = 0; c < calls; c++) {
+          const id = `r${run}t${t}c${c}`
+          blocks.push({ type: 'tool_use', id, name: 'Bash', input: { command: id } })
+          pending.push(id)
+        }
+        if (blocks.every((b) => b.type === 'thinking')) blocks.push({ type: 'text', text: 'ok' })
+        messages.push({ role: 'assistant', content: blocks })
+        if (t === turns - 1 && random() < 0.5) break // leave the last tool calls waiting on a result
+        const results: AnthropicContentBlock[] = pending.map((id) => ({ type: 'tool_result', tool_use_id: id, content: pick(['ok', bigLog(id)]) }))
+        pending = []
+        messages.push(random() < 0.5 || results.length === 0 ? { role: 'user', content: results.length ? [...results, { type: 'text', text: 'continue' }] : 'continue' } : { role: 'user', content: results })
+      }
+
+      const protectLast = 1 + Math.floor(random() * 3)
+      const options: PruneMessagesOptions = {
+        scorer: async (_goal, entries) => entries.map(() => random()),
+        policy: noRecency,
+        protectLast,
+        ...(random() < 0.5 && { summarize: 'excerpt' as const }),
+        ...(random() < 0.5 && { targetTokens: Math.floor(random() * 2000) }),
+        ...(random() < 0.3 && { minSavedTokens: Math.floor(random() * 3000) }),
+      }
+      const result = await pruneMessages(messages, 'goal', options)
+
+      expectValidToolPairing(result.messages)
+      expect(result.messages[0]).toBe(messages[0])
+      expect(result.messages.slice(-protectLast)).toEqual(messages.slice(-protectLast))
+      if (result.removed.length === 0 && result.summarized.length === 0) expect(result.messages).toEqual(messages)
+      else {
+        changedRuns++
+        expect(result.cache.firstChangedMessage).toBeGreaterThan(0)
+      }
+    }
+    // Guards the test itself: most runs must actually exercise removal or summarizing.
+    expect(changedRuns).toBeGreaterThan(75)
   })
 })

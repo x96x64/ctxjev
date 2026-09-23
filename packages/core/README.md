@@ -79,11 +79,19 @@ the two per `PruningPolicy.recencyWeight` before `action` is decided.
   `{ messages, decisions, removed }`: the conversation with dropped entries removed, still a valid
   request. A `tool_use` and its `tool_result` are removed together, a message left empty is
   removed, and the first message and the last `protectLast` messages (default 2) are never
-  touched. `summarize` is reported but left in place. `messagesToEntries(messages)` exposes the
-  entry mapping on its own.
-- **`parseClaudeCodeTranscript(jsonl)`** / **`inferGoalFromEntries(entries)`** parse a real Claude
-  Code session `.jsonl` transcript into `Entry[]`, and infer a goal from the most recent user
-  message.
+  touched. `messagesToEntries(messages)` exposes the entry mapping on its own. Options:
+  - `targetTokens`: after the drops, keep removing the lowest-scoring unprotected entries until
+    the conversation fits. `overBudget` in the result says if only protected entries are left.
+  - `summarize`: shorten entries marked `summarize` instead of leaving them as they are, either
+    `'excerpt'` (the head and tail of the text) or your own `(entry, text) => Promise<string>`.
+    A tool call keeps its `tool_use`; only its result is replaced.
+  - `minSavedTokens`: change nothing unless it saves at least this many tokens.
+
+  The result reports `savedTokens`, `summarized`, and `cache` (see below).
+- **`parseClaudeCodeTranscript(jsonl, { countTokens? })`** / **`inferGoalFromEntries(entries)`**
+  parse a real Claude Code session `.jsonl` transcript into `Entry[]`, and infer a goal from the
+  most recent user message. Pass `countTokens: estimateTokens` to fill in each entry's
+  `sourceTokens`.
 - **`summarizeSavings(entries, decisions)`** / **`estimateTokens(text)`** provide token-based
   savings reporting, using a real tokenizer and never asking Jev to count.
 - `options.onUsage` (on `scoreEntries`/`pruneContext`) is an optional callback fired once per Jev
@@ -102,8 +110,29 @@ the two per `PruningPolicy.recencyWeight` before `action` is decided.
   ```
 - **`redactSecrets(text)`** is the secret masking every Jev request already goes through.
 - `summarizeSavings()` reports `droppedTokens` (saved once removed) separately from
-  `summarizableTokens` (entries marked `summarize`). ctxjev can't summarize, since Jev doesn't
-  generate text, so how much of the latter is saved depends on your own summarizer.
+  `summarizableTokens` (entries marked `summarize`). Jev doesn't generate text, so how much of the
+  latter is saved depends on what you do with those entries: `pruneMessages`' `summarize` option
+  can cut them to an excerpt or hand them to your own summarizer. Both counts use each entry's
+  `sourceTokens` (the full payload's size) when it's set.
+
+### With prompt caching
+
+Removing anything from a conversation changes every request after it, so a prompt cache starts
+over from the first changed message: that much has to be written to the cache again (at a
+premium) instead of being read from it (at a discount). Pruning on every turn can easily cost more
+than it saves. Prune in bulk instead, when the context crosses a threshold you choose, and check
+the result's `cache.invalidatedTokens` against `savedTokens`:
+
+```ts
+if (contextTokens > 120_000) {
+  const result = await pruneMessages(messages, goal, { targetTokens: 60_000, summarize: 'excerpt', minSavedTokens: 20_000 })
+  messages = result.messages // result.cache: { firstChangedMessage, invalidatedTokens }
+}
+```
+
+A large saving pays for one rewrite quickly, because every later turn reads the smaller
+conversation from the cache again. `minSavedTokens` makes a small saving a no-op, so an unchanged
+conversation keeps its cache.
 
 Full type definitions ship with the package. Design notes (why relevance and recency are separate
 fields, why recency is batch-relative not wall-clock, how `recencyWeight`'s default was tuned

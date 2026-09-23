@@ -33,7 +33,7 @@ export function excerpt(text: string): string {
 
 // Tool output keeps its head *and* tail: a test run's summary line or an error's final message is
 // usually at the end, exactly what a head-only cut throws away.
-function toolExcerpt(text: string, max: number = MAX_CONTENT_LENGTH): string {
+export function toolExcerpt(text: string, max: number = MAX_CONTENT_LENGTH): string {
   const oneLine = redactSecrets(text).replace(/\s+/g, ' ').trim()
   if (oneLine.length <= max) return oneLine
   const headLength = Math.ceil(max * 0.6)

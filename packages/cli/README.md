@@ -65,7 +65,10 @@ estimated.
 | `--offline` | Scores by keyword overlap instead of Jev: no API key needed, nothing sent. Much cruder, so treat the decisions as a rough guide. |
 | `--out <file>` | `prune`: writes the result here instead of to stdout. |
 | `--protect-last <n>` | `prune`, Anthropic Messages only: never touches the last n messages (default 2). |
-| `--help` / `--version` | Work without `TYPESAFE_API_KEY` set. |
+| `--target-tokens <n>` | `prune`, Anthropic Messages only: after the drops, keeps removing the lowest-scoring entries until the conversation fits in n tokens. |
+| `--summarize-excerpts` | `prune`, Anthropic Messages only: shortens entries marked summarize to the head and tail of their text, instead of leaving them as they are. |
+| `--min-saved-tokens <n>` | `prune`, Anthropic Messages only: changes nothing unless it saves at least n tokens. The summary line shows where a prompt cache would start over. |
+| `--help` / `--version` | Work without `TYPESAFE_API_KEY` set, before or after the command (`ctxjev prune --help`). |
 
 ## Transcript Formats
 
