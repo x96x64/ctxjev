@@ -90,6 +90,16 @@ the two per `PruningPolicy.recencyWeight` before `action` is decided.
   request with that request's real `{ inputTokens, outputTokens }`, for cost tracking.
 - `options.cache` takes any `{ get, set }` score cache, checked before each Jev request.
 - `options.scorer: 'local'` scores offline with `localRelevance()` instead of Jev.
+- `options.scorer` also takes your own function (`CustomScorer`), to score with another model or
+  a rule set. It gets the goal, a chunk of up to 50 entries (content already masked by
+  `redactSecrets()`), and the batch's latest activity, and returns one relevance from 0 to 1 per
+  entry, in order. `cache` and `onUsage` apply to Jev only.
+
+  ```ts
+  const decisions = await pruneContext(entries, goal, undefined, {
+    scorer: async (goal, chunk) => chunk.map((entry) => (entry.content.includes('[error]') ? 0.9 : myModel.score(goal, entry.content))),
+  })
+  ```
 - **`redactSecrets(text)`** is the secret masking every Jev request already goes through.
 - `summarizeSavings()` reports `droppedTokens` (saved once removed) separately from
   `summarizableTokens` (entries marked `summarize`). ctxjev can't summarize, since Jev doesn't

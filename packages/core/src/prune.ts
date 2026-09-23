@@ -4,19 +4,30 @@ import { scoreRelevance, type RelevanceVerdict } from './jevClient.js'
 import { localRelevance } from './localRelevance.js'
 import { combineScore, decideAction } from './policy.js'
 import { computeRecency } from './recency.js'
+import { redactSecrets } from './redact.js'
 import { DEFAULT_POLICY, type Entry, type JevUsage, type PruneDecision, type PruningPolicy, type ScoredEntry } from './types.js'
 
+/**
+ * Your own relevance judgment, for scoring with something other than Jev (another model, a
+ * classifier, a rule set). It's called once per chunk of up to 50 entries, a few chunks at a time,
+ * with the goal and every entry's content already passed through `redactSecrets()`; `latest` is
+ * the batch's most recent activity, the same context Jev gets for spotting superseded entries.
+ * Resolve to one relevance from 0 to 1 per entry, in the order given.
+ */
+export type CustomScorer = (goal: string, entries: Entry[], context: { latest: Entry[] }) => Promise<number[]>
+
 export type ScoreEntriesOptions = {
-  /** Called once per underlying Jev request (one per chunk) with that request's token usage. */
+  /** Called once per underlying Jev request (one per chunk) with that request's token usage. Jev only. */
   onUsage?: (usage: JevUsage) => void
-  /** Checked before, and populated after, each Jev request — see `ScoreCache`. */
+  /** Checked before, and populated after, each Jev request — see `ScoreCache`. Jev only. */
   cache?: ScoreCache
   /**
    * `'jev'` (default) asks Jev. `'local'` uses an offline keyword-overlap heuristic instead
    * (`localRelevance`): no API key, no network, nothing sent anywhere — and much cruder, so its
-   * scores aren't comparable to Jev's. It never reads or writes `cache`, and never calls `onUsage`.
+   * scores aren't comparable to Jev's. A function is used as-is (see `CustomScorer`). Neither of
+   * the last two reads or writes `cache` or calls `onUsage`: both are keyed to Jev's own question.
    */
-  scorer?: 'jev' | 'local'
+  scorer?: 'jev' | 'local' | CustomScorer
 }
 
 // A large transcript can chunk into hundreds of requests; firing all of them at once relies
@@ -54,6 +65,26 @@ async function scoreWithJev(entries: Entry[], goal: string, options: ScoreEntrie
   return chunkResults.flat()
 }
 
+async function scoreWithCustom(entries: Entry[], goal: string, scorer: CustomScorer): Promise<RelevanceVerdict[]> {
+  const redact = (entry: Entry): Entry => ({ ...entry, content: redactSecrets(entry.content) })
+  const latest = latestEntries(entries, LATEST_CONTEXT_SIZE).map(redact)
+  const safeGoal = redactSecrets(goal)
+  const chunkResults = await mapWithConcurrencyLimit(chunkEntries(entries), MAX_CONCURRENT_CHUNK_REQUESTS, async (chunk) => {
+    const scores: unknown = await scorer(safeGoal, chunk.map(redact), { latest })
+    if (!Array.isArray(scores) || scores.length !== chunk.length) {
+      throw new Error(`custom scorer returned ${Array.isArray(scores) ? `${scores.length} scores` : String(scores)} for ${chunk.length} entries`)
+    }
+    return chunk.map((entry, i) => {
+      const relevance: unknown = scores[i]
+      if (typeof relevance !== 'number' || !Number.isFinite(relevance) || relevance < 0 || relevance > 1) {
+        throw new Error(`custom scorer returned ${String(relevance)} for entry "${entry.id}" — expected a number from 0 to 1`)
+      }
+      return { entryId: entry.id, relevance }
+    })
+  })
+  return chunkResults.flat()
+}
+
 function scoreLocally(entries: Entry[], goal: string): RelevanceVerdict[] {
   return entries.map((entry) => ({ entryId: entry.id, relevance: localRelevance(goal, entry.content) }))
 }
@@ -79,7 +110,9 @@ export async function scoreEntries(
     seenIds.add(entry.id)
   }
 
-  const verdicts = options.scorer === 'local' ? scoreLocally(entries, goal) : await scoreWithJev(entries, goal, options)
+  const { scorer } = options
+  const verdicts =
+    scorer === 'local' ? scoreLocally(entries, goal) : typeof scorer === 'function' ? await scoreWithCustom(entries, goal, scorer) : await scoreWithJev(entries, goal, options)
 
   const verdictByEntryId = new Map(verdicts.map((v) => [v.entryId, v]))
   const recencyByEntryId = computeRecency(entries)
@@ -87,7 +120,7 @@ export async function scoreEntries(
   return entries.map((entry) => {
     const verdict = verdictByEntryId.get(entry.id)
     if (!verdict) {
-      throw new Error(`no Jev verdict returned for entry ${entry.id}`)
+      throw new Error(`no relevance verdict returned for entry ${entry.id}`)
     }
     const recency = recencyByEntryId.get(entry.id)!
     return {
