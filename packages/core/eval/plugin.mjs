@@ -13,8 +13,8 @@
  * Then, the same way tasks.mjs and outcome.mjs measure: the agent finishes the task from
  * (A) the summary alone, (B) the summary plus the plugin's digest as it works today (goal inferred
  * from the latest user message), or (C) the summary plus the digest scored against a candidate goal,
- * the session's first request plus its latest instruction (set through goal.txt, the way
- * /ctxjev:set-goal does). A model also answers the probe questions whose facts come before the cut,
+ * the session's first request plus its latest instruction (set through a /ctxjev:set-goal record
+ * in the transcript). A model also answers the probe questions whose facts come before the cut,
  * from the same contexts. The summary is made once per task and run, and every condition shares it.
  *
  * Needs ANTHROPIC_API_KEY and TYPESAFE_API_KEY. By hand:
@@ -23,7 +23,7 @@
  *   node eval/plugin.mjs --report eval/results/plugin.json
  */
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -115,11 +115,9 @@ function pluginDigest(history, task, goal) {
   try {
     const sessionId = `eval-${task}`
     const transcriptPath = join(cwd, 'transcript.jsonl')
-    writeFileSync(transcriptPath, toTranscript(history, sessionId, cwd))
-    if (goal) {
-      mkdirSync(join(cwd, '.ctxjev'), { recursive: true })
-      writeFileSync(join(cwd, '.ctxjev', 'goal.txt'), goal) // what /ctxjev:set-goal writes
-    }
+    // With a goal, the transcript ends in the record that running /ctxjev:set-goal <goal> leaves.
+    const setGoal = goal && `\n${JSON.stringify({ type: 'user', uuid: 'set-goal', sessionId, cwd, message: { role: 'user', content: `<command-name>/ctxjev:set-goal</command-name>\n<command-args>${goal}</command-args>` } })}`
+    writeFileSync(transcriptPath, toTranscript(history, sessionId, cwd) + (setGoal || ''))
     runHook('preCompact.js', { cwd, transcript_path: transcriptPath, session_id: sessionId })
     const lastRun = JSON.parse(readFileSync(join(cwd, '.ctxjev', 'last-run.json'), 'utf8'))
     const digest = runHook('sessionStartCompact.js', { cwd, session_id: sessionId })

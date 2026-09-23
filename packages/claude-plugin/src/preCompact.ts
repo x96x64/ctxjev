@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import { readFile } from 'node:fs/promises'
-import { parseClaudeCodeTranscript, transcriptStartTime, type Entry } from 'ctxjev-core'
-import { resolveGoal } from './goal.js'
+import { parseClaudeCodeTranscript, resolveClaudeCodeGoal, type Entry } from 'ctxjev-core'
 import { writeLastRun, type LastRun } from './lastRun.js'
 import { clearPreservedContext, writePreservedContext } from './preserve.js'
 import { readStdin } from './readStdin.js'
@@ -48,12 +47,12 @@ async function run(cwd: string, sessionId: string | undefined, transcriptPath: s
   const entries = parseClaudeCodeTranscript(jsonl)
   if (entries.length === 0) return { outcome: 'skipped', reason: 'nothing in the transcript since the last compaction' }
 
-  const resolved = await resolveGoal(cwd, entries, transcriptStartTime(jsonl))
+  const resolved = resolveClaudeCodeGoal(jsonl, entries)
   if (!resolved) return { outcome: 'skipped', reason: 'no goal set for this session and no chat message to infer one from' }
 
   const limit = preserveLimitFromEnv(process.env.CTXJEV_PRESERVE_LIMIT)
   const { selected, scorer, note } = await scoreForPreservation(entries, resolved.goal, limit)
-  const info = { goal: resolved.goal, goalSource: resolved.source, ignoredStaleGoal: resolved.ignoredStaleGoal, entriesScored: entries.length, scorer, note }
+  const info = { goal: resolved.goal, goalSource: resolved.source, entriesScored: entries.length, scorer, note }
   if (selected.length === 0) return { outcome: 'skipped', reason: 'nothing scored relevant enough to preserve', ...info }
 
   await writePreservedContext(cwd, sessionId, { goal: resolved.goal, scoredAt: new Date().toISOString(), scorer, entries: selected })

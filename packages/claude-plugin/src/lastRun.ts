@@ -16,7 +16,6 @@ export type LastRun = {
   reason?: string
   goal?: string
   goalSource?: 'explicit' | 'inferred'
-  ignoredStaleGoal?: string
   entriesScored?: number
   preserved?: number
   scorer?: Scorer

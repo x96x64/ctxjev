@@ -5,7 +5,17 @@ export { atomicWriteFile } from './atomicWrite.js'
 export { redactSecrets } from './redact.js'
 export { summarizeSavings, type SavingsReport } from './savings.js'
 export { estimateTokens } from './tokenEstimate.js'
-export { parseClaudeCodeTranscript, inferGoalFromEntries, transcriptStartTime, type ParseClaudeCodeTranscriptOptions } from './claudeCodeTranscript.js'
+export {
+  parseClaudeCodeTranscript,
+  inferGoalFromEntries,
+  findOriginalTask,
+  findExplicitGoal,
+  resolveClaudeCodeGoal,
+  transcriptStartTime,
+  type ClaudeCodeGoal,
+  type InferGoalOptions,
+  type ParseClaudeCodeTranscriptOptions,
+} from './claudeCodeTranscript.js'
 export { isSubstantiveMessage, truncate } from './entryText.js'
 export { createUsageAccumulator } from './usage.js'
 export { cacheKeyFor, type ScoreCache } from './cache.js'

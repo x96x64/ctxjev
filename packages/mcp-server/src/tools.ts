@@ -6,14 +6,33 @@ import { validatePolicyOrdering } from './schemas.js'
  * testable without spinning up a server. src/server.ts adapts these into MCP tool handlers.
  */
 
-// A long-lived server process gets called repeatedly with overlapping history as an agent's
-// transcript grows — this in-memory cache (module-level, shared across calls, but never
-// persisted) means the second call over the same content doesn't re-pay Jev for it. Unbounded,
-// like the CLI's own file-backed cache — fine for one server process's lifetime.
-const scoreCache: ScoreCache = (() => {
+// Shared across calls, so re-scoring overlapping history doesn't re-pay Jev for it. Bounded,
+// since a server can run for as long as its host does: the least recently used key goes first.
+export const SCORE_CACHE_LIMIT = 5_000
+
+export function createBoundedScoreCache(limit = SCORE_CACHE_LIMIT): ScoreCache & { readonly size: number } {
   const store = new Map<string, number>()
-  return { get: (key) => store.get(key), set: (key, value) => store.set(key, value) }
-})()
+  return {
+    get(key) {
+      const value = store.get(key)
+      if (value !== undefined) {
+        store.delete(key)
+        store.set(key, value)
+      }
+      return value
+    },
+    set(key, value) {
+      store.delete(key)
+      store.set(key, value)
+      if (store.size > limit) store.delete(store.keys().next().value!)
+    },
+    get size() {
+      return store.size
+    },
+  }
+}
+
+const scoreCache = createBoundedScoreCache()
 
 export type ScoreRelevanceArgs = {
   goal: string

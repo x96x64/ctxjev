@@ -2,19 +2,11 @@
 description: Point ctxjev's context scoring at a specific goal instead of guessing from your first request and latest message — use this when your session's focus shifts, or right before a compaction you know is coming, so the reminder afterward is aimed at what actually matters.
 ---
 
-The user is invoking `/ctxjev:set-goal <text>`. Take everything after `set-goal` as the goal text
-verbatim (it may itself contain spaces or quotes — don't reinterpret or summarize it).
+The user is invoking `/ctxjev:set-goal <text>`. Don't write any file: the command itself, recorded in
+this session's transcript, is what ctxjev reads at the next compaction. The goal applies to this
+session only, lasts across compactions, and the most recent `/ctxjev:set-goal` wins.
 
-Write it to `.ctxjev/goal.txt` in the current project root, overwriting any previous contents. If
-the `.ctxjev` directory doesn't exist yet, create it, and also create `.ctxjev/.gitignore`
-containing a single line `*` — this directory holds transcript excerpts and must never be
-committed. Then confirm back to the user what was saved, in one short line.
+If there was text after `set-goal`, confirm it back to the user in one short line, verbatim.
 
-The goal applies to the current session only: a goal set in an earlier session is ignored at the
-next compaction (ctxjev falls back to your first request plus your latest message instead), so a stale goal can't
-silently steer unrelated work. Mention this in your confirmation only if the user seems to expect
-it to carry over.
-
-If the user ran `/ctxjev:set-goal` with no text, don't write anything — tell them the current
-contents of `.ctxjev/goal.txt` if it exists, or that no goal is set (in which case ctxjev's
-PreCompact hook falls back to your first request plus your latest message as a proxy goal).
+If there was no text, run `node "${CLAUDE_PLUGIN_ROOT}/dist/status.js"` and show the user its
+"Goal" line, which says what the next compaction will score against.

@@ -1,5 +1,6 @@
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { inferGoalFromEntries, parseClaudeCodeTranscript, transcriptStartTime } from './claudeCodeTranscript.js'
+import { findExplicitGoal, findOriginalTask, inferGoalFromEntries, parseClaudeCodeTranscript, resolveClaudeCodeGoal, transcriptStartTime } from './claudeCodeTranscript.js'
 import { estimateTokens } from './tokenEstimate.js'
 
 function record(obj: unknown): string {
@@ -321,5 +322,87 @@ describe('inferGoalFromEntries', () => {
     ].join('\n')
 
     expect(inferGoalFromEntries(parseClaudeCodeTranscript(jsonl))).toBeUndefined()
+  })
+})
+
+// A synthetic log with the text Claude Code itself writes into a session: the local-command caveat,
+// a command's output, an interrupt notice, bash mode, a compaction, and an expanded skill.
+const noisy = readFileSync(new URL('../../../examples/sample-transcripts/claude-code-noisy-session.jsonl', import.meta.url), 'utf8')
+const withoutSetGoal = noisy
+  .split('\n')
+  .filter((line) => !line.includes('set-goal'))
+  .join('\n')
+
+describe('Claude Code harness text', () => {
+  it('never becomes an entry: meta records, command output, interrupt notices', () => {
+    const contents = parseClaudeCodeTranscript(noisy).map((e) => e.content)
+    expect(contents.some((c) => c.startsWith('Caveat:'))).toBe(false)
+    expect(contents.some((c) => c.includes('local-command-stdout'))).toBe(false)
+    expect(contents.some((c) => c.includes('Request interrupted'))).toBe(false)
+    expect(contents.some((c) => c.includes('Base directory for this skill'))).toBe(false)
+  })
+
+  it('keeps bash-mode input and output as history but not as the goal', () => {
+    const entries = parseClaudeCodeTranscript(withoutSetGoal)
+    expect(entries.some((e) => e.content.includes('<bash-input>npm test'))).toBe(true)
+    expect(inferGoalFromEntries(entries)).toBe('Use an idempotency key derived from the order id, and keep the retry count at 3.')
+  })
+
+  it('skips an interrupt notice in an array-shaped user turn', () => {
+    const jsonl = [
+      record({ type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: 'Fix the checkout double-charge bug.' } }),
+      record({ type: 'user', uuid: 'u2', timestamp: '2026-01-01T00:00:01.000Z', message: { role: 'user', content: [{ type: 'text', text: '[Request interrupted by user]' }] } }),
+    ].join('\n')
+    expect(inferGoalFromEntries(parseClaudeCodeTranscript(jsonl))).toBe('Fix the checkout double-charge bug.')
+  })
+
+  it('gives a record without a timestamp the previous one, not the start of time', () => {
+    const entries = parseClaudeCodeTranscript(noisy)
+    const reply = entries.find((e) => e.role === 'assistant')!
+    expect(reply.timestamp).toBe(Date.parse('2026-01-01T00:00:09.000Z'))
+  })
+})
+
+describe('findOriginalTask', () => {
+  it('finds the first request even when a compaction has removed it from the entries', () => {
+    expect(findOriginalTask(noisy)).toBe('Fix the checkout double-charge bug that happens when a payment request is retried on a slow network.')
+  })
+
+  it('never returns the compaction summary', () => {
+    const jsonl = record({ type: 'user', uuid: 's', isCompactSummary: true, message: { role: 'user', content: 'This session is being continued from a previous conversation. Long summary follows.' } })
+    expect(findOriginalTask(jsonl)).toBeUndefined()
+  })
+})
+
+describe('findExplicitGoal', () => {
+  it('reads the arguments of the latest /ctxjev:set-goal', () => {
+    expect(findExplicitGoal(noisy)).toBe('Stop checkout from charging twice on retry; keep retries at 3')
+  })
+
+  it('reads a set-goal that Claude invoked through the Skill tool', () => {
+    const jsonl = record({
+      type: 'assistant',
+      uuid: 'a1',
+      message: { role: 'assistant', content: [{ type: 'tool_use', id: 't1', name: 'Skill', input: { skill: 'ctxjev:set-goal', args: 'Ship the retry fix' } }] },
+    })
+    expect(findExplicitGoal(jsonl)).toBe('Ship the retry fix')
+  })
+
+  it('ignores set-goal with no text (that only shows the current goal)', () => {
+    const jsonl = record({ type: 'user', uuid: 'c', message: { role: 'user', content: '<command-name>/ctxjev:set-goal</command-name>\n<command-args></command-args>' } })
+    expect(findExplicitGoal(jsonl)).toBeUndefined()
+  })
+})
+
+describe('resolveClaudeCodeGoal', () => {
+  it('prefers the explicit goal', () => {
+    expect(resolveClaudeCodeGoal(noisy, parseClaudeCodeTranscript(noisy))).toEqual({ goal: 'Stop checkout from charging twice on retry; keep retries at 3', source: 'explicit' })
+  })
+
+  it('otherwise combines the original task with the latest instruction since the compaction', () => {
+    expect(resolveClaudeCodeGoal(withoutSetGoal, parseClaudeCodeTranscript(withoutSetGoal))).toEqual({
+      goal: 'Fix the checkout double-charge bug that happens when a payment request is retried on a slow network.\n\nLatest instruction: Use an idempotency key derived from the order id, and keep the retry count at 3.',
+      source: 'inferred',
+    })
   })
 })

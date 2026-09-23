@@ -21,4 +21,11 @@ describe('cacheKeyFor', () => {
     const b = cacheKeyFor('g', { role: 'tool' as const, toolName: '', content: 'x' })
     expect(a).toBe(b) // both normalize toolName to '', and that's fine — this asserts it's deliberate, not accidental
   })
+
+  it('changes with the latest activity, since that can change the verdict', () => {
+    const entry = { role: 'tool' as const, toolName: 'Bash', content: 'npm test: 1 failed' }
+    const fixed = [{ role: 'tool' as const, toolName: 'Bash', content: 'npm test: all passed' }]
+    expect(cacheKeyFor('g', entry, fixed)).not.toBe(cacheKeyFor('g', entry))
+    expect(cacheKeyFor('g', entry, fixed)).toBe(cacheKeyFor('g', entry, [...fixed]))
+  })
 })

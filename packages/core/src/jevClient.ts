@@ -15,19 +15,9 @@ export type ScoreRelevanceResult = {
 }
 
 /**
- * Thin wrapper over @typesafe-ai/sdk. Kept as its own module so the fan-out/request-shaping
- * logic has exactly one place to change if Jev's request format or limits change.
- *
- * One request per chunk: every entry becomes its own named `noul` question ("is this still
- * relevant to state.goal?"), all evaluated in parallel against a single shared state — Jev's
- * cost barely grows with question count, so this is one round trip per chunk, not per entry.
- * Requires TYPESAFE_API_KEY in the environment (the SDK reads it directly; no key is passed
- * here explicitly).
- *
- * No hand-rolled retry logic here — `TypeSafeClient`'s own `RetryPolicy` already retries
- * connection failures, timeouts, and 408/429/500-599 responses by default (see
- * `@typesafe-ai/sdk`'s `RetryPolicy` type). Re-implementing that here would just be a worse copy
- * of what the SDK already does correctly.
+ * The one module that talks to Jev. Each chunk is one request: every entry becomes a named `noul`
+ * question against a shared state. The SDK reads TYPESAFE_API_KEY and retries transient failures
+ * (408/429/5xx, timeouts) itself.
  */
 const LATEST_CONTENT_LENGTH = 200
 
@@ -75,9 +65,9 @@ export function buildJevRequest(goal: string, entries: Entry[], latest: Entry[] 
 }
 
 /**
- * `cache`, when provided, is checked before spending a Jev request on an entry — and populated
- * with any fresh verdicts afterward. Keyed on goal + entry content (see `cacheKeyFor`), not on
- * `entry.id`, so the same tool output scores as a cache hit even across different transcripts.
+ * `cache`, when provided, is checked before spending a Jev request on an entry and populated with
+ * fresh verdicts afterward. Keyed on goal, entry content, and `latest` (see `cacheKeyFor`), not on
+ * `entry.id`, so the same history scores as a hit across transcripts.
  */
 export async function scoreRelevance(goal: string, entries: Entry[], cache?: ScoreCache, latest: Entry[] = []): Promise<ScoreRelevanceResult> {
   if (entries.length === 0) {
@@ -87,7 +77,7 @@ export async function scoreRelevance(goal: string, entries: Entry[], cache?: Sco
   const relevanceByEntryId = new Map<string, number>()
   const uncached: Entry[] = []
   for (const entry of entries) {
-    const hit = cache?.get(cacheKeyFor(goal, entry))
+    const hit = cache?.get(cacheKeyFor(goal, entry, latest))
     if (hit !== undefined) relevanceByEntryId.set(entry.id, hit)
     else uncached.push(entry)
   }
@@ -106,7 +96,7 @@ export async function scoreRelevance(goal: string, entries: Entry[], cache?: Sco
       }
       const relevance = answer.noul
       relevanceByEntryId.set(entry.id, relevance)
-      cache?.set(cacheKeyFor(goal, entry), relevance)
+      cache?.set(cacheKeyFor(goal, entry, latest), relevance)
     }
   }
 
