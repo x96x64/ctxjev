@@ -194,8 +194,8 @@ function isSlashCommand(content: string): boolean {
 // What the user ran in bash mode (`!npm test`) and its output: history, but not a request.
 const BASH_MODE = /^<bash-(?:input|stdout|stderr)>/
 
-/** Whether a user entry says what the user wants, rather than running a command. */
-function isGoalCandidate(content: string): boolean {
+/** Whether a user entry says what the user wants, rather than running a command (a slash command, bash mode). */
+export function isGoalCandidate(content: string): boolean {
   return !isSlashCommand(content) && !BASH_MODE.test(content.trimStart())
 }
 

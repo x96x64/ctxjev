@@ -10,6 +10,7 @@ export {
   inferGoalFromEntries,
   findOriginalTask,
   findExplicitGoal,
+  isGoalCandidate,
   resolveClaudeCodeGoal,
   transcriptStartTime,
   type ClaudeCodeGoal,

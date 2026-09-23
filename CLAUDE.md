@@ -15,16 +15,22 @@ pnpm workspace monorepo. `packages/core`, `packages/cli`, `packages/mcp-server`,
 [ROADMAP.md](ROADMAP.md) for what "verified" means for each — a couple of things are only proven
 via a synthetic/subprocess test). `core` exports the pieces every other package is a thin adapter
 over: `scoreEntries()`/`pruneContext()` (relevance+recency scoring, with or without the
-keep/drop/summarize decision), and `parseClaudeCodeTranscript()`/`inferGoalFromEntries()` (parsing
-Claude Code's own session log format — used by both `ctxjev-cli` and `ctxjev-claude`, which is why
-it lives in `core` rather than either of them). Don't add logic to an adapter package that belongs
+keep/drop/summarize decision), and `parseClaudeCodeTranscript()`/`resolveClaudeCodeGoal()` (parsing
+Claude Code's own session log format and finding the goal in it — used by both `ctxjev-cli` and
+`ctxjev-claude`, which is why it lives in `core` rather than either of them). Don't add logic to an adapter package that belongs
 in `core` instead.
 
 **Claude Code hooks cannot rewrite the transcript** — this constrained `packages/claude-plugin`'s
-whole design (see the Phase 3 section of [ROADMAP.md](ROADMAP.md) for what was tried first and
-ruled out). A hook can only read the transcript and, on specific events, print text to stdout that
-Claude Code adds back to context. Don't design a feature here around a hook mutating past
-conversation content — it can't.
+whole design (see "Constraints that shaped the design" in [ROADMAP.md](ROADMAP.md)). A hook can
+only read the transcript and, on specific events, print text to stdout that Claude Code adds back
+to context. Don't design a feature here around a hook mutating past conversation content — it
+can't.
+
+The plugin keeps its state in `~/.claude/ctxjev/sessions/<session id>/` (`CTXJEV_STATE_DIR`
+overrides it; tests and `eval/plugin.mjs` set it), never in the user's project. The hooks and
+`dist/status.js` (run from the status skill's Bash call) must agree on that path, so it can't
+depend on anything only the hook environment has. `/ctxjev:set-goal` writes nothing: the goal is
+read back from the command's own record in the session transcript (`findExplicitGoal()`).
 
 ## Jev constraints (don't design around what it can't do)
 
@@ -49,15 +55,18 @@ echo '{"cwd":"...","transcript_path":"...","session_id":"s1"}' | node packages/c
 echo '{"cwd":"...","session_id":"s1"}' | node packages/claude-plugin/dist/sessionStartCompact.js
 
 cd packages/core && pnpm eval   # score labeled fixtures: offline baseline always, Jev too with a key
-                                # (publish.yml runs `node eval/run.mjs --gate --runs 3`)
+                                # (publish.yml runs `node eval/run.mjs --gate --runs 3`, which fails
+                                # without a key unless --allow-skip, and reads only the dev split)
 cd packages/core && node eval/outcome.mjs --runs 2 --max-usd 6 --out eval/results/outcome.json
                                 # model-graded outcome eval: needs ANTHROPIC_API_KEY (also in
                                 # .env.local) and costs ~$4 a run; by hand, not in CI
 cd packages/core && node eval/tasks.mjs --runs 2 --max-usd 4 --out eval/results/tasks.json
                                 # task-completion eval on examples/eval-tasks (~$2.50 a run);
                                 # `--selftest` checks the harness with no API calls;
-                                # `--agent-model claude-sonnet-5` for a stronger agent, and
-                                # `--run-offset N --merge` to add runs to saved results
+                                # `--agent-model claude-sonnet-5` for a stronger agent,
+                                # `--run-offset N --merge` to add runs to saved results, and
+                                # `--split dev|holdout|all` (outcome/plugin/run.mjs take it too)
+node examples/eval-tasks/verify.mjs  # every task: template fails the hidden tests, solution passes
 cd packages/core && node eval/plugin.mjs --runs 2 --max-usd 4.5 --out eval/results/plugin.json
                                 # the Claude Code plugin's hooks after a simulated compaction
 ```
@@ -90,6 +99,12 @@ clean environment so no personal hooks, MCP servers, or keys are involved), conv
 by `packages/core/eval/import-claude-code.mjs`, and read in full before being committed. Only the
 transcript `record.mjs` itself produced may be read that way — never anything else under
 `~/.claude/projects`.
+
+**Dev vs. holdout.** Every task's `task.json` has a `split`. The ten `dev` tasks and all current
+eval sessions informed the design, so their numbers are optimistic. The `holdout` tasks are
+reserved for the comparison in `packages/core/eval/PREREGISTRATION.md`: until it has run, don't
+use anything about them (results, failures, recorded sessions beyond labeling) to change scoring,
+pruning, the plugin, or the harness, and don't describe dev results as held out.
 
 `parseClaudeCodeTranscript()` skips `isSidechain: true` records (a subagent's own private
 conversation) — that content already shows up in the main thread as an ordinary

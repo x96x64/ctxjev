@@ -46,6 +46,14 @@ it's ever sent to the model again.
 > typed output. See [`CLAUDE.md`](CLAUDE.md) for the full list of things this project deliberately
 > never asks Jev to do.
 
+**Where things stand.** Most of what the task eval credits to `pruneMessages()` comes from two
+things that don't depend on Jev: it never removes what the user wrote, and it leaves a one-line
+note where history was cut. With those, plain truncation passed 18 of 20 runs against Jev's 20;
+with a stronger agent the order flipped. So Jev's ranking hasn't yet been shown to beat
+truncation, and the library and CLI take `scorer: 'recency'` (plain truncation) as well as Jev. A
+comparison on unseen tasks is [preregistered](packages/core/eval/PREREGISTRATION.md); whether Jev
+stays the default follows from its result.
+
 ## Choosing a Package
 
 | You want to… | Use | What it actually does |
@@ -65,7 +73,7 @@ cache the highest-relevance ones, and re-inject a digest of them at `SessionStar
 compaction has already run.
 
 ```
-PreCompact             → score entries since the last compaction; cache the top few in .ctxjev/
+PreCompact             → score entries since the last compaction; cache the top few (~/.claude/ctxjev/)
   (Claude Code's own compaction runs, untouched)
 SessionStart (compact) → print that cache as a digest; Claude Code adds it as a system reminder
 ```
@@ -75,13 +83,15 @@ both the scoring and the reminder know which command or file a result came from.
 in context counts: anything before the previous compaction is skipped.
 
 The goal to score against is either set explicitly with `/ctxjev:set-goal <text>`, which applies
-to the current session only, or inferred from your first request plus your latest instruction. `/ctxjev:status`
-shows what the last run did, including why if it skipped, failed, or fell back to offline scoring.
+to the current session only and lasts through compactions, or inferred from your first request
+plus your latest instruction. `/ctxjev:status` shows that goal and what the last run did,
+including why if it skipped, failed, or fell back to offline scoring. The plugin's measured effect
+so far is within the noise; see [Does It Work?](#does-it-work).
 
 > **Privacy:** on every compaction, the plugin sends excerpts of your real session to TypeSafe AI's
-> Jev API. Common secret formats are masked to `[REDACTED]` first (best-effort, not exhaustive),
-> and the local `.ctxjev/` cache is created with its own `.gitignore` so it can't be committed.
-> Without `TYPESAFE_API_KEY`, it scores offline by keyword overlap instead and sends nothing. See
+> Jev API. Common secret formats are masked to `[REDACTED]` first (best-effort, not exhaustive).
+> Its cache lives in `~/.claude/ctxjev/`, private to you, never in your project. Without
+> `TYPESAFE_API_KEY`, it scores offline by keyword overlap instead and sends nothing. See
 > the plugin's [Privacy section](packages/claude-plugin/README.md#privacy) for exactly what's sent.
 
 **Install it (Claude Code desktop app or CLI):**
@@ -151,8 +161,11 @@ everything.
 
 ## Does It Work?
 
-Every number here comes from a **held-out set** that was never used for tuning:
-[`examples/eval-sessions`](examples/eval-sessions), 15 coding sessions (9 English, 6 Japanese).
+Every number here comes from [`examples/eval-sessions`](examples/eval-sessions), 15 coding
+sessions (9 English, 6 Japanese). **None of them is held out:** 0.5.0's changes (keeping user
+text, the removal note, the plugin's goal inference) were designed from failures on these same
+sessions, so read these numbers as optimistic. Six unseen tasks are set aside for a
+[preregistered](packages/core/eval/PREREGISTRATION.md) comparison that hasn't run yet.
 
 - **Written sessions (5).** Written by hand, with raw tool output, dead ends, and distractors that
   share the goal's words.
@@ -173,18 +186,21 @@ hidden acceptance tests pass, and those tests include the constraints the user s
 | --- | --- | --- |
 | Everything | 100% | [100, 100] |
 | **Pruned to 25% by Jev, as shipped** (keeps user text, marks the gap) | **100%** | [100, 100] |
+| **Newest kept, with the same two options** | **90%** | [70, 100] |
 | Pruned by Jev ranking alone | 90% | [75, 100] |
 | Newest kept (plain truncation) | 90% | [70, 100] |
 | Pruned by keyword overlap | 75% | [55, 95] |
 | Only the task | 40% | [15, 70] |
 
-As shipped, Jev beats truncation by +10 points [0, +30].
+Against truncation with the same two options, the fair comparison, Jev is +10 points [0, +30]:
+two runs out of twenty, both on one task (`webhook-dedupe`, which truncation failed twice). On the
+other nine tasks the two passed every run.
 
 The misses were agents that lost something the user said and filled the gap with their own guess.
 One lost "keep the mark for 24 hours" and kept a later "maybe 25h for margin". Another lost the
 exact masking format. That's why `pruneMessages()` now keeps what the user wrote and adds a
-one-line note where it removed history. Jev with both passed every task, and neither change hurt
-any other task.
+one-line note where it removed history. Both were designed from these failures, which is why these
+tasks can't also be the test of them.
 
 **With a stronger agent (Claude Sonnet 5), the difference goes away.** Same 10 tasks, 2 runs,
 effort low: Jev as shipped passed 90%, and truncation with the same options passed 95% (−5 points
@@ -207,8 +223,8 @@ Sonnet 5 grade it (102 questions, 2 runs):
 
 Jev minus truncation is +8 points at both budgets, and the interval just includes zero
 ([−1, +18]). Jev minus keywords is +13 / +17, clearly above zero. Scoring alone keeps 84% / 95%
-of the facts under the budget, against 66% / 80% for truncation. Every release is gated on that
-(`eval/run.mjs --gate --runs 3`).
+of the facts under the budget, against 66% / 80% for truncation. Every release is gated on not
+falling below truncation there (`eval/run.mjs --gate --runs 3`, which fails without a Jev key).
 
 **3. Does the Claude Code plugin help after a compaction?**
 [`eval/plugin.mjs`](packages/core/eval/plugin.mjs) runs the shipped hooks on each recorded
@@ -231,6 +247,8 @@ Claude Code's real compaction.
 
 What this doesn't show:
 
+- Any of it on unseen material. The tasks and sessions above informed the design; the holdout
+  comparison is still to run.
 - The tasks are small, and 10 tasks × 2 runs is a small sample.
 - Most runs use Claude Haiku 4.5. Claude Sonnet 5 was checked on the task eval only, with 2 runs
   and two conditions.
@@ -249,8 +267,8 @@ export TYPESAFE_API_KEY=...   # console.typesafe.ai/settings/keys (no waitlist)
 ctxjev analyze transcript.jsonl --goal "Fix the checkout double-charge bug."
 ```
 
-No key yet? `--offline` scores by keyword overlap instead: nothing is sent, and the results are
-much cruder, but it shows the shape of the output.
+No key yet? `--scorer recency` (newest kept, like plain truncation) or `--scorer local` (keyword
+overlap) score offline, and nothing is sent.
 
 `ctxjev prune` writes a ctxjev-format or Anthropic Messages transcript back out with the drops
 removed (to stdout, or `--out <file>`):
@@ -260,7 +278,7 @@ ctxjev prune examples/sample-transcripts/anthropic-messages.json --out pruned.js
 ```
 
 ```bash
-ctxjev analyze transcript.jsonl --goal "Fix the checkout double-charge bug." --offline
+ctxjev analyze transcript.jsonl --goal "Fix the checkout double-charge bug." --scorer recency
 ```
 
 Or from a clone, to run the exact sample transcript above:
@@ -281,7 +299,7 @@ that engine gets used.
 
 | Package | What it is | Status |
 | --- | --- | --- |
-| [`ctxjev-core`](packages/core) ([npm](https://www.npmjs.com/package/ctxjev-core)) | The engine: `scoreEntries()`/`pruneContext()`/`pruneMessages()`, plus the Claude Code transcript parser, secret masking, and the offline scorer. Everything else wraps this. | ✅ published |
+| [`ctxjev-core`](packages/core) ([npm](https://www.npmjs.com/package/ctxjev-core)) | The engine: `scoreEntries()`/`pruneContext()`/`pruneMessages()`, plus the Claude Code transcript parser, secret masking, and the offline scorers. Everything else wraps this. | ✅ published |
 | [`ctxjev-cli`](packages/cli) ([npm](https://www.npmjs.com/package/ctxjev-cli)) | `ctxjev analyze` (a report) and `ctxjev prune` (the transcript with drops removed). | ✅ published |
 | [`ctxjev-mcp`](packages/mcp-server) ([npm](https://www.npmjs.com/package/ctxjev-mcp)) | MCP server exposing `score_relevance`/`prune_history` as tools. | ✅ published |
 | [`ctxjev-claude`](packages/claude-plugin) | Claude Code plugin: scores at `PreCompact`, re-injects a digest at `SessionStart`, plus two inspection skills. | ✅ working (not on npm) |
@@ -292,180 +310,49 @@ that engine gets used.
 the host's own context. And to score its history, the agent has to send that history *as tool
 arguments*, which the host model pays for in its own output tokens. So in a host like Claude Code,
 Codex, or Copilot, calling `prune_history` doesn't save tokens by itself. It's useful when
-something acts on the scores: an agent framework that manages its own context and exposes tools, or
-a workflow where knowing what's stale matters more than the cost of asking. For Claude Code
+something acts on the scores: an agent framework that manages its own context and exposes tools,
+or a workflow where knowing what's stale matters more than the cost of asking. For Claude Code
 specifically, the [plugin](#the-claude-code-plugin) is the integration that actually helps.
 
-`ctxjev-mcp` speaks plain stdio MCP, so no per-host adapter is necessary. Every host below runs
-the exact same binary (`node packages/mcp-server/dist/index.js`); only the config shape differs.
-
-**Claude Code** ships with a project-level [`.mcp.json`](.mcp.json) in this repo. In practice, that
-scope requires an approval step that does not currently surface in the UI (tested against Claude
-Code v2.1.278): `claude mcp list` silently omits the server, with no prompt and no error. `claude
-mcp add` at local scope works immediately with no friction:
-
-```bash
-claude mcp add ctxjev --env TYPESAFE_API_KEY=... -- node /absolute/path/to/ctxjev/packages/mcp-server/dist/index.js
-```
-
-If you use this route in a repo that already has the project-level `.mcp.json`, `claude mcp list`
-will warn that the same server is defined in two scopes. That warning concerns OAuth token
-storage, which does not apply to a local stdio server, so it is safe to ignore, or run `claude mcp
-remove ctxjev -s project` to clear it.
-
-**Codex CLI** (also shared with its VS Code extension and desktop app) needs only one command, with
-no file to hand-edit. Verified against `codex-cli` v0.155.1: `codex mcp get ctxjev` confirms the
-command, args, and env are registered correctly.
-
-```bash
-codex mcp add ctxjev --env TYPESAFE_API_KEY=... -- node /absolute/path/to/ctxjev/packages/mcp-server/dist/index.js
-```
-
-Codex also has its own plugin marketplace, separate from Claude Code's. This repo carries an
-[Agent Plugins](https://agent-plugins.org)-format bundle too, at
-[`.agents/plugins/marketplace.json`](.agents/plugins/marketplace.json):
-
-```bash
-codex plugin marketplace add x96x64/ctxjev
-codex plugin add ctxjev@ctxjev-plugins
-```
-
-Afterward, `codex mcp list` shows `ctxjev` registered with the exact `npx ctxjev-mcp` command and
-environment the plugin bundle declares.
-
-**GitHub Copilot** (VS Code, agent mode) uses `.vscode/mcp.json`. Note that the top-level key is
-`servers`, not Claude Code's `mcpServers`:
-
-```json
-{
-  "servers": {
-    "ctxjev": {
-      "type": "stdio",
-      "command": "node",
-      "args": ["/absolute/path/to/ctxjev/packages/mcp-server/dist/index.js"],
-      "env": { "TYPESAFE_API_KEY": "..." }
-    }
-  }
-}
-```
-
-It exposes two tools:
-
-- **`score_relevance`** takes `{ goal, entries, recencyWeight? }` and returns a
-  relevance/recency/combined score per entry plus Jev token usage, with no decision made. Wraps
-  `scoreEntries()`.
-- **`prune_history`** takes the same input plus `{ dropBelow?, summarizeBelow? }` and returns a
-  decision (`keep`/`drop`/`summarize`) per entry, a savings report, and Jev token usage. Wraps
-  `pruneContext()`.
-
-Calling `prune_history` with two entries, one obviously relevant to the goal and one not, returns:
-
-```json
-{
-  "decisions": [
-    { "entryId": "a", "relevance": 0.96, "recency": 0, "combinedScore": 0.864, "action": "keep" },
-    { "entryId": "b", "relevance": 0.04, "recency": 1, "combinedScore": 0.136, "action": "drop" }
-  ],
-  "savings": {
-    "totalEntries": 2, "keptEntries": 1, "droppedEntries": 1, "summarizedEntries": 0,
-    "totalTokens": 13, "droppedTokens": 5, "summarizableTokens": 0
-  },
-  "usage": { "inputTokens": 406, "outputTokens": 36 }
-}
-```
-
-This is a real response, captured against the live API through an in-process MCP client. The
-exact call lives in [`server.live.test.ts`](packages/mcp-server/src/server.live.test.ts).
+`ctxjev-mcp` is a plain stdio server with two tools, `score_relevance` (scores per entry) and
+`prune_history` (a keep/drop/summarize decision per entry, plus a savings report). Setup for
+Claude Code, Codex (including this repo's [Agent Plugins](https://agent-plugins.org) bundle), and
+GitHub Copilot, and an example response, are in the
+[`ctxjev-mcp` README](packages/mcp-server/README.md).
 
 ## Design Notes
 
-- **Claude Code's transcript parser lives in `core`, isolated, on purpose.**
-  [`claudeCodeTranscript.ts`](packages/core/src/claudeCodeTranscript.ts) parses Claude Code's own
-  internal session-log format, which is undocumented and not guaranteed stable across versions. It
-  lives in `core` because `ctxjev-cli` needs it too, and keeping all of that parsing in one module
-  means a format change is a one-file fix. It only returns what's still in context: a compaction
-  boundary (a `compact_boundary` record, or the "This session is being continued…" summary that
-  follows one) resets the list. A subagent's own private conversation (`isSidechain: true`) is
-  excluded, since its result already appears in the main thread as an ordinary tool call.
+- **Claude Code's transcript format stays in one module.**
+  [`claudeCodeTranscript.ts`](packages/core/src/claudeCodeTranscript.ts) parses Claude Code's
+  undocumented session log, so a format change is a one-file fix. It returns only what's still in
+  context (a compaction boundary resets the list), skips subagent sidechains (their result already
+  appears as a tool call), and skips text Claude Code writes into the user turn itself: meta
+  records, local command output, interrupt notices.
 - **Every chunk sees the latest activity.** Entries are scored in chunks of 50, and each chunk's
-  shared state also carries the batch's most recent entries. Without that, an old failing test and
-  the later run that fixed it could land in different chunks, and the old failure would be judged
-  with no way to see it had been superseded.
-- **Secrets are masked before anything leaves the machine.** Every Jev request is built in one
-  place, [`buildJevRequest()`](packages/core/src/jevClient.ts), which runs goal and content through
-  [`redactSecrets()`](packages/core/src/redact.ts) first. It recognizes common key and token
-  formats and credential-named assignments. Best-effort, not a guarantee.
-- **There's an offline fallback, and it's labeled as one.** `scorer: 'local'`
-  ([`localRelevance.ts`](packages/core/src/localRelevance.ts)) scores by keyword overlap with the
-  goal: no key, no network, much cruder. The plugin falls back to it when there's no key or Jev
-  fails, and says so; the CLI exposes it as `--offline`. Its scores never go into the Jev score
-  cache.
-- **Savings only count what's actually removed, at its real size.** `summarizeSavings()` reports
-  `droppedTokens` separately from `summarizableTokens`, since what `summarize` saves depends on
-  what you do with it. Both count each entry's `sourceTokens`, the size of the full payload, not
-  the 600-character excerpt that gets scored. Before 0.3.1 they counted the excerpt, which made a
-  45,000-token log look like ~200 tokens.
-- **Pruning a conversation keeps it a valid request.** In the Anthropic Messages API, a
-  `tool_result` without its `tool_use` (or the reverse) is rejected, so
-  [`pruneMessages()`](packages/core/src/anthropicMessages.ts) scores a tool call and its result as
-  one entry and removes them together. It never touches the first message (the original task) or
-  the latest turn, which may hold a tool call still waiting on its result. Pruning also changes
-  every request after the first removed message, so a prompt cache starts over there. The result
-  reports `cache.invalidatedTokens`, and `minSavedTokens` skips a change too small to pay for that.
-  See [prompt caching](packages/core/README.md#with-prompt-caching).
-- **The scorer is pluggable.** `scorer` takes `'jev'`, `'local'`, or your own function, which is
-  called per chunk like Jev and gets content that `redactSecrets()` has already masked.
-- **No hand-rolled retry logic.** `@typesafe-ai/sdk`'s `TypeSafeClient` already retries connection
-  failures, timeouts, and 408/429/500-599 responses by default, so adding a custom retry layer
-  would just be a worse copy of what the SDK already does correctly. Across chunks, requests run
-  at most 5 at a time.
-- **Every cost claim here is measured, not estimated.** `scoreEntries()`/`pruneContext()` accept an
-  optional `onUsage` callback, fired once per underlying Jev request with that request's real
-  `{ inputTokens, outputTokens }` as reported by `@typesafe-ai/sdk`. `ctxjev-cli` and both MCP tools
-  surface the total.
-- **Scoring and deciding are two different functions, on purpose.**
-  [`scoreEntries()`](packages/core/src/index.ts) returns a `relevance`/`recency`/`combinedScore`
-  triple per entry, with no opinion about what to do with it.
-  [`pruneContext()`](packages/core/src/index.ts) adds a separate, pure decision step,
-  [`decideAction()`](packages/core/src/policy.ts), that applies a `PruningPolicy`'s thresholds.
-  Splitting them means a threshold can be tuned or applied to the same scores twice for
-  comparison, all without re-querying Jev. It's also why the MCP server has two tools.
-- **Recency is relative to the batch, not to `Date.now()`.**
-  [`computeRecency()`](packages/core/src/recency.ts) normalizes each entry's timestamp to 0–1
-  within the entries it's given, oldest at 0 and newest at 1. Anchoring to wall-clock time would
-  make every entry in a transcript analyzed after the fact read as maximally stale, regardless of
-  where it actually falls in the conversation.
-- **`combinedScore` blends the two linearly**, per `PruningPolicy.recencyWeight`:
-  `relevance * (1 - w) + recency * w`, in [`combineScore()`](packages/core/src/policy.ts). The
-  default (`0.1`) came from [a sweep](packages/core/eval/run.mjs) against hand-labeled fixtures,
-  one of them deliberately adversarial: a root-cause entry that's both early and critical. Accuracy
-  tied from `w=0` to `w=0.2`, but the adversarial fixture started degrading at `w=0.2`, so `0.1`
-  sits on the safe side. [`recencyWeight.live.test.ts`](packages/core/src/recencyWeight.live.test.ts)
-  keeps that as a regression test. `dropBelow` went from 0.25 to 0.3 in 0.4.0: on the dev
-  fixtures, Jev keeps every relevant entry up to 0.4, but the held-out sessions start losing
-  relevant entries at 0.35. So 0.3 is the highest value that loses none on either set, and it
-  raises accuracy by 4-6 points. `summarizeBelow` keeps its original default.
-- **Jev has to beat a keyword baseline, and does — where it matters.** The eval always runs the
-  offline scorer alongside Jev. On fixtures whose relevant entries share the goal's words, the two
-  tie. On [`session-logout.json`](examples/sample-transcripts/session-logout.json), where the real
-  cause (a token-renewal race) never uses the goal's words and the distractors do ("user", "app",
-  "log out"), keyword overlap put 1 relevant entry in its top 5 and Jev put 5. A Japanese fixture,
-  [`invoice-date-ja.json`](examples/sample-transcripts/invoice-date-ja.json), is built the same
-  way: keywords got 3 of its top 5 and Jev 5. See [Does It Work?](#does-it-work) for the held-out
-  numbers. Every release is gated on this: `publish.yml` runs `eval/run.mjs --gate --runs 3`,
-  which fails if Jev's mean accuracy falls below the baseline's, it misses more than one of any
-  fixture's top entries, or it keeps fewer of the held-out facts under a 50% budget than plain
-  truncation or keywords do.
-- **Token counts are computed, not judged.** [`tokenEstimate.ts`](packages/core/src/tokenEstimate.ts)
-  uses a real tokenizer, [`gpt-tokenizer`](https://www.npmjs.com/package/gpt-tokenizer), since Jev
-  is explicitly bad at arithmetic and this project never asks it to count anything.
-- **The MCP server is verified two ways.** `tools.live.test.ts` covers the underlying logic
-  directly. `server.live.test.ts` spins up the real `McpServer` against an in-process client over
-  `InMemoryTransport` to exercise the actual tool registration, zod schemas, and response shape.
-- **Live tests are opt-in.** Every test file ending in `.live.test.ts` calls the real Jev API and
-  is skipped automatically when `TYPESAFE_API_KEY` isn't set, so `pnpm test` passes on a fresh
-  clone with no key. The plugin's hooks are also tested as the actual bundled `dist/` files, run
-  as subprocesses, the way Claude Code runs them.
+  shared state also carries the batch's most recent entries, so an old failing test is judged
+  knowing a later run fixed it. The score cache is keyed on that context too.
+- **Secrets are masked before anything leaves the machine.** Every Jev request is built in
+  [`buildJevRequest()`](packages/core/src/jevClient.ts), which runs goal and content through
+  [`redactSecrets()`](packages/core/src/redact.ts) first. Best-effort, not a guarantee.
+- **The scorer is pluggable, and the baselines ship.** `scorer` takes `'jev'`, `'recency'` (plain
+  truncation), `'local'` (keyword overlap), or your own function, called per chunk with content
+  already masked. The eval compares against the first two on every run.
+- **Savings count what's actually removed, at its real size**: each entry's `sourceTokens`, the
+  full payload, not the 600-character excerpt that gets scored. What `summarize` saves is reported
+  separately, since it depends on your summarizer.
+- **Pruning a conversation keeps it a valid request.**
+  [`pruneMessages()`](packages/core/src/anthropicMessages.ts) removes a `tool_use` and its
+  `tool_result` together, never touches the first message or the latest turn, and reports how much
+  of a prompt cache the change invalidates. See
+  [prompt caching](packages/core/README.md#with-prompt-caching).
+- **Recency is relative to the batch**, oldest 0 to newest 1, not to `Date.now()`, so a transcript
+  analyzed after the fact scores the same as a live one. `combinedScore` blends it in linearly at
+  `recencyWeight` (default 0.1, from [a sweep](packages/core/eval/run.mjs) over labeled fixtures,
+  one built so the root cause is early). `dropBelow` is 0.3, the highest value that lost no
+  relevant entry on either fixture set.
+- **Jev is never asked to count.** Token counts come from
+  [`gpt-tokenizer`](https://www.npmjs.com/package/gpt-tokenizer), and costs from the usage Jev's
+  API reports for each request (`onUsage`).
 
 ## Contributing
 

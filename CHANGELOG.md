@@ -5,6 +5,31 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 (`.claude-plugin/marketplace.json`, `packages/claude-plugin/.claude-plugin/plugin.json`,
 `plugins/ctxjev/plugin.json`). A bump in one is a bump in all, even when only one changed.
 
+## 0.6.0 — unreleased
+
+- `ctxjev-claude`, `ctxjev-cli`: the inferred goal is no longer taken from text Claude Code writes
+  into the conversation itself. After a `/model` and an interrupted tool call, it used to be the
+  local-command notice plus "[Request interrupted by user]", with your actual request nowhere in it.
+- `ctxjev-claude`, `ctxjev-cli`: the inferred goal keeps your original request after a second
+  compaction, instead of whatever you said first after the last one.
+- `ctxjev-claude`: `/ctxjev:set-goal` applies to the session it was run in, even with other
+  sessions open on the same project, and lasts through compactions. It no longer writes a file.
+- `ctxjev-claude`: nothing is written into your project any more. State lives in
+  `~/.claude/ctxjev/`, readable only by you; the `.ctxjev/` directory earlier versions created
+  is removed at the next compaction (only its own files, and the directory only if empty).
+- `ctxjev-claude`: compaction waits at most 8 seconds for Jev (was 40) before scoring offline.
+- `ctxjev-claude`: `/ctxjev:status` also shows the goal the next compaction will use.
+- `ctxjev-claude`: a slash command you ran (such as `/ctxjev:set-goal`) no longer takes one of the
+  preserved slots.
+- `ctxjev-core`, `ctxjev-cli`: `scorer: 'recency'` / `--scorer recency` ranks by position alone,
+  i.e. plain truncation, which the task eval found nearly as good as Jev. The default is still Jev.
+- `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`: cached Jev scores account for the latest activity, so
+  an old failure isn't still called relevant after a later run showed it fixed. Earlier cache
+  entries are ignored.
+- `ctxjev-mcp`: the in-memory score cache is capped at 5,000 entries instead of growing forever.
+- README: the eval sessions and tasks aren't held out (the 0.5.0 changes were designed on them),
+  and the fair comparison, truncation with the same options, is now in the table.
+
 ## 0.5.0 — 2026-09-23
 
 - `ctxjev-core`: `pruneMessages()` no longer removes what the user wrote (`keepUserText`, default on).

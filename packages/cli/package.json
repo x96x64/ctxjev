@@ -1,6 +1,6 @@
 {
   "name": "ctxjev-cli",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "CLI for ctxjev — analyze an agent transcript and report what Jev would keep, drop, or summarize.",
   "keywords": [
     "cli",

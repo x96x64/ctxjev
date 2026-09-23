@@ -36,8 +36,10 @@ npm install ctxjev-core
 
 Requires `TYPESAFE_API_KEY` in the environment. Get one at
 [console.typesafe.ai/settings/keys](https://console.typesafe.ai/settings/keys) (no waitlist).
-Without one, pass `{ scorer: 'local' }` to score offline by keyword overlap instead: no network,
-nothing sent, and much cruder than Jev.
+Without one, pass `{ scorer: 'recency' }` (newest kept, i.e. plain truncation) or
+`{ scorer: 'local' }` (keyword overlap): offline, nothing sent. On the task eval so far, recency
+with `pruneMessages()`'s defaults came within two runs of Jev (see the
+[main README](../../README.md#does-it-work)), so it's a reasonable choice, not just a fallback.
 
 Entry content and the goal are sent to TypeSafe AI's Jev API. Every request passes through
 `redactSecrets()` first, masking common secret formats to `[REDACTED]` (best-effort, not
@@ -93,16 +95,18 @@ the two per `PruningPolicy.recencyWeight` before `action` is decided.
     re-read rather than trust what it half-remembers.
 
   The result reports `savedTokens`, `summarized`, and `cache` (see below).
-- **`parseClaudeCodeTranscript(jsonl, { countTokens? })`** / **`inferGoalFromEntries(entries)`**
-  parse a real Claude Code session `.jsonl` transcript into `Entry[]`, and infer a goal from the
-  most recent user message. Pass `countTokens: estimateTokens` to fill in each entry's
-  `sourceTokens`.
+- **`parseClaudeCodeTranscript(jsonl, { countTokens? })`** / **`resolveClaudeCodeGoal(jsonl, entries)`**
+  parse a real Claude Code session `.jsonl` transcript into `Entry[]` (what's still in context,
+  without the text Claude Code writes into the user turn itself), and find the goal: the latest
+  `/ctxjev:set-goal`, or else the session's first request plus its latest instruction. Pass
+  `countTokens: estimateTokens` to fill in each entry's `sourceTokens`.
 - **`summarizeSavings(entries, decisions)`** / **`estimateTokens(text)`** provide token-based
   savings reporting, using a real tokenizer and never asking Jev to count.
 - `options.onUsage` (on `scoreEntries`/`pruneContext`) is an optional callback fired once per Jev
   request with that request's real `{ inputTokens, outputTokens }`, for cost tracking.
 - `options.cache` takes any `{ get, set }` score cache, checked before each Jev request.
-- `options.scorer: 'local'` scores offline with `localRelevance()` instead of Jev.
+- `options.scorer: 'recency'` ranks by position alone (plain truncation); `'local'` scores by
+  keyword overlap with `localRelevance()`. Both are offline.
 - `options.scorer` also takes your own function (`CustomScorer`), to score with another model or
   a rule set. It gets the goal, a chunk of up to 50 entries (content already masked by
   `redactSecrets()`), and the batch's latest activity, and returns one relevance from 0 to 1 per

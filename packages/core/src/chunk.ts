@@ -1,11 +1,6 @@
 import type { Entry } from './types.js'
 
-/**
- * Jev evaluates many parallel questions against one shared state in a single request
- * (the "speculative fan-out" pattern) — cost barely grows with question count, but each
- * request still has a practical ceiling. maxPerRequest defaults conservatively; raise it
- * once real request/response sizes against the live API are known.
- */
+/** Splits entries into one Jev request's worth each. 50 is a conservative per-request ceiling. */
 export function chunkEntries(entries: Entry[], maxPerRequest = 50): Entry[][] {
   if (!Number.isFinite(maxPerRequest) || maxPerRequest <= 0) {
     throw new Error(`maxPerRequest must be a positive number, got ${maxPerRequest}`)

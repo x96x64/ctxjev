@@ -1,18 +1,13 @@
 import type { Entry } from './types.js'
 
 /**
- * Normalizes each entry's timestamp to 0-1 *within this batch* (oldest → 0, newest → 1) —
- * not against wall-clock "now". A live agent's history and a transcript replayed long after
- * the fact should score recency the same way; anchoring to `Date.now()` would make every
- * entry in a replayed transcript read as maximally stale regardless of its actual position
- * in the conversation.
+ * Each entry's timestamp normalized to 0-1 within this batch (oldest 0, newest 1), not against
+ * `Date.now()`, so a transcript replayed later scores the same as a live one.
  */
 export function computeRecency(entries: Entry[]): Map<string, number> {
   if (entries.length === 0) return new Map()
 
-  // A reduce, not Math.min(...timestamps)/Math.max(...timestamps) — spreading a very large
-  // entry list as call arguments risks a stack-size RangeError, and this runs on the whole
-  // unchunked batch.
+  // A loop, not Math.min(...timestamps): spreading a huge batch as arguments can overflow the stack.
   let min = entries[0].timestamp
   let max = entries[0].timestamp
   for (const { timestamp } of entries) {
@@ -21,8 +16,7 @@ export function computeRecency(entries: Entry[]): Map<string, number> {
   }
   const range = max - min
 
-  // All entries share one timestamp (or there's only one entry) — no ordering information
-  // to extract, so don't penalize any of them for "staleness" that isn't actually known.
+  // No ordering to extract, so no entry is penalized for staleness.
   if (range === 0) {
     return new Map(entries.map((e) => [e.id, 1]))
   }

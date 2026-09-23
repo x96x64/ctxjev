@@ -21,7 +21,8 @@ npm install -g ctxjev-cli
 export TYPESAFE_API_KEY=...   # console.typesafe.ai/settings/keys (no waitlist)
 ```
 
-No key yet? `--offline` scores by keyword overlap instead, with nothing sent anywhere.
+No key yet? `--scorer recency` (newest kept, like plain truncation) or `--scorer local` (keyword
+overlap) score offline, with nothing sent anywhere.
 
 ## Usage
 
@@ -62,7 +63,8 @@ estimated.
 | `--summarize-below <0-1>` | Relevance floor below which an entry is summarized (default `0.6`). |
 | `--json` | Prints machine-readable JSON (`{ decisions, savings, usage, scorer }`) instead of the report. |
 | `--no-cache` | Doesn't read or write the score cache (`~/.cache/ctxjev/score-cache.json`). |
-| `--offline` | Scores by keyword overlap instead of Jev: no API key needed, nothing sent. Much cruder, so treat the decisions as a rough guide. |
+| `--scorer <name>` | `jev` (default), `local` (keyword overlap), or `recency` (position alone: plain truncation). Only `jev` sends anything or needs a key. |
+| `--offline` | Same as `--scorer local`. |
 | `--out <file>` | `prune`: writes the result here instead of to stdout. |
 | `--protect-last <n>` | `prune`, Anthropic Messages only: never touches the last n messages (default 2). |
 | `--target-tokens <n>` | `prune`, Anthropic Messages only: after the drops, keeps removing the lowest-scoring entries until the conversation fits in n tokens. |

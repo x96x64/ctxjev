@@ -26,9 +26,15 @@ caches whatever scored highest. The moment compaction finishes, it hands that ca
 Code as a reminder. Nothing about the compaction itself changes; what changes is that the few
 things that mattered most don't have to survive being summarized to still be there.
 
-No configuration is required to start benefiting from it: it activates automatically once
-installed. Set an explicit goal with `/ctxjev:set-goal` when you want scoring aimed at something
-more specific than "whatever you last said."
+No configuration is required: it activates automatically once installed. Set an explicit goal
+with `/ctxjev:set-goal` when you want scoring aimed at something more specific than your first
+request plus your latest instruction.
+
+**What it's shown so far:** in the [plugin eval](../../README.md#does-it-work), against a simulated
+compaction summary that already keeps every user instruction, the digest added +5 points [0, +15]:
+within the noise. How much it helps depends on how much Claude Code's real compaction drops, which
+that eval can't measure. A comparison on unseen tasks is
+[preregistered](../../packages/core/eval/PREREGISTRATION.md) but hasn't run yet.
 
 ## How It Works
 
@@ -44,21 +50,25 @@ SessionStart(compact) → read that cache, print a short digest; Claude Code add
 ```
 
 Scoring runs against whichever goal is active: an explicit one you set with `/ctxjev:set-goal`,
-or, if you never set one, your first request plus your latest instruction, inferred automatically. Either way, this is
+or, if you never set one, your first request plus your latest instruction, both read from the
+session's own transcript, so the original request still counts after several compactions. Text
+Claude Code writes into the conversation itself (local command output, interrupt notices, a
+skill's expanded instructions) is never taken for your request. Either way, this is
 the same relevance judgment [`ctxjev-mcp`](https://www.npmjs.com/package/ctxjev-mcp) and
 [`ctxjev-cli`](https://www.npmjs.com/package/ctxjev-cli) expose elsewhere, applied here at exactly
 the moment it matters most.
 
 ## Skills
 
-- **`/ctxjev:set-goal <text>`** points scoring at something specific instead of guessing from your
-  last message. Useful the moment your session's focus shifts, or before a compaction you know is
-  coming. Applies to the current session only — a goal left over from an earlier session is
-  ignored, so it can't silently steer unrelated work.
-- **`/ctxjev:status`** shows what the last compaction's run actually did, including *why* if it
-  skipped, failed, or fell back to offline scoring (a missing API key, a failed Jev request,
-  nothing to score), plus the goal it used and every preserved entry with its score, highest
-  first. The fastest way to check the plugin is working.
+- **`/ctxjev:set-goal <text>`** points scoring at something specific. Useful the moment your
+  session's focus shifts, or before a compaction you know is coming. Nothing is written anywhere:
+  the command is recorded in the session's transcript, and that's what the next compaction reads.
+  So it applies to that session only (another session open on the same project keeps its own),
+  lasts through compactions, and the latest one wins.
+- **`/ctxjev:status`** shows the goal the next compaction will use, what the last compaction's run
+  actually did, including *why* if it skipped, failed, or fell back to offline scoring (a missing
+  API key, a failed Jev request, nothing to score), and every preserved entry with its score,
+  highest first. The fastest way to check the plugin is working.
 
 Five entries are preserved per compaction by default; set `CTXJEV_PRESERVE_LIMIT` (1–50) in the
 environment Claude Code runs in to change that.
@@ -90,8 +100,9 @@ Code itself runs in. Get one at
 [console.typesafe.ai/settings/keys](https://console.typesafe.ai/settings/keys) (no waitlist).
 Without it, the plugin falls back to scoring offline by keyword overlap: nothing is sent anywhere,
 and the reminder says it was scored offline. It's much cruder than Jev, and `/ctxjev:status` tells
-you why it fell back. The same fallback kicks in if a Jev request fails or takes more than 40
-seconds. A bug here can never block your actual compaction. That's by design, not a side effect.
+you why it fell back. The same fallback kicks in if a Jev request fails or takes more than 8
+seconds, so compaction is never held up for long. A bug here can never block your actual
+compaction. That's by design, not a side effect.
 
 The Claude Code desktop app doesn't inherit variables exported in your shell profile. If
 `/ctxjev:status` reports the key missing even though your terminal has it, set it where the app
@@ -111,10 +122,11 @@ leaves your machine.
   are replaced with `[REDACTED]` before sending. That narrows exposure; it can't recognize every
   possible secret.
 - **Only short excerpts are sent**, not whole files or full tool output.
-- **The local cache stays out of git.** Scores and excerpts are written to `.ctxjev/` in your
-  project, one file per session (so two sessions open on the same project never see each
-  other's), which the plugin creates with its own `.gitignore` (`*`) so it can't be committed by
-  accident.
+- **Nothing is written into your project.** Scores and excerpts go to
+  `~/.claude/ctxjev/sessions/<session id>/` (under `CLAUDE_CONFIG_DIR` if you set it), readable only
+  by you, one directory per session, and only the 50 most recent sessions are kept. Versions
+  before 0.6.0 kept this in `.ctxjev/` inside your project; the next compaction removes the files
+  they wrote there, and the directory too if nothing else is in it.
 - **Nothing is sent without a key.** With `TYPESAFE_API_KEY` unset, nothing leaves your machine.
 
 ---

@@ -66,5 +66,11 @@ describe('rankForPreservation, acknowledgments', () => {
     const withAckScored: ScoredEntry[] = [...scored, { entryId: 'ack', relevance: 0.8, recency: 1, combinedScore: 0.82 }]
     expect(rankForPreservation(withAckScored, withAck, 'x', 5, Number.MIN_VALUE).map((s) => s.entryId)).not.toContain('ack')
   })
-})
 
+  it('leaves out a command the user ran, such as the /ctxjev:set-goal that set the goal', () => {
+    const content = '<command-name>/ctxjev:set-goal</command-name> <command-args>Stop the double charge on retry</command-args>'
+    const withCommand: Entry[] = [...entries, { id: 'cmd', role: 'user', content, timestamp: 3 }]
+    const withCommandScored: ScoredEntry[] = [...scored, { entryId: 'cmd', relevance: 1, recency: 1, combinedScore: 1 }]
+    expect(rankForPreservation(withCommandScored, withCommand, 'Stop the double charge on retry', 5, Number.MIN_VALUE).map((s) => s.entryId)).not.toContain('cmd')
+  })
+})

@@ -36,10 +36,24 @@ waitlist) first.
 claude mcp add ctxjev --env TYPESAFE_API_KEY=... -- npx ctxjev-mcp
 ```
 
+The ctxjev repo also carries a project-level `.mcp.json`, but that scope needs an approval step
+that didn't surface in the UI when tested (Claude Code v2.1.278): `claude mcp list` silently omits
+the server. `claude mcp add` at local scope, as above, works immediately. If both exist, `claude
+mcp list` warns that the server is defined in two scopes; that concerns OAuth token storage, which
+a local stdio server doesn't use, so it's safe to ignore (or `claude mcp remove ctxjev -s project`).
+
 **Codex CLI** (verified against `codex-cli` v0.155.1):
 
 ```bash
 codex mcp add ctxjev --env TYPESAFE_API_KEY=... -- npx ctxjev-mcp
+```
+
+Or through the [Agent Plugins](https://agent-plugins.org) bundle in the ctxjev repo
+(`.agents/plugins/marketplace.json`), which registers the same `npx ctxjev-mcp` command:
+
+```bash
+codex plugin marketplace add x96x64/ctxjev
+codex plugin add ctxjev@ctxjev-plugins
 ```
 
 **GitHub Copilot** (VS Code, agent mode) uses `.vscode/mcp.json` (note the top-level key is
