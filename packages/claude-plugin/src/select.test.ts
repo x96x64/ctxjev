@@ -83,4 +83,17 @@ describe('rankForPreservation, acknowledgments', () => {
     expect(ids).not.toContain('r')
     expect(ids).not.toContain('e')
   })
+
+  it('leaves out the confirmation that only repeats the goal, but keeps a reply that says more', () => {
+    const goal = 'computeTotal を banker\'s rounding で直す'
+    const withReplies: Entry[] = [
+      ...entries,
+      { id: 'ok', role: 'assistant', content: `Goal set: ${goal}`, timestamp: 3 },
+      { id: 'more', role: 'assistant', content: `${goal} ために、toCents の Math.round を偶数丸めに変え、src/legacy は触らずにテストを追加します。`, timestamp: 4 },
+    ]
+    const withRepliesScored: ScoredEntry[] = [...scored, { entryId: 'ok', relevance: 1, recency: 1, combinedScore: 1 }, { entryId: 'more', relevance: 1, recency: 1, combinedScore: 1 }]
+    const ids = rankForPreservation(withRepliesScored, withReplies, goal, 5, Number.MIN_VALUE).map((s) => s.entryId)
+    expect(ids).not.toContain('ok')
+    expect(ids).toContain('more')
+  })
 })

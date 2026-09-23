@@ -24,7 +24,8 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
   now quoted and labeled as data, and only you can run the skill.
 - `ctxjev-claude`: the post-compaction reminder says its excerpts aren't requests and that any
   question in them was already asked. Haiku had answered a preserved "Shall I write the tests?"
-  by writing and committing them. ctxjev's own status report is never preserved.
+  by writing and committing them. ctxjev's own status report is never preserved, nor is a reply that
+  only repeats the goal ("Goal set: …").
 - `ctxjev-claude`, `ctxjev-cli`: the `<pasted_content>` tags Claude Code wraps around pasted text
   no longer end up in the goal.
 - `ctxjev-claude`: a slash command you ran (such as `/ctxjev:set-goal`) no longer takes one of the

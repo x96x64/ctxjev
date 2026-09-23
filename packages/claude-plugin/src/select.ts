@@ -31,11 +31,18 @@ export function rankForPreservation(scored: ScoredEntry[], entries: Entry[], goa
   const entryById = new Map(entries.map((e) => [e.id, e]))
   return scored
     .map((s) => ({ ...s, content: entryById.get(s.entryId)?.content ?? '', role: entryById.get(s.entryId)?.role }))
-    .filter((s) => s.relevance >= minRelevance && !goal.includes(s.content.trim()) && !s.content.includes(STATUS_MARKER))
+    .filter((s) => s.relevance >= minRelevance && !restatesGoal(s.content, goal) && !s.content.includes(STATUS_MARKER))
     .filter((s) => s.role !== 'user' || (isSubstantiveMessage(s.content) && isGoalCandidate(s.content)))
     .sort((a, b) => b.combinedScore - a.combinedScore)
     .slice(0, limit)
     .map(({ role: _role, ...s }) => s)
+}
+
+// Part of the goal (a message it was inferred from), or the goal plus a few words ("Goal set: …",
+// the confirmation after /ctxjev:set-goal): the reminder's header already shows it.
+function restatesGoal(content: string, goal: string): boolean {
+  const text = content.trim()
+  return goal.includes(text) || (text.includes(goal.trim()) && !isSubstantiveMessage(text.replace(goal.trim(), '')))
 }
 
 /** CTXJEV_PRESERVE_LIMIT, if it's a whole number from 1 to 50; otherwise the default. */
