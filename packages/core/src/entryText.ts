@@ -11,6 +11,15 @@ export function truncate(text: string, max: number = MAX_CONTENT_LENGTH): string
   return oneLine.length > max ? `${oneLine.slice(0, max - 1)}…` : oneLine
 }
 
+// Shorter than this, a user message is usually an acknowledgment ("yes", "go ahead", "続けて"),
+// not a description of the work.
+const MIN_SUBSTANTIVE_LENGTH = 20
+
+/** Whether a user message says something on its own, rather than acknowledging what came before. */
+export function isSubstantiveMessage(text: string): boolean {
+  return text.trim().length >= MIN_SUBSTANTIVE_LENGTH
+}
+
 /** Masked before it's cut, so a secret straddling the cut can't survive as a partial match. */
 export function excerpt(text: string): string {
   return truncate(redactSecrets(text))

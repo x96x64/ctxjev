@@ -59,3 +59,12 @@ describe('preserveLimitFromEnv', () => {
     }
   })
 })
+
+describe('rankForPreservation, acknowledgments', () => {
+  it('leaves out a short user acknowledgment even when it scores high', () => {
+    const withAck: Entry[] = [...entries, { id: 'ack', role: 'user', content: 'yes go ahead', timestamp: 3 }]
+    const withAckScored: ScoredEntry[] = [...scored, { entryId: 'ack', relevance: 0.8, recency: 1, combinedScore: 0.82 }]
+    expect(rankForPreservation(withAckScored, withAck, 'x', 5, Number.MIN_VALUE).map((s) => s.entryId)).not.toContain('ack')
+  })
+})
+

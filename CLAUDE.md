@@ -85,7 +85,9 @@ that was never part of what the parent session's compaction actually operates on
   the next release unless npm is showing something wrong or misleading.
 - Before publishing, run the live suite with `TYPESAFE_API_KEY` set (`pnpm test` picks up every
   `.live.test.ts`), and `cd packages/core && pnpm eval` if anything about scoring changed.
-  `publish.yml` runs the live tests only if the `TYPESAFE_API_KEY` repository secret is set.
+  `publish.yml` does both on its own — the live tests and `eval/run.mjs --gate` — using the
+  `TYPESAFE_API_KEY` repository secret, then tags the release and creates its GitHub Release from
+  this version's CHANGELOG section (so that section must exist before publishing).
 - `packages/claude-plugin/dist/` is committed: run `pnpm build` and commit it with any change under
   `packages/claude-plugin/src` or `packages/core/src`. CI fails if it's stale.
 - CHANGELOG entries are for users: one line per change, what changed and why it matters to them.

@@ -311,6 +311,11 @@ exact call lives in [`server.live.test.ts`](packages/mcp-server/src/server.live.
 - **Savings only count what's actually removed.** `summarizeSavings()` reports `droppedTokens`
   separately from `summarizableTokens`. `ctxjev` can't summarize, so counting `summarize` as saved
   would claim savings that depend entirely on someone else's summarizer.
+- **Pruning a conversation keeps it a valid request.** In the Anthropic Messages API, a
+  `tool_result` without its `tool_use` (or the reverse) is rejected, so
+  [`pruneMessages()`](packages/core/src/anthropicMessages.ts) scores a tool call and its result as
+  one entry and removes them together. It never touches the first message (the original task) or
+  the latest turn, which may hold a tool call still waiting on its result.
 - **No hand-rolled retry logic.** `@typesafe-ai/sdk`'s `TypeSafeClient` already retries connection
   failures, timeouts, and 408/429/500-599 responses by default, so adding a custom retry layer
   would just be a worse copy of what the SDK already does correctly. Across chunks, requests run
@@ -345,6 +350,8 @@ exact call lives in [`server.live.test.ts`](packages/mcp-server/src/server.live.
   cause (a token-renewal race) never uses the goal's words and the distractors do ("user", "app",
   "log out"), keyword overlap put 1 relevant entry in its top 5 and Jev put 5. Across all four
   fixtures (101 labels), drop accuracy at the default weight is 83% for Jev and 78% for keywords.
+  Every release is gated on this: `publish.yml` runs `eval/run.mjs --gate`, which fails if Jev
+  falls below the baseline or misses more than one of any fixture's top entries.
 - **Token counts are computed, not judged.** [`tokenEstimate.ts`](packages/core/src/tokenEstimate.ts)
   uses a real tokenizer, [`gpt-tokenizer`](https://www.npmjs.com/package/gpt-tokenizer), since Jev
   is explicitly bad at arithmetic and this project never asks it to count anything.

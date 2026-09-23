@@ -5,6 +5,27 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 (`.claude-plugin/marketplace.json`, `packages/claude-plugin/.claude-plugin/plugin.json`,
 `plugins/ctxjev/plugin.json`). A bump in one is a bump in all, even when only one changed.
 
+## 0.3.0 — 2026-09-23
+
+- `ctxjev-core`: `pruneMessages()` takes an Anthropic Messages conversation and returns it with
+  stale entries removed, still a valid request: each `tool_use` goes with its `tool_result`, and
+  the first message and latest turn are never touched.
+- `ctxjev-cli`: `ctxjev prune` writes a ctxjev-format or Anthropic Messages transcript back out
+  with drops removed; `analyze` and `prune` both accept the Anthropic format.
+- `ctxjev-core`: the inferred goal skips short acknowledgments ("yes, go ahead") in favor of the
+  last message that describes the work.
+- `ctxjev-core`: long tool output keeps its tail as well as its head, where test summaries and
+  final errors usually are; a failed tool call is marked `[error]`.
+- `ctxjev-claude`: an entry needs real relevance to take a preserved slot, not just recency, and a
+  bare acknowledgment ("yes, go ahead") never takes one.
+- `ctxjev-claude`: preserved context is kept per session, so two sessions on one project can't
+  receive each other's.
+- `ctxjev-claude`: Jev gets 40 seconds, then scoring falls back to offline and says so; the hooks
+  declare explicit timeouts.
+- `ctxjev-cli`: a one-line Claude Code `.jsonl` is recognized instead of misread as ctxjev's format.
+- Releases are now gated on the eval (Jev must beat the offline baseline) and get a git tag and
+  a GitHub Release.
+
 ## 0.2.0 — 2026-09-23
 
 **Breaking:** `SavingsReport.savedTokens` is replaced by `droppedTokens` and `summarizableTokens`.

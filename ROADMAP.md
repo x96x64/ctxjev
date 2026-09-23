@@ -371,3 +371,26 @@ drop accuracy is 83% (Jev) vs. 78% (keywords) over 101 labels. `recencyWeight = 
 again: Jev ties from 0 to 0.1 and degrades from 0.2. The live regression test (never drop an entry
 labeled relevant) passes on all four fixtures with the new chunk-context prompt.
 
+## Phase 12 — Making core's main use case real (v0.3.0, 2026-09-23)
+
+A second fault-finding pass, this time for what's missing rather than what's broken, found that
+`ctxjev-core`'s headline use — dropping stale history in an agent loop you control — had no way to
+apply its own decisions. In the Anthropic Messages API, removing a `tool_use` without its
+`tool_result` (or the reverse) makes the request invalid, so every user would have had to get that
+pairing right themselves. `pruneMessages()` does it, and `ctxjev prune` exposes it.
+
+- **Scoring inputs.** The inferred goal skips short acknowledgments; tool output keeps its tail
+  (where results and errors usually are); failed calls are marked `[error]`; a preserved slot needs
+  real relevance, not just recency.
+- **Hooks.** Snapshots are per session (`session_id` from the hook input); Jev gets 40 of the hook's
+  60 seconds before falling back offline; the process exits explicitly so an abandoned request
+  can't hold it open.
+- **Release gate.** `eval/run.mjs --gate` runs before publishing: Jev must beat the offline baseline
+  and keep each fixture's top entries. Live tests retry twice to absorb Jev's run-to-run variation.
+- **Measured and not shipped:** IDF weighting for the offline scorer. Aggregate accuracy didn't move
+  (79/101 either way), one fixture got worse and another slightly better. The keyword scorer's
+  limit is that it can't see anything without shared words, which weighting doesn't change.
+
+**To verify for real:** that Claude Code keeps the same `session_id` across a compaction, which the
+per-session snapshot relies on. It can only be checked with an actual `/compact`.
+

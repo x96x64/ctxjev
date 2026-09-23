@@ -5,17 +5,17 @@ on:
 
 permissions:
   id-token: write
-  contents: read
+  contents: write # to tag the release and create its GitHub Release
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           registry-url: "https://registry.npmjs.org"
@@ -85,3 +85,13 @@ jobs:
         run: |
           pnpm pack
           npm publish ctxjev-mcp-*.tgz
+
+      # The release notes are this version's own CHANGELOG section, so the two can't drift apart.
+      - name: Tag and create the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(node -p "require('./packages/core/package.json').version")
+          awk -v v="$version" 'index($0, "## " v " ") == 1 { found = 1; next } found && /^## / { exit } found { print }' CHANGELOG.md > release-notes.md
+          test -s release-notes.md || { echo "CHANGELOG.md has no section for $version"; exit 1; }
+          gh release create "v$version" --target "$GITHUB_SHA" --title "v$version" --notes-file release-notes.md

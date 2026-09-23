@@ -1,4 +1,4 @@
-import { excerpt, toolEntryContent, toolResultText } from './entryText.js'
+import { excerpt, isSubstantiveMessage, toolEntryContent, toolResultText } from './entryText.js'
 import type { Entry } from './types.js'
 
 /**
@@ -184,10 +184,6 @@ function isSlashCommand(content: string): boolean {
   return words.length === 1 && SLASH_COMMAND_TOKEN.test(words[0])
 }
 
-// Shorter than this, a message is usually an acknowledgment ("yes", "go ahead", "続けて"), not a
-// description of the work — a bad thing to score the whole session against.
-const MIN_GOAL_LENGTH = 20
-
 /**
  * A fallback goal when none was set explicitly: the most recent user message that actually
  * describes something. Slash commands (`/compact`, ...) are skipped — `PreCompact` fires right
@@ -196,5 +192,5 @@ const MIN_GOAL_LENGTH = 20
  */
 export function inferGoalFromEntries(entries: Entry[]): string | undefined {
   const candidates = [...entries].reverse().filter((e) => e.role === 'user' && !isSlashCommand(e.content))
-  return (candidates.find((e) => e.content.trim().length >= MIN_GOAL_LENGTH) ?? candidates[0])?.content
+  return (candidates.find((e) => isSubstantiveMessage(e.content)) ?? candidates[0])?.content
 }

@@ -1,4 +1,4 @@
-import { DEFAULT_POLICY, scoreEntries, type Entry, type ScoredEntry } from 'ctxjev-core'
+import { DEFAULT_POLICY, isSubstantiveMessage, scoreEntries, type Entry, type ScoredEntry } from 'ctxjev-core'
 
 export type SelectedEntry = ScoredEntry & { content: string }
 
@@ -21,16 +21,19 @@ export async function selectPreserved(entries: Entry[], goal: string, limit = DE
 }
 
 /**
- * Leaves out the message the goal came from (the reminder's header already shows it), and anything
+ * Leaves out the message the goal came from (the reminder's header already shows it), a short
+ * acknowledgment like "yes, go ahead" (meaningless once what it answered is gone), and anything
  * below `minRelevance`, which shouldn't take a slot just for being recent.
  */
 export function rankForPreservation(scored: ScoredEntry[], entries: Entry[], goal: string, limit: number, minRelevance: number): SelectedEntry[] {
-  const contentByEntryId = new Map(entries.map((e) => [e.id, e.content]))
+  const entryById = new Map(entries.map((e) => [e.id, e]))
   return scored
-    .map((s) => ({ ...s, content: contentByEntryId.get(s.entryId) ?? '' }))
+    .map((s) => ({ ...s, content: entryById.get(s.entryId)?.content ?? '', role: entryById.get(s.entryId)?.role }))
     .filter((s) => s.relevance >= minRelevance && s.content.trim() !== goal.trim())
+    .filter((s) => s.role !== 'user' || isSubstantiveMessage(s.content))
     .sort((a, b) => b.combinedScore - a.combinedScore)
     .slice(0, limit)
+    .map(({ role: _role, ...s }) => s)
 }
 
 /** CTXJEV_PRESERVE_LIMIT, if it's a whole number from 1 to 50; otherwise the default. */
