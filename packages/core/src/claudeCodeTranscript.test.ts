@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { inferGoalFromEntries, parseClaudeCodeTranscript } from './claudeCodeTranscript.js'
+import { inferGoalFromEntries, parseClaudeCodeTranscript, transcriptStartTime } from './claudeCodeTranscript.js'
 
 function record(obj: unknown): string {
   return JSON.stringify(obj)
@@ -41,7 +41,7 @@ describe('parseClaudeCodeTranscript', () => {
 
     const entries = parseClaudeCodeTranscript(jsonl)
     expect(entries).toHaveLength(1)
-    expect(entries[0]).toMatchObject({ id: 'call1', role: 'tool', toolName: 'Bash', content: 'Bash: 12 passed' })
+    expect(entries[0]).toMatchObject({ id: 'call1', role: 'tool', toolName: 'Bash', content: 'Bash(npm test): 12 passed' })
     // uses the tool_use's own timestamp, not the later tool_result's
     expect(entries[0].timestamp).toBe(Date.parse('2026-01-01T00:00:01.000Z'))
   })
@@ -120,17 +120,69 @@ describe('parseClaudeCodeTranscript', () => {
     expect(entries[0].content).toContain('no result')
   })
 
+  it('labels a tool entry with the input that identifies the call, not just the tool name', () => {
+    const jsonl = [
+      record({ type: 'assistant', uuid: 'a1', timestamp: '2026-01-01T00:00:01.000Z', message: { role: 'assistant', content: [{ type: 'tool_use', id: 'c1', name: 'Read', input: { file_path: 'src/payments.ts' } }] } }),
+      record({ type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:02.000Z', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'c1', content: 'export function charge()' }] } }),
+    ].join('\n')
+    expect(parseClaudeCodeTranscript(jsonl)[0].content).toBe('Read(src/payments.ts): export function charge()')
+  })
+
+  it('only keeps what came after the most recent compact_boundary record', () => {
+    const jsonl = [
+      record({ type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: 'old, already compacted away' } }),
+      record({ type: 'system', subtype: 'compact_boundary', timestamp: '2026-01-01T00:00:01.000Z' }),
+      record({ type: 'user', uuid: 'u2', timestamp: '2026-01-01T00:00:02.000Z', message: { role: 'user', content: 'still in context' } }),
+    ].join('\n')
+    expect(parseClaudeCodeTranscript(jsonl).map((e) => e.content)).toEqual(['still in context'])
+  })
+
+  it('treats the compaction summary message as a boundary, never as an entry or a goal', () => {
+    const jsonl = [
+      record({ type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: 'old task' } }),
+      record({
+        type: 'user',
+        uuid: 'u2',
+        timestamp: '2026-01-01T00:00:01.000Z',
+        message: { role: 'user', content: 'This session is being continued from a previous conversation that ran out of context. Summary: ...' },
+      }),
+      record({ type: 'assistant', uuid: 'a1', timestamp: '2026-01-01T00:00:02.000Z', message: { role: 'assistant', content: [{ type: 'text', text: 'picking up where we left off' }] } }),
+    ].join('\n')
+    const entries = parseClaudeCodeTranscript(jsonl)
+    expect(entries.map((e) => e.content)).toEqual(['picking up where we left off'])
+    expect(inferGoalFromEntries(entries)).toBeUndefined()
+  })
+
+  it('treats an isCompactSummary record as a boundary', () => {
+    const jsonl = [
+      record({ type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: 'old' } }),
+      record({ type: 'user', uuid: 'u2', isCompactSummary: true, timestamp: '2026-01-01T00:00:01.000Z', message: { role: 'user', content: 'summary' } }),
+    ].join('\n')
+    expect(parseClaudeCodeTranscript(jsonl)).toEqual([])
+  })
+
   it('masks secrets in parsed content', () => {
     const jsonl = record({ type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: 'use TYPESAFE_API_KEY=abc123def456ghi please' } })
     expect(parseClaudeCodeTranscript(jsonl)[0].content).toBe('use TYPESAFE_API_KEY=[REDACTED] please')
   })
 
   it('truncates long content to a short excerpt', () => {
-    const longText = 'x'.repeat(500)
+    const longText = 'x'.repeat(1000)
     const jsonl = record({ type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: longText } })
     const entries = parseClaudeCodeTranscript(jsonl)
-    expect(entries[0].content.length).toBeLessThan(310)
+    expect(entries[0].content.length).toBeLessThan(610)
     expect(entries[0].content.endsWith('…')).toBe(true)
+  })
+})
+
+describe('transcriptStartTime', () => {
+  it('returns the first timestamped record, skipping malformed and untimestamped lines', () => {
+    const jsonl = ['not json', record({ type: 'queue-operation' }), record({ type: 'user', timestamp: '2026-01-01T00:00:05.000Z' })].join('\n')
+    expect(transcriptStartTime(jsonl)).toBe(Date.parse('2026-01-01T00:00:05.000Z'))
+  })
+
+  it('returns undefined when nothing carries a timestamp', () => {
+    expect(transcriptStartTime(record({ type: 'queue-operation' }))).toBeUndefined()
   })
 })
 

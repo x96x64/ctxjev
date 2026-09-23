@@ -32,9 +32,11 @@ type KnownContentBlock =
 
 type TranscriptRecord = {
   type: string
+  subtype?: string
   uuid?: string
   timestamp?: string
   isSidechain?: boolean
+  isCompactSummary?: boolean
   message?: { role: string; content: string | unknown[] }
 }
 
@@ -43,7 +45,7 @@ function asKnownBlock(raw: unknown): KnownContentBlock | undefined {
   return raw as KnownContentBlock
 }
 
-const MAX_CONTENT_LENGTH = 300
+const MAX_CONTENT_LENGTH = 600
 
 /** Collapses whitespace and clips to `max` chars with an ellipsis — shared with `ctxjev-cli`'s
  * report formatting so the same normalize-and-truncate behavior isn't reimplemented twice. */
@@ -63,6 +65,43 @@ function toolResultText(content: string | Array<{ type: string; text?: string }>
     .map((block) => (block.type === 'text' ? block.text ?? '' : `[${block.type}]`))
     .filter(Boolean)
     .join(' ')
+}
+
+// Which input field identifies a call for the common tools — "Bash: 12 passed" alone doesn't say what ran.
+const TOOL_INPUT_KEYS = ['command', 'file_path', 'notebook_path', 'path', 'pattern', 'url', 'query', 'description', 'prompt']
+
+function toolInputSummary(input: unknown): string {
+  if (typeof input !== 'object' || input === null) return ''
+  const record = input as Record<string, unknown>
+  for (const key of TOOL_INPUT_KEYS) {
+    if (typeof record[key] === 'string' && record[key]) return truncate(record[key] as string, 160)
+  }
+  return Object.keys(record).length > 0 ? truncate(JSON.stringify(record), 160) : ''
+}
+
+function toolLabel(name: string, input: unknown): string {
+  const summary = toolInputSummary(input)
+  return summary ? `${name}(${summary})` : name
+}
+
+const COMPACT_SUMMARY_PREFIX = 'This session is being continued from a previous conversation'
+
+// Everything before the most recent compaction is already out of context — only what follows it is.
+function isCompactionBoundary(record: TranscriptRecord): boolean {
+  if (record.type === 'system' && record.subtype === 'compact_boundary') return true
+  if (record.type !== 'user') return false
+  if (record.isCompactSummary) return true
+  return firstText(record.message?.content)?.trimStart().startsWith(COMPACT_SUMMARY_PREFIX) ?? false
+}
+
+function firstText(content: string | unknown[] | undefined): string | undefined {
+  if (typeof content === 'string') return content
+  if (!Array.isArray(content)) return undefined
+  for (const raw of content) {
+    const block = asKnownBlock(raw)
+    if (block?.type === 'text') return block.text
+  }
+  return undefined
 }
 
 function toTimestampMs(timestamp: string | undefined): number {
@@ -86,6 +125,12 @@ export function parseClaudeCodeTranscript(jsonl: string): Entry[] {
     }
 
     if (record.isSidechain) continue
+
+    if (isCompactionBoundary(record)) {
+      entries.length = 0
+      pendingToolUse.clear()
+      continue
+    }
 
     const timestamp = toTimestampMs(record.timestamp)
     const content = record.message?.content
@@ -122,7 +167,7 @@ export function parseClaudeCodeTranscript(jsonl: string): Entry[] {
           id: block.tool_use_id,
           role: 'tool',
           toolName: name,
-          content: excerpt(`${name}: ${resultText}`),
+          content: excerpt(`${toolLabel(name, pending?.input)}: ${resultText}`),
           timestamp: pending?.timestamp ?? timestamp,
         })
       }
@@ -137,12 +182,26 @@ export function parseClaudeCodeTranscript(jsonl: string): Entry[] {
       id: toolUseId,
       role: 'tool',
       toolName: pending.name,
-      content: excerpt(`${pending.name}: (no result — tool call never completed)`),
+      content: excerpt(`${toolLabel(pending.name, pending.input)}: (no result — tool call never completed)`),
       timestamp: pending.timestamp,
     })
   }
 
   return entries
+}
+
+/** When the session this transcript belongs to started — the first record carrying a timestamp. */
+export function transcriptStartTime(jsonl: string): number | undefined {
+  for (const line of jsonl.split('\n')) {
+    if (!line.trim()) continue
+    try {
+      const ms = toTimestampMs((JSON.parse(line) as TranscriptRecord).timestamp)
+      if (ms > 0) return ms
+    } catch {
+      // skip malformed lines, same as parseClaudeCodeTranscript
+    }
+  }
+  return undefined
 }
 
 /** A real slash command's own token has no further "/" or whitespace in it, e.g. "/compact" or

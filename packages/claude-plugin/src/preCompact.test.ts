@@ -51,12 +51,26 @@ describe('preCompact.js (dist)', () => {
     expect(result.stderr).toBe('')
   }, 10_000)
 
-  it('no-ops silently when TYPESAFE_API_KEY is unset, even with valid cwd/transcript_path', async () => {
+  it('without TYPESAFE_API_KEY, preserves nothing but records why in last-run.json', async () => {
     const transcriptPath = join(cwd, 'transcript.jsonl')
     const result = await run(JSON.stringify({ cwd, transcript_path: transcriptPath }), { TYPESAFE_API_KEY: undefined })
     expect(result.exitCode).toBe(0)
     expect(result.stderr).toBe('')
     await expect(readFile(join(cwd, '.ctxjev', 'preserved-context.json'), 'utf8')).rejects.toThrow()
+
+    const lastRun = JSON.parse(await readFile(join(cwd, '.ctxjev', 'last-run.json'), 'utf8'))
+    expect(lastRun.outcome).toBe('skipped')
+    expect(lastRun.reason).toContain('TYPESAFE_API_KEY')
+    expect(await readFile(join(cwd, '.ctxjev', '.gitignore'), 'utf8')).toBe('*\n')
+  }, 10_000)
+
+  it('records an unreadable transcript as an error instead of failing silently', async () => {
+    const result = await run(JSON.stringify({ cwd, transcript_path: join(cwd, 'does-not-exist.jsonl') }), { TYPESAFE_API_KEY: 'fake-key-for-this-test' })
+    expect(result.exitCode).toBe(0)
+
+    const lastRun = JSON.parse(await readFile(join(cwd, '.ctxjev', 'last-run.json'), 'utf8'))
+    expect(lastRun.outcome).toBe('error')
+    expect(lastRun.reason).toContain('does-not-exist.jsonl')
   }, 10_000)
 
   it('clears a stale snapshot from an earlier compaction instead of leaving it for sessionStartCompact.js to re-inject', async () => {

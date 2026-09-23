@@ -10,6 +10,11 @@ the `.ctxjev` directory doesn't exist yet, create it, and also create `.ctxjev/.
 containing a single line `*` — this directory holds transcript excerpts and must never be
 committed. Then confirm back to the user what was saved, in one short line.
 
+The goal applies to the current session only: a goal set in an earlier session is ignored at the
+next compaction (ctxjev falls back to the most recent chat message instead), so a stale goal can't
+silently steer unrelated work. Mention this in your confirmation only if the user seems to expect
+it to carry over.
+
 If the user ran `/ctxjev:set-goal` with no text, don't write anything — tell them the current
 contents of `.ctxjev/goal.txt` if it exists, or that no goal is set (in which case ctxjev's
 PreCompact hook falls back to the most recent user message as a proxy goal).

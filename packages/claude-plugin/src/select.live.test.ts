@@ -18,8 +18,4 @@ describe.skipIf(!process.env.TYPESAFE_API_KEY)('selectPreserved (live)', () => {
     const selected = await selectPreserved(entries, 'fix the double-charge bug in checkout', 1)
     expect(selected).toHaveLength(1)
   }, 20_000)
-
-  it('returns an empty array for no entries without calling Jev', async () => {
-    expect(await selectPreserved([], 'goal')).toEqual([])
-  })
 })

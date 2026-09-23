@@ -53,10 +53,14 @@ the moment it matters most.
 
 - **`/ctxjev:set-goal <text>`** points scoring at something specific instead of guessing from your
   last message. Useful the moment your session's focus shifts, or before a compaction you know is
-  coming. Takes effect immediately and persists for the rest of the project.
-- **`/ctxjev:status`** shows what's currently cached without waiting for a real compaction: the
-  active goal, and every entry from the last scoring pass with its relevance score, highest
-  first. The fastest way to check the plugin is actually doing something.
+  coming. Applies to the current session only — a goal left over from an earlier session is
+  ignored, so it can't silently steer unrelated work.
+- **`/ctxjev:status`** shows what the last compaction's run actually did, including *why* if it
+  skipped or failed (a missing API key, nothing to score), plus the goal it used and every
+  preserved entry with its score, highest first. The fastest way to check the plugin is working.
+
+Five entries are preserved per compaction by default; set `CTXJEV_PRESERVE_LIMIT` (1–50) in the
+environment Claude Code runs in to change that.
 
 ## Install
 
@@ -83,9 +87,14 @@ claude --plugin-dir packages/claude-plugin
 A [Jev](https://typesafe.ai) API key, exported as `TYPESAFE_API_KEY` in the environment Claude
 Code itself runs in. Get one at
 [console.typesafe.ai/settings/keys](https://console.typesafe.ai/settings/keys) (no waitlist).
-Without it, the `PreCompact` hook is a silent no-op: your session works exactly as it always did,
-just without the reminder afterward. A bug here can never block your actual compaction. That's by
-design, not a side effect.
+Without it, the `PreCompact` hook preserves nothing: your session works exactly as it always did,
+just without the reminder afterward, and `/ctxjev:status` tells you the key is missing. A bug here
+can never block your actual compaction. That's by design, not a side effect.
+
+The Claude Code desktop app doesn't inherit variables exported in your shell profile. If
+`/ctxjev:status` reports the key missing even though your terminal has it, set it where the app
+can see it, for example with `launchctl setenv TYPESAFE_API_KEY ...` on macOS, then restart the
+app.
 
 ## Privacy
 
