@@ -22,6 +22,9 @@ const BEARER = /\b(Bearer\s+)[A-Za-z0-9._~+/=-]{16,}/gi
 // NAME=value / NAME: value where NAME looks like a credential. The name is kept (it's useful
 // context — "the API key was set") and only the value is masked.
 const ASSIGNMENT = /\b([A-Za-z0-9_]*(?:API[_-]?KEY|SECRET|TOKEN|PASSWORD|PASSWD)[A-Za-z0-9_]*)(\s*[:=]\s*)(["']?)([^\s"']{8,})\3/gi
+// The same in Japanese ("パスワード：…", "APIキー: …"). The value must be ASCII so that prose after
+// the colon ("トークン：有効期限切れ") isn't masked along with it.
+const JA_ASSIGNMENT = /((?:API|アクセス|シークレット)\s?キー|パスワード|パスフレーズ|シークレット|トークン|秘密鍵)(\s*[:=：]\s*)(["'「]?)([!#-&(-~]{8,})/gi
 
 export function redactSecrets(text: string): string {
   let out = text
@@ -30,6 +33,9 @@ export function redactSecrets(text: string): string {
   // A purely numeric value (maxTokens=100000) is a setting, not a secret.
   out = out.replace(ASSIGNMENT, (match, name, sep, quote, value) =>
     /^\d+$/.test(value) || value === REDACTED ? match : `${name}${sep}${quote}${REDACTED}${quote}`,
+  )
+  out = out.replace(JA_ASSIGNMENT, (match, name, sep, quote, value) =>
+    /^\d+$/.test(value) || value.startsWith(REDACTED) ? match : `${name}${sep}${quote}${REDACTED}`,
   )
   return out
 }

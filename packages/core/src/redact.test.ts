@@ -14,6 +14,15 @@ describe('redactSecrets', () => {
     expect(redactSecrets('password: "hunter2hunter2"')).toBe('password: "[REDACTED]"')
   })
 
+  it('masks the value of a Japanese credential label but not Japanese prose after one', () => {
+    expect(redactSecrets('パスワード：hunter2hunter2 です')).toBe('パスワード：[REDACTED] です')
+    expect(redactSecrets('APIキー: "abc123def456ghi"')).toBe('APIキー: "[REDACTED]"')
+    expect(redactSecrets('トークン：有効期限切れのため再発行')).toBe('トークン：有効期限切れのため再発行')
+    const once = redactSecrets('秘密鍵=abc123def456ghi')
+    expect(once).toBe('秘密鍵=[REDACTED]')
+    expect(redactSecrets(once)).toBe(once)
+  })
+
   it('masks bearer tokens', () => {
     expect(redactSecrets('Authorization: Bearer abcdefghijklmnopqrstuvwxyz')).toBe('Authorization: Bearer [REDACTED]')
   })
