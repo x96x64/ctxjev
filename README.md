@@ -51,8 +51,8 @@ it's ever sent to the model again.
 | You want to… | Use | What it actually does |
 | --- | --- | --- |
 | Keep key details through Claude Code's compaction | [`ctxjev-claude`](#the-claude-code-plugin) plugin | Scores the session right before compaction and re-injects the top few entries right after. Adds a short reminder; doesn't remove anything. |
-| Drop stale history in an agent loop you control | [`ctxjev-core`](packages/core) | Returns keep/drop/summarize per entry. You remove what it says to drop from your own message list. |
-| See how a transcript would score before wiring anything up | [`ctxjev-cli`](packages/cli) | Prints a report. Analysis only: it doesn't modify the transcript. |
+| Drop stale history in an agent loop you control | [`ctxjev-core`](packages/core) | `pruneMessages()` takes an Anthropic Messages conversation and returns it with stale entries removed, every `tool_use`/`tool_result` pair kept intact. For other formats, `pruneContext()` returns keep/drop/summarize per entry. |
+| See how a transcript would score, or prune a saved one | [`ctxjev-cli`](packages/cli) | `analyze` prints a report; `prune` writes the transcript back out with drops removed. |
 | Expose scoring as a tool to an MCP host | [`ctxjev-mcp`](packages/mcp-server) | Returns scores to whoever calls the tool. [Read the caveat](#using-it-from-an-mcp-host) before expecting it to save tokens. |
 
 ## The Claude Code Plugin
@@ -103,14 +103,19 @@ against one shared state**, so Jev's cost barely grows with the number of questi
 tool-call entries costs about the same as scoring one.
 
 ```ts
-import { pruneContext } from 'ctxjev-core'
+import { pruneMessages } from 'ctxjev-core'
 
-const decisions = await pruneContext(
-  entries, // your agent's tool-call / message history
+// `messages` is the Anthropic Messages conversation your agent loop sends each turn.
+const { messages: pruned, removed } = await pruneMessages(
+  messages,
   'Fix a bug where checkout charges customers twice on a slow network retry.',
 )
-// Drop what came back as "drop" from your own message list before the next model call.
+// `pruned` is still a valid request: tool_use/tool_result pairs are removed together, and the
+// first message and the latest turn are never touched.
 ```
+
+Any other history shape works through `pruneContext(entries, goal)`, which takes plain
+`{ id, role, toolName?, content, timestamp }` entries and returns a decision per entry.
 
 ```console
 $ ctxjev analyze examples/sample-transcripts/checkout-bug.json
@@ -155,6 +160,13 @@ ctxjev analyze transcript.jsonl --goal "Fix the checkout double-charge bug."
 No key yet? `--offline` scores by keyword overlap instead: nothing is sent, and the results are
 much cruder, but it shows the shape of the output.
 
+`ctxjev prune` writes a ctxjev-format or Anthropic Messages transcript back out with the drops
+removed (to stdout, or `--out <file>`):
+
+```bash
+ctxjev prune examples/sample-transcripts/anthropic-messages.json --out pruned.json
+```
+
 ```bash
 ctxjev analyze transcript.jsonl --goal "Fix the checkout double-charge bug." --offline
 ```
@@ -177,8 +189,8 @@ that engine gets used.
 
 | Package | What it is | Status |
 | --- | --- | --- |
-| [`ctxjev-core`](packages/core) ([npm](https://www.npmjs.com/package/ctxjev-core)) | The engine: `scoreEntries()`/`pruneContext()`, plus the Claude Code transcript parser, secret masking, and the offline scorer. Everything else wraps this. | ✅ published |
-| [`ctxjev-cli`](packages/cli) ([npm](https://www.npmjs.com/package/ctxjev-cli)) | `ctxjev analyze <transcript>`: a plain-text (or `--json`) report. Doesn't modify anything. | ✅ published |
+| [`ctxjev-core`](packages/core) ([npm](https://www.npmjs.com/package/ctxjev-core)) | The engine: `scoreEntries()`/`pruneContext()`/`pruneMessages()`, plus the Claude Code transcript parser, secret masking, and the offline scorer. Everything else wraps this. | ✅ published |
+| [`ctxjev-cli`](packages/cli) ([npm](https://www.npmjs.com/package/ctxjev-cli)) | `ctxjev analyze` (a report) and `ctxjev prune` (the transcript with drops removed). | ✅ published |
 | [`ctxjev-mcp`](packages/mcp-server) ([npm](https://www.npmjs.com/package/ctxjev-mcp)) | MCP server exposing `score_relevance`/`prune_history` as tools. | ✅ published |
 | [`ctxjev-claude`](packages/claude-plugin) | Claude Code plugin: scores at `PreCompact`, re-injects a digest at `SessionStart`, plus two inspection skills. | ✅ working (not on npm) |
 

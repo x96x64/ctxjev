@@ -65,4 +65,28 @@ describe('parseTranscript', () => {
   it('throws a clear error when a file parses as neither format', () => {
     expect(() => parseTranscript('not json at all\nstill not json')).toThrow(/could not parse/)
   })
+
+  it('detects a bare Anthropic Messages array and infers the goal from it', () => {
+    const raw = JSON.stringify([
+      { role: 'user', content: 'Checkout charges customers twice on a slow retry, please fix' },
+      { role: 'assistant', content: [{ type: 'tool_use', id: 't1', name: 'Grep', input: { pattern: 'charge' } }] },
+      { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't1', content: 'found it' }] },
+    ])
+    const parsed = parseTranscript(raw)
+    expect(parsed.format).toBe('anthropic-messages')
+    expect(parsed.goal).toBe('Checkout charges customers twice on a slow retry, please fix')
+    expect(parsed.entries.map((e) => e.id)).toEqual(['msg:0', 'tool:t1'])
+    expect(parsed.format === 'anthropic-messages' && parsed.wrapped).toBe(false)
+  })
+
+  it('detects a wrapped { goal, messages } conversation and keeps its goal', () => {
+    const parsed = parseTranscript(JSON.stringify({ goal: 'the goal', messages: [{ role: 'user', content: 'hi' }] }))
+    expect(parsed.format).toBe('anthropic-messages')
+    expect(parsed.goal).toBe('the goal')
+    expect(parsed.format === 'anthropic-messages' && parsed.wrapped).toBe(true)
+  })
+
+  it('rejects a message with an invalid role', () => {
+    expect(() => parseTranscript(JSON.stringify([{ role: 'system', content: 'x' }]))).toThrow(/messages\[0\]\.role/)
+  })
 })

@@ -1,126 +1,13 @@
-import { type ScoreCache } from './cache.js'
-import { chunkEntries } from './chunk.js'
-import { scoreRelevance, type RelevanceVerdict } from './jevClient.js'
-import { localRelevance } from './localRelevance.js'
-import { combineScore, decideAction } from './policy.js'
-import { computeRecency } from './recency.js'
-import { DEFAULT_POLICY, type Entry, type JevUsage, type PruneDecision, type PruningPolicy, type ScoredEntry } from './types.js'
-
 export * from './types.js'
+export { scoreEntries, pruneContext, type ScoreEntriesOptions } from './prune.js'
+export { messagesToEntries, pruneMessages, type AnthropicMessage, type AnthropicContentBlock, type PruneMessagesOptions, type PruneMessagesResult } from './anthropicMessages.js'
 export { atomicWriteFile } from './atomicWrite.js'
 export { redactSecrets } from './redact.js'
 export { summarizeSavings, type SavingsReport } from './savings.js'
 export { estimateTokens } from './tokenEstimate.js'
-export { parseClaudeCodeTranscript, inferGoalFromEntries, transcriptStartTime, truncate } from './claudeCodeTranscript.js'
+export { parseClaudeCodeTranscript, inferGoalFromEntries, transcriptStartTime } from './claudeCodeTranscript.js'
+export { truncate } from './entryText.js'
 export { createUsageAccumulator } from './usage.js'
 export { cacheKeyFor, type ScoreCache } from './cache.js'
 export { isValidPolicyOrdering } from './policy.js'
 export { localRelevance } from './localRelevance.js'
-
-export type ScoreEntriesOptions = {
-  /** Called once per underlying Jev request (one per chunk) with that request's token usage. */
-  onUsage?: (usage: JevUsage) => void
-  /** Checked before, and populated after, each Jev request — see `ScoreCache`. */
-  cache?: ScoreCache
-  /**
-   * `'jev'` (default) asks Jev. `'local'` uses an offline keyword-overlap heuristic instead
-   * (`localRelevance`): no API key, no network, nothing sent anywhere — and much cruder, so its
-   * scores aren't comparable to Jev's. It never reads or writes `cache`, and never calls `onUsage`.
-   */
-  scorer?: 'jev' | 'local'
-}
-
-// A large transcript can chunk into hundreds of requests; firing all of them at once relies
-// entirely on the SDK's own retry/backoff to survive the resulting rate-limit thundering herd.
-const MAX_CONCURRENT_CHUNK_REQUESTS = 5
-
-// How much of the batch's most recent activity every chunk gets to see (see buildJevRequest).
-const LATEST_CONTEXT_SIZE = 8
-
-function latestEntries(entries: Entry[], count: number): Entry[] {
-  return [...entries].sort((a, b) => a.timestamp - b.timestamp).slice(-count)
-}
-
-async function mapWithConcurrencyLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
-  const results: R[] = new Array(items.length)
-  let nextIndex = 0
-
-  async function worker(): Promise<void> {
-    for (let i = nextIndex++; i < items.length; i = nextIndex++) {
-      results[i] = await fn(items[i])
-    }
-  }
-
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
-  return results
-}
-
-async function scoreWithJev(entries: Entry[], goal: string, options: ScoreEntriesOptions): Promise<RelevanceVerdict[]> {
-  const latest = latestEntries(entries, LATEST_CONTEXT_SIZE)
-  const chunkResults = await mapWithConcurrencyLimit(chunkEntries(entries), MAX_CONCURRENT_CHUNK_REQUESTS, async (chunk) => {
-    const { verdicts, usage } = await scoreRelevance(goal, chunk, options.cache, latest)
-    options.onUsage?.(usage)
-    return verdicts
-  })
-  return chunkResults.flat()
-}
-
-function scoreLocally(entries: Entry[], goal: string): RelevanceVerdict[] {
-  return entries.map((entry) => ({ entryId: entry.id, relevance: localRelevance(goal, entry.content) }))
-}
-
-/**
- * Score every entry's relevance to `goal` via Jev, blended with its recency within this batch
- * (see `recency.ts`) per `recencyWeight` — but stop short of deciding what to actually do about
- * it. `pruneContext` (below) is `scoreEntries` plus that decision; call this directly when you
- * want the scores themselves (e.g. the MCP server's `score_relevance` tool, or to compare
- * policies against the same scores without re-querying Jev).
- */
-export async function scoreEntries(
-  entries: Entry[],
-  goal: string,
-  recencyWeight: number = DEFAULT_POLICY.recencyWeight,
-  options: ScoreEntriesOptions = {},
-): Promise<ScoredEntry[]> {
-  const seenIds = new Set<string>()
-  for (const entry of entries) {
-    if (seenIds.has(entry.id)) {
-      throw new Error(`duplicate entry id "${entry.id}" — every entry must have a unique id`)
-    }
-    seenIds.add(entry.id)
-  }
-
-  const verdicts = options.scorer === 'local' ? scoreLocally(entries, goal) : await scoreWithJev(entries, goal, options)
-
-  const verdictByEntryId = new Map(verdicts.map((v) => [v.entryId, v]))
-  const recencyByEntryId = computeRecency(entries)
-
-  return entries.map((entry) => {
-    const verdict = verdictByEntryId.get(entry.id)
-    if (!verdict) {
-      throw new Error(`no Jev verdict returned for entry ${entry.id}`)
-    }
-    const recency = recencyByEntryId.get(entry.id)!
-    return {
-      entryId: entry.id,
-      relevance: verdict.relevance,
-      recency,
-      combinedScore: combineScore(verdict.relevance, recency, recencyWeight),
-    }
-  })
-}
-
-/**
- * `scoreEntries` plus applying `policy`'s thresholds to each combined score, deciding what to
- * keep, drop, or summarize. Entries are chunked into batches for the underlying fan-out
- * requests; order of the returned decisions matches the input order.
- */
-export async function pruneContext(
-  entries: Entry[],
-  goal: string,
-  policy: PruningPolicy = DEFAULT_POLICY,
-  options: ScoreEntriesOptions = {},
-): Promise<PruneDecision[]> {
-  const scored = await scoreEntries(entries, goal, policy.recencyWeight, options)
-  return scored.map((entry) => ({ ...entry, action: decideAction(entry.combinedScore, policy) }))
-}

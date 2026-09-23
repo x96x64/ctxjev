@@ -1,0 +1,108 @@
+{
+  "goal": "Fix the checkout flow charging customers twice on a slow network retry.",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Checkout sometimes charges customers twice when the network is slow. Can you find out why and fix it?"
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "I'll start by looking around the repo."
+        },
+        {
+          "type": "tool_use",
+          "id": "toolu_01",
+          "name": "Bash",
+          "input": {
+            "command": "ls public/audio"
+          }
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "tool_result",
+          "tool_use_id": "toolu_01",
+          "content": "click.mp3 chime.mp3 — unrelated sound assets"
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "toolu_02",
+          "name": "Grep",
+          "input": {
+            "pattern": "chargeCustomer"
+          }
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "tool_result",
+          "tool_use_id": "toolu_02",
+          "content": "src/payments.ts: chargeCustomer() is called from both the submit handler and the retry-on-timeout handler"
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "toolu_03",
+          "name": "Bash",
+          "input": {
+            "command": "git log --oneline -3"
+          }
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "tool_result",
+          "tool_use_id": "toolu_03",
+          "content": "a1b2c3 tweak onboarding copy / d4e5f6 bump eslint / 0a9b8c fix typo in footer"
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "Found it: the retry handler re-charges without checking whether the first charge actually went through. I'll add an idempotency key."
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": "sounds good, go ahead"
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "toolu_04",
+          "name": "Edit",
+          "input": {
+            "file_path": "src/payments.ts"
+          }
+        }
+      ]
+    }
+  ]
+}

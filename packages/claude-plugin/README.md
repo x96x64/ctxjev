@@ -90,8 +90,8 @@ Code itself runs in. Get one at
 [console.typesafe.ai/settings/keys](https://console.typesafe.ai/settings/keys) (no waitlist).
 Without it, the plugin falls back to scoring offline by keyword overlap: nothing is sent anywhere,
 and the reminder says it was scored offline. It's much cruder than Jev, and `/ctxjev:status` tells
-you why it fell back. The same fallback kicks in if a Jev request fails or takes more than 40 seconds. A bug here can never block
-your actual compaction. That's by design, not a side effect.
+you why it fell back. The same fallback kicks in if a Jev request fails or takes more than 40
+seconds. A bug here can never block your actual compaction. That's by design, not a side effect.
 
 The Claude Code desktop app doesn't inherit variables exported in your shell profile. If
 `/ctxjev:status` reports the key missing even though your terminal has it, set it where the app

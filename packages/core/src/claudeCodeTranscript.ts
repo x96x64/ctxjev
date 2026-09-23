@@ -1,4 +1,4 @@
-import { redactSecrets } from './redact.js'
+import { excerpt, toolEntryContent, toolResultText } from './entryText.js'
 import type { Entry } from './types.js'
 
 /**
@@ -43,55 +43,6 @@ type TranscriptRecord = {
 function asKnownBlock(raw: unknown): KnownContentBlock | undefined {
   if (typeof raw !== 'object' || raw === null || !('type' in raw)) return undefined
   return raw as KnownContentBlock
-}
-
-const MAX_CONTENT_LENGTH = 600
-
-/** Collapses whitespace and clips to `max` chars with an ellipsis — shared with `ctxjev-cli`'s
- * report formatting so the same normalize-and-truncate behavior isn't reimplemented twice. */
-export function truncate(text: string, max: number = MAX_CONTENT_LENGTH): string {
-  const oneLine = text.replace(/\s+/g, ' ').trim()
-  return oneLine.length > max ? `${oneLine.slice(0, max - 1)}…` : oneLine
-}
-
-// Masked here too (not only in jevClient) because parsed entries are also written to disk by ctxjev-claude.
-function excerpt(text: string): string {
-  return truncate(redactSecrets(text))
-}
-
-// Tool output keeps its head *and* tail: a test run's summary line or an error's final message is
-// usually at the end, exactly what a head-only cut throws away.
-function toolExcerpt(text: string, max: number = MAX_CONTENT_LENGTH): string {
-  const oneLine = redactSecrets(text).replace(/\s+/g, ' ').trim()
-  if (oneLine.length <= max) return oneLine
-  const headLength = Math.ceil(max * 0.6)
-  const tailLength = max - headLength - 3
-  return `${oneLine.slice(0, headLength)} … ${oneLine.slice(-tailLength)}`
-}
-
-function toolResultText(content: string | Array<{ type: string; text?: string }>): string {
-  if (typeof content === 'string') return content
-  return content
-    .map((block) => (block.type === 'text' ? block.text ?? '' : `[${block.type}]`))
-    .filter(Boolean)
-    .join(' ')
-}
-
-// Which input field identifies a call for the common tools — "Bash: 12 passed" alone doesn't say what ran.
-const TOOL_INPUT_KEYS = ['command', 'file_path', 'notebook_path', 'path', 'pattern', 'url', 'query', 'description', 'prompt']
-
-function toolInputSummary(input: unknown): string {
-  if (typeof input !== 'object' || input === null) return ''
-  const record = input as Record<string, unknown>
-  for (const key of TOOL_INPUT_KEYS) {
-    if (typeof record[key] === 'string' && record[key]) return truncate(record[key] as string, 160)
-  }
-  return Object.keys(record).length > 0 ? truncate(JSON.stringify(record), 160) : ''
-}
-
-function toolLabel(name: string, input: unknown): string {
-  const summary = toolInputSummary(input)
-  return summary ? `${name}(${summary})` : name
 }
 
 const COMPACT_SUMMARY_PREFIX = 'This session is being continued from a previous conversation'
@@ -177,7 +128,7 @@ export function parseClaudeCodeTranscript(jsonl: string): Entry[] {
           id: block.tool_use_id,
           role: 'tool',
           toolName: name,
-          content: toolExcerpt(`${toolLabel(name, pending?.input)}${block.is_error ? ' [error]' : ''}: ${resultText}`),
+          content: toolEntryContent(name, pending?.input, { text: resultText, isError: block.is_error }),
           timestamp: pending?.timestamp ?? timestamp,
         })
       }
@@ -192,7 +143,7 @@ export function parseClaudeCodeTranscript(jsonl: string): Entry[] {
       id: toolUseId,
       role: 'tool',
       toolName: pending.name,
-      content: toolExcerpt(`${toolLabel(pending.name, pending.input)}: (no result — tool call never completed)`),
+      content: toolEntryContent(pending.name, pending.input, undefined),
       timestamp: pending.timestamp,
     })
   }

@@ -25,8 +25,11 @@ No key yet? `--offline` scores by keyword overlap instead, with nothing sent any
 
 ## Usage
 
-`ctxjev analyze` is analysis only: it reports what would be kept, dropped, or summarized, and
-never modifies the transcript.
+`ctxjev analyze` reports what would be kept, dropped, or summarized. `ctxjev prune` writes a
+ctxjev-format or Anthropic Messages transcript back out with the drops removed, to stdout or
+`--out <file>`; for Anthropic Messages it keeps every `tool_use`/`tool_result` pair intact, and
+never touches the first message or the last `--protect-last` messages (default 2). A Claude Code
+`.jsonl` can be analyzed but not pruned, since Claude Code doesn't load an edited transcript.
 
 ```bash
 ctxjev analyze transcript.jsonl --goal "Fix the checkout double-charge bug."
@@ -60,6 +63,8 @@ estimated.
 | `--json` | Prints machine-readable JSON (`{ decisions, savings, usage, scorer }`) instead of the report. |
 | `--no-cache` | Doesn't read or write the score cache (`~/.cache/ctxjev/score-cache.json`). |
 | `--offline` | Scores by keyword overlap instead of Jev: no API key needed, nothing sent. Much cruder, so treat the decisions as a rough guide. |
+| `--out <file>` | `prune`: writes the result here instead of to stdout. |
+| `--protect-last <n>` | `prune`, Anthropic Messages only: never touches the last n messages (default 2). |
 | `--help` / `--version` | Work without `TYPESAFE_API_KEY` set. |
 
 ## Transcript Formats
@@ -67,6 +72,7 @@ estimated.
 Auto-detected, no flag needed:
 
 - **ctxjev's own format** is a single JSON document: `{ "goal": "...", "entries": [{ "id", "role", "toolName"?, "content", "timestamp" }] }`.
+- **An Anthropic Messages conversation** is a `messages` array, bare or as `{ "goal"?, "messages" }`.
 - **A Claude Code session** is a real `.jsonl` transcript (`transcript_path`, or anything under
   `~/.claude/projects`). The goal is inferred from your most recent chat message unless `--goal`
   overrides it.

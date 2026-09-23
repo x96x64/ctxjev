@@ -1,6 +1,6 @@
 import { TypeSafeClient, noul } from '@typesafe-ai/sdk'
 import { cacheKeyFor, type ScoreCache } from './cache.js'
-import { truncate } from './claudeCodeTranscript.js'
+import { truncate } from './entryText.js'
 import { redactSecrets } from './redact.js'
 import type { Entry, JevUsage } from './types.js'
 

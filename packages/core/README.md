@@ -75,6 +75,12 @@ the two per `PruningPolicy.recencyWeight` before `action` is decided.
   made, and returns `{ entryId, relevance, recency, combinedScore }[]`.
 - **`pruneContext(entries, goal, policy?, options?)`** runs `scoreEntries()` and applies
   `PruningPolicy`'s `dropBelow`/`summarizeBelow` thresholds, returning the same shape plus `action`.
+- **`pruneMessages(messages, goal, options?)`** takes an Anthropic Messages conversation and returns
+  `{ messages, decisions, removed }`: the conversation with dropped entries removed, still a valid
+  request. A `tool_use` and its `tool_result` are removed together, a message left empty is
+  removed, and the first message and the last `protectLast` messages (default 2) are never
+  touched. `summarize` is reported but left in place. `messagesToEntries(messages)` exposes the
+  entry mapping on its own.
 - **`parseClaudeCodeTranscript(jsonl)`** / **`inferGoalFromEntries(entries)`** parse a real Claude
   Code session `.jsonl` transcript into `Entry[]`, and infer a goal from the most recent user
   message.
