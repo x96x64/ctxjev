@@ -21,15 +21,29 @@ function stem(word: string): string {
   return w
 }
 
+// Han, Katakana (plus its long-vowel mark, which Unicode files under Common) and Hangul are written
+// without spaces between words, or with particles glued on, so a run of them can't be matched as a
+// whole word, and a dictionary segmenter (Intl.Segmenter) splits katakana loanwords inconsistently
+// (トークナイザー → トーク|ナイ|ザー). Overlapping character bigrams avoid both problems.
+const CJK_RUN = /[\p{sc=Han}\p{sc=Katakana}\p{sc=Hangul}ーｰ]+/gu
+// Mostly particles and inflection endings: Japanese's equivalent of STOPWORDS and stem().
+const HIRAGANA = /\p{sc=Hiragana}+/gu
+
 function terms(text: string): Set<string> {
-  return new Set(
-    text
-      .replace(/([a-z])([A-Z])/g, '$1 $2') // chargeCustomer → charge Customer
-      .toLowerCase()
-      .split(/[^a-z0-9]+/)
-      .filter((word) => word.length >= 3 && !STOPWORDS.has(word))
-      .map(stem),
-  )
+  const found = new Set<string>()
+  for (const [run] of text.matchAll(CJK_RUN)) {
+    const chars = [...run]
+    for (let i = 0; i + 1 < chars.length; i++) found.add(chars[i] + chars[i + 1])
+  }
+  text
+    .replace(CJK_RUN, ' ')
+    .replace(HIRAGANA, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2') // chargeCustomer → charge Customer
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((word) => word.length >= 3 && !STOPWORDS.has(word))
+    .forEach((word) => found.add(stem(word)))
+  return found
 }
 
 export function localRelevance(goal: string, content: string): number {
