@@ -1,5 +1,6 @@
 import { excerpt, toolEntryContent, toolResultText } from './entryText.js'
 import { pruneContext, type ScoreEntriesOptions } from './prune.js'
+import { estimateTokens } from './tokenEstimate.js'
 import { DEFAULT_POLICY, type Entry, type PruneDecision, type PruningPolicy } from './types.js'
 
 /**
@@ -45,13 +46,13 @@ function mapMessages(messages: AnthropicMessage[]): MappedEntry[] {
   messages.forEach((message, m) => {
     const role = message.role === 'assistant' ? 'assistant' : 'user'
     if (typeof message.content === 'string') {
-      entries.push({ id: `msg:${m}`, role, content: excerpt(message.content), timestamp: m, locations: [{ message: m }] })
+      entries.push({ id: `msg:${m}`, role, content: excerpt(message.content), timestamp: m, sourceTokens: estimateTokens(message.content), locations: [{ message: m }] })
       return
     }
     message.content.forEach((block, b) => {
       if (block.type === 'text') {
         const text = (block as { text: string }).text
-        entries.push({ id: `msg:${m}:${b}`, role, content: excerpt(text), timestamp: m, locations: [{ message: m, block: b }] })
+        entries.push({ id: `msg:${m}:${b}`, role, content: excerpt(text), timestamp: m, sourceTokens: estimateTokens(text), locations: [{ message: m, block: b }] })
       } else if (block.type === 'tool_use') {
         const use = block as Extract<AnthropicContentBlock, { type: 'tool_use' }>
         const result = results.get(use.id)
@@ -61,6 +62,7 @@ function mapMessages(messages: AnthropicMessage[]): MappedEntry[] {
           toolName: use.name,
           content: toolEntryContent(use.name, use.input, result),
           timestamp: m,
+          sourceTokens: estimateTokens(JSON.stringify(use.input ?? {})) + (result ? estimateTokens(result.text) : 0),
           locations: result ? [{ message: m, block: b }, result.location] : [{ message: m, block: b }],
         })
       }

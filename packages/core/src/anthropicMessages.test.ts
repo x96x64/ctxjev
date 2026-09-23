@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { messagesToEntries, pruneMessages, type AnthropicMessage } from './anthropicMessages.js'
+import { estimateTokens } from './tokenEstimate.js'
 
 // Every tool_result must follow its tool_use, and every tool_use outside the final message must
 // have a result — the invariants the Messages API rejects a request for breaking.
@@ -47,6 +48,17 @@ describe('messagesToEntries', () => {
     expect(entries.map((e) => e.id)).toEqual(['msg:0', 'msg:1:0', 'tool:t1', 'tool:t2', 'msg:5:0', 'msg:6', 'tool:t3'])
     expect(entries.find((e) => e.id === 'tool:t2')?.content).toBe('Grep(charge): chargeCustomer() called twice on retry')
     expect(entries.find((e) => e.id === 'tool:t3')?.content).toContain('no result')
+  })
+
+  it('counts the full payload in sourceTokens, not just the excerpt in content', () => {
+    const log = 'GET /static/asset.png 200 12ms\n'.repeat(2000)
+    const [, tool] = messagesToEntries([
+      { role: 'user', content: 'start' },
+      { role: 'assistant', content: [{ type: 'tool_use', id: 'big', name: 'Bash', input: { command: 'cat access.log' } }] },
+      { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'big', content: log }] },
+    ])
+    expect(tool.content.length).toBeLessThanOrEqual(600)
+    expect(tool.sourceTokens).toBeGreaterThan(estimateTokens(tool.content) * 20)
   })
 
   it('orders entries by message position', () => {

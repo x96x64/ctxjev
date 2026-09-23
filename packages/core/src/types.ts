@@ -8,6 +8,12 @@ export type Entry = {
   /** Short text excerpt — not the full payload. Jev is billed per input token and isn't good with long documents. */
   content: string
   timestamp: number
+  /**
+   * Tokens in the full payload `content` was excerpted from — what removing this entry actually
+   * saves. Set by the parsers that see the original (messagesToEntries, and
+   * parseClaudeCodeTranscript with `countTokens`); savings fall back to `content` without it.
+   */
+  sourceTokens?: number
 }
 
 export type PruneAction = 'keep' | 'drop' | 'summarize'

@@ -7,6 +7,7 @@ import { readdir, rm } from 'node:fs/promises'
 // only linked here via the pnpm workspace). Bundle the two hook entry points so they carry their
 // own dependencies and need nothing but Node itself.
 const OUTPUT_FILES = ['preCompact.js', 'sessionStartCompact.js']
+const MAX_BUNDLE_BYTES = 200_000
 
 const result = await build({
   entryPoints: ['src/preCompact.ts', 'src/sessionStartCompact.ts'],
@@ -32,5 +33,10 @@ for (const [outFile, output] of Object.entries(result.metafile.outputs)) {
   const unbundled = [...new Set(output.imports.filter((i) => i.external && !isBuiltin(i.path)).map((i) => i.path))]
   if (unbundled.length > 0) {
     throw new Error(`${outFile} still imports ${unbundled.join(', ')} — esbuild failed to bundle it`)
+  }
+  // Every hook run loads this, and it's committed. A tokenizer pulled in through a core import once
+  // grew preCompact.js from 24KB to 2.8MB.
+  if (output.bytes > MAX_BUNDLE_BYTES) {
+    throw new Error(`${outFile} is ${output.bytes} bytes (limit ${MAX_BUNDLE_BYTES}) — check what a new ctxjev-core import pulled in`)
   }
 }

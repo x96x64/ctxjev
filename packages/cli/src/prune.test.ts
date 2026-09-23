@@ -74,6 +74,31 @@ describe('ctxjev prune', () => {
     expect(blocks.some((b: { type: string }) => b.type === 'tool_use' || b.type === 'tool_result')).toBe(false)
   }, 15_000)
 
+  it('reports the tokens actually removed, not the size of the excerpt it scored', async () => {
+    const file = join(dir, 'big.json')
+    await writeFile(
+      file,
+      JSON.stringify([
+        { role: 'user', content: 'fix the checkout double charge on retry' },
+        { role: 'assistant', content: [{ type: 'tool_use', id: 't1', name: 'Bash', input: { command: 'cat access.log' } }] },
+        { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't1', content: 'GET /static/asset.png 200 12ms\n'.repeat(2000) }] },
+        { role: 'assistant', content: 'the retry handler re-charges on checkout' },
+        { role: 'user', content: 'ok' },
+      ]),
+    )
+
+    const result = await run(['prune', file, '--offline', '--out', join(dir, 'out.json')])
+    expect(result.exitCode).toBe(0)
+    const tokens = Number(/~([\d,]+) tokens/.exec(result.stderr)?.[1].replace(/,/g, ''))
+    expect(tokens).toBeGreaterThan(10_000)
+  }, 15_000)
+
+  it('prints the help for `prune --help` instead of rejecting the flag', async () => {
+    const result = await run(['prune', '--help'])
+    expect(result.exitCode).toBe(0)
+    expect(result.stdout).toContain('Usage')
+  }, 15_000)
+
   it('refuses to write back a Claude Code transcript', async () => {
     const file = join(dir, 's.jsonl')
     await writeFile(file, JSON.stringify({ type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: 'fix the bug please now' } }))

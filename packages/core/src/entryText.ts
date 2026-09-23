@@ -17,7 +17,7 @@ const MIN_SUBSTANTIVE_LENGTH = 20
 
 // CJK packs roughly twice the meaning per character as English, so each wide character counts
 // double — otherwise "ログイン画面のバグを直して" (13 chars) would read as an acknowledgment.
-const WIDE_CHAR = /[\p{sc=Han}\p{sc=Hiragana}\p{sc=Katakana}\p{sc=Hangul}　-〿＀-￯]/gu
+const WIDE_CHAR = /[\p{sc=Han}\p{sc=Hiragana}\p{sc=Katakana}\p{sc=Hangul}\u3000-\u303f\uff00-\uffef]/gu
 
 /** Whether a user message says something on its own, rather than acknowledging what came before. */
 export function isSubstantiveMessage(text: string): boolean {

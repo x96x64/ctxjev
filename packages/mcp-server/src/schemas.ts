@@ -19,6 +19,12 @@ export const entrySchema = z.object({
   // takes min/max across the whole batch, so one infinite timestamp turns every entry's recency
   // (and thus combinedScore) into NaN, not just the offending entry's.
   timestamp: z.number().finite(),
+  sourceTokens: z
+    .number()
+    .int()
+    .nonnegative()
+    .optional()
+    .describe('Tokens in the full payload `content` was excerpted from, so the savings report counts what removing it actually saves.'),
 })
 
 export const scoreRelevanceInput = {

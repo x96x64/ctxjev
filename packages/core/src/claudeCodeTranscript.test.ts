@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { inferGoalFromEntries, parseClaudeCodeTranscript, transcriptStartTime } from './claudeCodeTranscript.js'
+import { estimateTokens } from './tokenEstimate.js'
 
 function record(obj: unknown): string {
   return JSON.stringify(obj)
@@ -184,6 +185,19 @@ describe('parseClaudeCodeTranscript', () => {
   it('masks secrets in parsed content', () => {
     const jsonl = record({ type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: 'use TYPESAFE_API_KEY=abc123def456ghi please' } })
     expect(parseClaudeCodeTranscript(jsonl)[0].content).toBe('use TYPESAFE_API_KEY=[REDACTED] please')
+  })
+
+  it('counts the full tool output in sourceTokens only when asked to', () => {
+    const output = 'PASS src/a.test.ts (12 tests)\n'.repeat(1500)
+    const jsonl = [
+      record({ type: 'assistant', uuid: 'a1', timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'assistant', content: [{ type: 'tool_use', id: 't1', name: 'Bash', input: { command: 'npm test' } }] } }),
+      record({ type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:01.000Z', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't1', content: output }] } }),
+    ].join('\n')
+
+    expect(parseClaudeCodeTranscript(jsonl)[0].sourceTokens).toBeUndefined()
+    const [counted] = parseClaudeCodeTranscript(jsonl, { countTokens: estimateTokens })
+    expect(counted.content.length).toBeLessThanOrEqual(600)
+    expect(counted.sourceTokens).toBeGreaterThan(10_000)
   })
 
   it('truncates long content to a short excerpt', () => {

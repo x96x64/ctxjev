@@ -1,4 +1,4 @@
-import { inferGoalFromEntries, messagesToEntries, parseClaudeCodeTranscript, type AnthropicMessage, type Entry, type EntryRole } from 'ctxjev-core'
+import { estimateTokens, inferGoalFromEntries, messagesToEntries, parseClaudeCodeTranscript, type AnthropicMessage, type Entry, type EntryRole } from 'ctxjev-core'
 
 const VALID_ROLES: EntryRole[] = ['user', 'assistant', 'tool']
 
@@ -36,7 +36,7 @@ export function parseTranscript(raw: string): TranscriptFile {
 }
 
 function parseClaudeCode(raw: string): TranscriptFile {
-  const entries = parseClaudeCodeTranscript(raw)
+  const entries = parseClaudeCodeTranscript(raw, { countTokens: estimateTokens })
   if (entries.length === 0) {
     throw new Error(
       'could not parse this file as a ctxjev transcript (an "entries" array), an Anthropic Messages conversation (a "messages" array), or a Claude Code session .jsonl',

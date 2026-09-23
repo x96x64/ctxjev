@@ -6,6 +6,7 @@ import { formatReport } from './report.js'
 // a CI runner vs. a real terminal) — stripping ANSI codes before asserting on substrings keeps
 // these tests deterministic regardless of where they run, rather than depending on that detection.
 function stripAnsi(text: string): string {
+// eslint-disable-next-line no-control-regex -- stripping ANSI color codes is the point
   return text.replace(/\x1b\[[0-9;]*m/g, '')
 }
 

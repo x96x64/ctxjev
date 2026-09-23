@@ -71,7 +71,18 @@ function toTimestampMs(timestamp: string | undefined): number {
   return Number.isNaN(parsed) ? 0 : parsed
 }
 
-export function parseClaudeCodeTranscript(jsonl: string): Entry[] {
+export type ParseClaudeCodeTranscriptOptions = {
+  /**
+   * Fills in each entry's `sourceTokens` — pass `estimateTokens`. A parameter rather than a direct
+   * import so the Claude Code plugin, which never shows token counts, doesn't bundle a tokenizer
+   * (megabytes of encoding tables) or spend its PreCompact time budget running one.
+   */
+  countTokens?: (text: string) => number
+}
+
+export function parseClaudeCodeTranscript(jsonl: string, options: ParseClaudeCodeTranscriptOptions = {}): Entry[] {
+  const { countTokens } = options
+  const count = (text: string) => (countTokens ? { sourceTokens: countTokens(text) } : {})
   const entries: Entry[] = []
   const pendingToolUse = new Map<string, { name: string; input: unknown; timestamp: number }>()
 
@@ -97,7 +108,7 @@ export function parseClaudeCodeTranscript(jsonl: string): Entry[] {
     const content = record.message?.content
 
     if (record.type === 'user' && typeof content === 'string') {
-      entries.push({ id: record.uuid ?? `user-${timestamp}`, role: 'user', content: excerpt(content), timestamp })
+      entries.push({ id: record.uuid ?? `user-${timestamp}`, role: 'user', content: excerpt(content), timestamp, ...count(content) })
       continue
     }
 
@@ -116,6 +127,7 @@ export function parseClaudeCodeTranscript(jsonl: string): Entry[] {
           role: record.type === 'user' ? 'user' : 'assistant',
           content: excerpt(block.text),
           timestamp,
+          ...count(block.text),
         })
       } else if (block.type === 'tool_use') {
         pendingToolUse.set(block.id, { name: block.name, input: block.input, timestamp })
@@ -130,6 +142,7 @@ export function parseClaudeCodeTranscript(jsonl: string): Entry[] {
           toolName: name,
           content: toolEntryContent(name, pending?.input, { text: resultText, isError: block.is_error }),
           timestamp: pending?.timestamp ?? timestamp,
+          ...count(`${JSON.stringify(pending?.input ?? {})}${resultText}`),
         })
       }
     }
@@ -145,6 +158,7 @@ export function parseClaudeCodeTranscript(jsonl: string): Entry[] {
       toolName: pending.name,
       content: toolEntryContent(pending.name, pending.input, undefined),
       timestamp: pending.timestamp,
+      ...count(JSON.stringify(pending.input ?? {})),
     })
   }
 

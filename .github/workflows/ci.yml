@@ -8,6 +8,10 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # engines says >=20, so the oldest supported line is tested too, not just the current one.
+        node-version: [20, 22]
     steps:
       - uses: actions/checkout@v7
 
@@ -15,7 +19,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: ${{ matrix.node-version }}
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
@@ -26,4 +30,5 @@ jobs:
       - name: Check the committed plugin bundle matches src
         run: git diff --exit-code -- packages/claude-plugin/dist || (echo "packages/claude-plugin/dist is stale — run pnpm build and commit it" && exit 1)
 
+      - run: pnpm lint
       - run: pnpm test

@@ -36,7 +36,7 @@ export function summarizeSavings(entries: Entry[], decisions: PruneDecision[]): 
       throw new Error(`no decision found for entry "${entry.id}" — entries and decisions must correspond 1:1`)
     }
 
-    const tokens = estimateTokens(entry.content)
+    const tokens = entry.sourceTokens ?? estimateTokens(entry.content)
     report.totalTokens += tokens
 
     if (decision.action === 'drop') {

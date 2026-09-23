@@ -40,6 +40,7 @@ conversation content — it can't.
 ```bash
 pnpm install && pnpm build   # build every package (tsc -b), from the repo root
 pnpm test                    # run every package's tests, recursing via pnpm -r
+pnpm lint                    # ESLint over the whole workspace (CI runs it on Node 20 and 22)
 node packages/cli/dist/index.js analyze <transcript.json> --goal "..."
 node packages/mcp-server/dist/index.js   # stdio MCP server — expects an MCP client, not a terminal
 

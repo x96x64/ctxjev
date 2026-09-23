@@ -95,9 +95,15 @@ async function setUp(argv: string[], extraOptions: Record<string, { type: 'strin
       'summarize-below': { type: 'string' },
       'no-cache': { type: 'boolean', default: false },
       offline: { type: 'boolean', default: false },
+      help: { type: 'boolean', short: 'h', default: false },
       ...extraOptions,
     },
   })
+
+  if (values.help) {
+    console.log(HELP)
+    process.exit(0)
+  }
 
   const [file] = positionals
   if (!file) fail('missing <transcript> — see `ctxjev --help`')
@@ -216,7 +222,7 @@ async function runPrune(argv: string[]) {
 }
 
 function pruneSummary(entries: Entry[], decisions: PruneDecision[], removed: Set<string>, scorer: Scorer): string {
-  const removedTokens = entries.filter((e) => removed.has(e.id)).reduce((sum, e) => sum + estimateTokens(e.content), 0)
+  const removedTokens = entries.filter((e) => removed.has(e.id)).reduce((sum, e) => sum + (e.sourceTokens ?? estimateTokens(e.content)), 0)
   const kept = decisions.filter((d) => d.action === 'drop').length - removed.size
   const protectedNote = kept > 0 ? ` (${kept} marked drop but protected)` : ''
   const offline = scorer === 'local' ? ' · scored offline by keyword overlap' : ''

@@ -46,8 +46,12 @@ function terms(text: string): Set<string> {
   return found
 }
 
+// Scoring a batch calls this once per entry with the same goal.
+let lastGoal: { text: string; terms: Set<string> } | undefined
+
 export function localRelevance(goal: string, content: string): number {
-  const goalTerms = terms(goal)
+  if (lastGoal?.text !== goal) lastGoal = { text: goal, terms: terms(goal) }
+  const goalTerms = lastGoal.terms
   if (goalTerms.size === 0) return 0
   const contentTerms = terms(content)
   let hits = 0

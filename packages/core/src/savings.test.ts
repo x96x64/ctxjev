@@ -31,6 +31,11 @@ describe('summarizeSavings', () => {
     expect(report.totalTokens).toBe(tokensOf('a') + tokensOf('b') + tokensOf('c'))
   })
 
+  it('counts sourceTokens (the full payload) over the excerpt in content when an entry has it', () => {
+    const withSource = entries.map((e) => (e.id === 'b' ? { ...e, sourceTokens: 30_000 } : e))
+    expect(summarizeSavings(withSource, decisions).droppedTokens).toBe(30_000)
+  })
+
   it('throws instead of silently counting an entry with no matching decision as kept', () => {
     expect(() => summarizeSavings(entries, decisions.slice(1))).toThrow('no decision found for entry "a"')
   })
