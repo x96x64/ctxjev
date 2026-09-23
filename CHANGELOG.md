@@ -5,8 +5,13 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 (`.claude-plugin/marketplace.json`, `packages/claude-plugin/.claude-plugin/plugin.json`,
 `plugins/ctxjev/plugin.json`). A bump in one is a bump in all, even when only one changed.
 
-## Unreleased
+## 0.3.1 — 2026-09-23
 
+- `ctxjev-cli`, `ctxjev-core`: token savings count what removing an entry actually saves. They
+  used to count only the short excerpt that gets scored, so dropping a 45,000-token log showed as
+  ~205 tokens. Entries carry the full size as `sourceTokens`, and `ctxjev-mcp` accepts it too.
+- `ctxjev-cli`: `ctxjev analyze --help` and `ctxjev prune --help` print the help instead of
+  rejecting the flag.
 - `ctxjev-core`: offline scoring (`scorer: 'local'`, the CLI's `--offline`, the plugin without a
   key) now matches Japanese, Chinese, and Korean text; before, it ignored it, so a Japanese goal
   scored every entry 0 and the plugin preserved nothing.
