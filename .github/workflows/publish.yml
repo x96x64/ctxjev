@@ -30,6 +30,14 @@ jobs:
         env:
           TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
 
+      # Scoring must still beat the offline keyword baseline and keep each labeled fixture's top
+      # entries — a regression the live tests alone (which only check "never drop relevant") miss.
+      - name: Eval gate
+        working-directory: packages/core
+        run: node eval/run.mjs --gate
+        env:
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+
       # CHANGELOG.md documents these 7 files as version-lockstep: a bump in one is a bump in all.
       # They drifted silently for five releases (0.1.3-0.1.7) before anyone noticed — check it here
       # instead of trusting it gets remembered by hand every time.
