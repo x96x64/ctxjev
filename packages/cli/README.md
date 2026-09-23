@@ -21,7 +21,12 @@ npm install -g ctxjev-cli
 export TYPESAFE_API_KEY=...   # console.typesafe.ai/settings/keys (no waitlist)
 ```
 
+No key yet? `--offline` scores by keyword overlap instead, with nothing sent anywhere.
+
 ## Usage
+
+`ctxjev analyze` is analysis only: it reports what would be kept, dropped, or summarized, and
+never modifies the transcript.
 
 ```bash
 ctxjev analyze transcript.jsonl --goal "Fix the checkout double-charge bug."
@@ -67,7 +72,8 @@ Auto-detected, no flag needed:
   overrides it.
 
 > Never point this at a real, sensitive session log without checking its contents first. Entry
-> content is sent to the live Jev API for scoring.
+> content is sent to the live Jev API for scoring. Common secret formats are masked to
+> `[REDACTED]` first, but that masking is best-effort and can't catch everything.
 
 ## Related Packages
 

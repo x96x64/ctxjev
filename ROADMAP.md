@@ -50,7 +50,7 @@
   `claude mcp list` silently omitted the server with no prompt and no error, even with the key
   present, workspace trust already accepted, and after manually pre-approving it in
   `~/.claude.json`'s `enabledMcpjsonServers`. `claude mcp add` (local/user scope) worked on the
-  first try. See the README's "Using it from an MCP host" section for the working command — the
+  first try. See the README's "Using It from an MCP Host" section for the working command — the
   project `.mcp.json` stays in the repo for whoever it works for out of the box, but `claude mcp
   add` is the documented fallback now, not an afterthought.
 
@@ -66,7 +66,8 @@ documented **PreCompact / SessionStart(matcher: "compact") re-injection pattern*
 
 - **`PreCompact` hook** ([`preCompact.ts`](packages/claude-plugin/src/preCompact.ts)): fires right
   before compaction. Reads `transcript_path`, parses Claude Code's own transcript format
-  ([`transcript.ts`](packages/claude-plugin/src/transcript.ts) — internal/undocumented, isolated
+  (originally `packages/claude-plugin/src/transcript.ts`, since moved to
+  [`packages/core/src/claudeCodeTranscript.ts`](packages/core/src/claudeCodeTranscript.ts) — see Phase 5 — internal/undocumented, isolated
   to one module since it may change between Claude Code versions), resolves a goal
   ([`goal.ts`](packages/claude-plugin/src/goal.ts) — explicit `.ctxjev/goal.txt` if set via the
   `/ctxjev:set-goal` skill, else the most recent user message), scores every entry with Jev, and
@@ -147,7 +148,8 @@ dedicated per-host adapter package after all.
   `ctxjev-cli`'s report and `--json` output, and both MCP tools' responses, now include a `usage`
   total and (CLI only) an estimated USD cost (`packages/cli/src/cost.ts`, at Jev's published
   $0.042/M input-token rate). Every "tokens saved" claim in this README was already backed by a
-  real tokenizer; now every cost claim is backed by what Jev itself actually billed.
+  real tokenizer; now every cost claim is backed by what Jev itself actually billed. (Those
+  savings claims still counted `summarize` as saved until Phase 11 separated the two.)
 - **Real mid-session `/compact` verification: still open, deliberately not attempted.** Forcing an
   actual autocompaction (`--autocompact 100000`, the CLI's minimum) needs a genuinely large context
   — cheap in Jev terms, but a real, non-trivial spend of the *user's own Claude API/subscription
@@ -328,9 +330,38 @@ correct chunk-crossing ordering), all CLI error paths (missing file, wrong JSON 
 missing key + bad path reported together, empty `entries` array short-circuiting without an API
 call), and every package's dependency list (nothing unused).
 
-**Still an open gap, not yet closed:** the `PreCompact` → `SessionStart` hook pair has only ever
-been exercised by manually invoking the underlying scripts, or by real compactions during this
-project's own past development — never end-to-end through a fresh marketplace install specifically,
-on demand, as part of a verification pass. Doing that for real means actually running `/compact`
-in a live session, which costs a real (small) amount against the live API and actually compacts
-whatever conversation triggers it — deliberately not done automatically for that reason.
+**Closed since (v0.1.8):** the `PreCompact` → `SessionStart` hook pair has now run end-to-end
+through a fresh marketplace install and a real `/compact` in a live session. Getting there found
+two packaging bugs that only a real install could: `dist/` wasn't committed (0.1.7), and the hook
+imported `ctxjev-core` by bare name, which never resolves in an installed copy (0.1.8, fixed by
+bundling with esbuild).
+
+## Phase 11 — Review round: what the integrations actually do (v0.2.0, 2026-09-23)
+
+A big-picture review, after three rounds of line-level audits, found the largest problems weren't
+bugs but a mismatch between what the README promised and what each integration can do, plus a few
+things that made the plugin less useful or less safe than it looked.
+
+- **Privacy.** The plugin sends excerpts of users' real sessions to Jev by design, while this
+  repo's own `CLAUDE.md` warned that real transcripts contain secrets. Every Jev request now goes
+  through `redactSecrets()`; `.ctxjev/` is created with its own `.gitignore`; every README that
+  covers a path sending content to Jev says so.
+- **Plugin quality.** Tool entries now say what was called (`Bash(npm test): …`) instead of only
+  the tool name; excerpts went from 300 to 600 characters; only entries since the last compaction
+  are scored; an explicit goal applies to its own session only; the goal's source message no
+  longer takes a preserved slot; and every run's outcome is recorded for `/ctxjev:status`, so a
+  missing key is no longer indistinguishable from "working".
+- **Honest numbers.** Savings no longer count `summarize` as saved — the README's sample went from
+  "39% saved" to the true 21% (plus a separate summarize-candidate figure).
+- **Scoring.** Every chunk sees the batch's latest activity (cross-chunk supersession); an offline
+  keyword scorer works with no key, labeled wherever it's used; the eval gained a 60-entry fixture,
+  precision@5, and an offline baseline.
+- **Positioning.** The README leads with what each package actually does. The MCP server's
+  structural limit (it can't change host context, and sending history as tool arguments costs the
+  host model tokens) is stated up front rather than implied away.
+- **Process.** CI fails if the committed plugin bundle is stale; release policy lives in
+  `CLAUDE.md`; the CHANGELOG is one line per change.
+
+**Still open:** the Jev side of the new eval, and a live run of the updated scoring prompt, need a
+`TYPESAFE_API_KEY` — see CHANGELOG 0.2.0.
+

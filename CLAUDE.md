@@ -47,13 +47,15 @@ node packages/mcp-server/dist/index.js   # stdio MCP server — expects an MCP c
 echo '{"cwd":"...","transcript_path":"..."}' | node packages/claude-plugin/dist/preCompact.js
 echo '{"cwd":"..."}' | node packages/claude-plugin/dist/sessionStartCompact.js
 
-cd packages/core && pnpm eval   # sweep recencyWeight against examples/sample-transcripts' groundTruth
+cd packages/core && pnpm eval   # score labeled fixtures: offline baseline always, Jev too with a key
 ```
 
 `TYPESAFE_API_KEY` (from `console.typesafe.ai/settings/keys`) must be set for anything that
 actually calls Jev — `scoreRelevance()`/`pruneContext()`, the CLI's `analyze` command, the MCP
 server's two tools, and `packages/claude-plugin`'s `PreCompact` hook. It's kept in `.env.local` at
 the repo root (gitignored, never commit it) — `source .env.local` before running anything live.
+Without a key, `scorer: 'local'` (`localRelevance.ts`, keyword overlap) scores offline; the plugin
+falls back to it automatically and the CLI exposes it as `--offline`.
 `--help`/`--version` and the pure-logic test files don't need it; every test file whose name ends
 in `.live.test.ts` (in `core`, `mcp-server`, and `claude-plugin` — `cli` has none) is skipped
 automatically when the key is absent rather than failing. CI only sets the key for the publish
@@ -74,3 +76,17 @@ inherits that masking.
 conversation) — that content already shows up in the main thread as an ordinary
 tool_use/tool_result pair, so including the sidechain too would double up on it and score content
 that was never part of what the parent session's compaction actually operates on.
+
+## Releasing
+
+- Versions are lockstep across all four packages and the three plugin manifests (see
+  CHANGELOG.md); `publish.yml` refuses to publish if they disagree.
+- Batch changes into a release instead of publishing after every fix. A docs-only change waits for
+  the next release unless npm is showing something wrong or misleading.
+- Before publishing, run the live suite with `TYPESAFE_API_KEY` set (`pnpm test` picks up every
+  `.live.test.ts`), and `cd packages/core && pnpm eval` if anything about scoring changed.
+  `publish.yml` runs the live tests only if the `TYPESAFE_API_KEY` repository secret is set.
+- `packages/claude-plugin/dist/` is committed: run `pnpm build` and commit it with any change under
+  `packages/claude-plugin/src` or `packages/core/src`. CI fails if it's stale.
+- CHANGELOG entries are for users: one line per change, what changed and why it matters to them.
+  Investigation detail belongs in the commit message.

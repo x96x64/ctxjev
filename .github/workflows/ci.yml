@@ -20,4 +20,10 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
+
+      # The plugin's dist/ is committed (Claude Code installs by cloning, with no build step), so a
+      # src change committed without rebuilding would ship stale hooks to every user.
+      - name: Check the committed plugin bundle matches src
+        run: git diff --exit-code -- packages/claude-plugin/dist || (echo "packages/claude-plugin/dist is stale — run pnpm build and commit it" && exit 1)
+
       - run: pnpm test

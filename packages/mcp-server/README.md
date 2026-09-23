@@ -17,6 +17,14 @@
 `ctxjev-mcp` speaks plain stdio MCP: the same binary works with every host below, and only the
 config shape differs.
 
+> **Before you expect it to save tokens:** an MCP tool returns data to whoever called it; it can't
+> remove anything from the host's own context. And to score its history, the agent has to send
+> that history as tool arguments, which the host model pays for in its own output tokens. It's
+> useful when something acts on the scores (an agent framework that manages its own context), not
+> as a drop-in token saver for Claude Code, Codex, or Copilot. For Claude Code, the
+> [ctxjev plugin](https://github.com/x96x64/ctxjev#the-claude-code-plugin) is the integration that
+> actually helps.
+
 ## Setup
 
 Get a key at [console.typesafe.ai/settings/keys](https://console.typesafe.ai/settings/keys) (no
