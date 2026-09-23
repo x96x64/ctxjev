@@ -56,8 +56,9 @@ the moment it matters most.
   coming. Applies to the current session only — a goal left over from an earlier session is
   ignored, so it can't silently steer unrelated work.
 - **`/ctxjev:status`** shows what the last compaction's run actually did, including *why* if it
-  skipped or failed (a missing API key, nothing to score), plus the goal it used and every
-  preserved entry with its score, highest first. The fastest way to check the plugin is working.
+  skipped, failed, or fell back to offline scoring (a missing API key, a failed Jev request,
+  nothing to score), plus the goal it used and every preserved entry with its score, highest
+  first. The fastest way to check the plugin is working.
 
 Five entries are preserved per compaction by default; set `CTXJEV_PRESERVE_LIMIT` (1–50) in the
 environment Claude Code runs in to change that.
@@ -87,9 +88,10 @@ claude --plugin-dir packages/claude-plugin
 A [Jev](https://typesafe.ai) API key, exported as `TYPESAFE_API_KEY` in the environment Claude
 Code itself runs in. Get one at
 [console.typesafe.ai/settings/keys](https://console.typesafe.ai/settings/keys) (no waitlist).
-Without it, the `PreCompact` hook preserves nothing: your session works exactly as it always did,
-just without the reminder afterward, and `/ctxjev:status` tells you the key is missing. A bug here
-can never block your actual compaction. That's by design, not a side effect.
+Without it, the plugin falls back to scoring offline by keyword overlap: nothing is sent anywhere,
+and the reminder says it was scored offline. It's much cruder than Jev, and `/ctxjev:status` tells
+you why it fell back. The same fallback kicks in if a Jev request fails. A bug here can never block
+your actual compaction. That's by design, not a side effect.
 
 The Claude Code desktop app doesn't inherit variables exported in your shell profile. If
 `/ctxjev:status` reports the key missing even though your terminal has it, set it where the app

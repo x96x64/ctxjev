@@ -75,7 +75,7 @@ Calling `prune_history` with two entries, one obviously relevant to the goal and
   ],
   "savings": {
     "totalEntries": 2, "keptEntries": 1, "droppedEntries": 1, "summarizedEntries": 0,
-    "totalTokens": 13, "savedTokens": 5
+    "totalTokens": 13, "droppedTokens": 5, "summarizableTokens": 0
   },
   "usage": { "inputTokens": 406, "outputTokens": 36 }
 }

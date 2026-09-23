@@ -18,4 +18,16 @@ describe('buildJevRequest', () => {
     const { questions } = buildJevRequest('goal', entries)
     expect(Object.keys(questions)).toEqual(['e1', 'weird"id'])
   })
+
+  it('shares the batch-wide latest activity with the chunk, masked and shortened', () => {
+    const latest: Entry[] = [{ id: 'z', role: 'tool', toolName: 'Bash', content: `npm test: all passed ${'x'.repeat(500)}`, timestamp: 9 }]
+    const { state } = buildJevRequest('goal', entries, latest)
+    expect(state.latest).toHaveLength(1)
+    expect(state.latest![0].content.length).toBeLessThanOrEqual(200)
+    expect(state.latest![0].content.startsWith('npm test: all passed')).toBe(true)
+  })
+
+  it('omits latest entirely when none is given', () => {
+    expect('latest' in buildJevRequest('goal', entries).state).toBe(false)
+  })
 })

@@ -1,35 +1,30 @@
 #!/usr/bin/env node
 /**
- * Sweeps `recencyWeight` against hand-labeled fixtures (examples/sample-transcripts/*.json with a
- * `groundTruth` field: { entryId: boolean } — "should this ultimately be kept") to pick a
- * defensible default instead of guessing. Requires TYPESAFE_API_KEY; scores each fixture's
- * entries with Jev exactly once (relevance/recency don't depend on the weight — only the blend
- * does, computed locally here), then evaluates every candidate weight against that same scoring
- * pass with zero extra Jev calls.
+ * Evaluates scoring against hand-labeled fixtures (examples/sample-transcripts/*.json with a
+ * `groundTruth` field: { entryId: boolean } — "does this still matter for the goal").
  *
- * Usage: TYPESAFE_API_KEY=... node eval/run.mjs   (run from packages/core, after `pnpm build`)
+ * Two measures, per scorer:
+ * - drop accuracy by recencyWeight: does "drop vs. not drop" at the default thresholds match the
+ *   labels? (Each fixture is scored once; every weight is evaluated locally from those scores.)
+ * - precision@5 at the default weight: of the top 5 by combined score — what the Claude Code
+ *   plugin re-injects after compaction — how many are actually labeled relevant?
+ *
+ * The offline `local` scorer always runs, as a baseline. Jev runs too when TYPESAFE_API_KEY is set.
+ *
+ * Usage: node eval/run.mjs   (run from packages/core, after `pnpm build`)
  */
 import { readFileSync, readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { scoreEntries } from '../dist/index.js'
+import { DEFAULT_POLICY, scoreEntries } from '../dist/index.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const fixturesDir = join(__dirname, '../../../examples/sample-transcripts')
 
 const CANDIDATE_WEIGHTS = [0, 0.05, 0.1, 0.2, 0.3, 0.5]
-const DROP_BELOW = 0.25
-const SUMMARIZE_BELOW = 0.6
+const TOP_K = 5
 
-function combine(relevance, recency, weight) {
-  return relevance * (1 - weight) + recency * weight
-}
-
-function predictedRelevant(combinedScore) {
-  // "drop" is the only outcome this eval treats as "not relevant" — summarize still keeps a
-  // (compressed) trace of the entry, so it counts as relevant for this accuracy measure.
-  return combinedScore >= DROP_BELOW
-}
+const combine = (relevance, recency, weight) => relevance * (1 - weight) + recency * weight
 
 const fixtures = readdirSync(fixturesDir)
   .filter((f) => f.endsWith('.json'))
@@ -41,44 +36,38 @@ if (fixtures.length === 0) {
   process.exit(1)
 }
 
-const perFixtureResults = []
+const scorers = process.env.TYPESAFE_API_KEY ? ['local', 'jev'] : ['local']
+if (scorers.length === 1) console.log('TYPESAFE_API_KEY not set — running the offline baseline only.\n')
 
-for (const fixture of fixtures) {
-  const scored = await scoreEntries(fixture.entries, fixture.goal, 0)
-  const byEntryId = new Map(scored.map((s) => [s.entryId, s]))
+console.log(`Policy: dropBelow=${DEFAULT_POLICY.dropBelow}, summarizeBelow=${DEFAULT_POLICY.summarizeBelow} (only "drop" counts as "not relevant")`)
+console.log(`Fixtures: ${fixtures.map((f) => `${f.name} (${f.entries.length})`).join(', ')}\n`)
 
-  for (const weight of CANDIDATE_WEIGHTS) {
-    let correct = 0
-    let total = 0
-    for (const [entryId, expectedRelevant] of Object.entries(fixture.groundTruth)) {
-      const s = byEntryId.get(entryId)
-      if (!s) continue
-      const combined = combine(s.relevance, s.recency, weight)
-      if (predictedRelevant(combined) === expectedRelevant) correct++
-      total++
+for (const scorer of scorers) {
+  console.log(`== scorer: ${scorer} ==`)
+  const byWeight = new Map(CANDIDATE_WEIGHTS.map((w) => [w, { correct: 0, total: 0 }]))
+
+  for (const fixture of fixtures) {
+    const scored = await scoreEntries(fixture.entries, fixture.goal, 0, { scorer })
+    const labeled = scored.filter((s) => s.entryId in fixture.groundTruth)
+
+    const accuracies = []
+    for (const weight of CANDIDATE_WEIGHTS) {
+      const correct = labeled.filter((s) => (combine(s.relevance, s.recency, weight) >= DEFAULT_POLICY.dropBelow) === fixture.groundTruth[s.entryId]).length
+      const agg = byWeight.get(weight)
+      agg.correct += correct
+      agg.total += labeled.length
+      accuracies.push(`w=${weight}: ${correct}/${labeled.length}`)
     }
-    perFixtureResults.push({ fixture: fixture.name, weight, correct, total })
+
+    const w = DEFAULT_POLICY.recencyWeight
+    const topK = [...labeled].sort((a, b) => combine(b.relevance, b.recency, w) - combine(a.relevance, a.recency, w)).slice(0, TOP_K)
+    const hits = topK.filter((s) => fixture.groundTruth[s.entryId]).length
+    console.log(`  ${fixture.name.padEnd(24)} precision@${TOP_K}=${hits}/${topK.length}   ${accuracies.join('  ')}`)
   }
-}
 
-console.log(`Policy: dropBelow=${DROP_BELOW}, summarizeBelow=${SUMMARIZE_BELOW} (only "drop" counts as "not relevant" here)\n`)
-
-console.log('Per-fixture:')
-for (const r of perFixtureResults) {
-  const pct = ((r.correct / r.total) * 100).toFixed(0)
-  console.log(`  ${r.fixture.padEnd(22)} w=${String(r.weight).padEnd(5)} ${r.correct}/${r.total} (${pct}%)`)
-}
-
-const byWeight = new Map()
-for (const r of perFixtureResults) {
-  const cur = byWeight.get(r.weight) ?? { correct: 0, total: 0 }
-  cur.correct += r.correct
-  cur.total += r.total
-  byWeight.set(r.weight, cur)
-}
-
-console.log('\nAggregate accuracy by recencyWeight:')
-for (const [weight, agg] of byWeight) {
-  const pct = ((agg.correct / agg.total) * 100).toFixed(1)
-  console.log(`  w=${String(weight).padEnd(5)} ${agg.correct}/${agg.total} (${pct}%)`)
+  console.log('  aggregate drop accuracy:')
+  for (const [weight, agg] of byWeight) {
+    console.log(`    w=${String(weight).padEnd(5)} ${agg.correct}/${agg.total} (${((agg.correct / agg.total) * 100).toFixed(1)}%)`)
+  }
+  console.log()
 }

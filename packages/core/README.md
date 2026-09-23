@@ -36,6 +36,8 @@ npm install ctxjev-core
 
 Requires `TYPESAFE_API_KEY` in the environment. Get one at
 [console.typesafe.ai/settings/keys](https://console.typesafe.ai/settings/keys) (no waitlist).
+Without one, pass `{ scorer: 'local' }` to score offline by keyword overlap instead: no network,
+nothing sent, and much cruder than Jev.
 
 Entry content and the goal are sent to TypeSafe AI's Jev API. Every request passes through
 `redactSecrets()` first, masking common secret formats to `[REDACTED]` (best-effort, not
@@ -80,6 +82,12 @@ the two per `PruningPolicy.recencyWeight` before `action` is decided.
   savings reporting, using a real tokenizer and never asking Jev to count.
 - `options.onUsage` (on `scoreEntries`/`pruneContext`) is an optional callback fired once per Jev
   request with that request's real `{ inputTokens, outputTokens }`, for cost tracking.
+- `options.cache` takes any `{ get, set }` score cache, checked before each Jev request.
+- `options.scorer: 'local'` scores offline with `localRelevance()` instead of Jev.
+- **`redactSecrets(text)`** is the secret masking every Jev request already goes through.
+- `summarizeSavings()` reports `droppedTokens` (saved once removed) separately from
+  `summarizableTokens` (entries marked `summarize`). ctxjev can't summarize, since Jev doesn't
+  generate text, so how much of the latter is saved depends on your own summarizer.
 
 Full type definitions ship with the package. Design notes (why relevance and recency are separate
 fields, why recency is batch-relative not wall-clock, how `recencyWeight`'s default was tuned

@@ -32,6 +32,8 @@ ${pc.bold('Options')}
   --summarize-below <0-1>    Relevance floor below which an entry is summarized.   (default ${DEFAULT_POLICY.summarizeBelow})
   --json                     Print machine-readable JSON instead of the report.
   --no-cache                 Don't read or write the score cache (${DEFAULT_CACHE_PATH}).
+  --offline                  Score by keyword overlap instead of Jev: no API key, nothing sent.
+                             Much cruder, so the default thresholds are only a rough guide.
   --help                     Show this help.
   --version                  Print the installed version.
 
@@ -65,6 +67,7 @@ async function runAnalyze(argv: string[]) {
       'summarize-below': { type: 'string' },
       json: { type: 'boolean', default: false },
       'no-cache': { type: 'boolean', default: false },
+      offline: { type: 'boolean', default: false },
     },
   })
 
@@ -75,8 +78,9 @@ async function runAnalyze(argv: string[]) {
   // missing the key, pointing at a bad path, AND passing a bad threshold should hear about all
   // three in one run, not fix one only to discover the next on the following try.
   const problems: string[] = []
-  if (!process.env.TYPESAFE_API_KEY) {
-    problems.push('TYPESAFE_API_KEY is not set — get one at console.typesafe.ai/settings/keys')
+  const scorer = values.offline ? 'local' : 'jev'
+  if (scorer === 'jev' && !process.env.TYPESAFE_API_KEY) {
+    problems.push('TYPESAFE_API_KEY is not set — get one at console.typesafe.ai/settings/keys, or pass --offline')
   }
 
   let raw: string | undefined
@@ -111,12 +115,13 @@ async function runAnalyze(argv: string[]) {
 
   const policy: PruningPolicy = { dropBelow, summarizeBelow, recencyWeight: DEFAULT_POLICY.recencyWeight }
 
-  const { cache, save } = values['no-cache'] ? { cache: undefined, save: async () => {} } : await loadFileScoreCache()
+  // The cache holds Jev's scores only; offline scoring is free and must never mix into it.
+  const { cache, save } = values['no-cache'] || scorer === 'local' ? { cache: undefined, save: async () => {} } : await loadFileScoreCache()
 
   const { usage, onUsage } = createUsageAccumulator()
   let decisions: Awaited<ReturnType<typeof pruneContext>>
   try {
-    decisions = await pruneContext(transcript.entries, goal, policy, { onUsage, cache })
+    decisions = await pruneContext(transcript.entries, goal, policy, { onUsage, cache, scorer })
   } finally {
     // Whatever verdicts a partial run already paid Jev for and cached in memory (some chunks
     // succeeded before a later one threw) still get persisted — otherwise a failure discards
@@ -132,11 +137,11 @@ async function runAnalyze(argv: string[]) {
   const savings = summarizeSavings(transcript.entries, decisions)
 
   if (values.json) {
-    console.log(JSON.stringify({ decisions, savings, usage }, null, 2))
+    console.log(JSON.stringify({ decisions, savings, usage, scorer }, null, 2))
     return
   }
 
-  console.log(formatReport(transcript.entries, decisions, savings, usage))
+  console.log(formatReport(transcript.entries, decisions, savings, usage, scorer))
 }
 
 async function main() {

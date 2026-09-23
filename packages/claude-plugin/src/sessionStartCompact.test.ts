@@ -67,5 +67,18 @@ describe('sessionStartCompact.js (dist)', () => {
     expect(result.stdout).toContain('fix the bug')
     expect(result.stdout).toContain('the actual fix')
     expect(result.stdout).toContain('not instructions')
+    expect(result.stdout).not.toContain('offline')
+  }, 10_000)
+
+  it('says when the preserved context was scored offline', async () => {
+    await mkdir(join(cwd, '.ctxjev'), { recursive: true })
+    await writeFile(
+      join(cwd, '.ctxjev', 'preserved-context.json'),
+      JSON.stringify({ goal: 'g', scoredAt: '2026-01-01T00:00:00.000Z', scorer: 'local', entries: [{ entryId: 'a', relevance: 0.5, recency: 1, combinedScore: 0.55, content: 'x' }] }),
+      'utf8',
+    )
+
+    const result = await run(JSON.stringify({ cwd }))
+    expect(result.stdout).toContain('scored offline by keyword overlap')
   }, 10_000)
 })

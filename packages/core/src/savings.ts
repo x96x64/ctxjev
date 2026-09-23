@@ -7,43 +7,48 @@ export type SavingsReport = {
   droppedEntries: number
   summarizedEntries: number
   totalTokens: number
-  savedTokens: number
+  /** Tokens in dropped entries — actually saved once they're removed. */
+  droppedTokens: number
+  /**
+   * Tokens in entries marked `summarize`. ctxjev can't summarize (Jev doesn't generate text), so
+   * how much of this is saved depends entirely on the caller's own summarizer — it's reported
+   * separately rather than counted as saved.
+   */
+  summarizableTokens: number
 }
 
-/** Summarized entries are counted as fully saved — the caller decides how to actually shorten them. */
 export function summarizeSavings(entries: Entry[], decisions: PruneDecision[]): SavingsReport {
   const decisionByEntryId = new Map(decisions.map((d) => [d.entryId, d]))
 
-  let totalTokens = 0
-  let savedTokens = 0
-  let keptEntries = 0
-  let droppedEntries = 0
-  let summarizedEntries = 0
+  const report: SavingsReport = {
+    totalEntries: entries.length,
+    keptEntries: 0,
+    droppedEntries: 0,
+    summarizedEntries: 0,
+    totalTokens: 0,
+    droppedTokens: 0,
+    summarizableTokens: 0,
+  }
 
   for (const entry of entries) {
-    const tokens = estimateTokens(entry.content)
-    totalTokens += tokens
-
     const decision = decisionByEntryId.get(entry.id)
     if (!decision) {
       throw new Error(`no decision found for entry "${entry.id}" — entries and decisions must correspond 1:1`)
     }
 
-    if (decision.action === 'drop' || decision.action === 'summarize') {
-      savedTokens += tokens
-      if (decision.action === 'drop') droppedEntries++
-      else summarizedEntries++
+    const tokens = estimateTokens(entry.content)
+    report.totalTokens += tokens
+
+    if (decision.action === 'drop') {
+      report.droppedEntries++
+      report.droppedTokens += tokens
+    } else if (decision.action === 'summarize') {
+      report.summarizedEntries++
+      report.summarizableTokens += tokens
     } else {
-      keptEntries++
+      report.keptEntries++
     }
   }
 
-  return {
-    totalEntries: entries.length,
-    keptEntries,
-    droppedEntries,
-    summarizedEntries,
-    totalTokens,
-    savedTokens,
-  }
+  return report
 }

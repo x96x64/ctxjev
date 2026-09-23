@@ -36,6 +36,11 @@ describe('rankForPreservation', () => {
   it('respects the limit', () => {
     expect(rankForPreservation(scored, entries, 'x', 1)).toHaveLength(1)
   })
+
+  it('leaves out entries with zero relevance, however recent', () => {
+    const withZero: ScoredEntry[] = [...scored.slice(0, 2), { entryId: 'b', relevance: 0, recency: 1, combinedScore: 0.1 }]
+    expect(rankForPreservation(withZero, entries, 'x', 5).map((s) => s.entryId)).toEqual(['goal', 'a'])
+  })
 })
 
 describe('preserveLimitFromEnv', () => {

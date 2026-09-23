@@ -23,10 +23,12 @@ describe('summarizeSavings', () => {
     expect(report.summarizedEntries).toBe(1)
   })
 
-  it('counts dropped and summarized tokens as saved, kept tokens as not', () => {
+  it('reports dropped and summarizable tokens separately, never counting summarize as saved', () => {
     const report = summarizeSavings(entries, decisions)
-    expect(report.savedTokens).toBeGreaterThan(0)
-    expect(report.savedTokens).toBeLessThan(report.totalTokens)
+    const tokensOf = (id: string) => summarizeSavings([entries.find((e) => e.id === id)!], [decisions.find((d) => d.entryId === id)!]).totalTokens
+    expect(report.droppedTokens).toBe(tokensOf('b'))
+    expect(report.summarizableTokens).toBe(tokensOf('c'))
+    expect(report.totalTokens).toBe(tokensOf('a') + tokensOf('b') + tokensOf('c'))
   })
 
   it('throws instead of silently counting an entry with no matching decision as kept', () => {

@@ -4,10 +4,12 @@ description: Check what ctxjev is currently doing without waiting for a real com
 
 The user is invoking `/ctxjev:status`. Report, concisely, reading files in the project root:
 
-1. **Last run**: read `.ctxjev/last-run.json`. Report its `at` time and `outcome`. If the outcome is
-   `skipped` or `error`, show the `reason` verbatim — this is the only place a silent failure
-   (for example a missing `TYPESAFE_API_KEY`) becomes visible, so don't soften it. If the file
-   doesn't exist, say no compaction has happened in this project since the plugin was installed.
+1. **Last run**: read `.ctxjev/last-run.json`. Report its `at` time, `outcome`, and `scorer`
+   (`jev`, or `local` for the offline keyword-overlap fallback). If the outcome is `skipped` or
+   `error`, show the `reason` verbatim; if there's a `note` (why it fell back to offline scoring,
+   for example a missing `TYPESAFE_API_KEY`), show that verbatim too. This is the only place these
+   otherwise-silent problems become visible, so don't soften them. If the file doesn't exist, say
+   no compaction has happened in this project since the plugin was installed.
 2. **Goal**: from `last-run.json`, the `goal` and whether it was `explicit` (set with
    `/ctxjev:set-goal`) or `inferred` (the most recent chat message). If `ignoredStaleGoal` is
    present, say that an explicit goal from an earlier session was ignored and show it. Then, if

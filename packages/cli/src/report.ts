@@ -18,7 +18,13 @@ function maxLength(values: string[], floor: number): number {
   return max
 }
 
-export function formatReport(entries: Entry[], decisions: PruneDecision[], savings: SavingsReport, usage: JevUsage): string {
+export function formatReport(
+  entries: Entry[],
+  decisions: PruneDecision[],
+  savings: SavingsReport,
+  usage: JevUsage,
+  scorer: 'jev' | 'local' = 'jev',
+): string {
   const decisionByEntryId = new Map(decisions.map((d) => [d.entryId, d]))
   const lines: string[] = []
 
@@ -52,12 +58,17 @@ export function formatReport(entries: Entry[], decisions: PruneDecision[], savin
       `${pc.dim(`(of ${savings.totalEntries} entries)`)}`,
   )
 
-  const savedPct = savings.totalTokens === 0 ? 0 : Math.round((savings.savedTokens / savings.totalTokens) * 100)
+  const droppedPct = savings.totalTokens === 0 ? 0 : Math.round((savings.droppedTokens / savings.totalTokens) * 100)
+  const summarizable =
+    savings.summarizableTokens > 0 ? `, plus ~${savings.summarizableTokens.toLocaleString()} in entries marked summarize (savings there depend on your summarizer)` : ''
   lines.push(
-    pc.dim(
-      `~${savings.savedTokens.toLocaleString()} / ${savings.totalTokens.toLocaleString()} tokens saved (${savedPct}%)`,
-    ),
+    pc.dim(`~${savings.droppedTokens.toLocaleString()} / ${savings.totalTokens.toLocaleString()} tokens saved by dropping (${droppedPct}%)${summarizable}`),
   )
+
+  if (scorer === 'local') {
+    lines.push(pc.dim('Scored offline by keyword overlap — no Jev call, nothing sent. Much cruder than Jev; treat the decisions as a rough guide.'))
+    return lines.join('\n')
+  }
 
   const costUsd = estimateCostUsd(usage)
   lines.push(

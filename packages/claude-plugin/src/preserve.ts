@@ -1,11 +1,13 @@
 import { readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { atomicWriteFile, type ScoredEntry } from 'ctxjev-core'
+import type { Scorer } from './select.js'
 import { ensureStateDir } from './stateDir.js'
 
 export type PreservedContext = {
   goal: string
   scoredAt: string
+  scorer: Scorer
   entries: Array<ScoredEntry & { content: string }>
 }
 

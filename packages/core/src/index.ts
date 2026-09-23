@@ -1,6 +1,7 @@
 import { type ScoreCache } from './cache.js'
 import { chunkEntries } from './chunk.js'
-import { scoreRelevance } from './jevClient.js'
+import { scoreRelevance, type RelevanceVerdict } from './jevClient.js'
+import { localRelevance } from './localRelevance.js'
 import { combineScore, decideAction } from './policy.js'
 import { computeRecency } from './recency.js'
 import { DEFAULT_POLICY, type Entry, type JevUsage, type PruneDecision, type PruningPolicy, type ScoredEntry } from './types.js'
@@ -14,17 +15,31 @@ export { parseClaudeCodeTranscript, inferGoalFromEntries, transcriptStartTime, t
 export { createUsageAccumulator } from './usage.js'
 export { cacheKeyFor, type ScoreCache } from './cache.js'
 export { isValidPolicyOrdering } from './policy.js'
+export { localRelevance } from './localRelevance.js'
 
 export type ScoreEntriesOptions = {
   /** Called once per underlying Jev request (one per chunk) with that request's token usage. */
   onUsage?: (usage: JevUsage) => void
   /** Checked before, and populated after, each Jev request — see `ScoreCache`. */
   cache?: ScoreCache
+  /**
+   * `'jev'` (default) asks Jev. `'local'` uses an offline keyword-overlap heuristic instead
+   * (`localRelevance`): no API key, no network, nothing sent anywhere — and much cruder, so its
+   * scores aren't comparable to Jev's. It never reads or writes `cache`, and never calls `onUsage`.
+   */
+  scorer?: 'jev' | 'local'
 }
 
 // A large transcript can chunk into hundreds of requests; firing all of them at once relies
 // entirely on the SDK's own retry/backoff to survive the resulting rate-limit thundering herd.
 const MAX_CONCURRENT_CHUNK_REQUESTS = 5
+
+// How much of the batch's most recent activity every chunk gets to see (see buildJevRequest).
+const LATEST_CONTEXT_SIZE = 8
+
+function latestEntries(entries: Entry[], count: number): Entry[] {
+  return [...entries].sort((a, b) => a.timestamp - b.timestamp).slice(-count)
+}
 
 async function mapWithConcurrencyLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
   const results: R[] = new Array(items.length)
@@ -38,6 +53,20 @@ async function mapWithConcurrencyLimit<T, R>(items: T[], limit: number, fn: (ite
 
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
   return results
+}
+
+async function scoreWithJev(entries: Entry[], goal: string, options: ScoreEntriesOptions): Promise<RelevanceVerdict[]> {
+  const latest = latestEntries(entries, LATEST_CONTEXT_SIZE)
+  const chunkResults = await mapWithConcurrencyLimit(chunkEntries(entries), MAX_CONCURRENT_CHUNK_REQUESTS, async (chunk) => {
+    const { verdicts, usage } = await scoreRelevance(goal, chunk, options.cache, latest)
+    options.onUsage?.(usage)
+    return verdicts
+  })
+  return chunkResults.flat()
+}
+
+function scoreLocally(entries: Entry[], goal: string): RelevanceVerdict[] {
+  return entries.map((entry) => ({ entryId: entry.id, relevance: localRelevance(goal, entry.content) }))
 }
 
 /**
@@ -61,13 +90,7 @@ export async function scoreEntries(
     seenIds.add(entry.id)
   }
 
-  const chunks = chunkEntries(entries)
-  const chunkResults = await mapWithConcurrencyLimit(chunks, MAX_CONCURRENT_CHUNK_REQUESTS, async (chunk) => {
-    const { verdicts, usage } = await scoreRelevance(goal, chunk, options.cache)
-    options.onUsage?.(usage)
-    return verdicts
-  })
-  const verdicts = chunkResults.flat()
+  const verdicts = options.scorer === 'local' ? scoreLocally(entries, goal) : await scoreWithJev(entries, goal, options)
 
   const verdictByEntryId = new Map(verdicts.map((v) => [v.entryId, v]))
   const recencyByEntryId = computeRecency(entries)

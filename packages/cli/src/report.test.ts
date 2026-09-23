@@ -25,7 +25,8 @@ const savings: SavingsReport = {
   droppedEntries: 1,
   summarizedEntries: 0,
   totalTokens: 10,
-  savedTokens: 4,
+  droppedTokens: 4,
+  summarizableTokens: 0,
 }
 
 const usage: JevUsage = { inputTokens: 500, outputTokens: 55 }
@@ -55,5 +56,11 @@ describe('formatReport', () => {
 
   it('skips entries with no matching decision rather than throwing', () => {
     expect(() => formatReport(entries, [], savings, usage)).not.toThrow()
+  })
+
+  it('labels an offline run instead of printing a Jev cost line', () => {
+    const report = stripAnsi(formatReport(entries, decisions, savings, { inputTokens: 0, outputTokens: 0 }, 'local'))
+    expect(report).toContain('Scored offline by keyword overlap')
+    expect(report).not.toContain('Jev cost')
   })
 })

@@ -1,5 +1,6 @@
 import { join } from 'node:path'
 import { atomicWriteFile } from 'ctxjev-core'
+import type { Scorer } from './select.js'
 import { ensureStateDir } from './stateDir.js'
 
 /**
@@ -16,6 +17,9 @@ export type LastRun = {
   ignoredStaleGoal?: string
   entriesScored?: number
   preserved?: number
+  scorer?: Scorer
+  /** Why scoring fell back to the offline heuristic, when it did. */
+  note?: string
 }
 
 function lastRunPath(cwd: string): string {

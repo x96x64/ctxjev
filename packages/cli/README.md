@@ -37,7 +37,7 @@ ctxjev analyze transcript.jsonl --goal "Fix the checkout double-charge bug."
   e7  bash       drop       score 0.14  ran: ls public/audio — unrelated, was checking something el…
 
 3 kept, 2 summarized, 2 dropped (of 7 entries)
-~60 / 154 tokens saved (39%)
+~33 / 154 tokens saved by dropping (21%), plus ~27 in entries marked summarize (savings there depend on your summarizer)
 Jev cost: 859 input tokens, 123 output tokens (free) — ~$0.000036
 ```
 
@@ -52,7 +52,9 @@ estimated.
 | `--goal <text>` | Overrides the transcript's own goal (or the inferred one), if any. |
 | `--drop-below <0-1>` | Relevance floor below which an entry is dropped (default `0.25`). |
 | `--summarize-below <0-1>` | Relevance floor below which an entry is summarized (default `0.6`). |
-| `--json` | Prints machine-readable JSON (`{ decisions, savings, usage }`) instead of the report. |
+| `--json` | Prints machine-readable JSON (`{ decisions, savings, usage, scorer }`) instead of the report. |
+| `--no-cache` | Doesn't read or write the score cache (`~/.cache/ctxjev/score-cache.json`). |
+| `--offline` | Scores by keyword overlap instead of Jev: no API key needed, nothing sent. Much cruder, so treat the decisions as a rough guide. |
 | `--help` / `--version` | Work without `TYPESAFE_API_KEY` set. |
 
 ## Transcript Formats

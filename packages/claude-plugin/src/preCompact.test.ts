@@ -51,21 +51,37 @@ describe('preCompact.js (dist)', () => {
     expect(result.stderr).toBe('')
   }, 10_000)
 
-  it('without TYPESAFE_API_KEY, preserves nothing but records why in last-run.json', async () => {
+  it('without TYPESAFE_API_KEY, scores offline, sends nothing, and says so in last-run.json', async () => {
     const transcriptPath = join(cwd, 'transcript.jsonl')
+    await writeFile(
+      transcriptPath,
+      [
+        { type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: 'fix the checkout double charge on retry' } },
+        { type: 'assistant', uuid: 'a1', timestamp: '2026-01-01T00:00:01.000Z', message: { role: 'assistant', content: [{ type: 'tool_use', id: 'c1', name: 'Grep', input: { pattern: 'charge' } }] } },
+        { type: 'user', uuid: 'u2', timestamp: '2026-01-01T00:00:02.000Z', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'c1', content: 'chargeCustomer() is called again by the retry handler' }] } },
+        { type: 'assistant', uuid: 'a2', timestamp: '2026-01-01T00:00:03.000Z', message: { role: 'assistant', content: [{ type: 'text', text: 'listing the audio folder' }] } },
+      ]
+        .map((r) => JSON.stringify(r))
+        .join('\n'),
+      'utf8',
+    )
+
     const result = await run(JSON.stringify({ cwd, transcript_path: transcriptPath }), { TYPESAFE_API_KEY: undefined })
     expect(result.exitCode).toBe(0)
     expect(result.stderr).toBe('')
-    await expect(readFile(join(cwd, '.ctxjev', 'preserved-context.json'), 'utf8')).rejects.toThrow()
 
     const lastRun = JSON.parse(await readFile(join(cwd, '.ctxjev', 'last-run.json'), 'utf8'))
-    expect(lastRun.outcome).toBe('skipped')
-    expect(lastRun.reason).toContain('TYPESAFE_API_KEY')
+    expect(lastRun).toMatchObject({ outcome: 'preserved', scorer: 'local', goalSource: 'inferred', preserved: 1 })
+    expect(lastRun.note).toContain('TYPESAFE_API_KEY')
+
+    const preserved = JSON.parse(await readFile(join(cwd, '.ctxjev', 'preserved-context.json'), 'utf8'))
+    expect(preserved.scorer).toBe('local')
+    expect(preserved.entries.map((e: { entryId: string }) => e.entryId)).toEqual(['c1'])
     expect(await readFile(join(cwd, '.ctxjev', '.gitignore'), 'utf8')).toBe('*\n')
   }, 10_000)
 
   it('records an unreadable transcript as an error instead of failing silently', async () => {
-    const result = await run(JSON.stringify({ cwd, transcript_path: join(cwd, 'does-not-exist.jsonl') }), { TYPESAFE_API_KEY: 'fake-key-for-this-test' })
+    const result = await run(JSON.stringify({ cwd, transcript_path: join(cwd, 'does-not-exist.jsonl') }), { TYPESAFE_API_KEY: undefined })
     expect(result.exitCode).toBe(0)
 
     const lastRun = JSON.parse(await readFile(join(cwd, '.ctxjev', 'last-run.json'), 'utf8'))

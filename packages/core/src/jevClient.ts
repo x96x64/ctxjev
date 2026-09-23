@@ -1,5 +1,6 @@
 import { TypeSafeClient, noul } from '@typesafe-ai/sdk'
 import { cacheKeyFor, type ScoreCache } from './cache.js'
+import { truncate } from './claudeCodeTranscript.js'
 import { redactSecrets } from './redact.js'
 import type { Entry, JevUsage } from './types.js'
 
@@ -28,6 +29,8 @@ export type ScoreRelevanceResult = {
  * `@typesafe-ai/sdk`'s `RetryPolicy` type). Re-implementing that here would just be a worse copy
  * of what the SDK already does correctly.
  */
+const LATEST_CONTENT_LENGTH = 200
+
 let client: TypeSafeClient | undefined
 
 // Constructed lazily, on first real use — not at module load — so importing ctxjev-core
@@ -42,19 +45,29 @@ function getClient(): TypeSafeClient {
  * Everything sent to Jev for one chunk. This is the single point where entry content leaves the
  * machine, so it's also where secrets are masked — every caller (CLI, MCP server, Claude Code
  * plugin, a library user's own agent loop) goes through here.
+ *
+ * `latest` is the most recent activity across the *whole* batch, shared with every chunk: without
+ * it, an old failing test and the later run that fixed it could land in different chunks, and the
+ * old failure would be judged with no way to see it was superseded.
  */
-export function buildJevRequest(goal: string, entries: Entry[]) {
+export function buildJevRequest(goal: string, entries: Entry[], latest: Entry[] = []) {
+  const brief = (entry: Entry, maxLength?: number) => ({
+    role: entry.role,
+    toolName: entry.toolName ?? null,
+    content: maxLength ? truncate(redactSecrets(entry.content), maxLength) : redactSecrets(entry.content),
+  })
+
   const state = {
     goal: redactSecrets(goal),
-    entries: Object.fromEntries(
-      entries.map((entry) => [entry.id, { role: entry.role, toolName: entry.toolName ?? null, content: redactSecrets(entry.content) }]),
-    ),
+    entries: Object.fromEntries(entries.map((entry) => [entry.id, brief(entry)])),
+    ...(latest.length > 0 && { latest: latest.map((entry) => brief(entry, LATEST_CONTENT_LENGTH)) }),
   }
 
+  const context = latest.length > 0 ? ', given where the work currently stands (state.latest)' : ''
   const questions = Object.fromEntries(
     entries.map((entry) => [
       entry.id,
-      noul(`Given state.entries[${JSON.stringify(entry.id)}], is this still relevant to accomplishing state.goal?`),
+      noul(`Given state.entries[${JSON.stringify(entry.id)}], is this still relevant to accomplishing state.goal${context}?`),
     ]),
   )
 
@@ -66,7 +79,7 @@ export function buildJevRequest(goal: string, entries: Entry[]) {
  * with any fresh verdicts afterward. Keyed on goal + entry content (see `cacheKeyFor`), not on
  * `entry.id`, so the same tool output scores as a cache hit even across different transcripts.
  */
-export async function scoreRelevance(goal: string, entries: Entry[], cache?: ScoreCache): Promise<ScoreRelevanceResult> {
+export async function scoreRelevance(goal: string, entries: Entry[], cache?: ScoreCache, latest: Entry[] = []): Promise<ScoreRelevanceResult> {
   if (entries.length === 0) {
     return { verdicts: [], usage: { inputTokens: 0, outputTokens: 0 } }
   }
@@ -82,7 +95,7 @@ export async function scoreRelevance(goal: string, entries: Entry[], cache?: Sco
   let usage: JevUsage = { inputTokens: 0, outputTokens: 0 }
 
   if (uncached.length > 0) {
-    const { state, questions } = buildJevRequest(goal, uncached)
+    const { state, questions } = buildJevRequest(goal, uncached, latest)
     const response = await getClient().systemOne({ state, questions })
     usage = { inputTokens: response.usage.input_tokens, outputTokens: response.usage.output_tokens }
 

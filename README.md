@@ -67,7 +67,7 @@ $ ctxjev analyze examples/sample-transcripts/checkout-bug.json
   e7  bash       drop       score 0.14  ran: ls public/audio — unrelated, was checking something el…
 
 3 kept, 2 summarized, 2 dropped (of 7 entries)
-~60 / 154 tokens saved (39%)
+~33 / 154 tokens saved by dropping (21%), plus ~27 in entries marked summarize (savings there depend on your summarizer)
 Jev cost: 859 input tokens, 123 output tokens (free) — ~$0.000036
 ```
 
@@ -194,7 +194,7 @@ Calling `prune_history` with two entries, one obviously relevant to the goal and
   ],
   "savings": {
     "totalEntries": 2, "keptEntries": 1, "droppedEntries": 1, "summarizedEntries": 0,
-    "totalTokens": 13, "savedTokens": 5
+    "totalTokens": 13, "droppedTokens": 5, "summarizableTokens": 0
   },
   "usage": { "inputTokens": 406, "outputTokens": 36 }
 }
