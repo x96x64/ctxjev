@@ -601,24 +601,28 @@
  "probes": [
   {
    "fact": "Baseline measured locally: p95 ~731ms at 20 connections",
+   "question": "What p95 latency was measured locally before any fix, and at how many connections?",
    "entryIds": [
     "tool:toolu_bench1_01"
    ]
   },
   {
    "fact": "Suspect range: #897 (SearchService refactor) and #901 (tags in results)",
+   "question": "Which pull requests in the release are the suspects for the slowdown?",
    "entryIds": [
     "tool:toolu_releasediff_02"
    ]
   },
   {
    "fact": "The main search query uses its GIN index (~32ms): the index/archived_at change is ruled out",
+   "question": "Was the database index on the main search query a problem? What did the check show?",
    "entryIds": [
     "msg:7:0"
    ]
   },
   {
    "fact": "Each request runs 1 search query + 50 tag queries (N+1 from product.getTags())",
+   "question": "Before the fix, how many queries did one /api/search request run, and why?",
    "entryIds": [
     "tool:toolu_qlog_05",
     "msg:11:0",
@@ -627,12 +631,14 @@
   },
   {
    "fact": "Tags must stay in the response; the mobile app depends on them",
+   "question": "What requirement limits how the slowdown can be fixed?",
    "entryIds": [
     "msg:22:1"
    ]
   },
   {
    "fact": "Fix: eager-load tags with include in SearchRepository, no getTags() per product",
+   "question": "What code change fixes the slowdown?",
    "entryIds": [
     "tool:toolu_fix_12",
     "tool:toolu_fix2_13"
@@ -640,6 +646,7 @@
   },
   {
    "fact": "After the fix: p95 ~164ms and a single query per request",
+   "question": "What p95 and query count were measured after the fix?",
    "entryIds": [
     "tool:toolu_bench2_16",
     "tool:toolu_qlog2_14",

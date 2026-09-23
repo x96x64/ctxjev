@@ -466,7 +466,7 @@
     {
      "type": "tool_result",
      "tool_use_id": "toolu_gitlog_19",
-     "content": "99ba40a 商品ページの多言語対応(ロケール別にキャッシュ)\nfd7fe40 ブラックフライデー向けに商品ページを CDN キャッシュ (#744)\nafdc0b9 カートの税計算を切り捨てに統一\ne5cd987 在庫キャッシュを10秒に短縮\n936c941 管理画面に監査ログ\n257a959 Node 22 に更新\n3c731e2 決済プロバイダを切り替え"
+     "content": "a3f81c2 商品ページの多言語対応(ロケール別にキャッシュ)\nfd7fe40 ブラックフライデー向けに商品ページを CDN キャッシュ (#744)\nafdc0b9 カートの税計算を切り捨てに統一\ne5cd987 在庫キャッシュを10秒に短縮\n936c941 管理画面に監査ログ\n257a959 Node 22 に更新\n3c731e2 決済プロバイダを切り替え"
     }
    ]
   },
@@ -633,6 +633,7 @@
  "probes": [
   {
    "fact": "Redis のキーは product:{id}:{locale} なのに invalidate は product:{id} を消していた",
+   "question": "修正前、invalidate はどのキーを消していた? 実際のキャッシュのキー形式は?",
    "entryIds": [
     "tool:toolu_cache_02",
     "msg:5:0"
@@ -640,12 +641,14 @@
   },
   {
    "fact": "キーの不一致は多言語対応のコミット a3f81c2 で入った",
+   "question": "キャッシュのキーと削除の不一致はどのコミットで入った?",
    "entryIds": [
     "tool:toolu_gitblame_05"
    ]
   },
   {
    "fact": "ロケールは ja / en / zh-CN の3つ(SUPPORTED_LOCALES)",
+   "question": "対応しているロケールはいくつで、何?",
    "entryIds": [
     "tool:toolu_locales_10",
     "tool:toolu_redis_03"
@@ -653,6 +656,7 @@
   },
   {
    "fact": "2つ目の原因:商品ページ HTML が CloudFront に max-age=3600 でキャッシュされている",
+   "question": "Redis 以外にも古い価格が残る原因はある? 何?",
    "entryIds": [
     "tool:toolu_headers_12",
     "msg:25:0",
@@ -661,12 +665,14 @@
   },
   {
    "fact": "CDN キャッシュはやめず、更新時にパージする(負荷対策 #744)",
+   "question": "CDN キャッシュの扱いについて、ユーザーはどう指示した?",
    "entryIds": [
     "msg:26:1"
    ]
   },
   {
    "fact": "既存の purgePaths ヘルパー(src/ops/purgeCdn.ts)を使ってパージする",
+   "question": "CDN のパージにはどのコードを使う?",
    "entryIds": [
     "tool:toolu_purge_15",
     "tool:toolu_fix2_16"
@@ -674,6 +680,7 @@
   },
   {
    "fact": "修正後、ステージングで価格更新直後に CDN が Miss になることを確認",
+   "question": "修正後、ステージングで何を確認した?",
    "entryIds": [
     "tool:toolu_staging_21"
    ]

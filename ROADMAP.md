@@ -463,5 +463,23 @@ The README leads its results with the held-out table and says what it doesn't sh
 are written rather than recorded, and there is no end-to-end measure of whether an agent finishes
 its task better. An LLM-graded outcome eval was scoped out on purpose.
 
-**Still open:** an outcome eval (a model answering the probes from pruned context, with and without
-ctxjev), and checking `session_id` continuity across a real `/compact` (from Phase 12).
+## Phase 18 — A model-graded outcome eval (2026-09-23)
+
+[`eval/outcome.mjs`](packages/core/eval/outcome.mjs) turns each held-out probe into a question.
+Claude Haiku 4.5 answers it from the pruned conversation, and Claude Sonnet 5 grades the answer
+against the fact. Two runs, 36 questions, about $3.80 in total:
+
+- **Headline.** Everything: 82%. Jev-pruned: 72% at 50%, 67% at 25%. Keyword overlap: 57% / 42%.
+  Plain truncation: 56% / 50%. Only the task: 3%. So at half the tokens, Jev keeps 88% of what full
+  context allows, and truncation keeps 68%.
+- **Japanese scores lower** in every condition, including full context (81% vs 83%, and 65% vs
+  76% for Jev at 50%).
+- **Fixing the eval along the way.** The first pass got only 71% with full context. Some questions
+  didn't say which point in time they meant, so the model answered with the post-fix state. The
+  answering model also tried to continue the work instead of answering. And one fixture's
+  `git log` hash disagreed with its `git log -L` output. The first two were fixed in the prompt and
+  questions before the real run. The hash was fixed afterwards, and only that session was re-run.
+- **Not in CI:** it needs `ANTHROPIC_API_KEY`, costs money, and a model's answers vary.
+
+**Still open:** a task-completion eval (an agent actually finishing the task on pruned context), and
+checking `session_id` continuity across a real `/compact` (from Phase 12).

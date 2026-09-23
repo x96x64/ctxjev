@@ -50,6 +50,9 @@ echo '{"cwd":"...","session_id":"s1"}' | node packages/claude-plugin/dist/sessio
 
 cd packages/core && pnpm eval   # score labeled fixtures: offline baseline always, Jev too with a key
                                 # (publish.yml runs `node eval/run.mjs --gate --runs 3`)
+cd packages/core && node eval/outcome.mjs --runs 2 --out eval/results/outcome.json
+                                # model-graded outcome eval: needs ANTHROPIC_API_KEY (also in
+                                # .env.local) and costs ~$4 a run; by hand, not in CI
 ```
 
 `TYPESAFE_API_KEY` (from `console.typesafe.ai/settings/keys`) must be set for anything that

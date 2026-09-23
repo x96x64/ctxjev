@@ -777,12 +777,14 @@
  "probes": [
   {
    "fact": "The failing assertion is stockStatus: expected 'reserved', received 'pending'",
+   "question": "What exactly does the failing assertion expect, and what does it receive?",
    "entryIds": [
     "tool:toolu_faillog_02"
    ]
   },
   {
    "fact": "Stock is reserved asynchronously by StockListener on order.created, after createOrder returns",
+   "question": "In the production code, where and when does stock get reserved for a new order?",
    "entryIds": [
     "tool:toolu_service_06",
     "tool:toolu_listener_09",
@@ -791,24 +793,28 @@
   },
   {
    "fact": "The race was introduced by #482, which moved reservation into the listener",
+   "question": "Which change introduced the intermittent failure?",
    "entryIds": [
     "tool:toolu_blame_13"
    ]
   },
   {
    "fact": "EventBus.emit is fire-and-forget and never awaits handlers",
+   "question": "How does EventBus.emit treat its handlers?",
    "entryIds": [
     "tool:toolu_bus_17"
    ]
   },
   {
    "fact": "Reproduce with a CPU-stress loop: 4 of 20 runs fail",
+   "question": "How can the failure be reproduced locally, and how often does it fail?",
    "entryIds": [
     "tool:toolu_repro_14"
    ]
   },
   {
    "fact": "A waitForEvent test helper already exists in test/helpers/events.ts",
+   "question": "Is there an existing test utility for waiting on an event? Where?",
    "entryIds": [
     "tool:toolu_grepwait_18",
     "tool:toolu_helper_19"
@@ -816,12 +822,14 @@
   },
   {
    "fact": "Only test code may change; the async reservation is intentional",
+   "question": "What constraint did the user put on how this may be fixed?",
    "entryIds": [
     "msg:28"
    ]
   },
   {
    "fact": "InventoryReport.test.ts had the same race and was fixed the same way",
+   "question": "Besides OrderService.test.ts, which other test had the same problem?",
    "entryIds": [
     "tool:toolu_grepcreate_25",
     "tool:toolu_fix2_26",
@@ -830,6 +838,7 @@
   },
   {
    "fact": "The fix: wait for stock.reserved before asserting",
+   "question": "What change fixes the flaky test?",
    "entryIds": [
     "tool:toolu_fix_22",
     "tool:toolu_fix2_26",

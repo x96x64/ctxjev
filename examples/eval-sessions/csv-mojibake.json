@@ -697,6 +697,7 @@
  "probes": [
   {
    "fact": "CSV は BOM なしの UTF-8 で、Content-Type に charset がない",
+   "question": "エクスポートされる CSV のエンコーディングと先頭バイト、Content-Type ヘッダーはどうなっていた?",
    "entryIds": [
     "tool:toolu_curl_01",
     "tool:toolu_hexdump_02",
@@ -705,6 +706,7 @@
   },
   {
    "fact": "Windows 版 Excel は BOM なし CSV を CP932 として読む(Mac の Numbers では問題ない)",
+   "question": "Windows 版 Excel で化けるのに Mac の Numbers では問題ない理由は?",
    "entryIds": [
     "msg:5:0",
     "msg:14:1"
@@ -712,12 +714,14 @@
   },
   {
    "fact": "Shift_JIS 変換は不可:簡体字を含む顧客がいる",
+   "question": "Shift_JIS に変換して直す案は採用できる? その理由は?",
    "entryIds": [
     "msg:20"
    ]
   },
   {
    "fact": "修正方針:csv-stringify の bom: true と charset=utf-8",
+   "question": "CSV の文字化けはどう直すことにした?(使うオプションとヘッダー)",
    "entryIds": [
     "msg:19:0",
     "tool:toolu_fix_10",
@@ -727,6 +731,7 @@
   },
   {
    "fact": "注文・商品のエクスポートも同じ問題があり、共通ヘルパー sendCsv に揃えた",
+   "question": "顧客以外のエクスポートにも同じ問題はある? どう対応した?",
    "entryIds": [
     "tool:toolu_otherexports_13",
     "msg:29:0",
@@ -735,6 +740,7 @@
   },
   {
    "fact": "大量エクスポートのジョブ largeExport.ts にも BOM が必要",
+   "question": "管理画面の通常エクスポート以外に、BOM を付ける必要がある箇所は?",
    "entryIds": [
     "tool:toolu_largeexport_23",
     "msg:49:0",

@@ -169,14 +169,32 @@ of those facts survive (mean of 3 Jev runs):
 | Random | 69% | 59% |
 | Newest first (plain truncation) | 58% | 50% |
 
+Surviving isn't the same as being usable, so [`eval/outcome.mjs`](packages/core/eval/outcome.mjs)
+also asks a model. Claude Haiku 4.5 reads what's left and answers each fact as a question ("which
+change introduced the race?"), and Claude Sonnet 5 grades the answer against the fact (36
+questions, 2 runs):
+
+| Context given to the model | 50% budget | 25% budget |
+| --- | --- | --- |
+| Everything (nothing removed) | 82% | 82% |
+| **Pruned by Jev** | **72%** | **67%** |
+| Pruned by keyword overlap | 57% | 42% |
+| Plain truncation (newest kept) | 56% | 50% |
+| Only the task (guessing) | 3% | 3% |
+
+At half the tokens, Jev-pruned context keeps 88% of what the full conversation lets the model
+answer. Truncation keeps 68%. Every answer and verdict is in
+[`eval/results/outcome.json`](packages/core/eval/results/outcome.json).
+
 On the same set, Jev's keep/drop matches the labels 79% of the time (keywords: 51%) and puts only
 relevant entries in every session's top 5, the part the Claude Code plugin re-injects. On the dev
 fixtures it was tuned on, it's 90%.
 
-What this doesn't show: the sessions are written, not recorded, and nothing here measures whether an
-agent finishes its task better afterwards. That would need a model to run the task with and without
-pruning. Token counts come from `gpt-tokenizer`, an approximation of Claude's tokenizer. Every release
-must still pass these numbers: `publish.yml` runs `eval/run.mjs --gate --runs 3`.
+What this doesn't show: the sessions are written, not recorded. Answering questions about a session
+isn't the same as finishing its task. Japanese answers score lower across the board, including with
+full context. Token counts come from `gpt-tokenizer`, an approximation of Claude's tokenizer. The
+fact-retention numbers gate every release (`publish.yml` runs `eval/run.mjs --gate --runs 3`); the
+model-graded ones cost about $4 a run and are run by hand.
 
 ## Quick Start
 

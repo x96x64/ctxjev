@@ -692,6 +692,7 @@
  "probes": [
   {
    "fact": "The build fails because webpack 5 dropped automatic Node core polyfills (crypto, stream, util)",
+   "question": "Why did the production build fail right after the webpack 5 upgrade?",
    "entryIds": [
     "tool:toolu_build1_01",
     "msg:17:0"
@@ -699,6 +700,7 @@
   },
   {
    "fact": "Only the client's session.ts imports jsonwebtoken, and it only calls decode()",
+   "question": "Which file was pulling jsonwebtoken into the browser bundle, and what did it use from it?",
    "entryIds": [
     "tool:toolu_grepjwt_07",
     "tool:toolu_session_08",
@@ -707,6 +709,7 @@
   },
   {
    "fact": "Adding polyfills was tried and reverted: each one exposed another missing module",
+   "question": "What happened when polyfills were added?",
    "entryIds": [
     "msg:13:0",
     "tool:toolu_revert_09"
@@ -714,12 +717,14 @@
   },
   {
    "fact": "User decision: no polyfills, main bundle must stay under 450 KB",
+   "question": "What did the user decide about polyfills and bundle size?",
    "entryIds": [
     "msg:18"
    ]
   },
   {
    "fact": "The client now uses jwt-decode instead of jsonwebtoken",
+   "question": "What library does the client use for tokens now?",
    "entryIds": [
     "tool:toolu_edit_11",
     "msg:17:0"
@@ -727,6 +732,7 @@
   },
   {
    "fact": "readClaims must return null for a payload without a string sub (jwt-decode doesn't reject 'not.a.jwt')",
+   "question": "What does readClaims need to do with a token like \"not.a.jwt\", and why?",
    "entryIds": [
     "msg:35:0",
     "tool:toolu_edit2_17"
@@ -734,6 +740,7 @@
   },
   {
    "fact": "Current state: build green, 31 tests pass, main chunk 432 KiB",
+   "question": "What is the current state of the build, tests, and main chunk size?",
    "entryIds": [
     "tool:toolu_build3_13",
     "tool:toolu_tests2_18",
