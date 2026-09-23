@@ -481,5 +481,41 @@ against the fact. Two runs, 36 questions, about $3.80 in total:
   questions before the real run. The hash was fixed afterwards, and only that session was re-run.
 - **Not in CI:** it needs `ANTHROPIC_API_KEY`, costs money, and a model's answers vary.
 
-**Still open:** a task-completion eval (an agent actually finishing the task on pruned context), and
-checking `session_id` continuity across a real `/compact` (from Phase 12).
+## Phase 19 — Recorded sessions (2026-09-23)
+
+The held-out sessions were all written by hand, so [`examples/eval-tasks`](examples/eval-tasks)
+adds five small repos, each with a planted bug. Each also has a constraint the user states
+mid-session, hidden acceptance tests, and a reference solution (`verify.mjs` checks them without a
+model). `record.mjs` ran each one through `claude -p` on a subscription login, with a clean
+environment, at no API cost. `import-claude-code.mjs` then converted and scrubbed each transcript,
+which was read in full before being committed. CLAUDE.md records the exception.
+
+The recordings had things the written sessions don't: a persisted 31KB log shown as a preview, an
+Edit attempted during an investigation-only turn, and parallel tool results written out of order
+(the importer now re-pairs them). The recording model also set a 25-hour TTL where the user said 24.
+
+## Phase 20 — Outcome eval on all ten sessions (2026-09-23)
+
+Re-running on the recorded sessions exposed a measurement bug. 8% of answers in the first run were
+empty: the answering model tried to call a tool, and `tool_choice: "none"` stripped the call. Plain
+text is now requested, with one retry. Everything was re-run with prompt caching for $3.49. Full
+context 93%, Jev 88% / 78% at 50% / 25%, truncation 80% / 67%, keywords 67% / 62%.
+
+## Phase 21 — Task completion (2026-09-23)
+
+[`eval/tasks.mjs`](packages/core/eval/tasks.mjs) prunes a recorded session's history, then has
+Claude Haiku 4.5 do the fix with real tools and grades it with the hidden tests. Tasks passed at
+25%: everything 100%, Jev 90%, truncation 80%, keywords 70%, only the task 30%. That's 50 runs for
+$2.38. The misses clustered on one task, where losing the user's "24 hours" made the agent pick its
+own TTL, while an agent with no history re-read the docs and got it right.
+
+The first run's per-run costs were wrong, because concurrent runs shared one spend counter. Each run
+now counts its own usage, and failing test names are recorded.
+
+## Phase 22 — Docs (2026-09-23)
+
+The README's "Does It Work?" section now shows all three evals, with their limits. That section is
+docs only, so it waits for the next release.
+
+**Still open:** tasks larger than these five and a stronger agent than Haiku; checking
+`session_id` continuity across a real `/compact` (from Phase 12).

@@ -151,50 +151,83 @@ everything.
 
 ## Does It Work?
 
-Measured by [`eval/run.mjs`](packages/core/eval/run.mjs) on a **held-out set** that was never used
-for tuning: five synthetic but realistic coding sessions in
-[`examples/eval-sessions`](examples/eval-sessions) (three English, two Japanese; 165 labeled
-entries, about 39k tokens). They have raw tool output: multi-line test logs, stack traces, diffs,
-installer noise, and 5k-token logs. There are dead ends that were later reverted, and distractors
-that share the goal's words. Each session lists the facts the task still needs later ("the race was
-introduced by #482", "don't convert to Shift_JIS"), with the entries that state them.
+Three evals, each run on a **held-out set** that was never used for tuning:
+[`examples/eval-sessions`](examples/eval-sessions), 10 coding sessions (6 English, 4 Japanese).
 
-Squeezing each session into a fixed token budget with `pruneMessages({ targetTokens })`, how many
-of those facts survive (mean of 3 Jev runs):
+- **Written sessions (5).** Written by hand, with raw tool output: multi-line test logs, stack
+  traces, diffs, installer noise, and 5k-token logs. They include dead ends that were later reverted,
+  and distractors that share the goal's words.
+- **Recorded sessions (5).** Real Claude Code sessions, recorded on throwaway task repos in
+  [`examples/eval-tasks`](examples/eval-tasks). Each task has a planted bug. The user states
+  constraints partway through ("banker's rounding", "keep the full-width tilde"), and the session
+  ends with the fix.
+
+Each session lists the facts the task still needs later, with the entries that state them.
+
+**1. Do the facts survive?** Each session is squeezed into a token budget with
+`pruneMessages({ targetTokens })`, and we count how many of those facts are still there. This is the
+mean of 3 Jev runs, and every release is gated on it (`eval/run.mjs --gate --runs 3`).
 
 | Ranking by | 50% budget | 25% budget |
 | --- | --- | --- |
-| **Jev** | **92%** | **82%** |
-| Keyword overlap (offline) | 69% | 45% |
-| Random | 69% | 59% |
-| Newest first (plain truncation) | 58% | 50% |
+| **Jev** | **94%** | **86%** |
+| Newest first (plain truncation) | 79% | 64% |
+| Keyword overlap (offline) | 76% | 61% |
+| Random | 69% | 61% |
 
-Surviving isn't the same as being usable, so [`eval/outcome.mjs`](packages/core/eval/outcome.mjs)
-also asks a model. Claude Haiku 4.5 reads what's left and answers each fact as a question ("which
-change introduced the race?"), and Claude Sonnet 5 grades the answer against the fact (36
-questions, 2 runs):
+**2. Can a model still answer from what's left?** [`eval/outcome.mjs`](packages/core/eval/outcome.mjs)
+has Claude Haiku 4.5 answer each fact as a question from the pruned conversation, and Claude
+Sonnet 5 grade the answer. That's 69 questions, 2 runs, about $3.50 a run.
 
 | Context given to the model | 50% budget | 25% budget |
 | --- | --- | --- |
-| Everything (nothing removed) | 82% | 82% |
-| **Pruned by Jev** | **72%** | **67%** |
-| Pruned by keyword overlap | 57% | 42% |
-| Plain truncation (newest kept) | 56% | 50% |
-| Only the task (guessing) | 3% | 3% |
+| Everything (nothing removed) | 93% | 93% |
+| **Pruned by Jev** | **88%** | **78%** |
+| Plain truncation (newest kept) | 80% | 67% |
+| Pruned by keyword overlap | 67% | 62% |
+| Only the task (guessing) | 0% | 0% |
 
-At half the tokens, Jev-pruned context keeps 88% of what the full conversation lets the model
-answer. Truncation keeps 68%. Every answer and verdict is in
-[`eval/results/outcome.json`](packages/core/eval/results/outcome.json).
+**3. Can an agent still finish the job?** [`eval/tasks.mjs`](packages/core/eval/tasks.mjs) cuts
+each recorded session before "now implement the fix". It prunes that history to 25% of its tokens
+and gives Claude Haiku 4.5 the fix request, with real tools in a fresh copy of the repo. Success
+means the task's hidden acceptance tests pass, and those tests include the constraints the user
+stated mid-session. That's 5 tasks, 2 runs each, $2.38 for all 50 runs.
 
-On the same set, Jev's keep/drop matches the labels 79% of the time (keywords: 51%) and puts only
-relevant entries in every session's top 5, the part the Claude Code plugin re-injects. On the dev
-fixtures it was tuned on, it's 90%.
+| History given to the agent | Tasks passed |
+| --- | --- |
+| Everything | 100% |
+| **Pruned to 25% by Jev** | **90%** |
+| Pruned to 25%, newest kept | 80% |
+| Pruned to 25% by keyword overlap | 70% |
+| Only the task | 30% |
 
-What this doesn't show: the sessions are written, not recorded. Answering questions about a session
-isn't the same as finishing its task. Japanese answers score lower across the board, including with
-full context. Token counts come from `gpt-tokenizer`, an approximation of Claude's tokenizer. The
-fact-retention numbers gate every release (`publish.yml` runs `eval/run.mjs --gate --runs 3`); the
-model-graded ones cost about $4 a run and are run by hand.
+The failures are the interesting part:
+
+- **Where the misses were:** all but one miss under pruning was on the webhook task: Jev's one,
+  both of truncation's, and two of keyword overlap's three. We re-ran truncation there with failing test
+  names recorded. Its history had lost the message where the user said "keep the mark for 24
+  hours", so the agent picked its own TTL instead of re-reading the docs.
+- **The agent with only the task passed that task:** with no history at all, it investigated from
+  scratch and found the 24-hour window in the provider's docs. So a partial history can be worse
+  than none, when it looks complete but has lost a constraint.
+- **Truncation on the recorded sessions:** at a 50% budget, truncation keeps as many facts as Jev
+  there (100% vs 94%), because a real agent restates its findings near the end. It falls behind
+  when the budget is tight (77% vs 90% at 25%).
+
+On the same held-out set, Jev's keep/drop matches the labels 74% of the time (keywords: 52%), and
+puts only relevant entries in every session's top 5, the part the Claude Code plugin re-injects. On
+the dev fixtures it was tuned on, it's 90%.
+
+What this doesn't show:
+
+- The tasks are small, and 5 tasks × 2 runs is a small sample.
+- The agent is Claude Haiku 4.5, not the model you'd run in production.
+- The recorded sessions come from one recording model (Claude Sonnet 5) on tasks written for this
+  eval.
+- Token counts come from `gpt-tokenizer`, an approximation of Claude's tokenizer.
+
+Every answer, verdict, and agent run is in
+[`eval/results/`](packages/core/eval/results).
 
 ## Quick Start
 

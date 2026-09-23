@@ -9,19 +9,24 @@ const PRICES = { [ANSWER_MODEL]: [1, 5], [JUDGE_MODEL]: [2, 10] }
 
 export class SpendLimitError extends Error {}
 
+/** Dollars for one response's usage, cache reads and writes included. */
+export function costOf(model, u) {
+  const [inPrice, outPrice] = PRICES[model]
+  return (u.input_tokens * inPrice + (u.cache_creation_input_tokens ?? 0) * inPrice * 1.25 + (u.cache_read_input_tokens ?? 0) * inPrice * 0.1 + u.output_tokens * outPrice) / 1e6
+}
+
 /** Totals every response's usage in dollars, and refuses further calls once `maxUsd` is spent. */
 export function createSpend(maxUsd) {
   const byModel = {}
   let total = 0
   return {
     record(model, u) {
-      const [inPrice, outPrice] = PRICES[model]
       const m = (byModel[model] ??= { input: 0, cacheWrite: 0, cacheRead: 0, output: 0 })
       m.input += u.input_tokens
       m.cacheWrite += u.cache_creation_input_tokens ?? 0
       m.cacheRead += u.cache_read_input_tokens ?? 0
       m.output += u.output_tokens
-      total += (u.input_tokens * inPrice + (u.cache_creation_input_tokens ?? 0) * inPrice * 1.25 + (u.cache_read_input_tokens ?? 0) * inPrice * 0.1 + u.output_tokens * outPrice) / 1e6
+      total += costOf(model, u)
     },
     check() {
       if (total > maxUsd) throw new SpendLimitError(`spent $${total.toFixed(2)}, over --max-usd ${maxUsd}`)
