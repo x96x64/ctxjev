@@ -234,3 +234,98 @@ Spend: $4.10 (claude-haiku-4-5 1,120,905 in + 602,140 cache-write + 2,738,292 ca
 **Rule 3 applied to `summary+ctxjev(task goal)` (what 0.5.0+ ships):** the lower bound of the 95%
 interval for tasks passed is -22, not above 0. **Branch: not satisfied.** The plugin has no
 demonstrated effect on this material; it stays available, and the README and plugin README say so.
+
+## Round 2: long histories (registered 2026-09-24, before any round-2 run)
+
+### Why
+
+Round 1 couldn't separate anything: summary alone passed every holdout task, because the recorded
+histories (3k–23k tokens) are short enough for a compaction summary to keep nearly everything. The
+plugin exists for sessions long enough that the summary has to leave things out. Round 2 measures
+that case, with Claude Code's own compaction instead of our approximation of it. It is scored under
+the fixed rubric in [RUBRIC.md](RUBRIC.md) (criterion A).
+
+### Material, and what it has already been exposed to
+
+- All 16 tasks' recorded sessions, each history before the fix prompt padded to about 80k tokens
+  with irrelevant tool traffic (access logs, dependency trees, lint output, unrelated commits, file
+  listings) by [`lengthen.mjs`](lengthen.mjs): generated deterministically, seeded by the task name,
+  unrelated to any task's domain, and never removing or altering an original message. Sizes and a
+  hash of each padded history are in `node eval/lengthen.mjs` (listed below).
+- **None of this material is unseen.** The ten dev tasks informed the design; the six holdout
+  tasks were used in round 1, and round 1's holdout retention numbers are why the plugin's default
+  scorer became keyword overlap before this registration. What is new is the length, the real
+  compaction, and the endpoint. Nothing about scoring, the digest, the padding, or the harness
+  changes between this registration and the run.
+- One design change was tried on dev before registering and not adopted: giving user messages no
+  digest slot (the summary quotes the user anyway). Offline (`eval/digest-coverage.mjs --split
+  dev`, no API calls), probes no user message states went from 28/35 to 29/35 covered by the
+  digest, while all probes went from 47/57 to 42/57. One probe is noise, and overall coverage
+  fell, so the shipped digest is unchanged. (Before registering I had written "adopt if the first
+  number goes up"; it did, by one probe; this records why it wasn't followed.)
+- A smoke run on one dev task (`invoice-rounding`, one run) checked the harness and its cost
+  ($0.25). It is excluded from the results; it showed +17 points on answers right for the local
+  digest on that one task and run, which is not evidence of anything.
+
+### Conditions and measurement
+
+- Compaction: Claude Code 2.1.281's own `/compact`, run headlessly on the padded transcript
+  (`claude -p /compact --resume`, clean environment, `--model haiku`: a cost choice; a real session
+  compacts with its own model). One compaction per task and run, shared by every condition.
+- Conditions: `summary` (the compaction summary alone); `summary+digest(local)` (plus the shipped
+  plugin's digest with its inferred goal, scored offline: the 0.6.0 default);
+  `summary+digest(jev)` (the same, `CTXJEV_SCORER=jev`).
+- Probe answers: Claude Haiku 4.5 answers each probe question from the context; Claude Sonnet 5
+  judges the answer against the probe's fact (`createQA` in `lib.mjs`, as in round 1). 101 probes
+  across the 16 tasks, per condition and run.
+- Task success: Claude Haiku 4.5 finishes the task from `summary` and from
+  `summary+digest(local)`, one run per task (the costly part).
+
+### Endpoints and rule
+
+- **Primary:** answers right, `summary+digest(local)` minus `summary`, 16 tasks × 2 runs, 95%
+  bootstrap interval resampling tasks (`rateDifference`/`bootstrap` in `lib.mjs`, as
+  `plugin.mjs --report` prints it).
+  - Lower bound above 0: the plugin's digest has a demonstrated effect on long sessions after
+    Claude Code's real compaction. The README leads with it.
+  - Otherwise: no demonstrated effect in either round. The README and plugin README say so, and
+    the project is repositioned to what the evidence supports (see RUBRIC.md).
+- **Secondary (reported, not decisive):** tasks passed, same difference, one run per task; and
+  `summary+digest(jev)` minus `summary` and minus `summary+digest(local)` on answers right.
+- If the spend cap stops the run, the results file is written marked `partial`, the rule is applied
+  to the tasks that finished, with that stated, and nothing is rerun with a higher cap.
+
+### Command and spend
+
+```bash
+cd packages/core
+node eval/plugin.mjs --split all --history long --compaction real \
+  --conditions 'summary,summary+digest(local),summary+digest(jev)' \
+  --agent-conditions 'summary,summary+digest(local)' --agent-runs 1 \
+  --runs 2 --max-usd 8.5 --out eval/results/plugin-long.json
+```
+
+The Anthropic API budget for all of round 2 is $10: $0.27 already spent (a $0.015 feasibility
+check of headless `/compact` and the $0.25 smoke run) plus at most $8.50 here; the estimate is
+about $6.50. Jev (TypeSafe) calls for the `jev` condition are not metered by the harness.
+
+Padded histories (`node eval/lengthen.mjs`):
+
+```
+audit-retention          4607 →  85117 tokens, 46 → 102 messages, sha256 8f7afd9866d8
+config-precedence       22201 →  84600 tokens, 50 → 90 messages, sha256 5788a18eeac6
+coupon-stacking          4188 →  80185 tokens, 30 → 88 messages, sha256 e3bc60d87caf
+csv-import-encoding     20308 →  81660 tokens, 32 → 98 messages, sha256 7277cc58acba
+flag-rollout            18319 →  83694 tokens, 26 → 76 messages, sha256 46dbb1c03d40
+invoice-rounding         7371 →  82316 tokens, 50 → 106 messages, sha256 bba45d808050
+month-boundary          19580 →  86216 tokens, 30 → 70 messages, sha256 289357ab6ec5
+permission-check        18410 →  83869 tokens, 22 → 80 messages, sha256 a1e6df8f4535
+pii-logging             18661 →  84837 tokens, 30 → 76 messages, sha256 40b51e6205f3
+rate-limit-window        5861 →  81995 tokens, 52 → 110 messages, sha256 45c62799efa0
+retry-backoff            5100 →  81119 tokens, 32 → 98 messages, sha256 ed0a07fea218
+room-booking             5389 →  81483 tokens, 30 → 86 messages, sha256 c50e67f2b035
+search-normalize        19428 →  80575 tokens, 30 → 80 messages, sha256 0d422d2520fe
+shipping-fee             5621 →  86744 tokens, 38 → 104 messages, sha256 045036f6678f
+upload-size-limit        3287 →  81146 tokens, 30 → 98 messages, sha256 0c4e6b8dec4a
+webhook-dedupe          22583 →  86585 tokens, 28 → 72 messages, sha256 8949bea7fddc
+```
