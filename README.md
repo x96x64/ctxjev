@@ -278,9 +278,11 @@ Sonnet 5 grade it (102 questions, 2 runs):
 | Plain truncation | 71% | 83% |
 | Keyword overlap | 67% | 74% |
 
-Jev minus truncation is +8 points at both budgets, and the interval just includes zero
-([−1, +18]). Jev minus keywords is +13 / +17, clearly above zero. Scoring alone keeps 84% / 95%
-of the facts under the budget, against 66% / 80% for truncation. Every release is gated on not
+Jev minus truncation is +8 points at both budgets, and the intervals just include zero
+([−1, +18] and [−1, +19]). Jev minus keywords is +13 / +17, clearly above zero. Scoring alone
+(ranking only, [`eval/results/run-dev.json`](packages/core/eval/results/run-dev.json)) keeps 86% /
+96% of the facts under the budget, against 66% / 80% for truncation and 65% / 80% for keyword
+overlap. Every release is gated on not
 falling below truncation there (`eval/run.mjs --gate --runs 3`, which fails without a Jev key).
 
 **3. Does the Claude Code plugin help after a compaction?**
