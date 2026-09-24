@@ -206,9 +206,14 @@ on unseen tasks this size, it wasn't.
 **What this changes:** the default scorer for `ctxjev-core`, `ctxjev-cli`, and `pruneMessages()` is
 now `'recency'` (plain truncation). Pass `scorer: 'jev'` / `--scorer jev` to opt in.
 [`PREREGISTRATION.md`'s Results section](packages/core/eval/PREREGISTRATION.md) has the full
-numbers, commands, and both bootstrap runs of the retention interval. The Claude Code plugin
-comparison didn't complete (the recording environment couldn't reach Jev from the hook's restricted
-subprocess) and is unresolved; the plugin's own default is unchanged pending a rerun.
+numbers, commands, and both bootstrap runs of the retention interval.
+
+**Claude Code plugin.** The rerun (`eval/plugin.mjs --split holdout`, 6 tasks × 3 runs) found no
+demonstrated effect: summary+digest passed 89% of tasks against summary alone's 100%, 95% CI for
+the difference [-22, +0] — the lower bound doesn't clear zero, so the preregistered rule keeps the
+plugin available without claiming it helps. See
+[`PREREGISTRATION.md`'s Plugin (rerun) section](packages/core/eval/PREREGISTRATION.md) for the
+full table. The plugin's own default scorer is unchanged.
 
 ### Dev sessions (15 sessions, optimistic — see above)
 
@@ -290,11 +295,16 @@ the latest instruction. That passed every task, but +5 points [0, +15] is within
 plugin's value depends on how much the compaction summary drops, and this eval can't measure
 Claude Code's real compaction.
 
+**On unseen material, the rerun found no demonstrated effect.** The same comparison on the six
+holdout tasks (3 runs each) put summary+digest at 89% tasks passed against summary alone's 100%,
+95% CI for the difference [-22, +0] — the lower bound doesn't clear zero, so by the preregistered
+rule this counts as no demonstrated effect, not as a negative result. Full table in
+[`PREREGISTRATION.md`](packages/core/eval/PREREGISTRATION.md#plugin-rerun). The plugin stays
+available; its default scorer is unchanged.
+
 What this doesn't show:
 
-- Any of it on unseen material. The tasks and sessions above informed the design; the holdout
-  comparison is still to run.
-- The tasks are small, and 10 tasks × 2 runs is a small sample.
+- The tasks are small, and 10 tasks × 2 runs (dev) or 6 tasks × 3 runs (holdout) are small samples.
 - Most runs use Claude Haiku 4.5. Claude Sonnet 5 was checked on the task eval only, with 2 runs
   and two conditions.
 - The recordings come from one recording model on tasks written for this eval.

@@ -31,10 +31,13 @@ with `/ctxjev:set-goal` when you want scoring aimed at something more specific t
 request plus your latest instruction.
 
 **What it's shown so far:** in the [plugin eval](../../README.md#does-it-work), against a simulated
-compaction summary that already keeps every user instruction, the digest added +5 points [0, +15]:
-within the noise. How much it helps depends on how much Claude Code's real compaction drops, which
-that eval can't measure. A comparison on unseen tasks is
-[preregistered](../../packages/core/eval/PREREGISTRATION.md) but hasn't run yet.
+compaction summary that already keeps every user instruction, the digest added +5 points [0, +15]
+on the tasks the plugin was designed against: within the noise. The preregistered comparison on
+unseen tasks found no demonstrated effect (summary+digest 89% tasks passed vs. summary alone's
+100%, 95% CI for the difference [-22, +0] — see
+[`PREREGISTRATION.md`](../../packages/core/eval/PREREGISTRATION.md#plugin-rerun)). How much it
+helps depends on how much Claude Code's real compaction drops, which neither eval can measure. The
+plugin remains available and on by default; nothing here claims it improves outcomes.
 
 ## How It Works
 

@@ -48,6 +48,10 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 - `ctxjev-claude`: preserved slots no longer fill up with near-identical tool calls (e.g. `git show`
   run three different ways on the same commit) — a lower-scoring but distinct entry now gets the slot
   instead.
+- README, plugin README: the preregistered holdout comparison for the Claude Code plugin has run.
+  It found no demonstrated effect (summary+digest passed 89% of tasks against summary alone's 100%,
+  95% CI for the difference [-22, +0]) — see [Does It Work?](README.md#does-it-work). The plugin
+  stays available and on by default; its own scorer is unchanged.
 
 ## 0.5.0 — 2026-09-23
 

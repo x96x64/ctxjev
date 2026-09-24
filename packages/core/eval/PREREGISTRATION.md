@@ -206,3 +206,31 @@ and before any label was reconsidered, so no label was chosen or adjusted with k
 scorer's output — but it was still run before the labels were committed, which the preregistration's
 step 3 says not to do ("you must not run any scorer ... before all six sessions are labeled and
 committed"). Recorded here for transparency rather than left unmentioned.
+
+### Plugin (rerun)
+
+Run 2026-09-24, in an environment where `preCompact.js`'s subprocess can reach Jev directly (no
+proxy needed here; confirmed beforehand with the same check the earlier attempt used — the hook
+subprocess scored with `jev`, not `local`).
+
+Command: `node eval/plugin.mjs --split holdout --runs 3 --max-usd 5 --out eval/results/plugin-holdout.json`
+
+After a simulated compaction (claude-haiku-4-5; 95% intervals resample tasks):
+
+| context | tasks passed | 95% CI | answers right | 95% CI |
+| --- | --- | --- | --- | --- |
+| summary | 100% | [100%, 100%] | 79% | [70%, 88%] |
+| summary+ctxjev | 83% | [61%, 100%] | 82% | [74%, 91%] |
+| summary+ctxjev(task goal) | 89% | [78%, 100%] | 85% | [76%, 94%] |
+
+- summary+ctxjev − summary, tasks passed: -17 pp [-39, +0]
+- summary+ctxjev − summary, answers right: +3 pp [-3, +9]
+- summary+ctxjev(task goal) − summary, tasks passed: -11 pp [-22, +0]
+- summary+ctxjev(task goal) − summary, answers right: +6 pp [-1, +15]
+
+Spend: $4.10 (claude-haiku-4-5 1,120,905 in + 602,140 cache-write + 2,738,292 cache-read /
+316,444 out; claude-sonnet-5 145,914 in + 0 cache-write + 0 cache-read / 7,557 out).
+
+**Rule 3 applied to `summary+ctxjev(task goal)` (what 0.5.0+ ships):** the lower bound of the 95%
+interval for tasks passed is -22, not above 0. **Branch: not satisfied.** The plugin has no
+demonstrated effect on this material; it stays available, and the README and plugin README say so.

@@ -5,14 +5,10 @@ and [CHANGELOG.md](CHANGELOG.md).
 
 ## Next
 
-1. **Re-run the plugin's holdout comparison** (`eval/plugin.mjs --split holdout`): the first
-   attempt errored because the recording sandbox's hook subprocess couldn't reach Jev (see
-   [PREREGISTRATION.md](packages/core/eval/PREREGISTRATION.md)'s Results). Needs an environment
-   where `preCompact.js`'s narrowed subprocess environment can actually make outbound requests.
-2. **Look into why keyword overlap beat Jev on holdout retention** (28.3% vs. 15.6% at a 25%
+1. **Look into why keyword overlap beat Jev on holdout retention** (28.3% vs. 15.6% at a 25%
    budget) when it lost badly on dev (65% vs. 85%) — task phrasing overlapping the goal's words,
    or a labeling difference between the two rounds, are the leading guesses; neither is confirmed.
-3. Token budgets with Claude's own token counting instead of `gpt-tokenizer`, if scorer choice
+2. Token budgets with Claude's own token counting instead of `gpt-tokenizer`, if scorer choice
    starts to hinge on budgets tighter than 25%.
 
 ## Constraints that shaped the design
