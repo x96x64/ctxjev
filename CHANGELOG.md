@@ -7,6 +7,50 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 
 ## 0.6.0 — unreleased
 
+- `ctxjev-core` (and so the CLI, MCP server, and plugin): secret masking now also catches JSON-style
+  credentials (`"password": "…"`, `"apiKey": "…"`), passwords in URLs (`postgres://user:pass@…`),
+  Stripe, GitLab, npm, Hugging Face, SendGrid, and temporary AWS keys, AWS secret keys in prose,
+  Slack and Discord webhook URLs, `Authorization: Basic`, Azure `AccountKey=`, `mysql -p…`,
+  `curl -u user:pass`, and short passwords (`DB_PASS=hunter2`). It no longer masks look-alikes such
+  as `tokenizer: gpt-tokenizer4`, placeholders, or `token = get_token()`.
+- `ctxjev-core`: a tool call's input is masked before it's shortened. Shortened first, a token cut
+  at 160 characters could reach Jev as a prefix too short to recognize.
+- `ctxjev-core`: `pruneMessages()` never makes a conversation larger. A removal smaller than its
+  own "history was removed" note is no longer made (it used to report negative `savedTokens`), and
+  `minSavedTokens` now counts the note. Very large conversations (150,000 tool calls) no longer crash
+  it with a stack overflow.
+- `ctxjev-core`, `ctxjev-cli`, `ctxjev-claude`: a Claude Code transcript that repeats a record id is
+  parsed, keeping the last copy with a warning, instead of failing as a whole (the plugin preserved
+  nothing).
+- `ctxjev-cli`: a broken or truncated JSON transcript is reported as such, with the line and column
+  where it breaks, instead of "could not parse … as a Claude Code .jsonl".
+- `ctxjev-core`: shortened text never splits an emoji or other multi-part character.
+- `ctxjev-core`: an unknown `scorer` name (e.g. `'Jev'` from JavaScript) throws instead of silently
+  ranking by recency.
+- `ctxjev-cli`: the Jev score cache (`~/.cache/ctxjev/score-cache.json`) is now readable only by
+  you (0600, in a 0700 directory), stores hashed keys instead of your goals and transcript text, and
+  keeps at most 20,000 scores. Plain-text keys from earlier versions are removed the next time you
+  run with `--scorer jev` (or delete the file).
+- `ctxjev-core`: `cacheKeyFor()` returns a SHA-256 digest; keys from earlier versions don't match.
+- `ctxjev-claude`: a `/ctxjev:set-goal` goal, error messages, and warnings are masked before they're
+  saved to `~/.claude/ctxjev/`.
+- `ctxjev-claude`: cleaning up what versions before 0.6.0 left in your project removes only files it
+  wrote, one at a time. It could previously delete your own files inside `.ctxjev/preserved/`.
+- `ctxjev-claude`: `/ctxjev:status` says the last run is unknown when `last-run.json` can't be read,
+  instead of "no compaction in this session", and shows transcript warnings.
+- `ctxjev-cli`: `--version` / `-v` work after the command too (`ctxjev analyze --version`), and an
+  unknown option gets a plain message pointing at `--help`.
+- `ctxjev-mcp`: starts without `TYPESAFE_API_KEY` and lists its tools; each call then returns an
+  error saying the key is missing. Hosts used to see only "connection closed".
+- `ctxjev-mcp`: every setup example pins the version (`npx ctxjev-mcp@0.5.0`), so hosts run the
+  release you chose.
+- `ctxjev-core`: new `jevClient` option (bring your own Jev client), and new exports
+  `splitCjkBigrams()`, `quoteAsData()`, and `seededRandom()`.
+- README: every evaluation number is generated from the saved results and checked in CI. The
+  holdout retention table now includes random order and the labels, and says plainly that on the
+  holdout Jev kept less of what the tasks needed than a random ordering. It also says what's on npm
+  (0.5.0) versus `main`, and that the default `recency` scorer ignores the goal.
+
 - `ctxjev-claude`, `ctxjev-cli`: the inferred goal is no longer taken from text Claude Code writes
   into the conversation itself. After a `/model` and an interrupted tool call, it used to be the
   local-command notice plus "[Request interrupted by user]", with your actual request nowhere in it.
