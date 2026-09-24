@@ -1,8 +1,11 @@
 import { spawn } from 'node:child_process'
+import { createServer } from 'node:http'
+import type { AddressInfo } from 'node:net'
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { subprocessEnv } from '../../../test-support/subprocessEnv.js'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 // Exercises the actual shipped artifact (dist/preCompact.js), not src/preCompact.ts — this is
@@ -13,7 +16,7 @@ const distPath = join(dirname(fileURLToPath(import.meta.url)), '..', 'dist', 'pr
 
 function run(stdin: string, env: Record<string, string | undefined> = {}): Promise<{ exitCode: number | null; stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
-    const child = spawn('node', [distPath], { env: { ...process.env, CTXJEV_STATE_DIR: state, ...env }, stdio: ['pipe', 'pipe', 'pipe'] })
+    const child = spawn('node', [distPath], { env: subprocessEnv({ CTXJEV_STATE_DIR: state, ...env }), stdio: ['pipe', 'pipe', 'pipe'] })
     let stdout = ''
     let stderr = ''
     child.stdout.on('data', (d) => (stdout += d))
@@ -167,15 +170,28 @@ describe('preCompact.js (dist)', () => {
       'utf8',
     )
 
-    const result = await run(JSON.stringify({ cwd, transcript_path: transcriptPath, session_id: 'sess-1' }), {
-      TYPESAFE_API_KEY: 'not-a-real-key',
-      CTXJEV_JEV_TIMEOUT_MS: '1',
-    })
-    expect(result.exitCode).toBe(0)
+    // Jev is a local server that takes the request and never answers, so the deadline is what ends
+    // the wait. The audit caught this test posting to the real API with a fake key; now nothing
+    // leaves the machine, and the request that would have gone out is seen arriving here instead.
+    const received: string[] = []
+    const jev = createServer((req) => void received.push(`${req.method} ${req.url}`))
+    await new Promise<void>((resolve) => jev.listen(0, '127.0.0.1', resolve))
+    try {
+      const result = await run(JSON.stringify({ cwd, transcript_path: transcriptPath, session_id: 'sess-1' }), {
+        TYPESAFE_API_KEY: 'not-a-real-key',
+        TYPESAFE_BASE_URL: `http://127.0.0.1:${(jev.address() as AddressInfo).port}`,
+        CTXJEV_JEV_TIMEOUT_MS: '500',
+      })
+      expect(result.exitCode).toBe(0)
 
-    const lastRun = JSON.parse(await readFile(sessionFile('sess-1', 'last-run.json'), 'utf8'))
-    expect(lastRun).toMatchObject({ outcome: 'preserved', scorer: 'local' })
-    expect(lastRun.note).toContain('within')
+      const lastRun = JSON.parse(await readFile(sessionFile('sess-1', 'last-run.json'), 'utf8'))
+      expect(lastRun).toMatchObject({ outcome: 'preserved', scorer: 'local' })
+      expect(lastRun.note).toContain('within 0.5s')
+      expect(received).toEqual([expect.stringMatching(/^POST \//)])
+    } finally {
+      jev.closeAllConnections()
+      jev.close()
+    }
   }, 10_000)
 
   it('scores against the session’s /ctxjev:set-goal, and clears state older versions left in the project', async () => {

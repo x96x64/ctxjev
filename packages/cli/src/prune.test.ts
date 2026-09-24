@@ -3,6 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { subprocessEnv } from '../../../test-support/subprocessEnv.js'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 // Runs the built CLI (dist/index.js) as a subprocess, offline, so no key or network is needed.
@@ -11,7 +12,7 @@ const cliPath = join(dirname(fileURLToPath(import.meta.url)), '..', 'dist', 'ind
 
 function run(args: string[]): Promise<{ exitCode: number | null; stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
-    const child = spawn('node', [cliPath, ...args], { env: { ...process.env, TYPESAFE_API_KEY: '' } })
+    const child = spawn('node', [cliPath, ...args], { env: subprocessEnv() })
     let stdout = ''
     let stderr = ''
     child.stdout.on('data', (d) => (stdout += d))
