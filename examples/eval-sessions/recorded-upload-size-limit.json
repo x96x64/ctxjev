@@ -545,6 +545,90 @@
    ]
   }
  ],
- "labels": {},
- "probes": []
+ "labels": {
+  "msg:0": true,
+  "tool:toolu_01G8CyYzSa5PSNdBzDNRGQeg": true,
+  "tool:toolu_01RNrU392P6RNppYCUtsHQD7": true,
+  "tool:toolu_01KuDWZst3gYjqpAuGXs2iMM": false,
+  "tool:toolu_01XCVvU5HepqysZ7cTwdVgCE": false,
+  "tool:toolu_01ExED8hR4QaRrdg9C1jpCCs": true,
+  "tool:toolu_01J8L9SMYFGNNXfhGbTiYPHq": false,
+  "tool:toolu_01WBoxAZ7biq2E2u3yx3WK2F": true,
+  "tool:toolu_01FeBJyZnuR5VdfT2cBadsdE": true,
+  "tool:toolu_01UYAdJFcZDsbsGxkPJ5uN67": true,
+  "msg:19:0": true,
+  "msg:20": true,
+  "tool:toolu_01KoxjVtHrcxEpc32mbwcLUK": true,
+  "tool:toolu_01MXbrHUJwWEe9yVzLV8nge8": true,
+  "tool:toolu_01BYMjkw5K8VSwMMzsXLNT82": false,
+  "msg:27:0": true,
+  "msg:28": true,
+  "msg:29:0": true,
+  "msg:30": false,
+  "msg:31:0": false,
+  "tool:toolu_01GLez7DVsyXfRwbsbGyCPAz": false,
+  "tool:toolu_01RnHinLtjuwcDZWBHcbbYhM": false,
+  "tool:toolu_011dehKwfvWTU8WKQryhRFJb": false,
+  "msg:37:0": false,
+  "tool:toolu_01BZUFyLuS5XS2U7zo28HUqG": false,
+  "tool:toolu_01Lgkv9nfTxgcWfhM25ZssC2": false,
+  "tool:toolu_01KDibapt17BEsQSihxmt7Le": false,
+  "tool:toolu_01Um5HJdFCh3EKE9PT1dzMj8": false,
+  "tool:toolu_01NeEF9hmoKQiRkhnHu9oZzv": false,
+  "msg:47:0": false
+ },
+ "probes": [
+  {
+   "fact": "src/size.js parses \"10MB\" as decimal (1000*1000 = 10,000,000 bytes) but the mobile apps enforce binary units, 10*1024*1024 = 10,485,760 bytes; files between those two sizes are within mobile's promise but rejected by the server",
+   "question": "Why are uploads just under the mobile app's 10 MB limit being rejected by the server?",
+   "entryIds": [
+    "tool:toolu_01ExED8hR4QaRrdg9C1jpCCs",
+    "msg:19:0"
+   ]
+  },
+  {
+   "fact": "Fix constraints: the limit is 10 MiB (10*1024*1024 bytes) and a file of exactly that size is allowed; keep the 413 status; the error message must be exactly \"File too large: max 10 MiB\" since the apps match on that string; don't change config/upload.json because the ops dashboard parses it; storage quotas are sold in decimal gigabytes and those quota numbers must not change",
+   "question": "What are the exact constraints for the upload-size fix (limit value, status, error message, config file, quotas)?",
+   "entryIds": [
+    "msg:20"
+   ]
+  },
+  {
+   "fact": "src/quota.js also calls parseSize, for decimal GB plan sizes (free=1GB, pro=5GB, team=50GB) — any change to parseSize's units must leave quota.js's decimal behavior untouched",
+   "question": "What else besides validate.js calls parseSize, and what would break if its default units changed?",
+   "entryIds": [
+    "tool:toolu_01KoxjVtHrcxEpc32mbwcLUK",
+    "msg:20"
+   ]
+  },
+  {
+   "fact": "parseSize is called from src/validate.js, src/quota.js, and test/size.test.js; the existing test expects parseSize('512KB')===512_000 and parseSize('2 GB')===2_000_000_000 (decimal units)",
+   "question": "Where is parseSize called from, and what do its existing tests assume about its units?",
+   "entryIds": [
+    "tool:toolu_01MXbrHUJwWEe9yVzLV8nge8",
+    "tool:toolu_01FeBJyZnuR5VdfT2cBadsdE"
+   ]
+  },
+  {
+   "fact": "Fix plan: add a binary-units mode to parseSize (parseSize(text, { binary = false })) without changing its default decimal behavior, so quota.js's calls stay untouched and decimal",
+   "question": "How does the plan add binary units to parseSize without breaking quota.js?",
+   "entryIds": [
+    "msg:27:0"
+   ]
+  },
+  {
+   "fact": "Later constraint from product: PDFs get a bigger limit, 25 MiB for application/pdf, 10 MiB for everything else, and the error message must show the matching number, e.g. \"File too large: max 25 MiB\"",
+   "question": "What per-type size limit did product add after the initial fix plan?",
+   "entryIds": [
+    "msg:28"
+   ]
+  },
+  {
+   "fact": "Updated fix plan: give validate.js a per-type limit via an in-code override for application/pdf (parseSize('25MB', { binary: true })), defaulting to the config value (parsed binary) for everything else, without touching config/upload.json",
+   "question": "How does the updated plan implement the per-type (PDF vs. other) size limit?",
+   "entryIds": [
+    "msg:29:0"
+   ]
+  }
+ ]
 }

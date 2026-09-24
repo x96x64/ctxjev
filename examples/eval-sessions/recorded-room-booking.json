@@ -429,6 +429,87 @@
    ]
   }
  ],
- "labels": {},
- "probes": []
+ "labels": {
+  "msg:0": true,
+  "tool:toolu_01SgzfE7A2FGbGnBFV8vMtRo": false,
+  "tool:toolu_011mLMkwEhgaKZZKHuRdahak": false,
+  "tool:toolu_013fbbgQmqQfLxYsm3QbY6Xb": true,
+  "tool:toolu_01AzKCXM8nJtxe9u8iR59bq4": true,
+  "tool:toolu_01VuBooL3vyuxJbc47jb94XS": true,
+  "tool:toolu_01Byi172eMjvYPTwZPbumASf": true,
+  "tool:toolu_01GoVDMHWMSzynakcXweiAu1": false,
+  "tool:toolu_0169P1zwHrk1qjz6JmHkXCNo": false,
+  "tool:toolu_01GmpeJCDHYdFb5NybsG6PJz": false,
+  "tool:toolu_01JiC1Y331iJmaxyxrqTnrGS": true,
+  "msg:19:0": true,
+  "msg:20": true,
+  "tool:toolu_01BFy3MZVL2KBGEbBmyiJEs5": true,
+  "tool:toolu_01NhFy9tVLbFw7iD8WP3DDPZ": false,
+  "tool:toolu_01LxTqCMVtqxEfkp6iFCVZvp": false,
+  "msg:27:0": true,
+  "msg:28": true,
+  "msg:29:0": true,
+  "msg:30": false,
+  "tool:toolu_01JZ35yws6xvrfmBZJtDLcqH": false,
+  "tool:toolu_01AHMpZSde3CTtJC3hnU3sWK": false,
+  "tool:toolu_01GtqJkqPJqsLBTRs6G9jf31": false,
+  "msg:37:0": false
+ },
+ "probes": [
+  {
+   "fact": "canBook compares time strings lexicographically ('<', '>='), which only works when every time is zero-padded ('09:00'); mobile v3.0 (released 9/19) started sending non-zero-padded times like '9:30'/'7:30', breaking the INVALID_RANGE/OUT_OF_HOURS/OVERLAP comparisons",
+   "question": "Why do mobile bookings get wrongly rejected or wrongly accepted?",
+   "entryIds": [
+    "tool:toolu_01AzKCXM8nJtxe9u8iR59bq4",
+    "msg:19:0"
+   ]
+  },
+  {
+   "fact": "The commit titled 'loosen mobile v3.0's time input format' is an empty/no-op commit — its tree hash is identical to its parent's — so the string-comparison bug predates it and was only exposed once v3.0 started sending unpadded times",
+   "question": "Did the v3.0-related commit actually change the comparison logic?",
+   "entryIds": [
+    "tool:toolu_01JiC1Y331iJmaxyxrqTnrGS",
+    "msg:19:0"
+   ]
+  },
+  {
+   "fact": "Log evidence: suzuki's '9:30-11:00' request was wrongly rejected as INVALID_RANGE; kato's '7:30-9:00' wrongly succeeded despite being before business hours; ito's second booking '9:45-10:15' on room B wrongly succeeded despite overlapping an existing 09:00-10:00 booking",
+   "question": "What specific booking requests failed or wrongly succeeded, and how?",
+   "entryIds": [
+    "tool:toolu_013fbbgQmqQfLxYsm3QbY6Xb",
+    "msg:19:0"
+   ]
+  },
+  {
+   "fact": "Fix constraints from admin: back-to-back bookings that end/start at the exact same time are OK (a 10:00 end followed by a 10:00 start); business hours are 8:00-22:00, ending exactly at 22:00 is OK; the error code names OVERLAP/OUT_OF_HOURS/INVALID_RANGE must not change since the frontend depends on them; times may arrive as either '9:30' or '09:30'; canBook(existing, request)'s shape must stay the same",
+   "question": "What are admin's rules for the boundary cases, error codes, time formats, and function signature?",
+   "entryIds": [
+    "msg:20"
+   ]
+  },
+  {
+   "fact": "src/api.js:6 is the only production caller of canBook; request times come from the client unnormalized, and existing reservations were saved via store.add(request) with the same raw (possibly unpadded) strings, so both request and existing can mix zero-padded and non-padded formats; test/booking.test.js only ever uses uniform '09:00'-style times, so this bug was never caught by the tests",
+   "question": "Where is canBook called from, and could the stored 'existing' reservations also have unpadded times?",
+   "entryIds": [
+    "tool:toolu_01VuBooL3vyuxJbc47jb94XS",
+    "tool:toolu_01BFy3MZVL2KBGEbBmyiJEs5",
+    "tool:toolu_01Byi172eMjvYPTwZPbumASf",
+    "msg:27:0"
+   ]
+  },
+  {
+   "fact": "Later constraint from admin: a 15-minute cleaning buffer is now required between bookings in the same room (15 minutes after the previous one ends, and 15 minutes before the next one starts), replacing the earlier 'touching exactly is OK' rule; it does not apply to other rooms",
+   "question": "What new buffer rule did admin add, and what did it replace?",
+   "entryIds": [
+    "msg:28"
+   ]
+  },
+  {
+   "fact": "Fix plan: add a private toMinutes('H:MM'|'HH:MM') helper converting to minutes-since-midnight, apply it to request.start/end AND to every existing reservation's r.start/r.end (since existing may also be stored unpadded), and to OPEN/CLOSE (480/1320); canBook's signature and the error code names stay unchanged",
+   "question": "What is the planned fix for the time-comparison bug?",
+   "entryIds": [
+    "msg:29:0"
+   ]
+  }
+ ]
 }

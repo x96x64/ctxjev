@@ -426,6 +426,94 @@
    ]
   }
  ],
- "labels": {},
- "probes": []
+ "labels": {
+  "msg:0": true,
+  "msg:1:0": false,
+  "tool:toolu_01SZMUgPjiVKKiBJSaV5c4FX": false,
+  "tool:toolu_01VzJmoVrmQEmMTAwCtQpszB": true,
+  "tool:toolu_0196n5XH1Lgyo23uJf2SdNwH": true,
+  "tool:toolu_01Wv32MVBq4QMzPsBJoD1y6H": false,
+  "tool:toolu_011Msg9VP6ipLxuV5gAwUijP": true,
+  "tool:toolu_01LxepquSstnZJKk93zrBD9Z": true,
+  "tool:toolu_01DPs6TfBRSaKw3QqBuDxVmf": true,
+  "tool:toolu_012CQg9e8CzVCvWvdVeUoqdr": false,
+  "tool:toolu_01V1xWd1yud8LgzXfBrrW9LG": false,
+  "msg:19:0": true,
+  "msg:20": true,
+  "tool:toolu_01SEWpkSQtG3omGy4mnC5co8": true,
+  "tool:toolu_01HumtY6gVd5sxqLxEdLt3gT": false,
+  "tool:toolu_01R3gjfv3g2RemSaLoCQeA9p": false,
+  "msg:27:0": true,
+  "msg:28": true,
+  "msg:29:0": true,
+  "msg:30": false,
+  "msg:31:0": false,
+  "tool:toolu_01VowF7S3YQgAX4KNEaAKSHk": false,
+  "msg:33:0": false,
+  "tool:toolu_01AQ7Apz2G4LaE4uLKgX378m": false,
+  "tool:toolu_01V4deZzUuctehdcWE8HniXK": false,
+  "msg:37:0": false
+ },
+ "probes": [
+  {
+   "fact": "applyCoupons has no floor at zero (a negative total becomes a refund) and no dedup (the same code applies every time it's repeated)",
+   "question": "What are the bugs in applyCoupons that cause absurd or negative discounts?",
+   "entryIds": [
+    "tool:toolu_0196n5XH1Lgyo23uJf2SdNwH",
+    "msg:19:0"
+   ]
+  },
+  {
+   "fact": "Order #88270 (subtotal $15.00, code BIGSPENDER = $20 off fixed) computes 1500-2000=-500, exactly the -$5.00 refund in the log; #88251 applied FIVEOFF three times",
+   "question": "Which flagged orders reproduce which bug, and how?",
+   "entryIds": [
+    "tool:toolu_01VzJmoVrmQEmMTAwCtQpszB",
+    "msg:19:0"
+   ]
+  },
+  {
+   "fact": "Fix rules from finance: only one percentage coupon counts per order (the largest, others dropped entirely from applied), the percent comes off the subtotal before any fixed coupons, the total can never go below zero, applyCoupons(cart, codes) must keep returning { total, applied } in integer cents, and unknown codes stay ignored",
+   "question": "What are finance's rules for how the fixed applyCoupons should behave?",
+   "entryIds": [
+    "msg:20"
+   ]
+  },
+  {
+   "fact": "Later refinement from finance: fixed-amount coupons together can take off at most half of the original subtotal (before any coupons), and a code entered more than once only counts once",
+   "question": "What additional constraint did finance add after seeing the numbers?",
+   "entryIds": [
+    "msg:28"
+   ]
+  },
+  {
+   "fact": "src/receipt.js fully trusts applyCoupons's returned { total, applied } and computes subtotal(cart) itself separately for the receipt's Subtotal line — it never recomputes total",
+   "question": "How does receipt.js use applyCoupons, and does it recompute the total itself?",
+   "entryIds": [
+    "tool:toolu_011Msg9VP6ipLxuV5gAwUijP",
+    "msg:27:0"
+   ]
+  },
+  {
+   "fact": "The two existing tests in test/coupons.test.js are both single-code cases (SAVE10 alone, and an unknown code) — neither exercises stacking, so neither contradicts the new rules nor would catch a stacking regression",
+   "question": "Do the existing tests exercise coupon stacking, and would they need to change?",
+   "entryIds": [
+    "tool:toolu_01DPs6TfBRSaKw3QqBuDxVmf",
+    "msg:27:0"
+   ]
+  },
+  {
+   "fact": "Catalog values: SAVE10 10% percent, SPRING20 20% percent, HALF 50% percent, WELCOME5 $5 fixed, FIVEOFF $5 fixed, BIGSPENDER $20 fixed",
+   "question": "What are the coupon codes and their types/values?",
+   "entryIds": [
+    "tool:toolu_01LxepquSstnZJKk93zrBD9Z"
+   ]
+  },
+  {
+   "fact": "Fix plan: dedupe codes first (drop unknown, collapse repeats keeping first-occurrence order), pick the single highest-value percent coupon among the deduped codes (others dropped from applied), compute the percent discount off the original subtotal, then sum the fixed coupons (capped)",
+   "question": "What is the planned order of operations for the fixed applyCoupons?",
+   "entryIds": [
+    "msg:29:0"
+   ]
+  }
+ ]
 }

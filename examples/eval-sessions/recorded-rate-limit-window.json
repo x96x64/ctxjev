@@ -743,6 +743,111 @@
    ]
   }
  ],
- "labels": {},
- "probes": []
+ "labels": {
+  "msg:0": true,
+  "msg:1:0": false,
+  "tool:toolu_01LugoSzHkKBNNf3qc97Krix": false,
+  "tool:toolu_018S6xQZaN4JZKbwFd5wQTrT": true,
+  "tool:toolu_019UBDKGZX8VxPtNon5sFZW4": true,
+  "tool:toolu_01SibAfUqBYTaKdLQEa8iEpP": false,
+  "tool:toolu_01N17nVp1FmmvL88vY9VgBFn": true,
+  "tool:toolu_01Ji1Ao9MdRLpw62DYAso8Dv": true,
+  "tool:toolu_01HYzqzAwoM78CR6JtWLtM1L": true,
+  "tool:toolu_01XCUta4KiJWxatfpexBNVS7": false,
+  "tool:toolu_018svuQ17BvgKutneQA8b5Hf": false,
+  "tool:toolu_0139Lq9tqBbbbG9xZ8rpVvtH": true,
+  "tool:toolu_01SBsHR4ZZo2VTbpKyanKLnd": false,
+  "tool:toolu_01Spbx7N7LEVS7RAPjmLnZ2H": false,
+  "tool:toolu_01XcbUgovfQ4ig1W7cQLVmUV": false,
+  "tool:toolu_01T8rSLRhmSYg51abJ4hEcNa": false,
+  "tool:toolu_01Fs34scbXoAMecMtAnGwqAB": false,
+  "tool:toolu_01TTjacWcQy4y6eJGtFdcrEK": false,
+  "msg:33:0": true,
+  "msg:34": true,
+  "tool:toolu_01EFbLMaGAnTncbbF2f7d8S3": true,
+  "tool:toolu_01RtbXBA8U2NvJJS8rGk1JAR": true,
+  "tool:toolu_01AewqvTdrRXUSEyX8noBEzp": false,
+  "tool:toolu_0136qvJUfzSdRhA4xFCgwooB": false,
+  "tool:toolu_01BwZVDUmhXoxzWZWZtfdxHS": false,
+  "tool:toolu_01TJNFaX8yCbujcuYMfPtnqV": true,
+  "msg:47:0": true,
+  "msg:48": true,
+  "tool:toolu_01KQU1Fx2ZThDpHtZrnUqB4W": false,
+  "msg:51:0": true,
+  "msg:52": false,
+  "msg:53:0": false,
+  "tool:toolu_01KkbwYpHmHHSUzTHFpHPG7V": false,
+  "tool:toolu_01AHhX64LCdRSPH9Pd6VbAxJ": false,
+  "msg:57:0": false,
+  "tool:toolu_015HHHoEZXiuyfhofDxpBsuA": false,
+  "tool:toolu_015sZvLZEzkLBxNFX6Cot8SV": false,
+  "msg:61:0": false,
+  "tool:toolu_01YWTj28wSkkynUj7V7Jg63o": false,
+  "msg:63:0": false
+ },
+ "probes": [
+  {
+   "fact": "Root cause: rateLimiter.js divides now() by 1000 then again by windowMs (which is already in ms), making the real window ~1000x longer than configured (16h40m instead of 60s)",
+   "question": "Why do customers stay rate-limited for hours instead of the configured 60 seconds?",
+   "entryIds": [
+    "tool:toolu_019UBDKGZX8VxPtNon5sFZW4",
+    "tool:toolu_01N17nVp1FmmvL88vY9VgBFn",
+    "msg:33:0"
+   ]
+  },
+  {
+   "fact": "The limit itself must stay 100 requests per 60 seconds, and config/limits.json must not be changed because the ops dashboard parses it",
+   "question": "What must the fix NOT change about the rate limit values or config file?",
+   "entryIds": [
+    "msg:34"
+   ]
+  },
+  {
+   "fact": "Limiting must key on the x-api-key header (apiKeyOf), falling back to client IP only when a request has no key, because mobile customers share carrier NAT IPs",
+   "question": "What should the limiter key requests on, and when should it fall back to IP?",
+   "entryIds": [
+    "msg:34"
+   ]
+  },
+  {
+   "fact": "A blocked request must get a 429 with a Retry-After header: whole seconds until the window resets, rounded up, and never 0",
+   "question": "What must a 429 response include, and how is that value computed?",
+   "entryIds": [
+    "msg:34"
+   ]
+  },
+  {
+   "fact": "Requests with header x-internal-health: 1 (the internal health checker) must never be rate limited",
+   "question": "Which requests must bypass the rate limiter entirely?",
+   "entryIds": [
+    "msg:48"
+   ]
+  },
+  {
+   "fact": "src/auth.js already exports apiKeyOf(req) reading req.headers['x-api-key'], but it is currently unused anywhere in the codebase",
+   "question": "Is there already a helper for reading the API key, and is it wired up anywhere yet?",
+   "entryIds": [
+    "tool:toolu_01RtbXBA8U2NvJJS8rGk1JAR",
+    "tool:toolu_01TJNFaX8yCbujcuYMfPtnqV",
+    "msg:47:0"
+   ]
+  },
+  {
+   "fact": "src/server.js is the only production caller of createLimiter, building it once at startup; src/middleware.js has no Retry-After today and the limiter's internal window/count state isn't exposed to the caller",
+   "question": "Where is the limiter wired up, and what does the current middleware do on a block?",
+   "entryIds": [
+    "tool:toolu_0139Lq9tqBbbbG9xZ8rpVvtH",
+    "tool:toolu_01Ji1Ao9MdRLpw62DYAso8Dv",
+    "msg:47:0"
+   ]
+  },
+  {
+   "fact": "Both existing rateLimiter.test.js tests freeze now() at 0, so they pass unmodified under both the buggy and fixed formula and don't need to change; metrics.test.js is untouched",
+   "question": "Do the existing tests need to change for the fix?",
+   "entryIds": [
+    "tool:toolu_01HYzqzAwoM78CR6JtWLtM1L",
+    "msg:51:0"
+   ]
+  }
+ ]
 }

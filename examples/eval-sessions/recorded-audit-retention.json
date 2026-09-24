@@ -632,6 +632,103 @@
    ]
   }
  ],
- "labels": {},
- "probes": []
+ "labels": {
+  "msg:0": true,
+  "tool:toolu_01T6Znz1CkkQ33vcG8Q69Puf": false,
+  "tool:toolu_01QKDiD4DqYxNhEQjCnV6uUT": true,
+  "tool:toolu_01NytUA6mDtUE4SG6YQfLHxx": false,
+  "tool:toolu_01D7qjiLPVvMQHjnFkmf8NUA": true,
+  "tool:toolu_01Cz6VPN7Wyk62YxTDcFFQsU": false,
+  "tool:toolu_015LMT27LgqZ7VxE8oHeDZjP": true,
+  "tool:toolu_01SE5vXtiKErTnbZzEuzHEN8": false,
+  "tool:toolu_015LH5H52fMRV9e5ntEgPzwR": false,
+  "tool:toolu_01PbmPhR4NnvpeyviRo1fdae": false,
+  "tool:toolu_01UQophDuXdZWX3y2b8GJbtR": true,
+  "tool:toolu_0139iCuWTPsVvYfceLxpmUaQ": false,
+  "tool:toolu_01MkyX2jUuebhWPsUHurNPdU": false,
+  "tool:toolu_01YSR1bkK4gWG1Rp7H3trgmr": false,
+  "tool:toolu_01FvDJytnmQxwbuMWaEpVQR7": true,
+  "msg:29:0": true,
+  "msg:30": true,
+  "tool:toolu_015twqc53jFq29Zdp9HGvLuV": true,
+  "tool:toolu_01Vq1zS1YtLYEkm9c8Yehtn5": true,
+  "tool:toolu_01BXK31L1Y5hFTqLf9vMiXkj": true,
+  "tool:toolu_01RUED3oBujbfhnerTsTMV6w": true,
+  "tool:toolu_01ENtuVQV52zmkbmBb67QWov": false,
+  "tool:toolu_012rnDuVrDh6aJo4HKj5wFhg": false,
+  "msg:43:0": true,
+  "msg:44": true,
+  "msg:45:0": true,
+  "msg:46": false,
+  "msg:47:0": false,
+  "tool:toolu_01C6hCHpsg3hMbG1nY5q6Rnm": false,
+  "tool:toolu_016FHW98kwm3xfCKKxAFGxXN": false,
+  "tool:toolu_012ETb7GzbCZR2JxBebBHz7b": false,
+  "tool:toolu_01282vndNxhGBri7FQDtHgkg": false,
+  "msg:55:0": false
+ },
+ "probes": [
+  {
+   "fact": "DAY is defined in seconds (86,400) in src/retention.js, but now/createdAt are in milliseconds, so 90*DAY = 7,776,000 is treated as milliseconds, only ~2.16 hours instead of 90 days",
+   "question": "Why did the nightly purge delete so much of the audit log?",
+   "entryIds": [
+    "tool:toolu_01D7qjiLPVvMQHjnFkmf8NUA",
+    "tool:toolu_01FvDJytnmQxwbuMWaEpVQR7",
+    "msg:29:0"
+   ]
+  },
+  {
+   "fact": "The purge deleted 1,847,220 of 1,851,904 events; security's audit query for 2026-09-14..2026-09-20 returned 0 rows with the oldest surviving event at 2026-09-20T23:44:10Z; the legal hold list for case L-2291 was in the purged range",
+   "question": "What did the purge log and the security team's follow-up query show?",
+   "entryIds": [
+    "tool:toolu_01QKDiD4DqYxNhEQjCnV6uUT",
+    "msg:29:0"
+   ]
+  },
+  {
+   "fact": "Legal's retention rules for the fix: category 'security' events are kept 400 days, everything else 90 days; any entry with legalHold: true is never purged regardless of age; selectForPurge(entries, now) must keep its exact signature since the purge script and compliance report both call it; scripts/purge.js must not be touched, its dry-run default was signed off by legal",
+   "question": "What are legal's retention rules and constraints for the fix?",
+   "entryIds": [
+    "msg:30"
+   ]
+  },
+  {
+   "fact": "Call sites: scripts/purge.js calls selectForPurge(events) with no now argument, relying on the default, and must not be edited; src/report.js's complianceReport passes its own now through to selectForPurge(entries, now) to compute duePurge",
+   "question": "Which call sites depend on selectForPurge, and how do they call it?",
+   "entryIds": [
+    "tool:toolu_015twqc53jFq29Zdp9HGvLuV",
+    "msg:43:0"
+   ]
+  },
+  {
+   "fact": "Categories in use, per docs/retention.md: login, permission, export, security, app",
+   "question": "What audit event categories exist?",
+   "entryIds": [
+    "tool:toolu_01RUED3oBujbfhnerTsTMV6w",
+    "msg:43:0"
+   ]
+  },
+  {
+   "fact": "Legal's boundary clarification: an event is purged only once it's MORE than its retention period old; an event exactly 90 days old, to the millisecond, stays",
+   "question": "How exactly should the age boundary be counted?",
+   "entryIds": [
+    "msg:44"
+   ]
+  },
+  {
+   "fact": "Planned fix in src/retention.js only: RETENTION_DAYS = { security: 400 }, DEFAULT_RETENTION_DAYS = 90, an entry with legalHold is always kept, and createdAt < now - days*DAY_MS (strict less-than) already satisfies the exact-boundary rule",
+   "question": "What is the planned fix for selectForPurge, and does it already satisfy the boundary rule?",
+   "entryIds": [
+    "msg:45:0"
+   ]
+  },
+  {
+   "fact": "Existing tests: test/retention.test.js has one test asserting an event created at time 0 is purged when now is 1000 days later; test/report.test.js asserts complianceReport counts entries per category",
+   "question": "What do the existing tests for retention and the compliance report check?",
+   "entryIds": [
+    "tool:toolu_01UQophDuXdZWX3y2b8GJbtR",
+    "tool:toolu_01Vq1zS1YtLYEkm9c8Yehtn5"
+   ]
+  }
+ ]
 }

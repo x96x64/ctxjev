@@ -571,6 +571,93 @@
    ]
   }
  ],
- "labels": {},
- "probes": []
+ "labels": {
+  "msg:0": true,
+  "tool:toolu_016cqjY35enANpnxUmzrFxCM": false,
+  "tool:toolu_01GYg2F9eJwTK7qJrkUG4B3Y": true,
+  "tool:toolu_018rcUA7RtXhhrcv7r1oDpvm": true,
+  "tool:toolu_01GtTSWdetwF75cjGQvNMtcq": false,
+  "tool:toolu_01WgdBGS2Xsn2FtruMNoPcuU": false,
+  "tool:toolu_01LQMzfh7pXyVhmpAftQV2pU": true,
+  "tool:toolu_0163JtuLxFkYcvGFWez3RuAj": false,
+  "tool:toolu_01Bfm2didEZZiG3mVzBdUEew": true,
+  "tool:toolu_018zs35WJ2NzrXRfhC5qYDdz": false,
+  "tool:toolu_01VssEmjQBCoxY1tbSYNgQXz": false,
+  "tool:toolu_01AxDXqzV8GxcYBuJRie3UB9": true,
+  "tool:toolu_01E7UF8zWSGR4TvvXnMazKmR": false,
+  "tool:toolu_01HsqFVv5k3e7MCnTxTRqEN8": false,
+  "tool:toolu_011gwr3834Mk95ivoAuvKKeA": false,
+  "tool:toolu_016aZ8pZdQ1vqwVAHAx9M5RM": false,
+  "msg:31:0": true,
+  "msg:32": true,
+  "tool:toolu_01CToyGop298D6eZA1ED15fq": true,
+  "msg:35:0": true,
+  "msg:36": true,
+  "msg:37:0": true,
+  "msg:38": false,
+  "tool:toolu_01QWxVaF2iNZXT7fMj5kZXgo": false,
+  "tool:toolu_016mbeMq5pyDSJTHc3po7Rny": false,
+  "msg:43:0": false,
+  "tool:toolu_01QTPM6cD7SJFPCaqXCTKF7B": false,
+  "msg:45:0": false,
+  "tool:toolu_013byzWKm7Ke4C7CLE17EjTK": false,
+  "tool:toolu_013WHWyyfziy3tnmSrPpx5rm": false,
+  "msg:49:0": false
+ },
+ "probes": [
+  {
+   "fact": "The free-shipping check compares the tax-INCLUDED amount (withTax = floor(subtotal*1.1)) against FREE_SHIPPING_THRESHOLD=5000, but the campaign promises free shipping at 5,000 yen or more BEFORE tax; so pre-tax subtotals from about 4,546 to 4,999 yen wrongly qualify as free, matching inquiry #3301's 212 orders/day",
+   "question": "Why are orders below the advertised 5,000-yen pre-tax threshold getting free shipping?",
+   "entryIds": [
+    "tool:toolu_018rcUA7RtXhhrcv7r1oDpvm",
+    "msg:31:0"
+   ]
+  },
+  {
+   "fact": "Okinawa and remote-island (離島) orders incur an extra 800-yen relay fee from the warehouse, but the current code never adds it when the free-shipping condition is met — it just returns 0, matching inquiries #3304 and #3307",
+   "question": "Why are Okinawa/remote-island customers seeing 0-yen shipping when a relay fee should apply?",
+   "entryIds": [
+    "tool:toolu_01GYg2F9eJwTK7qJrkUG4B3Y",
+    "msg:31:0"
+   ]
+  },
+  {
+   "fact": "Fix constraints from the team: free-shipping eligibility is based on the pre-tax subtotal >= 5,000 yen; Okinawa prefecture and remote-island (remoteIsland: true) orders still incur the 800-yen relay fee even when free-shipping conditions are met; when not free, only the normal regional fee applies (no relay fee added); shippingFee(order) must keep returning an integer yen value, used by the invoice service; config/regions.json's format must not change, the warehouse's tools read it",
+   "question": "What are the constraints for fixing shippingFee (threshold, relay fee, return type, config format)?",
+   "entryIds": [
+    "msg:32"
+   ]
+  },
+  {
+   "fact": "src/invoice.js's invoiceLines() calls shippingFee(order) and formats the result directly with toLocaleString, assuming an integer yen return; test/shipping.test.js currently only tests the normal regional fee for Tokyo and Hokkaido — there is no test yet for the free-shipping or relay-fee cases",
+   "question": "How does the invoice service use shippingFee's return value, and what do the existing tests cover?",
+   "entryIds": [
+    "tool:toolu_01LQMzfh7pXyVhmpAftQV2pU",
+    "tool:toolu_01Bfm2didEZZiG3mVzBdUEew",
+    "msg:35:0"
+   ]
+  },
+  {
+   "fact": "Per the README, src/shipping.js is also called by the invoice service and config/regions.json is also read directly by the warehouse's own tools, so its structure must stay the same",
+   "question": "Who else, outside this repo's own code, depends on shipping.js or regions.json?",
+   "entryIds": [
+    "tool:toolu_01AxDXqzV8GxcYBuJRie3UB9",
+    "msg:35:0"
+   ]
+  },
+  {
+   "fact": "Later change from sales: free-shipping eligibility must be based on the post-coupon pre-tax subtotal — order.couponDiscount (pre-tax yen), defaulting to 0 when absent, is subtracted before comparing to the threshold",
+   "question": "What did sales change about how the free-shipping threshold is determined?",
+   "entryIds": [
+    "msg:36"
+   ]
+  },
+  {
+   "fact": "Updated fix plan: netSubtotal = subtotal - (order.couponDiscount ?? 0); isFree = netSubtotal >= FREE_SHIPPING_THRESHOLD; isRelay = prefecture === '沖縄県' || remoteIsland === true; if isFree return isRelay ? 800 : 0, else return the normal regional fee — the relay/normal-fee logic itself is unaffected by the coupon",
+   "question": "What is the final planned implementation of shippingFee?",
+   "entryIds": [
+    "msg:37:0"
+   ]
+  }
+ ]
 }
