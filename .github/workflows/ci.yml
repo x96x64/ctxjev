@@ -56,3 +56,7 @@ jobs:
       - name: tasks.mjs --selftest
         working-directory: packages/core
         run: node eval/tasks.mjs --selftest
+      # Every eval number in README.md and PREREGISTRATION.md must match the saved results.
+      - name: check-docs
+        working-directory: packages/core
+        run: node eval/check-docs.mjs

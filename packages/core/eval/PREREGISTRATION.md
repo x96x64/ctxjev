@@ -105,6 +105,31 @@ the README says it has no demonstrated effect.
   the hook couldn't reach Jev at all without the proxy settings, and on a local rerun an 8s deadline
   still fell back to offline scoring on ordinary transcripts, so the comparison measured timeouts,
   not the digest. Neither change touches what the plugin scores or how the digest is built.
+- 2026-09-24, after all the results below, in response to an independent audit
+  (`docs/audits/2026-09-24-audit-ja.md`). None of this changes the plan above, the registered
+  measures, or the decisions already applied; the holdout has now been seen and analyzed, so
+  nothing computed on it from here on can confirm anything.
+  - **The secondary endpoint's raw output was never saved.** Step 4 wrote it to
+    `/tmp/run-holdout.json`, and the README cited +15.6 points [+5.1, +26.7], which matches neither
+    run recorded below. `eval/run.mjs` now saves everything it computes (`--out`), and the
+    registered command was re-run with its output kept in `eval/results/retention-holdout.json`
+    ("Saved re-run" below). Its values differ from both earlier runs because Jev's answers vary
+    between calls; the earlier runs stay in their table, marked as unverifiable.
+  - **Exploratory measure added: retention up to the fix request.** The registered measure counts
+    probes over the whole session. On the six holdout sessions the part after the cut point
+    (`cutAfterMessage`) holds a large share of the tokens but none of the labeled probes, while each
+    dev session labels one probe there, so plain truncation scores 0% on the holdout by
+    construction. The exploratory measure cuts each recorded session where the fix request arrives
+    (what `tasks.mjs` prunes), scores that history afresh, and leaves out probes stated only after
+    the cut. It is reported next to the registered measure, never instead of it, and decides nothing.
+  - **Exploratory comparisons added:** Jev against keyword overlap, random order, and the labels,
+    with the same session-resampling interval. The registered comparison is still Jev − recency.
+  - The heading "Steps (need Claude; not run yet)" above predates the run; the steps ran on
+    2026-09-24 (see Results). It's left as written, per this file's own rule.
+  - The process note at the end quoted step 3 with words step 3 doesn't contain. The quote is
+    corrected to step 3's actual wording.
+  - Every number in the Results section is now generated from `eval/results/` by
+    `eval/check-docs.mjs`, which CI runs; tables whose raw output was never saved are marked.
 
 ## Results
 
@@ -124,12 +149,14 @@ node eval/run.mjs --split holdout --runs 3
 
 Hidden acceptance tests passed, all six holdout tasks, 3 runs each (95% CI resamples tasks):
 
-| condition             | Claude Haiku 4.5   | Claude Sonnet 5    |
-| --------------------- | ------------------ | ------------------ |
-| `full`                 | 100% [100%, 100%]  | not run            |
-| `goal-only`            | 0% [0%, 0%]         | not run            |
-| `jev+user+marker`      | 100% [100%, 100%]  | 100% [100%, 100%]  |
-| `recency+user+marker`  | 100% [100%, 100%]  | 100% [100%, 100%]  |
+<!-- generated:prereg-primary -->
+| condition | Claude Haiku 4.5 | Claude Sonnet 5 |
+| --- | --- | --- |
+| `full` | 100% [100%, 100%] | not run |
+| `goal-only` | 0% [0%, 0%] | not run |
+| `jev+user+marker` | 100% [100%, 100%] | 100% [100%, 100%] |
+| `recency+user+marker` | 100% [100%, 100%] | 100% [100%, 100%] |
+<!-- /generated:prereg-primary -->
 
 Every task passed under both `full` and both pruned conditions, on both models, in all 3 runs (`en`
 and `ja` both 100% throughout); only `goal-only` (no history at all beyond the goal) failed, on
@@ -137,8 +164,10 @@ every task.
 
 Jev − recency (task success), same tasks resampled together:
 
-- Claude Haiku 4.5: **+0 pp, 95% CI [+0, +0]**
-- Claude Sonnet 5: **+0 pp, 95% CI [+0, +0]**
+<!-- generated:prereg-primary-diff -->
+- Claude Haiku 4.5: **0 pp, 95% CI [0, 0]**
+- Claude Sonnet 5: **0 pp, 95% CI [0, 0]**
+<!-- /generated:prereg-primary-diff -->
 
 ### Secondary endpoint: probe retention at a 25%/50% budget (ranking alone, `eval/run.mjs`)
 
@@ -146,6 +175,7 @@ Run once with `--json` and once for the printed table, per the steps above; both
 sets of Jev calls (Jev's answers vary between calls per fixture), so their point estimates differ
 slightly — both are reported:
 
+<!-- unverified: neither run's raw output was saved (the --json run went to /tmp); kept as recorded -->
 | run          | jev − recency at 25%        | jev − recency at 50%         |
 | ------------ | ---------------------------- | ----------------------------- |
 | `--json` run | +20.7 pp, 95% CI [+4.8, +38.9] | +22.7 pp, 95% CI [+13.3, +32.1] |
@@ -153,6 +183,55 @@ slightly — both are reported:
 
 The printed run is the one the preregistration names as the secondary endpoint (step 4's fourth
 command); its 25%-budget number is the one the decision rule below is applied to.
+
+#### Saved re-run (added 2026-09-24, see "Changes after registration")
+
+The same registered command, `node eval/run.mjs --split holdout --runs 3`, with `--out`. It
+re-measures material that has already been seen, so it records the numbers rather than confirming
+anything; it doesn't change the decision below.
+
+<!-- generated:prereg-secondary-rerun -->
+`retention-holdout.json`: commit `630072e`, clean tree, 3 Jev runs; Jev usage 54 requests, 316,767 input tokens (~$0.013).
+
+| run | jev − recency at 25% | jev − recency at 50% |
+| --- | --- | --- |
+| saved re-run | **+23.6 pp, 95% CI [+9.5, +37.7]** | +27.4 pp, 95% CI [+15.8, +37.2] |
+
+| ranking | probes retained at 25% | at 50% |
+| --- | --- | --- |
+| Jev | 23.6% | 62.5% |
+| Plain truncation (newest kept) | 0.0% | 35.1% |
+| Keyword overlap (`scorer: 'local'`, offline, free) | 28.3% | 66.7% |
+| Random order (mean of 20 seeds) | 26.5% | 58.7% |
+| The labels themselves (relevant entries first) | 32.7% | 97.9% |
+
+The 25%-budget interval's lower bound is above 0 here too. Jev retained less than a random ordering (23.6% vs. 26.5%) and less than keyword overlap (28.3%).
+<!-- /generated:prereg-secondary-rerun -->
+
+#### Exploratory: retention up to the fix request (not preregistered)
+
+Same file, same runs. Each recorded session is cut where the fix request arrives and scored afresh
+on that history; probes stated only after the cut are left out. See "Changes after registration"
+for why it was added. It decides nothing.
+
+<!-- generated:prereg-exploratory-at-cut -->
+| ranking | probes retained at 25% | at 50% |
+| --- | --- | --- |
+| Jev | 41.1% | 79.8% |
+| Plain truncation (newest kept) | 31.0% | 78.0% |
+| Keyword overlap (`scorer: 'local'`, offline, free) | 37.5% | 73.2% |
+| Random order (mean of 20 seeds) | 33.5% | 66.9% |
+| The labels themselves (relevant entries first) | 31.0% | 78.0% |
+
+| Jev minus | at 25% | at 50% |
+| --- | --- | --- |
+| recency | +10.1 [+0.7, +22.0] | +1.8 [−5.1, +8.3] |
+| local | +3.6 [−7.1, +15.3] | +6.5 [−10.1, +23.5] |
+| random | +7.6 [−2.4, +19.7] | +12.8 [+2.8, +22.9] |
+| labels | +10.1 [+0.7, +22.0] | +1.8 [−5.1, +8.3] |
+
+Probes left out because only the part after the cut states them: 0.
+<!-- /generated:prereg-exploratory-at-cut -->
 
 ### Plugin (`eval/plugin.mjs --split holdout`): not evaluated
 
@@ -204,5 +283,5 @@ mistake to sanity-check that the label files loaded correctly (it queries the li
 `jev` scorers). This happened after all six sessions were fully labeled by hand from content alone
 and before any label was reconsidered, so no label was chosen or adjusted with knowledge of a
 scorer's output — but it was still run before the labels were committed, which the preregistration's
-step 3 says not to do ("you must not run any scorer ... before all six sessions are labeled and
-committed"). Recorded here for transparency rather than left unmentioned.
+step 3 rules out ("Labeling is the only look at the holdout sessions allowed before step 4").
+Recorded here for transparency rather than left unmentioned.

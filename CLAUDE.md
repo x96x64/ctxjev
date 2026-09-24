@@ -71,6 +71,10 @@ cd packages/core && node eval/tasks.mjs --runs 2 --max-usd 4 --out eval/results/
                                 # `--run-offset N --merge` to add runs to saved results, and
                                 # `--split dev|holdout|all` (outcome/plugin/run.mjs take it too)
 node examples/eval-tasks/verify.mjs  # every task: template fails the hidden tests, solution passes
+cd packages/core && node eval/check-docs.mjs [--write]
+                                # README/PREREGISTRATION.md eval numbers vs. eval/results/ (CI runs
+                                # it); never type an eval number into a doc, --write generates it.
+                                # The evals need Node 22 (.nvmrc); the packages, Node 20+
 cd packages/core && node eval/plugin.mjs --runs 2 --max-usd 4.5 --out eval/results/plugin.json
                                 # the Claude Code plugin's hooks after a simulated compaction
 ```
