@@ -32,7 +32,7 @@ describe.skipIf(!process.env.TYPESAFE_API_KEY)('DEFAULT_POLICY against hand-labe
 
   for (const fixture of fixtures) {
     it(`${fixture.name}: never drops an entry ground truth marks relevant`, async () => {
-      const decisions = await pruneContext(fixture.entries, fixture.goal, DEFAULT_POLICY)
+      const decisions = await pruneContext(fixture.entries, fixture.goal, DEFAULT_POLICY, { scorer: 'jev' })
       const decisionByEntryId = new Map(decisions.map((d) => [d.entryId, d]))
 
       for (const [entryId, expectedRelevant] of Object.entries(fixture.groundTruth)) {

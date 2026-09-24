@@ -42,7 +42,10 @@ export type ScoreRelevanceArgs = {
 
 export async function scoreRelevanceTool({ goal, entries, recencyWeight }: ScoreRelevanceArgs) {
   const { usage, onUsage } = createUsageAccumulator()
-  const scored = await scoreEntries(entries, goal, recencyWeight ?? DEFAULT_POLICY.recencyWeight, { onUsage, cache: scoreCache })
+  // core's own default scorer is 'recency' as of 0.6.0 (see prune.ts), since the holdout eval tied
+  // Jev on task success. This tool's whole purpose is exposing Jev scoring, so it keeps asking for
+  // it explicitly rather than silently inheriting that default.
+  const scored = await scoreEntries(entries, goal, recencyWeight ?? DEFAULT_POLICY.recencyWeight, { onUsage, cache: scoreCache, scorer: 'jev' })
   return { scored, usage }
 }
 
@@ -60,7 +63,7 @@ export async function pruneHistoryTool({ goal, entries, recencyWeight, dropBelow
   validatePolicyOrdering(policy.dropBelow, policy.summarizeBelow)
 
   const { usage, onUsage } = createUsageAccumulator()
-  const decisions = await pruneContext(entries, goal, policy, { onUsage, cache: scoreCache })
+  const decisions = await pruneContext(entries, goal, policy, { onUsage, cache: scoreCache, scorer: 'jev' })
   const savings = summarizeSavings(entries, decisions)
   return { decisions, savings, usage }
 }

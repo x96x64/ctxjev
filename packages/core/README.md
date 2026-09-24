@@ -34,15 +34,17 @@ and the keep/drop/summarize decision is a plain threshold applied to Jev's typed
 npm install ctxjev-core
 ```
 
-Requires `TYPESAFE_API_KEY` in the environment. Get one at
-[console.typesafe.ai/settings/keys](https://console.typesafe.ai/settings/keys) (no waitlist).
-Without one, pass `{ scorer: 'recency' }` (newest kept, i.e. plain truncation) or
-`{ scorer: 'local' }` (keyword overlap): offline, nothing sent. On the task eval so far, recency
-with `pruneMessages()`'s defaults came within two runs of Jev (see the
-[main README](../../README.md#does-it-work)), so it's a reasonable choice, not just a fallback.
+No key needed by default: the default scorer is `'recency'` (newest kept, i.e. plain truncation),
+which needs no network and sends nothing. On a [preregistered holdout
+comparison](eval/PREREGISTRATION.md), it tied Jev on whether the agent finished the job (+0 points,
+95% CI [+0, +0]); see the [main README](../../README.md#does-it-work) for the full result,
+including where Jev's ranking did and didn't separate itself. Pass `{ scorer: 'jev' }` to opt in,
+which needs `TYPESAFE_API_KEY` (get one at
+[console.typesafe.ai/settings/keys](https://console.typesafe.ai/settings/keys), no waitlist), or
+`{ scorer: 'local' }` for offline keyword overlap instead.
 
-Entry content and the goal are sent to TypeSafe AI's Jev API. Every request passes through
-`redactSecrets()` first, masking common secret formats to `[REDACTED]` (best-effort, not
+With `scorer: 'jev'`, entry content and the goal are sent to TypeSafe AI's Jev API. Every request
+passes through `redactSecrets()` first, masking common secret formats to `[REDACTED]` (best-effort, not
 exhaustive). It's exported too, if you want to apply the same masking elsewhere.
 
 ## How It Works
@@ -105,8 +107,8 @@ the two per `PruningPolicy.recencyWeight` before `action` is decided.
 - `options.onUsage` (on `scoreEntries`/`pruneContext`) is an optional callback fired once per Jev
   request with that request's real `{ inputTokens, outputTokens }`, for cost tracking.
 - `options.cache` takes any `{ get, set }` score cache, checked before each Jev request.
-- `options.scorer: 'recency'` ranks by position alone (plain truncation); `'local'` scores by
-  keyword overlap with `localRelevance()`. Both are offline.
+- `options.scorer: 'recency'` (default) ranks by position alone (plain truncation); `'local'`
+  scores by keyword overlap with `localRelevance()`. Both are offline. `'jev'` opts in to Jev.
 - `options.scorer` also takes your own function (`CustomScorer`), to score with another model or
   a rule set. It gets the goal, a chunk of up to 50 entries (content already masked by
   `redactSecrets()`), and the batch's latest activity, and returns one relevance from 0 to 1 per

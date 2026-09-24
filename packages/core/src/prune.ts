@@ -22,10 +22,11 @@ export type ScoreEntriesOptions = {
   /** Checked before, and populated after, each Jev request — see `ScoreCache`. Jev only. */
   cache?: ScoreCache
   /**
-   * `'jev'` (default) asks Jev. `'local'` scores by keyword overlap with the goal, offline and
-   * much cruder. `'recency'` ranks by position alone, newest 1 to oldest 0: plain truncation, the
-   * baseline any other scorer has to beat. A function is used as-is (see `CustomScorer`). Only
-   * `'jev'` reads or writes `cache` and calls `onUsage`.
+   * `'recency'` (default) ranks by position alone, newest 1 to oldest 0: plain truncation. On the
+   * [preregistered holdout comparison](https://github.com/x96x64/ctxjev/blob/main/packages/core/eval/PREREGISTRATION.md),
+   * `'jev'` tied it on task success, so it's opt-in rather than the default; pass `scorer: 'jev'`
+   * to ask Jev instead, or `'local'` for offline keyword overlap. A function is used as-is (see
+   * `CustomScorer`). Only `'jev'` reads or writes `cache` and calls `onUsage`.
    */
   scorer?: 'jev' | 'local' | 'recency' | CustomScorer
 }
@@ -119,11 +120,11 @@ export async function scoreEntries(
   const verdicts =
     scorer === 'local'
       ? scoreLocally(entries, goal)
-      : scorer === 'recency'
-        ? scoreByRecency(entries)
+      : scorer === 'jev'
+        ? await scoreWithJev(entries, goal, options)
         : typeof scorer === 'function'
           ? await scoreWithCustom(entries, goal, scorer)
-          : await scoreWithJev(entries, goal, options)
+          : scoreByRecency(entries) // default: undefined or 'recency'
 
   const verdictByEntryId = new Map(verdicts.map((v) => [v.entryId, v]))
   const recencyByEntryId = computeRecency(entries)

@@ -5,13 +5,15 @@ and [CHANGELOG.md](CHANGELOG.md).
 
 ## Next
 
-1. **Run the preregistered holdout comparison** ([PREREGISTRATION.md](packages/core/eval/PREREGISTRATION.md)):
-   record the six holdout tasks, label them, run `jev+user+marker` against
-   `recency+user+marker` with Haiku 4.5 and Sonnet 5, and the plugin eval. Needs Claude.
-2. **Apply its decision rule.** Either Jev stays the default scorer, or `recency` becomes the
-   default and Jev an option; the README reports the holdout numbers either way.
-3. Token budgets with Claude's own token counting instead of `gpt-tokenizer`, if the holdout result
-   makes precise budgets matter.
+1. **Re-run the plugin's holdout comparison** (`eval/plugin.mjs --split holdout`): the first
+   attempt errored because the recording sandbox's hook subprocess couldn't reach Jev (see
+   [PREREGISTRATION.md](packages/core/eval/PREREGISTRATION.md)'s Results). Needs an environment
+   where `preCompact.js`'s narrowed subprocess environment can actually make outbound requests.
+2. **Look into why keyword overlap beat Jev on holdout retention** (28.3% vs. 15.6% at a 25%
+   budget) when it lost badly on dev (65% vs. 85%) — task phrasing overlapping the goal's words,
+   or a labeling difference between the two rounds, are the leading guesses; neither is confirmed.
+3. Token budgets with Claude's own token counting instead of `gpt-tokenizer`, if scorer choice
+   starts to hinge on budgets tighter than 25%.
 
 ## Constraints that shaped the design
 
@@ -49,6 +51,8 @@ and [CHANGELOG.md](CHANGELOG.md).
   - Goal inference fixed on real transcripts.
   - `/ctxjev:set-goal` made per-session.
   - Plugin state moved out of the project.
-  - `recency` added as a scorer.
-  - The eval split into dev and holdout, and the holdout comparison preregistered.
+  - The eval split into dev and holdout, and the holdout comparison preregistered — then run:
+    Jev tied plain truncation on task success (+0 points, 95% CI [+0, +0], two models, six unseen
+    tasks). **`recency` (plain truncation) is now the default scorer**; Jev is opt-in
+    (`scorer: 'jev'`). `ctxjev-mcp` is unaffected, since exposing Jev is its whole purpose.
   - The release gate made strict.

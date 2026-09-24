@@ -49,7 +49,7 @@ describe('formatReport', () => {
   })
 
   it('includes token usage and an estimated cost', () => {
-    const report = stripAnsi(formatReport(entries, decisions, savings, usage))
+    const report = stripAnsi(formatReport(entries, decisions, savings, usage, 'jev'))
     expect(report).toContain('500')
     expect(report).toContain('55')
     expect(report).toMatch(/\$0\.00002/)

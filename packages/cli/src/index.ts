@@ -42,8 +42,9 @@ ${pc.bold('Options')}
   --goal <text>              Overrides the transcript's own goal (or the inferred one), if any.
   --drop-below <0-1>         Relevance floor below which an entry is dropped.      (default ${DEFAULT_POLICY.dropBelow})
   --summarize-below <0-1>    Relevance floor below which an entry is summarized.   (default ${DEFAULT_POLICY.summarizeBelow})
-  --scorer <name>            jev (default), local (keyword overlap, offline), or recency (by
-                             position alone, offline: plain truncation). Only jev sends anything.
+  --scorer <name>            recency (default: by position alone, offline, plain truncation),
+                             local (keyword overlap, offline), or jev (sends entry content to Jev;
+                             see console.typesafe.ai). Pass --scorer jev to opt in.
   --offline                  Same as --scorer local.
   --no-cache                 Don't read or write the score cache (${DEFAULT_CACHE_PATH}).
   --json                     analyze: print machine-readable JSON instead of the report.
@@ -124,12 +125,12 @@ async function setUp(argv: string[], extraOptions: Record<string, { type: 'strin
   // missing the key, pointing at a bad path, AND passing a bad threshold should hear about all
   // three in one run, not fix one only to discover the next on the following try.
   const problems: string[] = []
-  const requested = typeof values.scorer === 'string' ? values.scorer : values.offline ? 'local' : 'jev'
-  const scorer: Scorer = SCORERS.includes(requested as Scorer) ? (requested as Scorer) : 'jev'
+  const requested = typeof values.scorer === 'string' ? values.scorer : values.offline ? 'local' : 'recency'
+  const scorer: Scorer = SCORERS.includes(requested as Scorer) ? (requested as Scorer) : 'recency'
   if (!SCORERS.includes(requested as Scorer)) problems.push(`--scorer must be one of ${SCORERS.join(', ')}, got "${requested}"`)
   else if (values.offline && values.scorer !== undefined && values.scorer !== 'local') problems.push('--offline means --scorer local; pass one or the other')
   else if (scorer === 'jev' && !process.env.TYPESAFE_API_KEY) {
-    problems.push('TYPESAFE_API_KEY is not set — get one at console.typesafe.ai/settings/keys, or pass --scorer local / --scorer recency')
+    problems.push('TYPESAFE_API_KEY is not set — get one at console.typesafe.ai/settings/keys, or drop --scorer jev to score offline')
   }
 
   let raw: string | undefined

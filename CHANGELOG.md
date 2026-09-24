@@ -31,8 +31,12 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
   no longer end up in the goal.
 - `ctxjev-claude`: a slash command you ran (such as `/ctxjev:set-goal`) no longer takes one of the
   preserved slots.
-- `ctxjev-core`, `ctxjev-cli`: `scorer: 'recency'` / `--scorer recency` ranks by position alone,
-  i.e. plain truncation, which the task eval found nearly as good as Jev. The default is still Jev.
+- `ctxjev-core`, `ctxjev-cli`, `ctxjev-claude`'s `pruneMessages()`: **the default scorer is now
+  `'recency'` (plain truncation), not Jev.** On a preregistered comparison against six tasks never
+  used to design ctxjev, Jev and truncation finished the same tasks equally often (+0 points, 95%
+  CI [+0, +0] on two models) — see [Does It Work?](README.md#does-it-work). Pass `scorer: 'jev'` /
+  `--scorer jev` to opt in; `ctxjev-mcp`, which exists to expose Jev, is unaffected and keeps
+  asking for it. This is a breaking default change for anyone relying on the old implicit `'jev'`.
 - `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`: cached Jev scores account for the latest activity, so
   an old failure isn't still called relevant after a later run showed it fixed. Earlier cache
   entries are ignored.

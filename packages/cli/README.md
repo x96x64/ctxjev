@@ -18,11 +18,13 @@
 
 ```bash
 npm install -g ctxjev-cli
-export TYPESAFE_API_KEY=...   # console.typesafe.ai/settings/keys (no waitlist)
 ```
 
-No key yet? `--scorer recency` (newest kept, like plain truncation) or `--scorer local` (keyword
-overlap) score offline, with nothing sent anywhere.
+No key needed: the default, `--scorer recency` (newest kept, plain truncation), scores offline and
+sends nothing, and tied Jev on a [preregistered holdout comparison](../core/eval/PREREGISTRATION.md)
+(see the [main README](../../README.md#does-it-work)). `--scorer local` (keyword overlap) is also
+offline. To opt in to Jev instead: `export TYPESAFE_API_KEY=...`
+(console.typesafe.ai/settings/keys, no waitlist) and pass `--scorer jev`.
 
 ## Usage
 
@@ -63,7 +65,7 @@ estimated.
 | `--summarize-below <0-1>` | Relevance floor below which an entry is summarized (default `0.6`). |
 | `--json` | Prints machine-readable JSON (`{ decisions, savings, usage, scorer }`) instead of the report. |
 | `--no-cache` | Doesn't read or write the score cache (`~/.cache/ctxjev/score-cache.json`). |
-| `--scorer <name>` | `jev` (default), `local` (keyword overlap), or `recency` (position alone: plain truncation). Only `jev` sends anything or needs a key. |
+| `--scorer <name>` | `recency` (default: position alone, plain truncation), `local` (keyword overlap), or `jev` (opt in; needs `TYPESAFE_API_KEY`). Only `jev` sends anything. |
 | `--offline` | Same as `--scorer local`. |
 | `--out <file>` | `prune`: writes the result here instead of to stdout. |
 | `--protect-last <n>` | `prune`, Anthropic Messages only: never touches the last n messages (default 2). |

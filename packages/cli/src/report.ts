@@ -23,7 +23,7 @@ export function formatReport(
   decisions: PruneDecision[],
   savings: SavingsReport,
   usage: JevUsage,
-  scorer: 'jev' | 'local' | 'recency' = 'jev',
+  scorer: 'jev' | 'local' | 'recency' = 'recency',
 ): string {
   const decisionByEntryId = new Map(decisions.map((d) => [d.entryId, d]))
   const lines: string[] = []

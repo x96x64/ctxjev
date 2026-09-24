@@ -28,7 +28,7 @@ describe.skipIf(!process.env.TYPESAFE_API_KEY)('pruneContext (live)', { retry: 2
       },
     ]
 
-    const decisions = await pruneContext(entries, 'Fix a bug where checkout charges customers twice.')
+    const decisions = await pruneContext(entries, 'Fix a bug where checkout charges customers twice.', undefined, { scorer: 'jev' })
     const byId = new Map(decisions.map((d) => [d.entryId, d]))
 
     expect(byId.get('relevant')!.relevance).toBeGreaterThan(byId.get('irrelevant')!.relevance)
@@ -44,7 +44,7 @@ describe.skipIf(!process.env.TYPESAFE_API_KEY)('pruneContext (live)', { retry: 2
     const cache: ScoreCache = { get: (k) => store.get(k), set: (k, v) => store.set(k, v) }
 
     const usages: number[] = []
-    await scoreEntries(entries, goal, undefined, { cache, onUsage: (u) => usages.push(u.inputTokens) })
+    await scoreEntries(entries, goal, undefined, { cache, scorer: 'jev', onUsage: (u) => usages.push(u.inputTokens) })
     expect(usages[0]).toBeGreaterThan(0)
     expect(store.size).toBe(1)
 
@@ -53,6 +53,7 @@ describe.skipIf(!process.env.TYPESAFE_API_KEY)('pruneContext (live)', { retry: 2
     const secondEntries: Entry[] = [{ ...entries[0], id: 'different-id' }]
     const secondScored = await scoreEntries(secondEntries, goal, undefined, {
       cache,
+      scorer: 'jev',
       onUsage: (u) => usages.push(u.inputTokens),
     })
 
