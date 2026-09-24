@@ -48,6 +48,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 import { DEFAULT_POLICY, messagesToEntries, pruneMessages, scoreEntries } from '../dist/index.js'
+import { bootstrap } from './lib.mjs'
 import { inSplit, parseSplit, sessionSplit } from './split.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -252,6 +253,18 @@ for (const [strategy, r] of Object.entries(retentionSummary)) {
   const cols = BUDGETS.map((b) => `${pct(r[b].probes)} / ${pct(r[b].relevantTokens)}`.padEnd(22)).join('')
   const langs = [...Object.entries(r.byLanguage), ...Object.entries(r.byKind)].map(([key, lr]) => `${key} ${pct(lr[0.25].probes).trim()}/${pct(lr[0.5].probes).trim()}`).join('  ')
   log(`  ${strategy.padEnd(9)}${cols}${langs}`)
+}
+// Jev minus plain truncation, per session, with a 95% interval that resamples whole sessions: the
+// secondary endpoint in PREREGISTRATION.md.
+if (scorers.includes('jev') && heldOut.length > 1) {
+  const perSession = heldOut.map((f) => ({ name: f.name, jev: averageRetention(results.jev[f.name].map((r) => r.retention)), recency: baselines[f.name].recency }))
+  summary.retentionDifference = {}
+  for (const b of BUDGETS) {
+    const diff = (rows) => mean(rows.map((r) => r.jev[b].probes - r.recency[b].probes))
+    const [low, high] = bootstrap(perSession, (r) => r.name, diff)
+    summary.retentionDifference[b] = { probes: diff(perSession), low, high }
+    log(`  jev − recency at ${b * 100}%: ${(diff(perSession) * 100).toFixed(1)} points of probes retained, 95% CI [${(low * 100).toFixed(1)}, ${(high * 100).toFixed(1)}]`)
+  }
 }
 log()
 

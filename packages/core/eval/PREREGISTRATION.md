@@ -46,6 +46,24 @@ split for this reason.
   `recency`, and Jev becomes something to opt in to with `scorer: 'jev'`. The README says why.
 - Either way, the numbers go into the README next to the dev results, labeled as holdout.
 
+## Secondary endpoint: what the ranking keeps
+
+Task success may not separate the scorers even if Jev ranks better: the tasks' constraints come
+from the user, which `keepUserText` keeps under any scorer, and an agent can re-read a file it lost.
+So the ranking itself is also measured, where it can differ:
+
+- Measure: share of each session's probes (facts the task needs later) that survive
+  `pruneMessages()` at a 25% budget, ranking alone (`keepUserText` and the marker off), as
+  `eval/run.mjs` reports it. Jev is the mean of 3 runs; recency is deterministic.
+- Statistic: Jev minus recency, mean over the six holdout sessions, with a 95% bootstrap interval
+  that resamples sessions (`node eval/run.mjs --split holdout --runs 3`; needs only
+  TYPESAFE_API_KEY). The 50% budget is reported too but doesn't decide anything.
+- For reference, the same statistic on the 15 dev sessions: +18.1 points [6.9, 31.2] at 25%,
+  +13.0 [−0.0, 28.7] at 50%. The ten recorded dev sessions alone: 87.1% against 74.3% at 25%.
+- Rule: if the interval's lower bound is above 0, the README may say that Jev keeps more of what a
+  task needs than truncation does, on unseen sessions. This doesn't change the decision above: the
+  default scorer is still decided by task success.
+
 The plugin is decided separately, with the same rule, on `plugin.mjs --split holdout` (summary
 alone vs. summary plus digest). If the digest doesn't clear zero, the plugin stays available and
 the README says it has no demonstrated effect.
@@ -63,6 +81,7 @@ the README says it has no demonstrated effect.
    node eval/tasks.mjs --split holdout --conditions full,goal-only,jev+user+marker,recency+user+marker --runs 3 --max-usd 6 --out eval/results/tasks-holdout.json
    node eval/tasks.mjs --split holdout --conditions jev+user+marker,recency+user+marker --runs 3 --agent-model claude-sonnet-5 --max-usd 8 --out eval/results/tasks-holdout-sonnet.json
    node eval/plugin.mjs --split holdout --runs 3 --max-usd 5 --out eval/results/plugin-holdout.json
+   node eval/run.mjs --split holdout --runs 3   # the secondary endpoint; Jev only
    ```
 5. Apply the decision rule and write down the result here.
 
@@ -76,4 +95,7 @@ the README says it has no demonstrated effect.
 
 ## Changes after registration
 
-(none)
+- 2026-09-24, before any holdout session was recorded: added the secondary endpoint (probe
+  retention) and the interval `eval/run.mjs` now prints for it. Reason: the holdout tasks, like the
+  dev ones, test constraints the user stated, which every scorer keeps, so task success alone can't
+  show a ranking difference that the dev retention numbers suggest exists.
