@@ -8,10 +8,11 @@ export const DEFAULT_PRESERVE_LIMIT = 5
 export type Scorer = 'jev' | 'local'
 
 /**
- * Scores every entry against `goal` and returns the top `limit` by combined score — with Jev by
- * default (the one call here that needs the live API), or offline with `scorer: 'local'`.
+ * Scores every entry against `goal` and returns the top `limit` by combined score — offline by
+ * keyword overlap by default, or with Jev (the one call here that needs the live API) with
+ * `scorer: 'jev'`.
  */
-export async function selectPreserved(entries: Entry[], goal: string, limit = DEFAULT_PRESERVE_LIMIT, scorer: Scorer = 'jev'): Promise<SelectedEntry[]> {
+export async function selectPreserved(entries: Entry[], goal: string, limit = DEFAULT_PRESERVE_LIMIT, scorer: Scorer = 'local'): Promise<SelectedEntry[]> {
   if (entries.length === 0) return []
 
   const scored = await scoreEntries(entries, goal, undefined, { scorer })
@@ -89,6 +90,15 @@ function restatesGoal(content: string, goal: string): boolean {
 }
 
 /** CTXJEV_PRESERVE_LIMIT, if it's a whole number from 1 to 50; otherwise the default. */
+/**
+ * `CTXJEV_SCORER=jev` opts into Jev; anything else scores offline. Offline is the default because
+ * on the preregistered holdout sessions keyword overlap retained more of what a task needed than
+ * Jev did (packages/core/eval/PREREGISTRATION.md), and it sends nothing off the machine.
+ */
+export function scorerFromEnv(raw: string | undefined): Scorer {
+  return raw?.trim().toLowerCase() === 'jev' ? 'jev' : 'local'
+}
+
 export function preserveLimitFromEnv(raw: string | undefined): number {
   const n = Number(raw)
   return Number.isInteger(n) && n >= 1 && n <= 50 ? n : DEFAULT_PRESERVE_LIMIT

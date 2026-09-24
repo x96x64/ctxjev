@@ -1,0 +1,423 @@
+{
+  "runs": 3,
+  "sets": {
+    "short": {
+      "local": {
+        "labels": 129,
+        "accuracyByWeight": {
+          "0": 0.7209302325581395,
+          "0.05": 0.7209302325581395,
+          "0.1": 0.7209302325581395,
+          "0.2": 0.7286821705426356,
+          "0.3": 0.7131782945736435,
+          "0.5": 0.6046511627906976
+        },
+        "minAccuracyAtDefault": 0.7209302325581395,
+        "topKMisses": {
+          "checkout-bug.json": 0,
+          "invoice-date-ja.json": 2,
+          "memory-leak.json": 0,
+          "pagination-bug.json": 0,
+          "session-logout.json": 4
+        }
+      },
+      "jev": {
+        "labels": 129,
+        "accuracyByWeight": {
+          "0": 0.8863049095607236,
+          "0.05": 0.8940568475452197,
+          "0.1": 0.8992248062015505,
+          "0.2": 0.8527131782945737,
+          "0.3": 0.7441860465116279,
+          "0.5": 0.6149870801033591
+        },
+        "minAccuracyAtDefault": 0.8914728682170543,
+        "topKMisses": {
+          "checkout-bug.json": 0,
+          "invoice-date-ja.json": 0,
+          "memory-leak.json": 0,
+          "pagination-bug.json": 0,
+          "session-logout.json": 0
+        }
+      }
+    },
+    "sessions": {
+      "local": {
+        "labels": 184,
+        "accuracyByWeight": {
+          "0": 0.625,
+          "0.05": 0.625,
+          "0.1": 0.6195652173913043,
+          "0.2": 0.5815217391304348,
+          "0.3": 0.5271739130434783,
+          "0.5": 0.46195652173913043
+        },
+        "minAccuracyAtDefault": 0.6195652173913043,
+        "topKMisses": {
+          "recorded-audit-retention.json": 1,
+          "recorded-coupon-stacking.json": 1,
+          "recorded-rate-limit-window.json": 0,
+          "recorded-room-booking.json": 2,
+          "recorded-shipping-fee.json": 2,
+          "recorded-upload-size-limit.json": 1
+        }
+      },
+      "jev": {
+        "labels": 184,
+        "accuracyByWeight": {
+          "0": 0.5380434782608695,
+          "0.05": 0.5452898550724637,
+          "0.1": 0.5416666666666666,
+          "0.2": 0.5452898550724637,
+          "0.3": 0.5489130434782609,
+          "0.5": 0.5579710144927535
+        },
+        "minAccuracyAtDefault": 0.532608695652174,
+        "topKMisses": {
+          "recorded-audit-retention.json": 3,
+          "recorded-coupon-stacking.json": 4,
+          "recorded-rate-limit-window.json": 2.6666666666666665,
+          "recorded-room-booking.json": 3,
+          "recorded-shipping-fee.json": 2.3333333333333335,
+          "recorded-upload-size-limit.json": 5
+        }
+      }
+    },
+    "all": {
+      "local": {
+        "labels": 313,
+        "accuracyByWeight": {
+          "0": 0.6645367412140575,
+          "0.05": 0.6645367412140575,
+          "0.1": 0.6613418530351438,
+          "0.2": 0.6421725239616614,
+          "0.3": 0.6038338658146964,
+          "0.5": 0.5207667731629393
+        },
+        "minAccuracyAtDefault": 0.6613418530351438,
+        "topKMisses": {
+          "checkout-bug.json": 0,
+          "invoice-date-ja.json": 2,
+          "memory-leak.json": 0,
+          "pagination-bug.json": 0,
+          "session-logout.json": 4,
+          "recorded-audit-retention.json": 1,
+          "recorded-coupon-stacking.json": 1,
+          "recorded-rate-limit-window.json": 0,
+          "recorded-room-booking.json": 2,
+          "recorded-shipping-fee.json": 2,
+          "recorded-upload-size-limit.json": 1
+        }
+      },
+      "jev": {
+        "labels": 313,
+        "accuracyByWeight": {
+          "0": 0.6815761448349308,
+          "0.05": 0.6890308839190628,
+          "0.1": 0.6890308839190628,
+          "0.2": 0.6719914802981896,
+          "0.3": 0.6293929712460063,
+          "0.5": 0.5814696485623002
+        },
+        "minAccuracyAtDefault": 0.6837060702875399,
+        "topKMisses": {
+          "checkout-bug.json": 0,
+          "invoice-date-ja.json": 0,
+          "memory-leak.json": 0,
+          "pagination-bug.json": 0,
+          "session-logout.json": 0,
+          "recorded-audit-retention.json": 3,
+          "recorded-coupon-stacking.json": 4,
+          "recorded-rate-limit-window.json": 2.6666666666666665,
+          "recorded-room-booking.json": 3,
+          "recorded-shipping-fee.json": 2.3333333333333335,
+          "recorded-upload-size-limit.json": 5
+        }
+      }
+    }
+  },
+  "retention": {
+    "local": {
+      "0.25": {
+        "probes": 0.2827380952380952,
+        "relevantTokens": 0.16173767998897354
+      },
+      "0.5": {
+        "probes": 0.6666666666666666,
+        "relevantTokens": 0.5147162767341961
+      },
+      "byLanguage": {
+        "en": {
+          "0.25": {
+            "probes": 0.3526785714285714,
+            "relevantTokens": 0.20090661083335562
+          },
+          "0.5": {
+            "probes": 0.6785714285714286,
+            "relevantTokens": 0.5011091397835533
+          }
+        },
+        "ja": {
+          "0.25": {
+            "probes": 0.14285714285714285,
+            "relevantTokens": 0.08339981830020939
+          },
+          "0.5": {
+            "probes": 0.6428571428571428,
+            "relevantTokens": 0.5419305506354816
+          }
+        }
+      },
+      "byKind": {
+        "written": {
+          "0.25": {
+            "probes": null,
+            "relevantTokens": null
+          },
+          "0.5": {
+            "probes": null,
+            "relevantTokens": null
+          }
+        },
+        "recorded": {
+          "0.25": {
+            "probes": 0.2827380952380952,
+            "relevantTokens": 0.16173767998897354
+          },
+          "0.5": {
+            "probes": 0.6666666666666666,
+            "relevantTokens": 0.5147162767341961
+          }
+        }
+      }
+    },
+    "jev": {
+      "0.25": {
+        "probes": 0.21626984126984128,
+        "relevantTokens": 0.11201206657944694
+      },
+      "0.5": {
+        "probes": 0.6250000000000001,
+        "relevantTokens": 0.42536159693827275
+      },
+      "byLanguage": {
+        "en": {
+          "0.25": {
+            "probes": 0.22916666666666669,
+            "relevantTokens": 0.10256401593561584
+          },
+          "0.5": {
+            "probes": 0.6160714285714286,
+            "relevantTokens": 0.39067443367095056
+          }
+        },
+        "ja": {
+          "0.25": {
+            "probes": 0.19047619047619047,
+            "relevantTokens": 0.13090816786710918
+          },
+          "0.5": {
+            "probes": 0.6428571428571428,
+            "relevantTokens": 0.49473592347291717
+          }
+        }
+      },
+      "byKind": {
+        "written": {
+          "0.25": {
+            "probes": null,
+            "relevantTokens": null
+          },
+          "0.5": {
+            "probes": null,
+            "relevantTokens": null
+          }
+        },
+        "recorded": {
+          "0.25": {
+            "probes": 0.21626984126984128,
+            "relevantTokens": 0.11201206657944694
+          },
+          "0.5": {
+            "probes": 0.6250000000000001,
+            "relevantTokens": 0.42536159693827275
+          }
+        }
+      }
+    },
+    "recency": {
+      "0.25": {
+        "probes": 0,
+        "relevantTokens": 0.01593304732410537
+      },
+      "0.5": {
+        "probes": 0.3511904761904761,
+        "relevantTokens": 0.3181097181448161
+      },
+      "byLanguage": {
+        "en": {
+          "0.25": {
+            "probes": 0,
+            "relevantTokens": 0.014918173757183397
+          },
+          "0.5": {
+            "probes": 0.3125,
+            "relevantTokens": 0.2768014989631388
+          }
+        },
+        "ja": {
+          "0.25": {
+            "probes": 0,
+            "relevantTokens": 0.017962794457949308
+          },
+          "0.5": {
+            "probes": 0.42857142857142855,
+            "relevantTokens": 0.4007261565081707
+          }
+        }
+      },
+      "byKind": {
+        "written": {
+          "0.25": {
+            "probes": null,
+            "relevantTokens": null
+          },
+          "0.5": {
+            "probes": null,
+            "relevantTokens": null
+          }
+        },
+        "recorded": {
+          "0.25": {
+            "probes": 0,
+            "relevantTokens": 0.01593304732410537
+          },
+          "0.5": {
+            "probes": 0.3511904761904761,
+            "relevantTokens": 0.3181097181448161
+          }
+        }
+      }
+    },
+    "random": {
+      "0.25": {
+        "probes": 0.2654761904761905,
+        "relevantTokens": 0.18011725925620234
+      },
+      "0.5": {
+        "probes": 0.5873511904761904,
+        "relevantTokens": 0.4371044199610785
+      },
+      "byLanguage": {
+        "en": {
+          "0.25": {
+            "probes": 0.2732142857142857,
+            "relevantTokens": 0.18503533521335147
+          },
+          "0.5": {
+            "probes": 0.5845982142857142,
+            "relevantTokens": 0.4397753177643686
+          }
+        },
+        "ja": {
+          "0.25": {
+            "probes": 0.25,
+            "relevantTokens": 0.17028110734190402
+          },
+          "0.5": {
+            "probes": 0.5928571428571427,
+            "relevantTokens": 0.4317626243544984
+          }
+        }
+      },
+      "byKind": {
+        "written": {
+          "0.25": {
+            "probes": null,
+            "relevantTokens": null
+          },
+          "0.5": {
+            "probes": null,
+            "relevantTokens": null
+          }
+        },
+        "recorded": {
+          "0.25": {
+            "probes": 0.2654761904761905,
+            "relevantTokens": 0.18011725925620234
+          },
+          "0.5": {
+            "probes": 0.5873511904761904,
+            "relevantTokens": 0.4371044199610785
+          }
+        }
+      }
+    },
+    "labels": {
+      "0.25": {
+        "probes": 0.32738095238095233,
+        "relevantTokens": 0.28912844603850846
+      },
+      "0.5": {
+        "probes": 0.9791666666666666,
+        "relevantTokens": 0.8353113103815747
+      },
+      "byLanguage": {
+        "en": {
+          "0.25": {
+            "probes": 0.3839285714285714,
+            "relevantTokens": 0.2965751813562022
+          },
+          "0.5": {
+            "probes": 0.96875,
+            "relevantTokens": 0.8220172239229584
+          }
+        },
+        "ja": {
+          "0.25": {
+            "probes": 0.21428571428571427,
+            "relevantTokens": 0.274234975403121
+          },
+          "0.5": {
+            "probes": 1,
+            "relevantTokens": 0.8618994832988074
+          }
+        }
+      },
+      "byKind": {
+        "written": {
+          "0.25": {
+            "probes": null,
+            "relevantTokens": null
+          },
+          "0.5": {
+            "probes": null,
+            "relevantTokens": null
+          }
+        },
+        "recorded": {
+          "0.25": {
+            "probes": 0.32738095238095233,
+            "relevantTokens": 0.28912844603850846
+          },
+          "0.5": {
+            "probes": 0.9791666666666666,
+            "relevantTokens": 0.8353113103815747
+          }
+        }
+      }
+    }
+  },
+  "retentionDifference": {
+    "0.25": {
+      "probes": 0.21626984126984128,
+      "low": 0.05654761904761905,
+      "high": 0.4166666666666666
+    },
+    "0.5": {
+      "probes": 0.2738095238095238,
+      "low": 0.18948412698412698,
+      "high": 0.3551587301587302
+    }
+  }
+}

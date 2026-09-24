@@ -48,10 +48,15 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 - `ctxjev-claude`: preserved slots no longer fill up with near-identical tool calls (e.g. `git show`
   run three different ways on the same commit) — a lower-scoring but distinct entry now gets the slot
   instead.
+- `ctxjev-claude`: **scores offline by keyword overlap by default and sends nothing anywhere.** Jev
+  is opt-in with `CTXJEV_SCORER=jev` (plus `TYPESAFE_API_KEY`). On the holdout sessions keyword
+  overlap kept more of what a task needed than Jev did (28.3% vs. 21.6% at a 25% budget), so the
+  default no longer ships your session to a third party for a worse ranking.
 - README, plugin README: the preregistered holdout comparison for the Claude Code plugin has run.
   It found no demonstrated effect (summary+digest passed 89% of tasks against summary alone's 100%,
-  95% CI for the difference [-22, +0]) — see [Does It Work?](README.md#does-it-work). The plugin
-  stays available and on by default; its own scorer is unchanged.
+  95% CI for the difference [-22, +0]) — see [Does It Work?](README.md#does-it-work).
+- README: the holdout retention table now comes from a saved results file, and shows that a random
+  order (26.5%) also kept more than Jev.
 
 ## 0.5.0 — 2026-09-23
 

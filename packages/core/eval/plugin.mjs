@@ -110,15 +110,15 @@ function toTranscript(messages, sessionId, cwd) {
 // hook can reach Jev where outbound traffic goes through a proxy (a cloud sandbox), and nothing else.
 const NETWORK_ENV = /^(?:https?_proxy|no_proxy|all_proxy|NODE_EXTRA_CA_CERTS|NODE_USE_ENV_PROXY|NODE_OPTIONS|SSL_CERT_FILE|SSL_CERT_DIR)$/i
 
-function runHook(script, input, stateDir) {
+function runHook(script, input, stateDir, scorer) {
   const network = Object.fromEntries(Object.entries(process.env).filter(([key]) => NETWORK_ENV.test(key)))
-  const env = { PATH: process.env.PATH, TYPESAFE_API_KEY: process.env.TYPESAFE_API_KEY, CTXJEV_STATE_DIR: stateDir, ...network }
+  const env = { PATH: process.env.PATH, TYPESAFE_API_KEY: process.env.TYPESAFE_API_KEY, CTXJEV_STATE_DIR: stateDir, CTXJEV_SCORER: scorer, ...network }
   const r = spawnSync('node', [join(pluginDist, script)], { input: JSON.stringify(input), encoding: 'utf8', env, timeout: 30_000 })
   if (r.status !== 0) throw new Error(`${script} exited ${r.status}: ${r.stderr}`)
   return r.stdout.trim()
 }
 
-function pluginDigest(history, task, goal) {
+function pluginDigest(history, task, goal, scorer = 'jev') {
   const cwd = mkdtempSync(join(tmpdir(), `ctxjev-plugin-${task}-`))
   try {
     const sessionId = `eval-${task}`
@@ -127,7 +127,7 @@ function pluginDigest(history, task, goal) {
     const setGoal = goal && `\n${JSON.stringify({ type: 'user', uuid: 'set-goal', sessionId, cwd, message: { role: 'user', content: `<command-name>/ctxjev:set-goal</command-name>\n<command-args>${goal}</command-args>` } })}`
     writeFileSync(transcriptPath, toTranscript(history, sessionId, cwd) + (setGoal || ''))
     const stateDir = join(cwd, 'state')
-    runHook('preCompact.js', { cwd, transcript_path: transcriptPath, session_id: sessionId }, stateDir)
+    runHook('preCompact.js', { cwd, transcript_path: transcriptPath, session_id: sessionId }, stateDir, scorer)
     const lastRun = JSON.parse(readFileSync(join(stateDir, 'sessions', sessionId, 'last-run.json'), 'utf8'))
     const digest = runHook('sessionStartCompact.js', { cwd, session_id: sessionId }, stateDir)
     return { digest, lastRun: { outcome: lastRun.outcome, scorer: lastRun.scorer, preserved: lastRun.preserved, goal: lastRun.goal, reason: lastRun.reason } }

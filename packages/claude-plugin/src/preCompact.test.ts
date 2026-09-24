@@ -56,7 +56,7 @@ describe('preCompact.js (dist)', () => {
     expect(result.stderr).toBe('')
   }, 10_000)
 
-  it('without TYPESAFE_API_KEY, scores offline, sends nothing, and says so in last-run.json', async () => {
+  it('scores offline by default and sends nothing, even with TYPESAFE_API_KEY set', async () => {
     const transcriptPath = join(cwd, 'transcript.jsonl')
     await writeFile(
       transcriptPath,
@@ -71,18 +71,40 @@ describe('preCompact.js (dist)', () => {
       'utf8',
     )
 
-    const result = await run(JSON.stringify({ cwd, transcript_path: transcriptPath, session_id: 'sess-1' }), { TYPESAFE_API_KEY: undefined })
+    // A fake key: had this reached Jev, the request would fail and the note would say so.
+    const result = await run(JSON.stringify({ cwd, transcript_path: transcriptPath, session_id: 'sess-1' }), { TYPESAFE_API_KEY: 'fake-key-for-this-test', CTXJEV_SCORER: undefined })
     expect(result.exitCode).toBe(0)
     expect(result.stderr).toBe('')
 
     const lastRun = JSON.parse(await readFile(sessionFile('sess-1', 'last-run.json'), 'utf8'))
     expect(lastRun).toMatchObject({ outcome: 'preserved', scorer: 'local', goalSource: 'inferred', preserved: 1, sessionId: 'sess-1' })
-    expect(lastRun.note).toContain('TYPESAFE_API_KEY')
+    expect(lastRun.note).toBeUndefined()
 
     const preserved = JSON.parse(await readFile(sessionFile('sess-1', 'preserved.json'), 'utf8'))
     expect(preserved.scorer).toBe('local')
     expect(preserved.entries.map((e: { entryId: string }) => e.entryId)).toEqual(['c1'])
     expect(await readdir(cwd)).toEqual(['transcript.jsonl'])
+  }, 10_000)
+
+  it('with CTXJEV_SCORER=jev but no TYPESAFE_API_KEY, scores offline and says why', async () => {
+    const transcriptPath = join(cwd, 'transcript.jsonl')
+    await writeFile(
+      transcriptPath,
+      [
+        { type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: 'fix the checkout double charge on retry' } },
+        { type: 'assistant', uuid: 'a1', timestamp: '2026-01-01T00:00:01.000Z', message: { role: 'assistant', content: [{ type: 'text', text: 'the retry handler charges twice' }] } },
+      ]
+        .map((r) => JSON.stringify(r))
+        .join('\n'),
+      'utf8',
+    )
+
+    const result = await run(JSON.stringify({ cwd, transcript_path: transcriptPath, session_id: 'sess-1' }), { TYPESAFE_API_KEY: undefined, CTXJEV_SCORER: 'jev' })
+    expect(result.exitCode).toBe(0)
+
+    const lastRun = JSON.parse(await readFile(sessionFile('sess-1', 'last-run.json'), 'utf8'))
+    expect(lastRun).toMatchObject({ outcome: 'preserved', scorer: 'local' })
+    expect(lastRun.note).toContain('TYPESAFE_API_KEY')
   }, 10_000)
 
   it('records an unreadable transcript as an error instead of failing silently', async () => {
@@ -124,6 +146,7 @@ describe('preCompact.js (dist)', () => {
 
     const result = await run(JSON.stringify({ cwd, transcript_path: transcriptPath, session_id: 'sess-1' }), {
       TYPESAFE_API_KEY: 'not-a-real-key',
+      CTXJEV_SCORER: 'jev',
       CTXJEV_JEV_TIMEOUT_MS: '1',
     })
     expect(result.exitCode).toBe(0)

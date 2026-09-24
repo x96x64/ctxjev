@@ -4,9 +4,8 @@
 
 **Keep what matters when your agent's context gets compacted.**
 
-`ctxjev` scores each entry in an AI agent's history for relevance to the current goal, using
-[Jev](https://typesafe.ai), TypeSafe AI's typed-decision model, or an offline keyword heuristic
-when there's no API key. In Claude Code, it carries the most relevant details through compaction.
+`ctxjev` scores each entry in an AI agent's history for relevance to the current goal, offline by
+default, or with [Jev](https://typesafe.ai), TypeSafe AI's typed-decision model, if you opt in. In Claude Code, it carries the most relevant details through compaction.
 In an agent loop you write yourself, it tells you what's safe to drop.
 
 [![npm (ctxjev-cli)](https://img.shields.io/npm/v/ctxjev-cli.svg?label=ctxjev-cli)](https://www.npmjs.com/package/ctxjev-cli)
@@ -51,9 +50,10 @@ job: Jev and plain truncation both passed every task, on two models, [0, 0] poin
 default scorer is `'recency'` (plain truncation)** in `ctxjev-core`, `ctxjev-cli`, and
 `pruneMessages()`; Jev is opt-in via `scorer: 'jev'`. Where Jev did separate itself — how much of
 what a task needs survives a tight budget — it beat truncation but lost to plain keyword overlap on
-those same six tasks, the opposite of what the pre-holdout numbers below showed. Read
-[Does It Work?](#does-it-work) before deciding whether to opt in; `ctxjev-mcp`, whose only job is
-exposing Jev, keeps calling it regardless of this default.
+those same six tasks (and even to a random order), the opposite of what the pre-holdout numbers
+below showed. The Claude Code plugin's digest showed no demonstrated effect on them either, and it
+now scores offline by default. Read [Does It Work?](#does-it-work) before deciding whether to opt
+in; `ctxjev-mcp`, whose only job is exposing Jev, keeps calling it regardless of this default.
 
 ## Choosing a Package
 
@@ -89,10 +89,10 @@ plus your latest instruction. `/ctxjev:status` shows that goal and what the last
 including why if it skipped, failed, or fell back to offline scoring. The plugin's measured effect
 so far is within the noise; see [Does It Work?](#does-it-work).
 
-> **Privacy:** on every compaction, the plugin sends excerpts of your real session to TypeSafe AI's
-> Jev API. Common secret formats are masked to `[REDACTED]` first (best-effort, not exhaustive).
-> Its cache lives in `~/.claude/ctxjev/`, private to you, never in your project. Without
-> `TYPESAFE_API_KEY`, it scores offline by keyword overlap instead and sends nothing. See
+> **Privacy:** by default the plugin scores offline by keyword overlap and sends nothing anywhere.
+> Only with `CTXJEV_SCORER=jev` (and `TYPESAFE_API_KEY`) does it send excerpts of your session to
+> TypeSafe AI's Jev API, with common secret formats masked to `[REDACTED]` first (best-effort, not
+> exhaustive). Its cache lives in `~/.claude/ctxjev/`, private to you, never in your project. See
 > the plugin's [Privacy section](packages/claude-plugin/README.md#privacy) for exactly what's sent.
 
 **Install it (Claude Code desktop app or CLI):**
@@ -156,9 +156,9 @@ The `entries` array above is the one shape every agent's history maps onto, rega
 `ctxjev analyze` also auto-detects a real Claude Code session `.jsonl` and infers the goal from
 your first request plus your latest instruction unless `--goal` overrides it. See
 [`examples/sample-transcripts/claude-code-session.jsonl`](examples/sample-transcripts/claude-code-session.jsonl)
-for a synthetic one. **Be careful pointing it at a real session log**: entry content is sent to the
-live Jev API, and although common secret formats are masked first, that masking can't catch
-everything.
+for a synthetic one. **Be careful pointing it at a real session log with `--scorer jev`**: entry
+content is sent to the live Jev API, and although common secret formats are masked first, that
+masking can't catch everything. The default scorer sends nothing.
 
 ## Does It Work?
 
@@ -190,30 +190,37 @@ That's the preregistered primary rule, and its answer is that Jev's ranking made
 
 | What survives a 25% budget (ranking alone, no `keepUserText`) | Share of needed facts retained |
 | --- | --- |
-| Jev | 15.6% |
-| Plain truncation | 0.0% |
+| Hand labels (the best any ranking could do at this budget) | 32.7% |
 | **Keyword overlap (`scorer: 'local'`, offline, free)** | **28.3%** |
+| Random order (mean of 20 seeds) | 26.5% |
+| Jev | 21.6% |
+| Plain truncation | 0.0% |
 
-Jev minus truncation is +15.6 points, 95% CI [+5.1, +26.7] — clears zero, so per the preregistered
-secondary rule this README may say Jev keeps more of what a task needs than truncation does on
-unseen sessions. It's a smaller finding than it sounds: on this same material, **keyword
-overlap — the offline fallback with no API call — retained nearly twice what Jev did.** On the dev
-sessions Jev beat keyword overlap by a wide margin (85% vs. 65%); on holdout that reversed. Neither
-comparison decides the default (only Jev vs. truncation does, by the preregistered rule), but a
-reader shouldn't come away thinking Jev's ranking is straightforwardly the best available option —
-on unseen tasks this size, it wasn't.
+From [`eval/results/run-holdout.json`](packages/core/eval/results/run-holdout.json)
+(`eval/run.mjs --split holdout --runs 3 --json`). Keyword overlap, random, and truncation are
+deterministic; Jev's answers vary between calls, and the three recorded runs on this material
+(two in `PREREGISTRATION.md`, this one) put it between 18.5% and 21.6%.
+
+The preregistered secondary rule compares Jev with truncation: the registered run gave +18.5
+points, 95% CI [+7.1, +30.3] (this saved run: +21.6, [+5.7, +41.7]). That clears zero, so Jev
+keeps more of what a task needs than truncation does on unseen sessions. But that's a low bar:
+**on this material Jev retained less than keyword overlap and less than a random order.** On the
+dev sessions Jev beat keyword overlap by a wide margin; on holdout it didn't. Neither comparison
+decides the default scorer by the preregistered rule, but nothing here supports paying for Jev's
+ranking over the free offline scorer.
 
 **What this changes:** the default scorer for `ctxjev-core`, `ctxjev-cli`, and `pruneMessages()` is
 now `'recency'` (plain truncation). Pass `scorer: 'jev'` / `--scorer jev` to opt in.
 [`PREREGISTRATION.md`'s Results section](packages/core/eval/PREREGISTRATION.md) has the full
-numbers, commands, and both bootstrap runs of the retention interval.
+numbers and commands.
 
 **Claude Code plugin.** The rerun (`eval/plugin.mjs --split holdout`, 6 tasks × 3 runs) found no
 demonstrated effect: summary+digest passed 89% of tasks against summary alone's 100%, 95% CI for
 the difference [-22, +0] — the lower bound doesn't clear zero, so the preregistered rule keeps the
 plugin available without claiming it helps. See
 [`PREREGISTRATION.md`'s Plugin (rerun) section](packages/core/eval/PREREGISTRATION.md) for the
-full table. The plugin's own default scorer is unchanged.
+full table. Given the retention numbers above, the plugin now scores offline by default and sends
+nothing anywhere; Jev is opt-in (`CTXJEV_SCORER=jev`).
 
 ### Dev sessions (15 sessions, optimistic — see above)
 
@@ -300,7 +307,7 @@ holdout tasks (3 runs each) put summary+digest at 89% tasks passed against summa
 95% CI for the difference [-22, +0] — the lower bound doesn't clear zero, so by the preregistered
 rule this counts as no demonstrated effect, not as a negative result. Full table in
 [`PREREGISTRATION.md`](packages/core/eval/PREREGISTRATION.md#plugin-rerun). The plugin stays
-available; its default scorer is unchanged.
+available.
 
 What this doesn't show:
 

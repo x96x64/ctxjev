@@ -5,9 +5,10 @@ and [CHANGELOG.md](CHANGELOG.md).
 
 ## Next
 
-1. **Look into why keyword overlap beat Jev on holdout retention** (28.3% vs. 15.6% at a 25%
-   budget) when it lost badly on dev (65% vs. 85%) — task phrasing overlapping the goal's words,
-   or a labeling difference between the two rounds, are the leading guesses; neither is confirmed.
+1. **Look into why Jev ranked below keyword overlap and a random order on holdout retention**
+   (21.6% vs. 28.3% and 26.5% at a 25% budget, `eval/results/run-holdout.json`) when it beat
+   keyword overlap on dev. Task phrasing overlapping the goal's words, or a labeling difference
+   between the two rounds, are the leading guesses; neither is confirmed.
 2. Token budgets with Claude's own token counting instead of `gpt-tokenizer`, if scorer choice
    starts to hinge on budgets tighter than 25%.
 

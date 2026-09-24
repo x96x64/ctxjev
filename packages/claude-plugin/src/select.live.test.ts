@@ -10,13 +10,13 @@ const entries: Entry[] = [
 // Jev is probabilistic: a retry absorbs a borderline entry flipping once; a real regression fails every attempt.
 describe.skipIf(!process.env.TYPESAFE_API_KEY)('selectPreserved (live)', { retry: 2 }, () => {
   it('ranks the relevant entry above the irrelevant one and carries its content', async () => {
-    const selected = await selectPreserved(entries, 'fix the double-charge bug in checkout', 5)
+    const selected = await selectPreserved(entries, 'fix the double-charge bug in checkout', 5, 'jev')
     expect(selected[0].entryId).toBe('relevant')
     expect(selected[0].content).toBe('found chargeCustomer() called twice on retry')
   }, 20_000)
 
   it('respects the limit', async () => {
-    const selected = await selectPreserved(entries, 'fix the double-charge bug in checkout', 1)
+    const selected = await selectPreserved(entries, 'fix the double-charge bug in checkout', 1, 'jev')
     expect(selected).toHaveLength(1)
   }, 20_000)
 })

@@ -5,7 +5,7 @@ import { writeLastRun, type LastRun } from './lastRun.js'
 import { clearPreservedContext, writePreservedContext } from './preserve.js'
 import { removeLegacyState } from './stateDir.js'
 import { readStdin } from './readStdin.js'
-import { preserveLimitFromEnv, selectPreserved, type Scorer, type SelectedEntry } from './select.js'
+import { preserveLimitFromEnv, scorerFromEnv, selectPreserved, type Scorer, type SelectedEntry } from './select.js'
 
 type PreCompactInput = { cwd?: string; transcript_path?: string; session_id?: string }
 
@@ -16,8 +16,8 @@ type PreCompactInput = { cwd?: string; transcript_path?: string; session_id?: st
 const DEFAULT_JEV_TIMEOUT_MS = 20_000
 
 /**
- * Runs just before Claude Code compacts the conversation. Scores the transcript (with Jev, or
- * offline if it isn't available) and caches the highest-relevance entries for
+ * Runs just before Claude Code compacts the conversation. Scores the transcript (offline by
+ * default; with Jev when `CTXJEV_SCORER=jev`, falling back to offline if it isn't available) and caches the highest-relevance entries for
  * sessionStartCompact.ts to re-inject once compaction finishes.
  *
  * This can only ever exit 0 (a hook error must never block the user's actual compaction) — every
@@ -63,12 +63,15 @@ async function run(cwd: string, sessionId: string | undefined, transcriptPath: s
   return { outcome: 'preserved', preserved: selected.length, ...info }
 }
 
-// Without Jev (no key, a failed request, or no answer in time), the offline heuristic still beats preserving nothing.
+// Offline unless the user opted into Jev. When they did but Jev isn't available (no key, a failed
+// request, or no answer in time), the offline heuristic still beats preserving nothing.
 async function scoreForPreservation(entries: Entry[], goal: string, limit: number): Promise<{ selected: SelectedEntry[]; scorer: Scorer; note?: string }> {
-  const offline = async (note: string) => ({ selected: await selectPreserved(entries, goal, limit, 'local'), scorer: 'local' as const, note })
+  const offline = async (note?: string) => ({ selected: await selectPreserved(entries, goal, limit, 'local'), scorer: 'local' as const, note })
+
+  if (scorerFromEnv(process.env.CTXJEV_SCORER) !== 'jev') return offline()
 
   if (!process.env.TYPESAFE_API_KEY) {
-    return offline('TYPESAFE_API_KEY is not set in the environment Claude Code runs in — scored offline by keyword overlap instead')
+    return offline('CTXJEV_SCORER=jev but TYPESAFE_API_KEY is not set in the environment Claude Code runs in — scored offline by keyword overlap instead')
   }
 
   const timeoutMs = jevTimeoutFromEnv(process.env.CTXJEV_JEV_TIMEOUT_MS)
