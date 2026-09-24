@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
- * The eval numbers in README.md and PREREGISTRATION.md, generated from the saved results in
- * eval/results/ and checked against them in CI. Nobody types these numbers by hand.
+ * The eval numbers in README.md, PREREGISTRATION.md, and the Round 2 design proposal
+ * (docs/design/), generated from the saved results in eval/results/ and checked against them in CI.
+ * Nobody types these numbers by hand.
  *
  * A generated block sits between `<!-- generated:NAME -->` and `<!-- /generated:NAME -->` (inline,
  * or around whole lines); `--write` replaces what's between the markers with what RENDERERS.NAME
@@ -313,7 +314,209 @@ function preregExploratoryAtCut() {
   )
 }
 
+// --- the Round 2 design proposal (docs/design/round-2-scoring-and-evaluation.md, in Japanese) ----
+
+const PLUGIN_ROWS_JA = { summary: '要約のみ', 'summary+ctxjev(task goal)': '要約＋ダイジェスト（0.5.0 の目標推定）' }
+
+function designTaskSuccess() {
+  const row = (label, file) => {
+    const jev = taskRate(file.rows, SHIPPED)
+    const truncation = taskRate(file.rows, TRUNCATION)
+    const d = taskDiff(file.rows, SHIPPED, TRUNCATION)
+    const tasks = new Set(file.rows.map((r) => r.task)).size
+    return [label, `${tasks} 課題 × ${jev.runs} 回`, pct0(jev.rate), pct0(truncation.rate), `${points0(d.value)} ${interval0(d.interval)}`]
+  }
+  return block(
+    table(
+      ['データ（25% 予算、利用者の発言を残し削除箇所に注記）', '規模', 'Jev', '単純な切り捨て', '差（ポイント）[95%CI]'],
+      [
+        row('dev・Claude Haiku 4.5', tasksDev),
+        row('dev・Claude Sonnet 5', tasksSonnet),
+        row('ホールドアウト・Claude Haiku 4.5', tasksHoldout),
+        row('ホールドアウト・Claude Sonnet 5', tasksHoldoutSonnet),
+      ],
+    ),
+  )
+}
+
+function designRetention() {
+  const row = (label, retention, budget = 0.25) => [label, ...['jev', 'recency', 'local', 'random', 'labels'].map((k) => pct1(retention[k][budget].probes))]
+  return block(
+    table(
+      ['25% 予算で残った「必要な事実」の割合（順位付けのみ）', 'Jev', '単純な切り捨て', 'キーワード一致', 'ランダム順', 'ラベル順'],
+      [
+        row(`dev ${Object.keys(retentionDev.perSession).length} セッション・全会話`, retentionDev.retention),
+        row(`dev・修正依頼まで（探索的）`, retentionDev.exploratory.atCut.retention),
+        row(`ホールドアウト ${Object.keys(retentionHoldout.perSession).length} セッション・全会話（事前登録の指標）`, retentionHoldout.retention),
+        row('ホールドアウト・修正依頼まで（探索的）', retentionHoldout.exploratory.atCut.retention),
+      ],
+    ),
+  )
+}
+
+function designRetentionDiffs() {
+  const r = retentionHoldout
+  const fmt = (c) => `${points1(c.probes)} ${interval1(c.low, c.high)}`
+  const d = r.retentionDifference['0.25']
+  return block(
+    table(
+      ['ホールドアウト・25% 予算', 'Jev − 切り捨て', 'Jev − キーワード一致', 'Jev − ランダム順'],
+      [
+        ['全会話（事前登録の指標）', `${points1(d.probes)} ${interval1(d.low, d.high)}`, fmt(r.exploratory.comparisons.local['0.25']), fmt(r.exploratory.comparisons.random['0.25'])],
+        ['修正依頼まで（探索的）', fmt(r.exploratory.atCut.comparisons.recency['0.25']), fmt(r.exploratory.atCut.comparisons.local['0.25']), fmt(r.exploratory.atCut.comparisons.random['0.25'])],
+      ],
+    ),
+  )
+}
+
+/** Jev's run-to-run spread in the saved holdout run: the mean over sessions of each run separately. */
+function designJevSpread() {
+  const sessions = Object.values(retentionHoldout.perSession)
+  const perRun = Array.from({ length: retentionHoldout.runs }, (_, run) => sessions.reduce((sum, s) => sum + s.jev[run]['0.25'].probes, 0) / sessions.length)
+  return `${perRun.map(pct1).join('、')}（同じコマンド・同じ ${sessions.length} セッションでの ${retentionHoldout.runs} 回）`
+}
+
+function designOutcomeAndPlugin() {
+  const tasks = plugin.rows.filter((r) => r.kind === 'task')
+  const qa = plugin.rows.filter((r) => r.kind === 'qa')
+  const pd = difference(tasks, 'success', (r) => r.condition === 'summary+ctxjev(task goal)', (r) => r.condition === 'summary', (r) => r.task)
+  const od = difference(
+    outcome.rows.filter((r) => r.budget === 0.25),
+    'correct',
+    (r) => r.strategy === 'jev',
+    (r) => r.strategy === 'recency',
+    (r) => r.session,
+  )
+  return block(
+    [
+      table(
+        ['質問応答（dev のみ、25% 予算）', 'Jev', '単純な切り捨て', 'キーワード一致', '全履歴', 'Jev − 切り捨て'],
+        [['正答率', pct0(outcomeRate('jev', 0.25)), pct0(outcomeRate('recency', 0.25)), pct0(outcomeRate('keywords', 0.25)), pct0(outcomeRate('full')), `${points0(od.value)} ${interval0(od.interval)}`]],
+      ),
+      '',
+      table(
+        ['プラグイン（dev のみ、模擬の圧縮）', '課題成功', '回答正答'],
+        Object.entries(PLUGIN_ROWS_JA).map(([condition, label]) => [label, pct0(successRate('success')(tasks.filter((r) => r.condition === condition))), pct0(successRate('correct')(qa.filter((r) => r.condition === condition)))]),
+      ),
+      '',
+      `ダイジェストの効果（課題成功）: ${points0(pd.value)} ${interval0(pd.interval)}。ホールドアウトでのプラグイン比較は未実施（実行環境の問題で失敗）。`,
+    ].join('\n'),
+  )
+}
+
+// The new holdout's size (design choices, stated here so the estimate below is reproducible).
+const PLAN = {
+  tasks: 24,
+  runs: 3,
+  budgets: [0.1, 0.15, 0.25],
+  rankedConditions: ['recency', 'random', 'jev', 'hybrid'],
+  referenceConditions: ['full', 'goal-only'],
+  sonnetConditions: ['recency', 'jev', 'hybrid'], // Sonnet at the primary budget only
+  probesPerTask: 7,
+  pluginConditions: ['summary', 'summary+ctxjev'],
+  realCompactionTasks: 12,
+}
+
+function meanCost(rows) {
+  const costs = rows.map((r) => r.costUsd).filter((c) => typeof c === 'number')
+  return costs.reduce((a, b) => a + b, 0) / costs.length
+}
+
+function costEstimates() {
+  const haikuRun = meanCost(tasksHoldout.rows)
+  const sonnetRun = meanCost(tasksHoldoutSonnet.rows)
+  const pluginRow = meanCost(plugin.rows)
+  // outcome.json keeps no per-row cost; CLAUDE.md records ~$4 for one run of 102 questions × 8 conditions.
+  const qaUsd = 4 / (102 * 8)
+  const haikuRuns = PLAN.tasks * PLAN.runs * (PLAN.rankedConditions.length * PLAN.budgets.length + PLAN.referenceConditions.length)
+  const sonnetRuns = PLAN.tasks * PLAN.runs * PLAN.sonnetConditions.length
+  const qaCount = PLAN.tasks * PLAN.probesPerTask * PLAN.runs * (PLAN.rankedConditions.length * PLAN.budgets.length + PLAN.referenceConditions.length)
+  const pluginRows = PLAN.tasks * PLAN.runs * PLAN.pluginConditions.length * (1 + PLAN.probesPerTask)
+  // A real-compaction run records a session, compacts it, and finishes the task: taken as three Sonnet agent runs.
+  const realRuns = PLAN.realCompactionTasks * PLAN.runs * PLAN.pluginConditions.length
+  const jevTokensPerSessionRun = retentionHoldout.jevUsage.inputTokens / (Object.keys(retentionHoldout.perSession).length * retentionHoldout.runs)
+  const jevTokens = jevTokensPerSessionRun * PLAN.tasks * PLAN.runs * 3 // retention eval, task eval, and plugin eval each rescore every run
+  const rows = [
+    ['課題成功（Haiku 4.5）', `${haikuRuns} 回 × $${haikuRun.toFixed(3)}（tasks-holdout.json の1回平均）`, haikuRuns * haikuRun],
+    ['課題成功（Sonnet 5、主予算のみ）', `${sonnetRuns} 回 × $${sonnetRun.toFixed(3)}（tasks-holdout-sonnet.json）`, sonnetRuns * sonnetRun],
+    ['質問応答（Haiku 回答＋Sonnet 採点）', `${qaCount} 問 × $${qaUsd.toFixed(4)}（CLAUDE.md の「約 $4／816 問」）`, qaCount * qaUsd],
+    ['プラグイン（模擬の圧縮）', `${pluginRows} 行 × $${pluginRow.toFixed(3)}（plugin.json の1行平均）`, pluginRows * pluginRow],
+    ['本物の Claude Code 圧縮', `${realRuns} 回 × Sonnet 3回分（仮定）`, realRuns * 3 * sonnetRun],
+    ['課題作成（仕様だけ渡す別エージェント、8課題）', '1課題 $2 と仮定', 8 * 2],
+  ]
+  const claudeTotal = rows.reduce((sum, r) => sum + r[2], 0)
+  const jevUsd = (jevTokens / 1e6) * 0.042
+  return { rows, claudeTotal, jevTokens, jevUsd }
+}
+
+// Each paid step's --max-usd: its estimate plus half again, for reruns and failures.
+const cap = (usd) => Math.ceil((usd * 1.5) / 5) * 5
+
+function designCost() {
+  const { rows, claudeTotal, jevTokens, jevUsd } = costEstimates()
+  return block(
+    [
+      table(
+        ['項目', '計算', '見積もり（USD）'],
+        [...rows.map(([a, b, c]) => [a, b, `$${c.toFixed(0)}`]), ['**Claude API 合計**', '', `**$${claudeTotal.toFixed(0)}**`], ['Jev（全評価の再採点込み）', `約 ${Math.round(jevTokens / 1e6)}M 入力トークン × $0.042/M`, `$${jevUsd.toFixed(2)}`]],
+      ),
+      '',
+      `再実行や失敗に備え、各コマンドの上限（\`--max-usd\`）は見積もりの 1.5 倍とし（3.4 節のコマンドに反映済み）、合計 $${rows.slice(0, 5).reduce((sum, r) => sum + cap(r[2]), 0)} です（課題作成は別途）。`,
+    ].join('\n'),
+  )
+}
+
+function designCommands() {
+  const [haiku, sonnet, qa, plugins, real] = costEstimates().rows.map((r) => cap(r[2]))
+  const budgets = PLAN.budgets.join(',')
+  const ranked = PLAN.rankedConditions.map((c) => `${c}+user+marker`).join(',')
+  return block(
+    [
+      '```bash',
+      '# 0. 課題の検証（API 不要）',
+      'node examples/eval-tasks/verify.mjs',
+      'cd packages/core && node eval/tasks.mjs --selftest --split holdout2          # --split holdout2（ラウンド2で実装）',
+      '',
+      '# 1. 記録と取り込み（課題ごと、Claude のログインを使用）',
+      'node examples/eval-tasks/record.mjs <task> <workdir>',
+      'node packages/core/eval/import-claude-code.mjs <task> <transcript> <repo>',
+      '',
+      '# 2. ラベル付け（どの採点方式も実行する前）→ コミット',
+      'node packages/core/eval/label-session.mjs <session>',
+      '',
+      '# 3. 本番（ANTHROPIC_API_KEY と TYPESAFE_API_KEY を設定、packages/core で）',
+      `node eval/run.mjs --split holdout2 --runs ${PLAN.runs} --budgets ${budgets} --measure at-cut --out eval/results/retention-holdout2.json   # --budgets, --measure（ラウンド2で実装）`,
+      `node eval/tasks.mjs --split holdout2 --conditions ${PLAN.referenceConditions.join(',')},${ranked} --budgets ${budgets} --rescore-each-run --runs ${PLAN.runs} --max-usd ${haiku} --out eval/results/tasks-holdout2.json`,
+      `node eval/tasks.mjs --split holdout2 --conditions ${PLAN.sonnetConditions.map((c) => `${c}+user+marker`).join(',')} --budgets 0.15 --rescore-each-run --runs ${PLAN.runs} --agent-model claude-sonnet-5 --max-usd ${sonnet} --out eval/results/tasks-holdout2-sonnet.json`,
+      `node eval/outcome.mjs --split holdout2 --runs ${PLAN.runs} --budgets ${budgets} --max-usd ${qa} --out eval/results/outcome-holdout2.json`,
+      `node eval/plugin.mjs --split holdout2 --runs ${PLAN.runs} --max-usd ${plugins} --out eval/results/plugin-holdout2.json`,
+      `node eval/real-compaction.mjs --split holdout2 --tasks ${PLAN.realCompactionTasks} --runs ${PLAN.runs} --max-usd ${real} --out eval/results/real-compaction-holdout2.json   # 新規（ラウンド2で実装）`,
+      '',
+      '# 4. 人手の抜き取り検査（3.5）と、文書の数値の生成',
+      'node eval/spot-check.mjs --sample 120 --seed 20261001 --out eval/results/spot-check-holdout2.json   # 新規（ラウンド2で実装）',
+      'node eval/check-docs.mjs --write',
+      '```',
+    ].join('\n'),
+  )
+}
+
+/** How precise a task-success difference was with 10 dev tasks, and the rough width with the plan's task count. */
+function designPrecision() {
+  const d = taskDiff(tasksDev.rows, SHIPPED, TRUNCATION)
+  const width = (d.interval[1] - d.interval[0]) * 100
+  const scaled = width * Math.sqrt(new Set(tasksDev.rows.map((r) => r.task)).size / PLAN.tasks)
+  return `dev（10課題×2回）での差の95%CI幅は ${Math.round(width)} ポイントでした。課題数だけで単純に換算すると ${PLAN.tasks} 課題では約 ${Math.round(scaled)} ポイント`
+}
+
 const RENDERERS = {
+  'design-task-success': designTaskSuccess,
+  'design-retention': designRetention,
+  'design-retention-diffs': designRetentionDiffs,
+  'design-jev-spread': designJevSpread,
+  'design-outcome-plugin': designOutcomeAndPlugin,
+  'design-cost': designCost,
+  'design-commands': designCommands,
+  'design-precision': designPrecision,
   'holdout-tasks': holdoutTaskTable,
   'holdout-task-diff': holdoutTaskDiff,
   'holdout-retention': holdoutRetention,
@@ -337,6 +540,7 @@ const RENDERERS = {
 const DOCS = [
   { path: 'README.md', section: /^## Does It Work\?/m },
   { path: 'packages/core/eval/PREREGISTRATION.md', section: /^## Results/m },
+  { path: 'docs/design/round-2-scoring-and-evaluation.md', section: /^## 1\./m },
 ]
 const GENERATED = /<!-- generated:([\w-]+) -->([\s\S]*?)<!-- \/generated:\1 -->/g
 
@@ -406,4 +610,4 @@ if (failed) {
   console.error(write ? 'check-docs: fix the problems above.' : 'check-docs: the docs disagree with eval/results/. Run `node eval/check-docs.mjs --write` if the saved results are right.')
   process.exit(1)
 }
-if (!write) console.log('check-docs: every eval number in README.md and PREREGISTRATION.md matches eval/results/.')
+if (!write) console.log(`check-docs: every eval number in ${DOCS.map((d) => d.path.split('/').at(-1)).join(', ')} matches eval/results/.`)
