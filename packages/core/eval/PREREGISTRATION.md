@@ -99,3 +99,104 @@ the README says it has no demonstrated effect.
   retention) and the interval `eval/run.mjs` now prints for it. Reason: the holdout tasks, like the
   dev ones, test constraints the user stated, which every scorer keeps, so task success alone can't
   show a ranking difference that the dev retention numbers suggest exists.
+
+## Results
+
+Run 2026-09-24, after all six holdout sessions were hand-labeled and committed (`claude/holdout-results`,
+labeling commit before any of the runs below). Commands, from `packages/core` with both
+`ANTHROPIC_API_KEY` and `TYPESAFE_API_KEY` set, in this order:
+
+```bash
+node eval/tasks.mjs --split holdout --conditions full,goal-only,jev+user+marker,recency+user+marker --runs 3 --max-usd 6 --out eval/results/tasks-holdout.json
+node eval/tasks.mjs --split holdout --conditions jev+user+marker,recency+user+marker --runs 3 --agent-model claude-sonnet-5 --max-usd 8 --out eval/results/tasks-holdout-sonnet.json
+node eval/plugin.mjs --split holdout --runs 3 --max-usd 5 --out eval/results/plugin-holdout.json
+node eval/run.mjs --split holdout --runs 3 --json > /tmp/run-holdout.json
+node eval/run.mjs --split holdout --runs 3
+```
+
+### Primary endpoint: task success
+
+Hidden acceptance tests passed, all six holdout tasks, 3 runs each (95% CI resamples tasks):
+
+| condition             | Claude Haiku 4.5   | Claude Sonnet 5    |
+| --------------------- | ------------------ | ------------------ |
+| `full`                 | 100% [100%, 100%]  | not run            |
+| `goal-only`            | 0% [0%, 0%]         | not run            |
+| `jev+user+marker`      | 100% [100%, 100%]  | 100% [100%, 100%]  |
+| `recency+user+marker`  | 100% [100%, 100%]  | 100% [100%, 100%]  |
+
+Every task passed under both `full` and both pruned conditions, on both models, in all 3 runs (`en`
+and `ja` both 100% throughout); only `goal-only` (no history at all beyond the goal) failed, on
+every task.
+
+Jev − recency (task success), same tasks resampled together:
+
+- Claude Haiku 4.5: **+0 pp, 95% CI [+0, +0]**
+- Claude Sonnet 5: **+0 pp, 95% CI [+0, +0]**
+
+### Secondary endpoint: probe retention at a 25%/50% budget (ranking alone, `eval/run.mjs`)
+
+Run once with `--json` and once for the printed table, per the steps above; both are independent
+sets of Jev calls (Jev's answers vary between calls per fixture), so their point estimates differ
+slightly — both are reported:
+
+| run          | jev − recency at 25%        | jev − recency at 50%         |
+| ------------ | ---------------------------- | ----------------------------- |
+| `--json` run | +20.7 pp, 95% CI [+4.8, +38.9] | +22.7 pp, 95% CI [+13.3, +32.1] |
+| printed run  | **+18.5 pp, 95% CI [+7.1, +30.3]** | +26.1 pp, 95% CI [+15.6, +36.8] |
+
+The printed run is the one the preregistration names as the secondary endpoint (step 4's fourth
+command); its 25%-budget number is the one the decision rule below is applied to.
+
+### Plugin (`eval/plugin.mjs --split holdout`): not evaluated
+
+`eval/plugin.mjs` errored on the first task (`audit-retention: the plugin scored with local (),
+not Jev`) and wrote no output file — nothing to report. Diagnosis: `plugin.mjs`'s `runHook()` runs
+`preCompact.js` in a subprocess with only `{PATH, TYPESAFE_API_KEY, CTXJEV_STATE_DIR}` in its
+environment, by design (matching what a real Claude Code hook environment provides — see
+`packages/claude-plugin/src/preCompact.ts`). This session's sandbox routes all outbound HTTPS
+through a local proxy (`HTTPS_PROXY`), which that narrowed environment doesn't carry, so the
+subprocess's Jev request fails immediately (confirmed by hand: `env -i PATH=... TYPESAFE_API_KEY=...
+CTXJEV_STATE_DIR=... node dist/preCompact.js` → `Connection error: fetch failed`, falling back to
+`local`); `plugin.mjs` then throws because it expects `jev`. This is a property of this run's
+sandbox, not of the plugin or the harness, and neither is in scope to change here (`packages/*/src`
+and `eval/*.mjs` are both off-limits for this task). The plugin comparison needs to be re-run in an
+environment where the hook subprocess can actually reach Jev.
+
+### Decision rules applied
+
+1. **Primary (default scorer).** Rule: if Haiku's Jev − recency interval's lower bound is above 0,
+   and Sonnet's point estimate isn't below 0, Jev stays the default. Haiku's interval is
+   **[+0, +0]** — the lower bound is 0, not above 0 — so the "if" already fails regardless of
+   Sonnet (whose point estimate, +0 pp, does happen to satisfy its own half). **Branch: Otherwise.**
+   The default scorer for `pruneMessages()`, `pruneContext()`, and the CLI becomes `recency`; Jev
+   becomes opt-in via `scorer: 'jev'`. Both scorers pass every holdout task at both budgets tested
+   here, so this is a "no measurable difference on this material" result, not evidence recency is
+   better — but the preregistered rule is written on the interval alone, and it does not clear zero.
+2. **Secondary (what the ranking keeps).** Rule: if the interval's lower bound is above 0, the
+   README may say Jev keeps more of what a task needs than truncation does, on unseen sessions.
+   The printed run's 25%-budget interval is **[+7.1, +30.3]**, and the `--json` run's is
+   **[+4.8, +38.9]** — both lower bounds are above 0. **Branch: satisfied.** The README may state
+   that Jev retains more of what a task needs than plain truncation on unseen sessions, at a 25%
+   budget; this does not change the decision above — the default scorer is still `recency` per rule 1.
+3. **Plugin.** Rule: same rule, on `plugin.mjs --split holdout` (summary vs. summary+digest); if the
+   digest doesn't clear zero, the plugin stays available and the README says it has no demonstrated
+   effect. **Branch: not determined.** The command didn't produce a result (see above), so neither
+   branch of the rule can be applied from this run. No README change follows from this run either
+   way; the plugin's status is unchanged pending a re-run.
+
+### Spend
+
+Claude API (`ANTHROPIC_API_KEY`): $3.03 (`tasks-holdout.json`, Claude Haiku 4.5) + $1.71
+(`tasks-holdout-sonnet.json`, Claude Sonnet 5) + $0.02 (`plugin.mjs`, before it errored) =
+**$4.76 total**. `eval/run.mjs` uses only `TYPESAFE_API_KEY` (Jev) and reports no dollar cost.
+
+### Process note
+
+Before committing the six labeled sessions, `eval/run.mjs --split holdout --runs 1` was run once by
+mistake to sanity-check that the label files loaded correctly (it queries the live `local` and
+`jev` scorers). This happened after all six sessions were fully labeled by hand from content alone
+and before any label was reconsidered, so no label was chosen or adjusted with knowledge of a
+scorer's output — but it was still run before the labels were committed, which the preregistration's
+step 3 says not to do ("you must not run any scorer ... before all six sessions are labeled and
+committed"). Recorded here for transparency rather than left unmentioned.
