@@ -188,3 +188,24 @@ describe('--scorer', () => {
     expect(result.stderr).toContain('--scorer must be one of jev, local, recency')
   }, 15_000)
 })
+
+describe('ctxjev flags', () => {
+  // The CLI README said --help and --version work before or after the command; --version after one
+  // failed with "Unknown option '--version'".
+  it('prints the version before or after the command', async () => {
+    const version = JSON.parse(await readFile(join(dirname(cliPath), '..', 'package.json'), 'utf8')).version
+    for (const args of [['--version'], ['analyze', '--version'], ['prune', '-v'], ['analyze', 'missing.json', '--version']]) {
+      const result = await run(args)
+      expect(result.exitCode, args.join(' ')).toBe(0)
+      expect(result.stdout.trim()).toBe(version)
+    }
+  }, 15_000)
+
+  it('names an unknown option plainly and points at --help', async () => {
+    const result = await run(['analyze', 'x.json', '--scorr', 'jev'])
+    expect(result.exitCode).toBe(1)
+    expect(result.stderr).toContain("unknown option '--scorr' for `ctxjev analyze`")
+    expect(result.stderr).toContain('ctxjev --help')
+    expect(result.stderr).not.toContain('To specify a positional argument')
+  }, 15_000)
+})
