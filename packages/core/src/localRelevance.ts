@@ -1,3 +1,5 @@
+import { splitCjkBigrams } from './cjk.js'
+
 /**
  * An offline stand-in for Jev's relevance judgment: the share of the goal's significant words that
  * also appear in the entry. Far cruder than Jev (no synonyms, no understanding of "superseded"),
@@ -21,22 +23,14 @@ function stem(word: string): string {
   return w
 }
 
-// Han, Katakana (plus its long-vowel mark, which Unicode files under Common) and Hangul are written
-// without spaces between words, or with particles glued on, so a run of them can't be matched as a
-// whole word, and a dictionary segmenter (Intl.Segmenter) splits katakana loanwords inconsistently
-// (トークナイザー → トーク|ナイ|ザー). Overlapping character bigrams avoid both problems.
-const CJK_RUN = /[\p{sc=Han}\p{sc=Katakana}\p{sc=Hangul}ーｰ]+/gu
 // Mostly particles and inflection endings: Japanese's equivalent of STOPWORDS and stem().
 const HIRAGANA = /\p{sc=Hiragana}+/gu
 
+// CJK runs match as overlapping bigrams (see cjk.ts); everything else as stemmed words.
 function terms(text: string): Set<string> {
-  const found = new Set<string>()
-  for (const [run] of text.matchAll(CJK_RUN)) {
-    const chars = [...run]
-    for (let i = 0; i + 1 < chars.length; i++) found.add(chars[i] + chars[i + 1])
-  }
-  text
-    .replace(CJK_RUN, ' ')
+  const { bigrams, rest } = splitCjkBigrams(text)
+  const found = new Set(bigrams)
+  rest
     .replace(HIRAGANA, ' ')
     .replace(/([a-z])([A-Z])/g, '$1 $2') // chargeCustomer → charge Customer
     .toLowerCase()

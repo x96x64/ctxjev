@@ -47,7 +47,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
-import { DEFAULT_POLICY, messagesToEntries, pruneMessages, scoreEntries } from '../dist/index.js'
+import { DEFAULT_POLICY, messagesToEntries, pruneMessages, scoreEntries, seededRandom } from '../dist/index.js'
 import { bootstrap } from './lib.mjs'
 import { inSplit, parseSplit, sessionSplit } from './split.mjs'
 
@@ -154,15 +154,6 @@ async function retention(fixture, score, recencyWeight) {
   return out
 }
 
-function seeded(seed) {
-  return () => {
-    seed = (seed + 0x6d2b79f5) | 0
-    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed)
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-  }
-}
-
 const averageRetention = (results) =>
   Object.fromEntries(BUDGETS.map((b) => [b, { probes: mean(results.map((r) => r[b].probes)), relevantTokens: mean(results.map((r) => r[b].relevantTokens)) }]))
 
@@ -188,7 +179,7 @@ for (const fixture of fixtures.filter((f) => f.set === 'sessions')) {
   const order = new Map(fixture.entries.map((e, i) => [e.id, i / (fixture.entries.length - 1)]))
   const randoms = []
   for (let seed = 1; seed <= RANDOM_SEEDS; seed++) {
-    const random = seeded(seed)
+    const random = seededRandom(seed)
     const scores = new Map(fixture.entries.map((e) => [e.id, random()]))
     randoms.push(await retention(fixture, (id) => scores.get(id), 0))
   }

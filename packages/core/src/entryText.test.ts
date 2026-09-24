@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { j } from '../test/redactCases.js'
 import { toolEntryContent, toolExcerpt, truncate } from './entryText.js'
+import { seededRandom } from './random.js'
 
 describe('toolEntryContent', () => {
   // The audit found a tool input cut at 160 characters before masking, which left the first 16
@@ -48,8 +49,7 @@ describe('cutting text short never splits a character', () => {
   })
 
   it('stays well-formed and within max on random mixed text', () => {
-    let seed = 7
-    const random = () => ((seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31)
+    const random = seededRandom(7)
     for (let run = 0; run < 300; run++) {
       const text = Array.from({ length: 5 + Math.floor(random() * 120) }, () => pieces[Math.floor(random() * pieces.length)]).join('')
       const max = 4 + Math.floor(random() * 60)

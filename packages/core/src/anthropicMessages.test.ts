@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { messagesToEntries, pruneMessages, type AnthropicContentBlock, type AnthropicMessage, type PruneMessagesOptions } from './anthropicMessages.js'
 import type { CustomScorer } from './prune.js'
+import { seededRandom } from './random.js'
 import { estimateTokens } from './tokenEstimate.js'
 
 // Every tool_result must follow its tool_use, and every tool_use outside the final message must
@@ -324,13 +325,7 @@ describe('pruneMessages', () => {
   // Seeded random conversations × random scores × every option: the result must always be a request
   // the Messages API accepts, and never touch the first message or the protected tail.
   it('keeps every invariant across randomized conversations and options', async () => {
-    let seed = 42
-    const random = () => {
-      seed = (seed + 0x6d2b79f5) | 0
-      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed)
-      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-    }
+    const random = seededRandom(42)
     const pick = <T,>(items: T[]) => items[Math.floor(random() * items.length)]
     let changedRuns = 0
 

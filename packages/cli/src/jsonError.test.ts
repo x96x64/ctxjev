@@ -1,3 +1,4 @@
+import { seededRandom } from 'ctxjev-core'
 import { describe, expect, it } from 'vitest'
 import { jsonErrorOffset } from './jsonError.js'
 
@@ -23,8 +24,7 @@ describe('jsonErrorOffset', () => {
 
   it('agrees with JSON.parse on random inputs', () => {
     const pieces = ['{', '}', '[', ']', ',', ':', '"k"', '1', 'true', ' ', '"', 'x']
-    let seed = 3
-    const random = () => ((seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31)
+    const random = seededRandom(3)
     for (let run = 0; run < 3000; run++) {
       const text = Array.from({ length: 1 + Math.floor(random() * 10) }, () => pieces[Math.floor(random() * pieces.length)]).join('')
       let valid = true

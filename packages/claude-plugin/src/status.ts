@@ -2,7 +2,7 @@
 import { readFile, readdir } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { parseClaudeCodeTranscript, resolveClaudeCodeGoal, truncate } from 'ctxjev-core'
+import { parseClaudeCodeTranscript, quoteAsData as quote, resolveClaudeCodeGoal, truncate } from 'ctxjev-core'
 import { readLastRun } from './lastRun.js'
 import { readPreservedContext } from './preserve.js'
 import { sessionKey } from './stateDir.js'
@@ -56,8 +56,6 @@ export async function statusReport(cwd: string, sessionId: string | undefined, t
   }
   return lines.join('\n')
 }
-
-const quote = (text: string) => `«${text.replace(/\s+/g, ' ').trim()}»`
 
 // Claude Code keeps each session's log at <config dir>/projects/<project>/<session id>.jsonl.
 async function findTranscript(sessionId: string): Promise<string | undefined> {

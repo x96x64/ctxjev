@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { quoteAsData as quote } from 'ctxjev-core'
 import { readPreservedContext } from './preserve.js'
 import { readStdin } from './readStdin.js'
 
@@ -30,8 +31,6 @@ async function main() {
   ]
   console.log(lines.join('\n'))
 }
-
-const quote = (text: string) => `«${text.replace(/\s+/g, ' ').trim()}»`
 
 main().catch((err: unknown) => {
   console.error('ctxjev sessionStartCompact:', err instanceof Error ? err.message : String(err))

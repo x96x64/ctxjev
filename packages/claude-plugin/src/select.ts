@@ -1,5 +1,5 @@
 import { STATUS_MARKER } from './statusMarker.js'
-import { DEFAULT_POLICY, isGoalCandidate, isSubstantiveMessage, scoreEntries, type Entry, type EntryRole, type ScoredEntry } from 'ctxjev-core'
+import { DEFAULT_POLICY, isGoalCandidate, isSubstantiveMessage, scoreEntries, splitCjkBigrams, type Entry, type EntryRole, type ScoredEntry } from 'ctxjev-core'
 
 export type SelectedEntry = ScoredEntry & { content: string }
 
@@ -53,20 +53,13 @@ export function rankForPreservation(scored: ScoredEntry[], entries: Entry[], goa
 // the same information and only the first fills a slot.
 const DUPLICATE_OVERLAP = 0.6
 
-// Han, Katakana and Hangul run together without spaces, so overlapping character bigrams stand in
-// for words there, the same approach core's localRelevance.ts uses for goal/content matching.
-const CJK_RUN = /[\p{sc=Han}\p{sc=Katakana}\p{sc=Hangul}ーｰ]+/gu
-
+// Words for the near-duplicate check: CJK as character bigrams, the same split the offline scorer uses.
 function dedupeWords(content: string, role: EntryRole | undefined): Set<string> {
   const splitAt = role === 'tool' ? content.indexOf('): ') : -1
   const key = splitAt === -1 ? content : content.slice(splitAt + 3)
-  const found = new Set<string>()
-  for (const [run] of key.matchAll(CJK_RUN)) {
-    const chars = [...run]
-    for (let i = 0; i + 1 < chars.length; i++) found.add(chars[i] + chars[i + 1])
-  }
-  key
-    .replace(CJK_RUN, ' ')
+  const { bigrams, rest } = splitCjkBigrams(key)
+  const found = new Set(bigrams)
+  rest
     .toLowerCase()
     .split(/[^\p{L}\p{N}]+/u)
     .filter(Boolean)
