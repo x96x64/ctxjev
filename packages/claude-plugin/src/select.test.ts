@@ -48,6 +48,55 @@ describe('rankForPreservation', () => {
   })
 })
 
+describe('rankForPreservation, near-duplicates', () => {
+  it('keeps one of several near-identical tool calls and fills the freed slots with the next distinct entries', () => {
+    const dupEntries: Entry[] = [
+      { id: 'show', role: 'tool', toolName: 'Bash', content: 'Bash(git show ac24b85): commit ac24b85 Author: Luis Ortega Date: Mon Sep 22 fix the double charge on retry', timestamp: 1 },
+      { id: 'stat', role: 'tool', toolName: 'Bash', content: 'Bash(git show ac24b85 --stat): commit ac24b85 Author: Luis Ortega Date: Mon Sep 22 fix the double charge on retry, 2 files changed', timestamp: 2 },
+      { id: 'range', role: 'tool', toolName: 'Bash', content: 'Bash(git show ac24b85^..ac24b85): commit ac24b85 Author: Luis Ortega Date: Mon Sep 22 fix the double charge on retry', timestamp: 3 },
+      { id: 'diff', role: 'tool', toolName: 'Bash', content: 'Bash(git diff ac24b85^..ac24b85 --stat): commit ac24b85 Author: Luis Ortega Date: Mon Sep 22 fix the double charge on retry, 2 files changed', timestamp: 4 },
+      { id: 'other1', role: 'tool', toolName: 'Bash', content: 'Bash(npm test): 42 passing, 0 failing', timestamp: 5 },
+      { id: 'other2', role: 'tool', toolName: 'Bash', content: 'Bash(git status): nothing to commit, working tree clean', timestamp: 6 },
+    ]
+    const dupScored: ScoredEntry[] = [
+      { entryId: 'show', relevance: 0.72, recency: 0.9, combinedScore: 0.75 },
+      { entryId: 'stat', relevance: 0.72, recency: 0.8, combinedScore: 0.74 },
+      { entryId: 'range', relevance: 0.72, recency: 0.7, combinedScore: 0.73 },
+      { entryId: 'diff', relevance: 0.72, recency: 0.6, combinedScore: 0.72 },
+      { entryId: 'other1', relevance: 0.5, recency: 0.5, combinedScore: 0.5 },
+      { entryId: 'other2', relevance: 0.4, recency: 0.4, combinedScore: 0.4 },
+    ]
+    const ids = rankForPreservation(dupScored, dupEntries, 'x', 5, Number.MIN_VALUE).map((s) => s.entryId)
+    expect(ids).toEqual(['show', 'other1', 'other2'])
+  })
+
+  it('keeps two entries that merely share a few words', () => {
+    const shared: Entry[] = [
+      { id: 'one', role: 'tool', toolName: 'Bash', content: 'Bash(cat src/billing.ts): export function chargeCustomer(amount) { return charge(amount) }', timestamp: 1 },
+      { id: 'two', role: 'tool', toolName: 'Bash', content: 'Bash(cat src/inventory.ts): export function reorderStock(sku) { return submitPurchaseOrder(sku) }', timestamp: 2 },
+    ]
+    const sharedScored: ScoredEntry[] = [
+      { entryId: 'one', relevance: 0.7, recency: 0.9, combinedScore: 0.8 },
+      { entryId: 'two', relevance: 0.7, recency: 0.8, combinedScore: 0.75 },
+    ]
+    expect(rankForPreservation(sharedScored, shared, 'x', 5, Number.MIN_VALUE).map((s) => s.entryId)).toEqual(['one', 'two'])
+  })
+
+  it('dedupes near-identical Japanese tool results using character bigrams', () => {
+    const ja: Entry[] = [
+      { id: 'a', role: 'tool', toolName: 'Bash', content: 'Bash(git show abc123): コミット abc123 は 二重課金のリトライ処理を修正しました', timestamp: 1 },
+      { id: 'b', role: 'tool', toolName: 'Bash', content: 'Bash(git show abc123 --stat): コミット abc123 は 二重課金のリトライ処理を修正した内容です', timestamp: 2 },
+      { id: 'c', role: 'tool', toolName: 'Bash', content: 'Bash(npm test): テストは 42 件成功、0 件失敗しました', timestamp: 3 },
+    ]
+    const jaScored: ScoredEntry[] = [
+      { entryId: 'a', relevance: 0.72, recency: 0.9, combinedScore: 0.8 },
+      { entryId: 'b', relevance: 0.72, recency: 0.8, combinedScore: 0.75 },
+      { entryId: 'c', relevance: 0.5, recency: 0.5, combinedScore: 0.5 },
+    ]
+    expect(rankForPreservation(jaScored, ja, 'x', 5, Number.MIN_VALUE).map((s) => s.entryId)).toEqual(['a', 'c'])
+  })
+})
+
 describe('preserveLimitFromEnv', () => {
   it('accepts a whole number from 1 to 50', () => {
     expect(preserveLimitFromEnv('10')).toBe(10)

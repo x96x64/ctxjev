@@ -1,5 +1,5 @@
 import { STATUS_MARKER } from './statusMarker.js'
-import { DEFAULT_POLICY, isGoalCandidate, isSubstantiveMessage, scoreEntries, type Entry, type ScoredEntry } from 'ctxjev-core'
+import { DEFAULT_POLICY, isGoalCandidate, isSubstantiveMessage, scoreEntries, type Entry, type EntryRole, type ScoredEntry } from 'ctxjev-core'
 
 export type SelectedEntry = ScoredEntry & { content: string }
 
@@ -29,13 +29,56 @@ export async function selectPreserved(entries: Entry[], goal: string, limit = DE
  */
 export function rankForPreservation(scored: ScoredEntry[], entries: Entry[], goal: string, limit: number, minRelevance: number): SelectedEntry[] {
   const entryById = new Map(entries.map((e) => [e.id, e]))
-  return scored
+  const candidates = scored
     .map((s) => ({ ...s, content: entryById.get(s.entryId)?.content ?? '', role: entryById.get(s.entryId)?.role }))
     .filter((s) => s.relevance >= minRelevance && !restatesGoal(s.content, goal) && !s.content.includes(STATUS_MARKER))
     .filter((s) => s.role !== 'user' || (isSubstantiveMessage(s.content) && isGoalCandidate(s.content)))
     .sort((a, b) => b.combinedScore - a.combinedScore)
-    .slice(0, limit)
-    .map(({ role: _role, ...s }) => s)
+
+  // Walk in score order, skipping a candidate that's a near-duplicate of one already taken so the
+  // next distinct candidate gets its slot instead of the same information twice.
+  const taken: { role: EntryRole | undefined; words: Set<string> }[] = []
+  const result: (ScoredEntry & { content: string; role?: EntryRole })[] = []
+  for (const candidate of candidates) {
+    if (result.length >= limit) break
+    const words = dedupeWords(candidate.content, candidate.role)
+    if (taken.some((t) => t.role === candidate.role && jaccard(words, t.words) >= DUPLICATE_OVERLAP)) continue
+    taken.push({ role: candidate.role, words })
+    result.push(candidate)
+  }
+  return result.map(({ role: _role, ...s }) => s)
+}
+
+// Above this, near-identical tool calls (e.g. `git show` run three different ways) are treated as
+// the same information and only the first fills a slot.
+const DUPLICATE_OVERLAP = 0.6
+
+// Han, Katakana and Hangul run together without spaces, so overlapping character bigrams stand in
+// for words there, the same approach core's localRelevance.ts uses for goal/content matching.
+const CJK_RUN = /[\p{sc=Han}\p{sc=Katakana}\p{sc=Hangul}ーｰ]+/gu
+
+function dedupeWords(content: string, role: EntryRole | undefined): Set<string> {
+  const splitAt = role === 'tool' ? content.indexOf('): ') : -1
+  const key = splitAt === -1 ? content : content.slice(splitAt + 3)
+  const found = new Set<string>()
+  for (const [run] of key.matchAll(CJK_RUN)) {
+    const chars = [...run]
+    for (let i = 0; i + 1 < chars.length; i++) found.add(chars[i] + chars[i + 1])
+  }
+  key
+    .replace(CJK_RUN, ' ')
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter(Boolean)
+    .forEach((word) => found.add(word))
+  return found
+}
+
+function jaccard(a: Set<string>, b: Set<string>): number {
+  if (a.size === 0 || b.size === 0) return 0
+  let intersection = 0
+  for (const word of a) if (b.has(word)) intersection++
+  return intersection / (a.size + b.size - intersection)
 }
 
 // Part of the goal (a message it was inferred from), or the goal plus a few words ("Goal set: …",

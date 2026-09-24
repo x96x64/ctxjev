@@ -39,6 +39,9 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 - `ctxjev-mcp`: the in-memory score cache is capped at 5,000 entries instead of growing forever.
 - README: the eval sessions and tasks aren't held out (the 0.5.0 changes were designed on them),
   and the fair comparison, truncation with the same options, is now in the table.
+- `ctxjev-claude`: preserved slots no longer fill up with near-identical tool calls (e.g. `git show`
+  run three different ways on the same commit) — a lower-scoring but distinct entry now gets the slot
+  instead.
 
 ## 0.5.0 — 2026-09-23
 
