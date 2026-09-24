@@ -12,6 +12,19 @@ const VERSION: string = JSON.parse(
   readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../package.json'), 'utf8'),
 ).version
 
+const MISSING_KEY = {
+  isError: true,
+  content: [
+    {
+      type: 'text' as const,
+      text: 'TYPESAFE_API_KEY is not set in the environment this MCP server runs in. Both tools score with Jev and need it: get one at console.typesafe.ai/settings/keys and add it to the server\'s env in your MCP host\'s config.',
+    },
+  ],
+}
+
+// Checked per call, not at startup, so a server started without a key still connects and lists its tools.
+const hasKey = () => Boolean(process.env.TYPESAFE_API_KEY)
+
 export function createServer(): McpServer {
   const server = new McpServer({ name: 'ctxjev', version: VERSION })
 
@@ -23,6 +36,7 @@ export function createServer(): McpServer {
       inputSchema: scoreRelevanceInput,
     },
     async (args) => {
+      if (!hasKey()) return MISSING_KEY
       const result = await scoreRelevanceTool(args)
       return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
     },
@@ -35,6 +49,7 @@ export function createServer(): McpServer {
       inputSchema: pruneHistoryInput,
     },
     async (args) => {
+      if (!hasKey()) return MISSING_KEY
       const result = await pruneHistoryTool(args)
       return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
     },

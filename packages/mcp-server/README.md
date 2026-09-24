@@ -28,7 +28,8 @@ config shape differs.
 ## Setup
 
 Get a key at [console.typesafe.ai/settings/keys](https://console.typesafe.ai/settings/keys) (no
-waitlist) first.
+waitlist) first. Without one the server still starts and lists its two tools, but every call
+returns an error saying `TYPESAFE_API_KEY` isn't set.
 
 **Claude Code:**
 
@@ -36,7 +37,9 @@ waitlist) first.
 claude mcp add ctxjev --env TYPESAFE_API_KEY=... -- npx ctxjev-mcp
 ```
 
-The ctxjev repo also carries a project-level `.mcp.json`, but that scope needs an approval step
+The ctxjev repo also carries a project-level `.mcp.json`, which runs the server from
+`packages/mcp-server/dist/` and so needs `pnpm install && pnpm build` in the clone first. That scope
+also needs an approval step
 that didn't surface in the UI when tested (Claude Code v2.1.278): `claude mcp list` silently omits
 the server. `claude mcp add` at local scope, as above, works immediately. If both exist, `claude
 mcp list` warns that the server is defined in two scopes; that concerns OAuth token storage, which
