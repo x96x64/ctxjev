@@ -9,9 +9,11 @@ import { preserveLimitFromEnv, selectPreserved, type Scorer, type SelectedEntry 
 
 type PreCompactInput = { cwd?: string; transcript_path?: string; session_id?: string }
 
-// Compaction waits on this hook, and hooks/hooks.json gives it 15s. A Jev request normally takes
-// well under a second; past this, scoring falls back to offline instead of holding the user up.
-const DEFAULT_JEV_TIMEOUT_MS = 8_000
+// Compaction waits on this hook, and hooks/hooks.json gives it 25s. 8s (0.6.0's first value) was
+// too tight in practice: eval/plugin.mjs hit real fallbacks-to-local against the live API on
+// ordinary-sized transcripts, not just in a network-restricted sandbox. Past this, scoring falls
+// back to offline instead of holding the user up indefinitely.
+const DEFAULT_JEV_TIMEOUT_MS = 20_000
 
 /**
  * Runs just before Claude Code compacts the conversation. Scores the transcript (with Jev, or

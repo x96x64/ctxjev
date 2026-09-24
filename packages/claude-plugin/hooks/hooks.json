@@ -6,7 +6,7 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/dist/preCompact.js\"",
-            "timeout": 15
+            "timeout": 25
           }
         ]
       }

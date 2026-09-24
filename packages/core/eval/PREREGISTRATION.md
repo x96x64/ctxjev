@@ -99,6 +99,12 @@ the README says it has no demonstrated effect.
   retention) and the interval `eval/run.mjs` now prints for it. Reason: the holdout tasks, like the
   dev ones, test constraints the user stated, which every scorer keeps, so task success alone can't
   show a ranking difference that the dev retention numbers suggest exists.
+- 2026-09-24, after the primary and secondary endpoints ran, before the plugin comparison had
+  produced any result: `eval/plugin.mjs` now forwards the parent's proxy and CA settings to the
+  hook subprocess, and the plugin's Jev deadline went from 8s to 20s. Reasons: in the cloud sandbox
+  the hook couldn't reach Jev at all without the proxy settings, and on a local rerun an 8s deadline
+  still fell back to offline scoring on ordinary transcripts, so the comparison measured timeouts,
+  not the digest. Neither change touches what the plugin scores or how the digest is built.
 
 ## Results
 

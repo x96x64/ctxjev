@@ -17,7 +17,9 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 - `ctxjev-claude`: nothing is written into your project any more. State lives in
   `~/.claude/ctxjev/`, readable only by you; the `.ctxjev/` directory earlier versions created
   is removed at the next compaction (only its own files, and the directory only if empty).
-- `ctxjev-claude`: compaction waits at most 8 seconds for Jev (was 40) before scoring offline.
+- `ctxjev-claude`: compaction waits at most 20 seconds for Jev (was 40) before scoring offline.
+  (An 8-second cut tried mid-development caused real fallbacks against the live API on ordinary
+  transcripts, caught while running the holdout plugin eval; 20s is the number that survived it.)
 - `ctxjev-claude`: `/ctxjev:status` also shows the goal the next compaction will use, and its report
   is inlined into the skill rather than fetched by a tool call. In a manual test, Claude Haiku read
   the old report's `Goal:` line as a request and edited and committed code; goals and excerpts are

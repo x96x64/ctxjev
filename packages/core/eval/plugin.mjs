@@ -106,8 +106,13 @@ function toTranscript(messages, sessionId, cwd) {
     .join('\n')
 }
 
+// A real hook inherits Claude Code's environment, network settings included. Forward those so the
+// hook can reach Jev where outbound traffic goes through a proxy (a cloud sandbox), and nothing else.
+const NETWORK_ENV = /^(?:https?_proxy|no_proxy|all_proxy|NODE_EXTRA_CA_CERTS|NODE_USE_ENV_PROXY|NODE_OPTIONS|SSL_CERT_FILE|SSL_CERT_DIR)$/i
+
 function runHook(script, input, stateDir) {
-  const env = { PATH: process.env.PATH, TYPESAFE_API_KEY: process.env.TYPESAFE_API_KEY, CTXJEV_STATE_DIR: stateDir }
+  const network = Object.fromEntries(Object.entries(process.env).filter(([key]) => NETWORK_ENV.test(key)))
+  const env = { PATH: process.env.PATH, TYPESAFE_API_KEY: process.env.TYPESAFE_API_KEY, CTXJEV_STATE_DIR: stateDir, ...network }
   const r = spawnSync('node', [join(pluginDist, script)], { input: JSON.stringify(input), encoding: 'utf8', env, timeout: 30_000 })
   if (r.status !== 0) throw new Error(`${script} exited ${r.status}: ${r.stderr}`)
   return r.stdout.trim()
