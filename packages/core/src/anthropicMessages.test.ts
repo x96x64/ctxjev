@@ -86,7 +86,13 @@ describe('messagesToEntries', () => {
 
 describe('pruneMessages', () => {
   it('removes dropped entries while keeping every tool_use/tool_result pair intact', async () => {
-    const { messages, removed } = await pruneMessages(conversation, 'Fix the checkout double charge on retry', { scorer: 'local' })
+    // These entries are a few tokens each, less together than the removal note: with the note on
+    // (the default), removing them would grow the conversation, so nothing is removed at all.
+    const withNote = await pruneMessages(conversation, 'Fix the checkout double charge on retry', { scorer: 'local' })
+    expect(withNote.messages).toBe(conversation)
+    expect(withNote.savedTokens).toBe(0)
+
+    const { messages, removed } = await pruneMessages(conversation, 'Fix the checkout double charge on retry', { scorer: 'local', marker: false })
 
     expect(removed.sort()).toEqual(['msg:1:0', 'msg:5:0', 'tool:t1'])
     expectValidToolPairing(messages)
@@ -264,6 +270,57 @@ describe('pruneMessages', () => {
     })
   })
 
+  describe('never makes a conversation larger', () => {
+    // The audit's case: with the defaults (recency, marker on), one small entry is dropped and the
+    // ~36-token note that replaces it is bigger, so savedTokens came out negative (-30).
+    const smallDrop: AnthropicMessage[] = [
+      { role: 'user', content: 'Fix the checkout bug please, it charges twice' },
+      { role: 'assistant', content: [{ type: 'text', text: 'ok' }] },
+      { role: 'user', content: 'continue with the investigation now' },
+      { role: 'assistant', content: [{ type: 'text', text: 'Looking at the retry handler code in detail now.' }] },
+      { role: 'user', content: 'go on' },
+      { role: 'assistant', content: 'done' },
+    ]
+
+    it('leaves it untouched when the removal note would cost more than the removal saves', async () => {
+      const result = await pruneMessages(smallDrop, 'goal')
+      expect(result.messages).toBe(smallDrop)
+      expect(result.removed).toEqual([])
+      expect(result.savedTokens).toBe(0)
+      expect(result.cache.firstChangedMessage).toBeNull()
+    })
+
+    it('still makes the same removal without the note, since then it does save tokens', async () => {
+      const result = await pruneMessages(smallDrop, 'goal', { marker: false })
+      expect(result.removed).toEqual(['msg:1:0'])
+      expect(result.savedTokens).toBeGreaterThan(0)
+    })
+
+    it('holds a change back when what it saves after the note is under minSavedTokens', async () => {
+      const bigAndSmall = await pruneMessages(withBigResults, 'goal', { scorer: scoresById({ 'tool:a': 0.01 }), policy: noRecency, marker: false })
+      const gross = bigAndSmall.savedTokens
+      const withNote = await pruneMessages(withBigResults, 'goal', { scorer: scoresById({ 'tool:a': 0.01 }), policy: noRecency, minSavedTokens: gross })
+      expect(withNote.messages).toBe(withBigResults)
+      expect(withNote.heldBack).toBeGreaterThan(0)
+      expect(withNote.heldBack).toBeLessThan(gross)
+    })
+
+    // Math.min(...locations) spread every removed entry's locations as call arguments: 150,000 tool
+    // calls overflowed the stack (RangeError), reproduced by the audit.
+    it('handles 150,000 tool calls without overflowing the stack', async () => {
+      const huge: AnthropicMessage[] = [{ role: 'user', content: 'task' }]
+      for (let i = 0; i < 150_000; i++) {
+        huge.push({ role: 'assistant', content: [{ type: 'tool_use', id: `t${i}`, name: 'Bash', input: { command: 'x' } }] })
+        huge.push({ role: 'user', content: [{ type: 'tool_result', tool_use_id: `t${i}`, content: 'ok' }] })
+      }
+      huge.push({ role: 'assistant', content: 'done' })
+      const result = await pruneMessages(huge, 'goal', { targetTokens: 10 })
+      expect(result.removed.length).toBeGreaterThan(100_000)
+      expect(result.cache.firstChangedMessage).toBe(1)
+      expect(result.savedTokens).toBeGreaterThan(0)
+    }, 60_000)
+  })
+
   // Seeded random conversations × random scores × every option: the result must always be a request
   // the Messages API accepts, and never touch the first message or the protected tail.
   it('keeps every invariant across randomized conversations and options', async () => {
@@ -313,11 +370,17 @@ describe('pruneMessages', () => {
       const result = await pruneMessages(messages, 'goal', options)
 
       expectValidToolPairing(result.messages)
+      expect(result.savedTokens).toBeGreaterThanOrEqual(0)
+      // Measured independently of savedTokens: the scored content never grows.
+      const size = (ms: AnthropicMessage[]) => messagesToEntries(ms).reduce((sum, e) => sum + (e.sourceTokens ?? 0), 0)
+      expect(size(result.messages)).toBeLessThanOrEqual(size(messages))
       expect(result.messages[0]).toBe(messages[0])
       expect(result.messages.slice(-protectLast)).toEqual(messages.slice(-protectLast))
       if (result.removed.length === 0 && result.summarized.length === 0) expect(result.messages).toEqual(messages)
       else {
         changedRuns++
+        expect(result.savedTokens).toBeGreaterThan(0)
+        expect(size(result.messages)).toBeLessThan(size(messages))
         expect(result.cache.firstChangedMessage).toBeGreaterThan(0)
       }
     }
