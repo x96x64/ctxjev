@@ -329,3 +329,8 @@ shipping-fee             5621 →  86744 tokens, 38 → 104 messages, sha256 045
 upload-size-limit        3287 →  81146 tokens, 30 → 98 messages, sha256 0c4e6b8dec4a
 webhook-dedupe          22583 →  86585 tokens, 28 → 72 messages, sha256 8949bea7fddc
 ```
+
+Note, 2026-09-24: the command above was started once and stopped by hand within the first task's
+compaction, at the user's request to review the spend before continuing; it produced no results
+and nothing from it was seen. Cost: at most about $0.10, so at most about $0.37 spent before the
+run below. Nothing was changed before restarting it with the same command.
