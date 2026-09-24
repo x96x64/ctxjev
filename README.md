@@ -4,10 +4,12 @@
 
 **Keep what matters when your agent's context gets compacted.**
 
-`ctxjev` scores each entry in an AI agent's history for relevance to the current goal, using
-[Jev](https://typesafe.ai), TypeSafe AI's typed-decision model, or an offline keyword heuristic
-when there's no API key. In Claude Code, it carries the most relevant details through compaction.
-In an agent loop you write yourself, it tells you what's safe to drop.
+`ctxjev` ranks the entries of an AI agent's history and decides what to keep, drop, or summarize.
+By default it ranks by position alone (newest kept, the same as plain truncation), with no key and
+nothing sent; opt in to [Jev](https://typesafe.ai), TypeSafe AI's typed-decision model, or to an
+offline keyword heuristic. In Claude Code, the plugin carries the top few entries through
+compaction (with Jev when a key is set). In an agent loop you write yourself, `pruneMessages()`
+removes what ranked lowest and keeps the request valid.
 
 [![npm (ctxjev-cli)](https://img.shields.io/npm/v/ctxjev-cli.svg?label=ctxjev-cli)](https://www.npmjs.com/package/ctxjev-cli)
 [![npm (ctxjev-core)](https://img.shields.io/npm/v/ctxjev-core.svg?label=ctxjev-core)](https://www.npmjs.com/package/ctxjev-core)
@@ -17,6 +19,10 @@ In an agent loop you write yourself, it tells you what's safe to drop.
 [![Node](https://img.shields.io/badge/node-%3E%3D20-339933?logo=node.js&logoColor=white)](package.json)
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)](tsconfig.base.json)
 [![pnpm](https://img.shields.io/badge/maintained%20with-pnpm-F69220?logo=pnpm&logoColor=white)](pnpm-workspace.yaml)
+
+**This README describes `main` (0.6.0, not yet released). npm has 0.5.0**, which scores with Jev by
+default (so `ctxjev analyze` needs `TYPESAFE_API_KEY` there, or `--offline`) and has no `--scorer`
+flag. See [what's on npm vs. `main`](#whats-on-npm-vs-main).
 
 [Why](#why) · [Choosing a Package](#choosing-a-package) · [Claude Code Plugin](#the-claude-code-plugin) · [How Scoring Works](#how-scoring-works) · [Does It Work?](#does-it-work) · [Quick Start](#quick-start) · [MCP Hosts](#using-it-from-an-mcp-host) · [Design Notes](#design-notes) · [Changelog](CHANGELOG.md)
 
@@ -32,8 +38,9 @@ turned out to be the bug can get smoothed away along with everything that didn't
 
 Most of that history is easy to judge: *"is this old tool result still relevant to the current
 task?"* is the kind of fast, cheap, structured decision [Jev](https://typesafe.ai) is built for. It
-returns typed judgments (a yes/no probability, a choice, a score) in about 100ms instead of writing
-a sentence about it, so `ctxjev` can ask it about every entry cheaply.
+returns typed judgments (a yes/no probability, a choice, a score) instead of writing a sentence
+about it, so `ctxjev` can ask it about every entry cheaply. Whether its answers beat simpler
+rankings is what [Does It Work?](#does-it-work) measures; on unseen tasks, so far, they don't.
 
 What `ctxjev` does with the answer depends on where it runs. A host like Claude Code doesn't let
 anything remove entries from its context, so there `ctxjev` works alongside compaction and hands
@@ -110,9 +117,10 @@ for setup details, including how to make the key visible to the desktop app.
 
 ## How Scoring Works
 
-Every entry becomes its own question, and every question in a batch is evaluated **in parallel
-against one shared state**, so Jev's cost barely grows with the number of questions: scoring 50
-tool-call entries costs about the same as scoring one.
+With Jev, every entry becomes its own question, and the questions for up to 50 entries are
+evaluated **in parallel against one shared state**, as a single request. Jev bills input tokens,
+and those still grow with the entries in a request (each entry's excerpt is part of the state);
+at Jev's published price that stays small, and the Jev run below shows its own usage.
 
 ```ts
 import { pruneMessages } from 'ctxjev-core'
@@ -129,13 +137,39 @@ const { messages: pruned, removed } = await pruneMessages(
 Any other history shape works through `pruneContext(entries, goal)`, which takes plain
 `{ id, role, toolName?, content, timestamp }` entries and returns a decision per entry.
 
+With no options, `ctxjev analyze` uses the default scorer, `recency`: position alone, no Jev call.
+
 ```console
 $ ctxjev analyze examples/sample-transcripts/checkout-bug.json
 
+  e1  bash       drop       score 0.00  ran: npm test -- checkout.test.ts — 12 passed, 0 failed
+  e2  read       drop       score 0.17  read package.json — saw the dependency list and script names
+  e3  grep       summarize  score 0.33  grep "charge" in src/payments.ts — found chargeCustomer() c…
+  e4  bash       summarize  score 0.50  ran: git log --oneline -5 — recent commits about unrelated …
+  e5  read       keep       score 0.67  read src/payments.ts — the retry handler re-calls chargeCus…
+  e6  assistant  keep       score 0.83  Found it: the retry path doesn't check for an in-flight or …
+  e7  bash       keep       score 1.00  ran: ls public/audio — unrelated, was checking something el…
+
+3 kept, 2 summarized, 2 dropped (of 7 entries)
+~27 / 154 tokens saved by dropping (18%), plus ~45 in entries marked summarize (savings there depend on your summarizer)
+Scored by position alone (newest kept, like plain truncation) — no Jev call, nothing sent.
+```
+
+That's plain truncation, and it shows: the unrelated `ls public/audio` is kept because it's newest,
+and the `grep` that found the bug is only marked for summarizing. **With `recency` the goal isn't
+used at all**: every entry's score is its position (oldest 0, newest 1), so the default thresholds
+(`dropBelow` 0.3, `summarizeBelow` 0.6) drop roughly the oldest 30% of entries and mark the next 30%
+for summarizing, whatever they say — including the first request, in ctxjev's own format.
+(`pruneMessages()` never touches the first message, the latest turn, or by default anything the
+user wrote.) The same sample with Jev:
+
+```console
+$ ctxjev analyze examples/sample-transcripts/checkout-bug.json --scorer jev
+
   e1  bash       summarize  score 0.52  ran: npm test -- checkout.test.ts — 12 passed, 0 failed
-  e2  read       drop       score 0.27  read package.json — saw the dependency list and script names
-  e3  grep       keep       score 0.84  grep "charge" in src/payments.ts — found chargeCustomer() c…
-  e4  bash       drop       score 0.15  ran: git log --oneline -5 — recent commits about unrelated …
+  e2  read       drop       score 0.29  read package.json — saw the dependency list and script names
+  e3  grep       keep       score 0.85  grep "charge" in src/payments.ts — found chargeCustomer() c…
+  e4  bash       drop       score 0.14  ran: git log --oneline -5 — recent commits about unrelated …
   e5  read       keep       score 0.89  read src/payments.ts — the retry handler re-calls chargeCus…
   e6  assistant  keep       score 0.90  Found it: the retry path doesn't check for an in-flight or …
   e7  bash       drop       score 0.15  ran: ls public/audio — unrelated, was checking something el…
@@ -145,12 +179,12 @@ $ ctxjev analyze examples/sample-transcripts/checkout-bug.json
 Jev cost: 1,290 input tokens, 123 output tokens (free) — ~$0.000054
 ```
 
-This is real output against the sample transcript in this repo. Jev is probabilistic, so exact
-numbers vary slightly between runs. "Score" is Jev's relevance blended with each entry's recency
-within the batch, described further in [Design Notes](#design-notes). The cost line is computed
-from what Jev's API actually reported for that request, not estimated. Only dropped entries count
-as saved. Jev doesn't generate text, so what `summarize` saves depends on what you do with those
-entries: `ctxjev prune --summarize-excerpts` cuts them to their head and tail, and
+Both are real output against the sample transcript in this repo, captured 2026-09-24. Jev is
+probabilistic, so its numbers vary between runs, and its cost line is computed from the usage Jev's
+API reported for that request, not estimated. "Score" is the ranking's relevance blended with each
+entry's recency within the batch, described further in [Design Notes](#design-notes). Only dropped
+entries count as saved. Jev doesn't generate text, so what `summarize` saves depends on what you do
+with those entries: `ctxjev prune --summarize-excerpts` cuts them to their head and tail, and
 `pruneMessages()` can also hand them to your own summarizer.
 
 The `entries` array above is the one shape every agent's history maps onto, regardless of host.
@@ -347,10 +381,13 @@ npm install -g ctxjev-cli
 ctxjev analyze transcript.jsonl --goal "Fix the checkout double-charge bug."
 ```
 
-No key needed: the default scorer, `recency`, ranks by position alone and sends nothing. `--scorer
-local` scores by keyword overlap instead, also offline. Want Jev's judgment? `export
-TYPESAFE_API_KEY=...` (console.typesafe.ai/settings/keys, no waitlist) and add `--scorer jev` — see
-[Does It Work?](#does-it-work) for what that currently buys you.
+On `main` (0.6.0), no key is needed: the default scorer, `recency`, ranks by position alone and
+sends nothing. `--scorer local` scores by keyword overlap instead, also offline. Want Jev's
+judgment? `export TYPESAFE_API_KEY=...` (console.typesafe.ai/settings/keys, no waitlist) and add
+`--scorer jev` — see [Does It Work?](#does-it-work) for what that currently buys you.
+
+**With the npm release (0.5.0)**, the same command asks Jev and fails without `TYPESAFE_API_KEY`;
+add `--offline` for keyword overlap instead (0.5.0 has no `--scorer` and no `recency` scorer).
 
 `ctxjev prune` writes a ctxjev-format or Anthropic Messages transcript back out with the drops
 removed (to stdout, or `--out <file>`):
@@ -359,15 +396,29 @@ removed (to stdout, or `--out <file>`):
 ctxjev prune examples/sample-transcripts/anthropic-messages.json --out pruned.json
 ```
 
-Or from a clone, to run the exact sample transcript above:
+Or from a clone of `main`, to run the exact sample transcript above:
 
 ```bash
 git clone https://github.com/x96x64/ctxjev.git
 cd ctxjev
 pnpm install && pnpm build
 
-node packages/cli/dist/index.js analyze examples/sample-transcripts/checkout-bug.json
+node packages/cli/dist/index.js analyze examples/sample-transcripts/checkout-bug.json               # recency
+node packages/cli/dist/index.js analyze examples/sample-transcripts/checkout-bug.json --scorer jev  # needs TYPESAFE_API_KEY
 ```
+
+### What's on npm vs. `main`
+
+| | npm today (0.5.0) | `main` (0.6.0, unreleased) |
+| --- | --- | --- |
+| Default scorer (`ctxjev-core`, `ctxjev-cli`, `pruneMessages()`) | Jev (needs `TYPESAFE_API_KEY`) | `recency`, offline |
+| CLI offline flag | `--offline` (keyword overlap) | `--scorer recency\|local\|jev`; `--offline` = `--scorer local` |
+| Everything in [the changelog's 0.6.0 section](CHANGELOG.md) | no | yes |
+
+The Claude Code plugin isn't on npm: the marketplace installs it from this repository's `main`
+branch, so plugin users get `main` as soon as it's pushed, released or not. Pinning the marketplace
+to released versions is planned (see the
+[Round 2 design proposal](docs/design/round-2-scoring-and-evaluation.md), in Japanese).
 
 ## Packages
 
@@ -376,10 +427,10 @@ that engine gets used.
 
 | Package | What it is | Status |
 | --- | --- | --- |
-| [`ctxjev-core`](packages/core) ([npm](https://www.npmjs.com/package/ctxjev-core)) | The engine: `scoreEntries()`/`pruneContext()`/`pruneMessages()`, plus the Claude Code transcript parser, secret masking, and the offline scorers. Everything else wraps this. | ✅ published |
-| [`ctxjev-cli`](packages/cli) ([npm](https://www.npmjs.com/package/ctxjev-cli)) | `ctxjev analyze` (a report) and `ctxjev prune` (the transcript with drops removed). | ✅ published |
-| [`ctxjev-mcp`](packages/mcp-server) ([npm](https://www.npmjs.com/package/ctxjev-mcp)) | MCP server exposing `score_relevance`/`prune_history` as tools. | ✅ published |
-| [`ctxjev-claude`](packages/claude-plugin) | Claude Code plugin: scores at `PreCompact`, re-injects a digest at `SessionStart`, plus two inspection skills. | ✅ working (not on npm) |
+| [`ctxjev-core`](packages/core) ([npm](https://www.npmjs.com/package/ctxjev-core)) | The engine: `scoreEntries()`/`pruneContext()`/`pruneMessages()`, plus the Claude Code transcript parser, secret masking, and the offline scorers. Everything else wraps this. | ✅ published (npm: 0.5.0) |
+| [`ctxjev-cli`](packages/cli) ([npm](https://www.npmjs.com/package/ctxjev-cli)) | `ctxjev analyze` (a report) and `ctxjev prune` (the transcript with drops removed). | ✅ published (npm: 0.5.0) |
+| [`ctxjev-mcp`](packages/mcp-server) ([npm](https://www.npmjs.com/package/ctxjev-mcp)) | MCP server exposing `score_relevance`/`prune_history` as tools. | ✅ published (npm: 0.5.0) |
+| [`ctxjev-claude`](packages/claude-plugin) | Claude Code plugin: scores at `PreCompact`, re-injects a digest at `SessionStart`, plus `/ctxjev:set-goal` and `/ctxjev:status` (answered by a `UserPromptSubmit` hook without a model turn). | ✅ working (not on npm; installed from `main`) |
 
 ## Using It from an MCP Host
 
@@ -434,7 +485,8 @@ are in the [`ctxjev-mcp` README](packages/mcp-server/README.md).
 
 ## Contributing
 
-Issues and pull requests are welcome.
+Issues and pull requests are welcome; see [`CONTRIBUTING.md`](CONTRIBUTING.md), including the
+release policy. Report a vulnerability privately, as [`SECURITY.md`](SECURITY.md) describes.
 
 ```bash
 pnpm install && pnpm build && pnpm test

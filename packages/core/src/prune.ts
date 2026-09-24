@@ -29,6 +29,9 @@ export type ScoreEntriesOptions = {
    * `'jev'` tied it on task success, so it's opt-in rather than the default; pass `scorer: 'jev'`
    * to ask Jev instead, or `'local'` for offline keyword overlap. A function is used as-is (see
    * `CustomScorer`). Only `'jev'` reads or writes `cache` and calls `onUsage`.
+   *
+   * With `'recency'` the goal isn't used at all: relevance is position, so `DEFAULT_POLICY`'s
+   * thresholds drop roughly the oldest 30% of entries and summarize the next 30%, whatever they say.
    */
   scorer?: 'jev' | 'local' | 'recency' | CustomScorer
 }
