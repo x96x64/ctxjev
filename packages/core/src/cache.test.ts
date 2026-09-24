@@ -28,4 +28,12 @@ describe('cacheKeyFor', () => {
     expect(cacheKeyFor('g', entry, fixed)).not.toBe(cacheKeyFor('g', entry))
     expect(cacheKeyFor('g', entry, fixed)).toBe(cacheKeyFor('g', entry, [...fixed]))
   })
+
+  // Keys end up on disk (ctxjev-cli's ~/.cache/ctxjev/score-cache.json); the audit found goals and
+  // entry content — secrets included, since ctxjev-format content isn't masked — stored there as-is.
+  it('is a SHA-256 digest, so neither the goal nor the content is stored in it', () => {
+    const key = cacheKeyFor('rotate S3cretPassw0rd', { role: 'tool', toolName: 'Bash', content: 'export PW=S3cretPassw0rd' })
+    expect(key).toMatch(/^[0-9a-f]{64}$/)
+    expect(key).not.toContain('S3cret')
+  })
 })
