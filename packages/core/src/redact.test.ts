@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { FORMATS, HARMLESS, PW } from '../test/redactCases.js'
 import { redactSecrets } from './redact.js'
 
 describe('redactSecrets', () => {
@@ -41,5 +42,42 @@ describe('redactSecrets', () => {
   it('is idempotent', () => {
     const once = redactSecrets('TYPESAFE_API_KEY=sk-abcdefghijklmnopqrstuvwxyz')
     expect(redactSecrets(once)).toBe(once)
+  })
+})
+
+describe('redactSecrets: the audit’s secret formats', () => {
+  it('covers 40 formats', () => {
+    expect(FORMATS).toHaveLength(40)
+    expect(new Set(FORMATS.map((f) => f.name)).size).toBe(40)
+  })
+
+  it.each(FORMATS)('masks $name', ({ text, secret }) => {
+    const masked = redactSecrets(text)
+    expect(masked).not.toContain(secret)
+    expect(masked).toContain('[REDACTED]')
+    expect(redactSecrets(masked)).toBe(masked)
+  })
+
+  it('keeps the name of what was masked', () => {
+    expect(redactSecrets(`{"password": "${PW}"}`)).toBe('{"password": "[REDACTED]"}')
+    expect(redactSecrets(`DATABASE_URL=postgres://admin:${PW}@db.internal:5432/app`)).toBe('DATABASE_URL=postgres://admin:[REDACTED]@db.internal:5432/app')
+    expect(redactSecrets('DB_PASS=hunter2')).toBe('DB_PASS=[REDACTED]')
+    expect(redactSecrets(`mysql -u root -p${PW} orders`)).toBe('mysql -u root -p[REDACTED] orders')
+  })
+
+  it('masks a password that itself contains "@" in a URL', () => {
+    expect(redactSecrets('postgres://admin:p@ss@db:5432/app')).toBe('postgres://admin:[REDACTED]@db:5432/app')
+  })
+
+  it('masks credentials inside escaped JSON', () => {
+    const masked = redactSecrets(`{\\"password\\": \\"${PW}\\"}`)
+    expect(masked).not.toContain(PW)
+    expect(masked).toBe('{\\"password\\": \\"[REDACTED]\\"}')
+  })
+})
+
+describe('redactSecrets: leaves ordinary text alone', () => {
+  it.each(HARMLESS)('%s', (text) => {
+    expect(redactSecrets(text)).toBe(text)
   })
 })
