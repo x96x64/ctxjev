@@ -108,6 +108,28 @@ describe('preCompact.js (dist)', () => {
     expect(lastRun.warnings).toEqual([expect.stringContaining('"u1"')])
   }, 10_000)
 
+  it('masks a secret in a /ctxjev:set-goal goal before writing it to disk', async () => {
+    const transcriptPath = join(cwd, 'transcript.jsonl')
+    await writeFile(
+      transcriptPath,
+      [
+        { type: 'user', uuid: 'u0', timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: '<command-name>/ctxjev:set-goal</command-name>\n<command-args>fix the checkout double charge; DB_PASS=hunter2</command-args>' } },
+        { type: 'assistant', uuid: 'a1', timestamp: '2026-01-01T00:00:01.000Z', message: { role: 'assistant', content: [{ type: 'tool_use', id: 'c1', name: 'Grep', input: { pattern: 'charge' } }] } },
+        { type: 'user', uuid: 'u2', timestamp: '2026-01-01T00:00:02.000Z', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'c1', content: 'chargeCustomer() is called again by the retry handler' }] } },
+      ]
+        .map((r) => JSON.stringify(r))
+        .join('\n'),
+      'utf8',
+    )
+    const result = await run(JSON.stringify({ cwd, transcript_path: transcriptPath, session_id: 'sess-1' }), { TYPESAFE_API_KEY: undefined })
+    expect(result.exitCode).toBe(0)
+    const lastRun = await readFile(sessionFile('sess-1', 'last-run.json'), 'utf8')
+    expect(JSON.parse(lastRun)).toMatchObject({ goalSource: 'explicit', goal: 'fix the checkout double charge; DB_PASS=[REDACTED]' })
+    for (const file of await readdir(join(state, 'sessions', 'sess-1'))) {
+      expect(await readFile(sessionFile('sess-1', file), 'utf8')).not.toContain('hunter2')
+    }
+  }, 10_000)
+
   it('records an unreadable transcript as an error instead of failing silently', async () => {
     const result = await run(JSON.stringify({ cwd, transcript_path: join(cwd, 'does-not-exist.jsonl'), session_id: 'sess-1' }), { TYPESAFE_API_KEY: undefined })
     expect(result.exitCode).toBe(0)

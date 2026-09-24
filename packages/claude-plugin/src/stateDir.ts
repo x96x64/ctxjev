@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { mkdir, readdir, rm, rmdir, stat } from 'node:fs/promises'
+import { lstat, mkdir, readFile, readdir, rm, rmdir, stat, unlink } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 
@@ -46,12 +46,17 @@ async function pruneOldSessions(): Promise<void> {
   await Promise.all(withTimes.slice(MAX_KEPT_SESSIONS).map(({ name }) => rm(join(root, name), { recursive: true, force: true })))
 }
 
-// Everything versions before 0.6.0 wrote into `<project>/.ctxjev/`.
-const LEGACY_FILES = ['preserved', 'preserved-context.json', 'last-run.json', 'goal.txt', '.gitignore']
+// What versions before 0.6.0 wrote into `<project>/.ctxjev/`: these files, plus one snapshot per
+// session in `preserved/` (`<session key>.json`, and a leftover `.tmp` from an interrupted write).
+const LEGACY_FILES = ['preserved-context.json', 'last-run.json', 'goal.txt', '.gitignore']
+const LEGACY_SNAPSHOT = /^[A-Za-z0-9_-]{1,128}\.json$/
+const LEGACY_TEMP = /^[A-Za-z0-9_-]{1,128}\.json\.[0-9a-f-]{36}\.tmp$/
 
 /**
- * Removes the state earlier versions kept in the user's project. Only ctxjev's own files: if
- * anything else is in `.ctxjev/`, that stays, and so does the directory.
+ * Removes the state earlier versions kept in the user's project, one known file at a time and never
+ * recursively: anything else in `.ctxjev/` or `.ctxjev/preserved/` stays, and so does the directory
+ * holding it. A `preserved/*.json` is only removed if it has a snapshot's shape, since a user's own
+ * `notes.json` would match by name alone.
  */
 export async function removeLegacyState(cwd: string): Promise<void> {
   const dir = join(cwd, '.ctxjev')
@@ -61,6 +66,33 @@ export async function removeLegacyState(cwd: string): Promise<void> {
   } catch {
     return
   }
-  await Promise.all(names.filter((n) => LEGACY_FILES.includes(n)).map((n) => rm(join(dir, n), { recursive: true, force: true })))
-  if (names.every((n) => LEGACY_FILES.includes(n))) await rmdir(dir).catch(() => {})
+  const preserved = join(dir, 'preserved')
+  if (names.includes('preserved') && (await lstat(preserved)).isDirectory()) {
+    for (const name of await readdir(preserved)) {
+      if (LEGACY_TEMP.test(name) || (LEGACY_SNAPSHOT.test(name) && (await isLegacySnapshot(join(preserved, name))))) await unlinkFile(join(preserved, name))
+    }
+    await rmdir(preserved).catch(() => {})
+  }
+  for (const name of names.filter((n) => LEGACY_FILES.includes(n))) await unlinkFile(join(dir, name))
+  await rmdir(dir).catch(() => {})
+}
+
+async function isLegacySnapshot(path: string): Promise<boolean> {
+  try {
+    if (!(await lstat(path)).isFile()) return false
+    const data = JSON.parse(await readFile(path, 'utf8'))
+    return typeof data?.goal === 'string' && typeof data?.scoredAt === 'string' && Array.isArray(data?.entries)
+  } catch {
+    return false
+  }
+}
+
+/** Removes `path` only if it's a plain file: never a directory, and never whatever a symlink points at. */
+async function unlinkFile(path: string): Promise<void> {
+  try {
+    const info = await lstat(path)
+    if (info.isFile() || info.isSymbolicLink()) await unlink(path)
+  } catch {
+    // already gone, or not ours to remove
+  }
 }

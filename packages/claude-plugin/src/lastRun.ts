@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { atomicWriteFile } from 'ctxjev-core'
+import { atomicWriteFile, redactSecrets } from 'ctxjev-core'
 import type { Scorer } from './select.js'
 import { ensureSessionDir, sessionDir } from './stateDir.js'
 
@@ -28,7 +28,10 @@ const FILE = 'last-run.json'
 
 export async function writeLastRun(cwd: string, run: LastRun): Promise<void> {
   const dir = await ensureSessionDir(cwd, run.sessionId)
-  await atomicWriteFile(join(dir, FILE), JSON.stringify(run, null, 2), { mode: 0o600 })
+  // The goal may be a /ctxjev:set-goal the user typed, and an error message may quote anything.
+  const mask = (text: string | undefined) => (text === undefined ? undefined : redactSecrets(text))
+  const masked: LastRun = { ...run, goal: mask(run.goal), reason: mask(run.reason), note: mask(run.note), warnings: run.warnings?.map(redactSecrets) }
+  await atomicWriteFile(join(dir, FILE), JSON.stringify(masked, null, 2), { mode: 0o600 })
 }
 
 export async function readLastRun(cwd: string, sessionId: string | undefined): Promise<LastRun | undefined> {

@@ -1,6 +1,6 @@
 import { readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
-import { atomicWriteFile, type ScoredEntry } from 'ctxjev-core'
+import { atomicWriteFile, redactSecrets, type ScoredEntry } from 'ctxjev-core'
 import type { Scorer } from './select.js'
 import { ensureSessionDir, sessionDir } from './stateDir.js'
 
@@ -15,8 +15,11 @@ const FILE = 'preserved.json'
 
 export async function writePreservedContext(cwd: string, sessionId: string | undefined, data: PreservedContext): Promise<void> {
   const dir = await ensureSessionDir(cwd, sessionId)
+  // Masked here, not just where it's sent to Jev: a /ctxjev:set-goal goal is the user's own text,
+  // and excerpts scored offline never went through a Jev request at all.
+  const masked: PreservedContext = { ...data, goal: redactSecrets(data.goal), entries: data.entries.map((e) => ({ ...e, content: redactSecrets(e.content) })) }
   // Atomic, so a concurrent run can't interleave with this write and corrupt the JSON.
-  await atomicWriteFile(join(dir, FILE), JSON.stringify(data, null, 2), { mode: 0o600 })
+  await atomicWriteFile(join(dir, FILE), JSON.stringify(masked, null, 2), { mode: 0o600 })
 }
 
 export async function readPreservedContext(cwd: string, sessionId: string | undefined): Promise<PreservedContext | undefined> {

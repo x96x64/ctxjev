@@ -1,7 +1,8 @@
-import { mkdir, mkdtemp, readdir, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { writeLastRun } from './lastRun.js'
 import { clearPreservedContext, readPreservedContext, writePreservedContext, type PreservedContext } from './preserve.js'
 import { removeLegacyState, sessionKey } from './stateDir.js'
 
@@ -90,5 +91,43 @@ describe('removeLegacyState', () => {
 
   it('does nothing without a .ctxjev directory', async () => {
     await expect(removeLegacyState(cwd)).resolves.toBeUndefined()
+  })
+
+  // The audit reproduced this: the cleanup removed .ctxjev/preserved recursively, taking a user's
+  // own files with it. Only snapshots older versions wrote there (<session>.json, with their shape)
+  // may go, and nothing below it.
+  it('removes only its own snapshots from .ctxjev/preserved, never a user’s files or folders', async () => {
+    const preserved = join(cwd, '.ctxjev', 'preserved')
+    await mkdir(join(preserved, 'mydata'), { recursive: true })
+    await writeFile(join(preserved, 'mydata', 'notes.txt'), 'mine')
+    await writeFile(join(preserved, 'notes.json'), '{"mine": true}')
+    await writeFile(join(preserved, 'todo.md'), 'mine')
+    await writeFile(join(preserved, 'sess-1.json'), JSON.stringify(sample))
+    await writeFile(join(cwd, '.ctxjev', '.gitignore'), '*\n')
+
+    await removeLegacyState(cwd)
+
+    expect((await readdir(preserved)).sort()).toEqual(['mydata', 'notes.json', 'todo.md'])
+    expect(await readdir(join(preserved, 'mydata'))).toEqual(['notes.txt'])
+    expect(await readdir(join(cwd, '.ctxjev'))).toEqual(['preserved'])
+  })
+
+})
+
+describe('what the plugin writes to disk', () => {
+  // redact.ts promises masking before anything lands on disk; /ctxjev:set-goal's text went
+  // straight into preserved.json and last-run.json.
+  it('masks secrets in the goal and excerpts it saves', async () => {
+    await writePreservedContext(cwd, 'session-a', { ...sample, goal: 'rotate the key; DB_PASS=hunter2', entries: [{ ...sample.entries[0], content: 'export API_KEY=abcdefgh12345678' }] })
+    const raw = await readFile(join(state, 'sessions', 'session-a', 'preserved.json'), 'utf8')
+    expect(raw).not.toContain('hunter2')
+    expect(raw).not.toContain('abcdefgh12345678')
+    expect(raw).toContain('DB_PASS=[REDACTED]')
+  })
+
+  it('masks secrets in last-run.json', async () => {
+    await writeLastRun(cwd, { at: '2026-01-01T00:00:00.000Z', sessionId: 'session-a', outcome: 'error', goal: 'DB_PASS=hunter2', reason: 'failed with password: hunter2' })
+    const raw = await readFile(join(state, 'sessions', 'session-a', 'last-run.json'), 'utf8')
+    expect(raw).not.toContain('hunter2')
   })
 })
