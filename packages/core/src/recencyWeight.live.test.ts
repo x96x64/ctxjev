@@ -15,12 +15,13 @@ import { DEFAULT_POLICY, pruneContext, type Entry } from './index.js'
 const fixturesDir = join(dirname(fileURLToPath(import.meta.url)), '../../../examples/sample-transcripts')
 
 type Fixture = { name: string; goal: string; entries: Entry[]; groundTruth?: Record<string, boolean> }
+type LabeledFixture = Fixture & { groundTruth: Record<string, boolean> }
 
-function loadFixtures(): Fixture[] {
+function loadFixtures(): LabeledFixture[] {
   return readdirSync(fixturesDir)
     .filter((f) => f.endsWith('.json'))
     .map((f) => ({ name: f, ...JSON.parse(readFileSync(join(fixturesDir, f), 'utf8')) }))
-    .filter((f): f is Fixture & { groundTruth: Record<string, boolean> } => Boolean(f.groundTruth))
+    .filter((f): f is LabeledFixture => Boolean(f.groundTruth))
 }
 
 // Jev is probabilistic: a retry absorbs a borderline entry flipping once; a real regression fails every attempt.

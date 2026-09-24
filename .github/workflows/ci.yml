@@ -31,4 +31,6 @@ jobs:
         run: git diff --exit-code -- packages/claude-plugin/dist || (echo "packages/claude-plugin/dist is stale — run pnpm build and commit it" && exit 1)
 
       - run: pnpm lint
+      # tsconfig.json builds src without the tests; this type-checks the tests too.
+      - run: pnpm typecheck
       - run: pnpm test

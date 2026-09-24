@@ -38,6 +38,7 @@
   "scripts": {
     "build": "tsc -b",
     "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.test.json",
     "eval": "node eval/run.mjs"
   },
   "dependencies": {

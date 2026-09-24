@@ -1,0 +1,11 @@
+{
+  // Type-checks the tests too (tsconfig.json leaves them out of the build). `pnpm typecheck`; CI runs it.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": "../..",
+    "types": ["node"]
+  },
+  "include": ["src", "test", "../../test-support"],
+  "exclude": []
+}

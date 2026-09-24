@@ -18,7 +18,8 @@
   "type": "module",
   "scripts": {
     "build": "tsc -b && node esbuild.build.mjs",
-    "test": "vitest run"
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.test.json"
   },
   "dependencies": {
     "ctxjev-core": "workspace:*"
