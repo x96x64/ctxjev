@@ -31,6 +31,10 @@ overrides it; tests and `eval/plugin.mjs` set it), never in the user's project. 
 `dist/status.js` (run from the status skill's Bash call) must agree on that path, so it can't
 depend on anything only the hook environment has. `/ctxjev:set-goal` writes nothing: the goal is
 read back from the command's own record in the session transcript (`findExplicitGoal()`).
+`/ctxjev:status` is answered by a UserPromptSubmit hook (`statusHook.js`) that blocks the prompt with
+the report, so it never gets a model turn: as a skill, Claude Haiku used that turn to start editing
+and committing after a compaction. Anything ctxjev puts in front of the model (the digest, a
+report) quotes goals and excerpts as data; an imperative goal line reads as a request.
 
 ## Jev constraints (don't design around what it can't do)
 

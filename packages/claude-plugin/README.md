@@ -68,7 +68,8 @@ the moment it matters most.
 - **`/ctxjev:status`** shows the goal the next compaction will use, what the last compaction's run
   actually did, including *why* if it skipped, failed, or fell back to offline scoring (a missing
   API key, a failed Jev request, nothing to score), and every preserved entry with its score,
-  highest first. The fastest way to check the plugin is working.
+  highest first. The fastest way to check the plugin is working. It's answered by a hook before
+  your prompt reaches Claude, so checking never starts a model turn (or any work).
 
 Five entries are preserved per compaction by default; set `CTXJEV_PRESERVE_LIMIT` (1–50) in the
 environment Claude Code runs in to change that.
