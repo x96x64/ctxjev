@@ -20,6 +20,7 @@ export {
 export { isSubstantiveMessage, truncate } from './entryText.js'
 export { createUsageAccumulator } from './usage.js'
 export { cacheKeyFor, type ScoreCache } from './cache.js'
+export { type JevClient } from './jevClient.js'
 export { isValidPolicyOrdering } from './policy.js'
 export { localRelevance } from './localRelevance.js'
 export { splitCjkBigrams } from './cjk.js'

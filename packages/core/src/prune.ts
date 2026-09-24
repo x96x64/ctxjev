@@ -1,6 +1,6 @@
 import { type ScoreCache } from './cache.js'
 import { chunkEntries } from './chunk.js'
-import { scoreRelevance, type RelevanceVerdict } from './jevClient.js'
+import { scoreRelevance, type JevClient, type RelevanceVerdict } from './jevClient.js'
 import { localRelevance } from './localRelevance.js'
 import { combineScore, decideAction } from './policy.js'
 import { computeRecency } from './recency.js'
@@ -21,6 +21,8 @@ export type ScoreEntriesOptions = {
   onUsage?: (usage: JevUsage) => void
   /** Checked before, and populated after, each Jev request — see `ScoreCache`. Jev only. */
   cache?: ScoreCache
+  /** The client Jev requests go through. Jev only; defaults to one reading TYPESAFE_API_KEY. */
+  jevClient?: JevClient
   /**
    * `'recency'` (default) ranks by position alone, newest 1 to oldest 0: plain truncation. On the
    * [preregistered holdout comparison](https://github.com/x96x64/ctxjev/blob/main/packages/core/eval/PREREGISTRATION.md),
@@ -62,7 +64,7 @@ export async function mapWithConcurrencyLimit<T, R>(items: T[], limit: number, f
 async function scoreWithJev(entries: Entry[], goal: string, options: ScoreEntriesOptions): Promise<RelevanceVerdict[]> {
   const latest = latestEntries(entries, LATEST_CONTEXT_SIZE)
   const chunkResults = await mapWithConcurrencyLimit(chunkEntries(entries), MAX_CONCURRENT_CHUNK_REQUESTS, async (chunk) => {
-    const { verdicts, usage } = await scoreRelevance(goal, chunk, options.cache, latest)
+    const { verdicts, usage } = await scoreRelevance(goal, chunk, options.cache, latest, options.jevClient)
     options.onUsage?.(usage)
     return verdicts
   })

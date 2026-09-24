@@ -21,12 +21,18 @@ export type ScoreRelevanceResult = {
  */
 const LATEST_CONTENT_LENGTH = 200
 
+/**
+ * What scoring needs from a Jev client. `@typesafe-ai/sdk`'s `TypeSafeClient` is one; pass your own
+ * (`ScoreEntriesOptions.jevClient`) to configure it differently, or a fake in a test.
+ */
+export type JevClient = Pick<TypeSafeClient, 'systemOne'>
+
 let client: TypeSafeClient | undefined
 
 // Constructed lazily, on first real use — not at module load — so importing ctxjev-core
 // (e.g. just for its types, or for a CLI command that never calls Jev) doesn't require an
 // API key to be present.
-function getClient(): TypeSafeClient {
+function getClient(): JevClient {
   client ??= new TypeSafeClient()
   return client
 }
@@ -67,9 +73,16 @@ export function buildJevRequest(goal: string, entries: Entry[], latest: Entry[] 
 /**
  * `cache`, when provided, is checked before spending a Jev request on an entry and populated with
  * fresh verdicts afterward. Keyed on goal, entry content, and `latest` (see `cacheKeyFor`), not on
- * `entry.id`, so the same history scores as a hit across transcripts.
+ * `entry.id`, so the same history scores as a hit across transcripts. `jev` defaults to a
+ * `TypeSafeClient` that reads TYPESAFE_API_KEY (and TYPESAFE_BASE_URL) from the environment.
  */
-export async function scoreRelevance(goal: string, entries: Entry[], cache?: ScoreCache, latest: Entry[] = []): Promise<ScoreRelevanceResult> {
+export async function scoreRelevance(
+  goal: string,
+  entries: Entry[],
+  cache?: ScoreCache,
+  latest: Entry[] = [],
+  jev?: JevClient,
+): Promise<ScoreRelevanceResult> {
   if (entries.length === 0) {
     return { verdicts: [], usage: { inputTokens: 0, outputTokens: 0 } }
   }
@@ -86,7 +99,7 @@ export async function scoreRelevance(goal: string, entries: Entry[], cache?: Sco
 
   if (uncached.length > 0) {
     const { state, questions } = buildJevRequest(goal, uncached, latest)
-    const response = await getClient().systemOne({ state, questions })
+    const response = await (jev ?? getClient()).systemOne({ state, questions })
     usage = { inputTokens: response.usage.input_tokens, outputTokens: response.usage.output_tokens }
 
     for (const entry of uncached) {
