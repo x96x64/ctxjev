@@ -5,10 +5,43 @@ import { redactSecrets } from './redact.js'
 
 const MAX_CONTENT_LENGTH = 600
 
+// Cuts land on grapheme boundaries, so one never splits an emoji: not a surrogate pair (😀 is two
+// UTF-16 units, and half of one is invalid text), nor a sequence like 👨‍👩‍👧 or a flag.
+const graphemes = typeof Intl.Segmenter === 'function' ? new Intl.Segmenter(undefined, { granularity: 'grapheme' }) : undefined
+// How far either side of a cut to look for a boundary: longer than any real grapheme cluster.
+const CLUSTER_WINDOW = 32
+
+const isHighSurrogate = (code: number) => code >= 0xd800 && code <= 0xdbff
+const isLowSurrogate = (code: number) => code >= 0xdc00 && code <= 0xdfff
+const splitsPair = (text: string, index: number) => isHighSurrogate(text.charCodeAt(index - 1)) && isLowSurrogate(text.charCodeAt(index))
+
+/** Grapheme boundaries within CLUSTER_WINDOW of `index`, in order. */
+function boundariesNear(text: string, index: number): number[] {
+  const start = Math.max(0, index - CLUSTER_WINDOW)
+  const end = Math.min(text.length, index + CLUSTER_WINDOW)
+  return [...graphemes!.segment(text.slice(start, end))].map((s) => start + s.index).concat(end)
+}
+
+/** The largest index at or before `index` that doesn't split a character. */
+function boundaryAtOrBefore(text: string, index: number): number {
+  if (index <= 0 || index >= text.length) return Math.max(0, Math.min(index, text.length))
+  const cut = splitsPair(text, index) ? index - 1 : index
+  if (!graphemes) return cut
+  return boundariesNear(text, cut).filter((b) => b <= cut).at(-1) ?? cut
+}
+
+/** The smallest index at or after `index` that doesn't split a character. */
+function boundaryAtOrAfter(text: string, index: number): number {
+  if (index <= 0 || index >= text.length) return Math.max(0, Math.min(index, text.length))
+  const cut = splitsPair(text, index) ? index + 1 : index
+  if (!graphemes) return cut
+  return boundariesNear(text, cut).find((b) => b >= cut) ?? cut
+}
+
 /** Collapses whitespace and clips to `max` chars with an ellipsis. */
 export function truncate(text: string, max: number = MAX_CONTENT_LENGTH): string {
   const oneLine = text.replace(/\s+/g, ' ').trim()
-  return oneLine.length > max ? `${oneLine.slice(0, max - 1)}…` : oneLine
+  return oneLine.length > max ? `${oneLine.slice(0, boundaryAtOrBefore(oneLine, max - 1))}…` : oneLine
 }
 
 // Shorter than this, a user message is usually an acknowledgment ("yes", "go ahead", "続けて"),
@@ -38,7 +71,8 @@ export function toolExcerpt(text: string, max: number = MAX_CONTENT_LENGTH): str
   if (oneLine.length <= max) return oneLine
   const headLength = Math.ceil(max * 0.6)
   const tailLength = max - headLength - 3
-  return `${oneLine.slice(0, headLength)} … ${oneLine.slice(-tailLength)}`
+  if (tailLength <= 0) return truncate(oneLine, max) // too short to keep both ends
+  return `${oneLine.slice(0, boundaryAtOrBefore(oneLine, headLength))} … ${oneLine.slice(boundaryAtOrAfter(oneLine, oneLine.length - tailLength))}`
 }
 
 export function toolResultText(content: unknown): string {
