@@ -44,6 +44,7 @@ export async function statusReport(cwd: string, sessionId: string | undefined, t
   lines.push(`Last run: ${lastRun.at}, ${lastRun.outcome}${lastRun.preserved ? ` (${lastRun.preserved} entries)` : ''}${scorer ? `, scored with ${scorer}` : ''}`)
   if (lastRun.reason) lines.push(`  Reason: ${lastRun.reason}`)
   if (lastRun.note) lines.push(`  Note: ${lastRun.note}`)
+  for (const warning of lastRun.warnings ?? []) lines.push(`  Warning: ${warning}`)
   if (lastRun.goal) lines.push(`  Scored against: ${quote(truncate(lastRun.goal, 200))}`)
 
   const preserved = await readPreservedContext(cwd, sessionId)

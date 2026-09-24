@@ -20,6 +20,8 @@ export type LastRun = {
   scorer?: Scorer
   /** Why scoring fell back to the offline heuristic, when it did. */
   note?: string
+  /** Problems in the transcript that were worked around, e.g. records repeating an id. */
+  warnings?: string[]
 }
 
 const FILE = 'last-run.json'

@@ -1,10 +1,12 @@
+import { jsonErrorOffset } from './jsonError.js'
 import { estimateTokens, inferGoalFromEntries, messagesToEntries, parseClaudeCodeTranscript, resolveClaudeCodeGoal, type AnthropicMessage, type Entry, type EntryRole } from 'ctxjev-core'
 
 const VALID_ROLES: EntryRole[] = ['user', 'assistant', 'tool']
 
 export type TranscriptFile =
   | { format: 'ctxjev'; goal?: string; entries: Entry[] }
-  | { format: 'claude-code'; goal?: string; entries: Entry[] }
+  /** `warnings`: problems in the log that were worked around (see parseClaudeCodeTranscript's `onWarning`). */
+  | { format: 'claude-code'; goal?: string; entries: Entry[]; warnings: string[] }
   /** `wrapped`: the file was `{ goal?, messages }` rather than a bare array, so output keeps that shape. */
   | { format: 'anthropic-messages'; goal?: string; entries: Entry[]; messages: AnthropicMessage[]; wrapped: boolean }
 
@@ -13,14 +15,18 @@ export type TranscriptFile =
  * examples/sample-transcripts), an Anthropic Messages conversation (a `messages` array, bare or as
  * `{ goal?, messages }`), or a real Claude Code session transcript (`.jsonl`, one record per line).
  * The first two parse as one JSON value; a `.jsonl` file doesn't (one value per line), so a
- * `JSON.parse` failure is what triggers the Claude Code path, with no flag or file extension needed.
+ * `JSON.parse` failure whose first line is a JSON record on its own is what triggers the Claude Code
+ * path, with no flag or file extension needed. Any other parse failure is a broken JSON file, and
+ * the error says where it broke.
  */
 export function parseTranscript(raw: string): TranscriptFile {
   let parsedJson: unknown
   try {
     parsedJson = JSON.parse(raw)
-  } catch {
-    // Not a single JSON document at all — most likely a Claude Code .jsonl transcript instead.
+  } catch (err) {
+    if (!firstLineIsJsonRecord(raw)) {
+      throw new Error(`could not parse this file: it's not valid JSON (${describeJsonError(raw, err)}), and its first line isn't a Claude Code .jsonl record either`)
+    }
     return parseClaudeCode(raw)
   }
 
@@ -36,13 +42,37 @@ export function parseTranscript(raw: string): TranscriptFile {
 }
 
 function parseClaudeCode(raw: string): TranscriptFile {
-  const entries = parseClaudeCodeTranscript(raw, { countTokens: estimateTokens })
+  const warnings: string[] = []
+  const entries = parseClaudeCodeTranscript(raw, { countTokens: estimateTokens, onWarning: (w) => warnings.push(w) })
   if (entries.length === 0) {
     throw new Error(
       'could not parse this file as a ctxjev transcript (an "entries" array), an Anthropic Messages conversation (a "messages" array), or a Claude Code session .jsonl',
     )
   }
-  return { format: 'claude-code', goal: resolveClaudeCodeGoal(raw, entries)?.goal, entries }
+  return { format: 'claude-code', goal: resolveClaudeCodeGoal(raw, entries)?.goal, entries, warnings }
+}
+
+function firstLineIsJsonRecord(raw: string): boolean {
+  const firstLine = raw.split('\n').find((line) => line.trim())
+  if (!firstLine) return false
+  try {
+    const record: unknown = JSON.parse(firstLine)
+    return typeof record === 'object' && record !== null && !Array.isArray(record)
+  } catch {
+    return false
+  }
+}
+
+/** JSON.parse's reason, and the line and column where the file stops being valid JSON. */
+function describeJsonError(raw: string, err: unknown): string {
+  const reason = (err instanceof Error ? err.message : String(err))
+    .replace(/\s*in JSON at position \d+[\s\S]*$/, '')
+    .replace(/,\s*(?:\.\.\.)?"[\s\S]*" is not valid JSON$/, '')
+  const offset = jsonErrorOffset(raw)
+  if (offset === undefined) return reason
+  const before = raw.slice(0, offset).split('\n')
+  if (offset >= raw.trimEnd().length) return `${reason}: the file ends before the JSON does, at line ${before.length} — is it cut off?`
+  return `${reason}, at line ${before.length}, column ${before[before.length - 1].length + 1}`
 }
 
 function looksLikeClaudeCodeRecord(parsed: unknown): boolean {

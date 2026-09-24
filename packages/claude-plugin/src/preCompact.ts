@@ -48,7 +48,8 @@ async function run(cwd: string, sessionId: string | undefined, transcriptPath: s
   if (!transcriptPath) return { outcome: 'skipped', reason: 'Claude Code did not provide a transcript_path' }
 
   const jsonl = await readFile(transcriptPath, 'utf8')
-  const entries = parseClaudeCodeTranscript(jsonl)
+  const warnings: string[] = []
+  const entries = parseClaudeCodeTranscript(jsonl, { onWarning: (w) => warnings.push(w) })
   if (entries.length === 0) return { outcome: 'skipped', reason: 'nothing in the transcript since the last compaction' }
 
   const resolved = resolveClaudeCodeGoal(jsonl, entries)
@@ -56,7 +57,7 @@ async function run(cwd: string, sessionId: string | undefined, transcriptPath: s
 
   const limit = preserveLimitFromEnv(process.env.CTXJEV_PRESERVE_LIMIT)
   const { selected, scorer, note } = await scoreForPreservation(entries, resolved.goal, limit)
-  const info = { goal: resolved.goal, goalSource: resolved.source, entriesScored: entries.length, scorer, note }
+  const info = { goal: resolved.goal, goalSource: resolved.source, entriesScored: entries.length, scorer, note, ...(warnings.length > 0 && { warnings }) }
   if (selected.length === 0) return { outcome: 'skipped', reason: 'nothing scored relevant enough to preserve', ...info }
 
   await writePreservedContext(cwd, sessionId, { goal: resolved.goal, scoredAt: new Date().toISOString(), scorer, entries: selected })

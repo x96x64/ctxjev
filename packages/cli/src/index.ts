@@ -160,6 +160,7 @@ async function setUp(argv: string[], extraOptions: Record<string, { type: 'strin
   if (problems.length > 0) failAll(problems)
 
   const transcript = parseTranscript(raw!)
+  if (transcript.format === 'claude-code') for (const warning of transcript.warnings) console.error(`${pc.yellow('⚠')} ${warning}`)
   const goal = (values.goal as string | undefined) ?? transcript.goal
   if (!goal) fail('no goal — pass --goal or set "goal" in the transcript file')
 
