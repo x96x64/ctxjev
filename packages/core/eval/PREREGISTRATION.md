@@ -206,3 +206,36 @@ and before any label was reconsidered, so no label was chosen or adjusted with k
 scorer's output — but it was still run before the labels were committed, which the preregistration's
 step 3 says not to do ("you must not run any scorer ... before all six sessions are labeled and
 committed"). Recorded here for transparency rather than left unmentioned.
+
+### Plugin (rerun)
+
+Run 2026-09-24, in an environment where the hook subprocess could reach Jev (confirmed before
+spending anything: the preCompact.js check in step 1 below printed `jev`, not `local`). From
+`packages/core`, with both `ANTHROPIC_API_KEY` and `TYPESAFE_API_KEY` set:
+
+```bash
+node eval/plugin.mjs --split holdout --runs 3 --max-usd 5 --out eval/results/plugin-holdout.json
+```
+
+After a simulated compaction (Claude Haiku 4.5; 95% CI resamples tasks):
+
+| context                     | tasks passed | 95% CI       | answers right | 95% CI       |
+| ---------------------------- | ------------ | ------------ | -------------- | ------------ |
+| `summary`                    | 100%         | [100%, 100%] | 78%            | [70%, 85%]   |
+| `summary+ctxjev`              | 94%          | [83%, 100%]  | 88%            | [78%, 96%]   |
+| `summary+ctxjev(task goal)`   | 100%         | [100%, 100%] | 88%            | [81%, 94%]   |
+
+Differences from `summary`:
+
+- `summary+ctxjev − summary`, tasks passed: **-6 pp, 95% CI [-17, +0]**
+- `summary+ctxjev − summary`, answers right: **+10 pp, 95% CI [+5, +14]**
+- `summary+ctxjev(task goal) − summary`, tasks passed: **+0 pp, 95% CI [+0, +0]**
+- `summary+ctxjev(task goal) − summary`, answers right: **+10 pp, 95% CI [+1, +16]**
+
+API spend (`ANTHROPIC_API_KEY`): **$4.23** (claude-haiku-4-5: 1,156,342 in + 629,163 cache-write +
+3,197,155 cache-read / 319,686 out; claude-sonnet-5: 150,389 in + 0 cache-write + 0 cache-read /
+7,020 out), against the $5 cap. `TYPESAFE_API_KEY` spend not reported in dollars.
+
+Decision (plugin rule, applied to `summary+ctxjev(task goal)`, what 0.5.0+ ships): the tasks-passed
+interval's lower bound is **+0**, not above 0, so the digest does not clear zero — the plugin stays
+available and the README says it has no demonstrated effect.
