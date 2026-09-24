@@ -31,6 +31,9 @@ export type ScoreEntriesOptions = {
   scorer?: 'jev' | 'local' | 'recency' | CustomScorer
 }
 
+/** The scorers `scorer` names, the default first. */
+export const BUILT_IN_SCORERS = ['recency', 'local', 'jev'] as const
+
 // A large transcript can chunk into hundreds of requests; firing all of them at once relies
 // entirely on the SDK's own retry/backoff to survive the resulting rate-limit thundering herd.
 export const MAX_CONCURRENT_CHUNK_REQUESTS = 5
@@ -108,6 +111,12 @@ export async function scoreEntries(
   recencyWeight: number = DEFAULT_POLICY.recencyWeight,
   options: ScoreEntriesOptions = {},
 ): Promise<ScoredEntry[]> {
+  const { scorer } = options
+  // Types stop a TypeScript caller's typo; a JavaScript one ('Jev') would otherwise get recency in silence.
+  if (scorer !== undefined && typeof scorer !== 'function' && !(BUILT_IN_SCORERS as readonly string[]).includes(scorer)) {
+    throw new Error(`unknown scorer ${JSON.stringify(scorer)} — expected ${BUILT_IN_SCORERS.map((s) => `'${s}'`).join(', ')}, or a function`)
+  }
+
   const seenIds = new Set<string>()
   for (const entry of entries) {
     if (seenIds.has(entry.id)) {
@@ -116,7 +125,6 @@ export async function scoreEntries(
     seenIds.add(entry.id)
   }
 
-  const { scorer } = options
   const verdicts =
     scorer === 'local'
       ? scoreLocally(entries, goal)
