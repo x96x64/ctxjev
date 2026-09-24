@@ -34,10 +34,21 @@ export async function writeLastRun(cwd: string, run: LastRun): Promise<void> {
   await atomicWriteFile(join(dir, FILE), JSON.stringify(masked, null, 2), { mode: 0o600 })
 }
 
-export async function readLastRun(cwd: string, sessionId: string | undefined): Promise<LastRun | undefined> {
+/**
+ * The session's last run, or why it can't be read: `{}` when no compaction has run yet, `problem`
+ * when the file exists but can't be used (which must not read as "no compaction").
+ */
+export async function readLastRun(cwd: string, sessionId: string | undefined): Promise<{ run?: LastRun; problem?: string }> {
+  let raw: string
   try {
-    return JSON.parse(await readFile(join(sessionDir(cwd, sessionId), FILE), 'utf8'))
+    raw = await readFile(join(sessionDir(cwd, sessionId), FILE), 'utf8')
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code
+    return code === 'ENOENT' ? {} : { problem: `couldn't read ${FILE} (${code ?? String(err)})` }
+  }
+  try {
+    return { run: JSON.parse(raw) }
   } catch {
-    return undefined
+    return { problem: `${FILE} isn't valid JSON; the next compaction rewrites it` }
   }
 }

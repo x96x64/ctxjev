@@ -35,9 +35,9 @@ export async function statusReport(cwd: string, sessionId: string | undefined, t
     lines.push("Next compaction scores against: unknown — couldn't find this session's transcript.")
   }
 
-  const lastRun = await readLastRun(cwd, sessionId)
+  const { run: lastRun, problem } = await readLastRun(cwd, sessionId)
   if (!lastRun) {
-    lines.push('Last run: no compaction in this session since the plugin was installed.')
+    lines.push(problem ? `Last run: unknown — ${problem}.` : 'Last run: no compaction in this session since the plugin was installed.')
     return lines.join('\n')
   }
   const scorer = lastRun.scorer === 'local' ? 'offline keyword overlap' : lastRun.scorer === 'jev' ? 'Jev' : undefined
