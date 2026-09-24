@@ -53,13 +53,15 @@ export function toolResultText(content: unknown): string {
 // Which input field identifies a call for the common tools — "Bash: 12 passed" alone doesn't say what ran.
 const TOOL_INPUT_KEYS = ['command', 'file_path', 'notebook_path', 'path', 'pattern', 'url', 'query', 'description', 'prompt']
 
+// Masked before it's cut, like excerpt(): cut first, and a token straddling the cut survives as a
+// prefix too short for any pattern in redact.ts to recognize.
 function toolInputSummary(input: unknown): string {
   if (typeof input !== 'object' || input === null) return ''
   const record = input as Record<string, unknown>
   for (const key of TOOL_INPUT_KEYS) {
-    if (typeof record[key] === 'string' && record[key]) return truncate(record[key] as string, 160)
+    if (typeof record[key] === 'string' && record[key]) return truncate(redactSecrets(record[key] as string), 160)
   }
-  return Object.keys(record).length > 0 ? truncate(JSON.stringify(record), 160) : ''
+  return Object.keys(record).length > 0 ? truncate(redactSecrets(JSON.stringify(record)), 160) : ''
 }
 
 function toolLabel(name: string, input: unknown): string {
