@@ -404,6 +404,9 @@ Issues and pull requests are welcome.
 pnpm install && pnpm build && pnpm test
 ```
 
+The packages run on Node 20 or later; the eval scripts under `packages/core/eval` and
+`examples/eval-tasks` need Node 22 ([`.nvmrc`](.nvmrc)), and say so if run on anything older.
+
 `pnpm test` runs the full pure-logic suite with no API key and no network access. Tests that call
 the live Jev API end in `.live.test.ts` and are skipped automatically unless `TYPESAFE_API_KEY` is
 set. If you change anything under `packages/core/src` or `packages/claude-plugin/src`, commit the

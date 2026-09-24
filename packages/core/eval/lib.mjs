@@ -1,5 +1,12 @@
-// Shared by outcome.mjs and tasks.mjs: spend tracking, prompt caching, and the pruning conditions.
+// Shared by every eval script: spend tracking, prompt caching, the pruning conditions, statistics.
 import { DEFAULT_POLICY, messagesToEntries, pruneMessages, scoreEntries, seededRandom } from '../dist/index.js'
+
+// The evals use Node 22 APIs (fs.globSync, Map.groupBy); the published packages support Node 20.
+// Every eval script imports this module first, so this runs before anything that would fail oddly.
+if (Number(process.versions.node.split('.')[0]) < 22) {
+  console.error(`ctxjev's eval scripts need Node 22 or later (see .nvmrc); this is Node ${process.versions.node}. The packages themselves run on Node 20.`)
+  process.exit(1)
+}
 
 export const ANSWER_MODEL = 'claude-haiku-4-5'
 export const JUDGE_MODEL = 'claude-sonnet-5'
