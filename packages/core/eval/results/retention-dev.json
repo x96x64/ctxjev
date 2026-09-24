@@ -1,0 +1,2983 @@
+{
+ "generatedAt": "2026-09-24T23:40:00.453Z",
+ "commit": "630072ecf58f143813b1bf8c0859420ed01b2a44",
+ "uncommittedChanges": false,
+ "node": "22.22.2",
+ "split": "dev",
+ "budgets": [
+  0.25,
+  0.5
+ ],
+ "randomSeeds": 20,
+ "policy": {
+  "dropBelow": 0.3,
+  "summarizeBelow": 0.6,
+  "recencyWeight": 0.1
+ },
+ "runs": 3,
+ "sets": {
+  "short": {
+   "local": {
+    "labels": 129,
+    "accuracyByWeight": {
+     "0": 0.7209302325581395,
+     "0.05": 0.7209302325581395,
+     "0.1": 0.7209302325581395,
+     "0.2": 0.7286821705426356,
+     "0.3": 0.7131782945736435,
+     "0.5": 0.6046511627906976
+    },
+    "minAccuracyAtDefault": 0.7209302325581395,
+    "topKMisses": {
+     "checkout-bug.json": 0,
+     "invoice-date-ja.json": 2,
+     "memory-leak.json": 0,
+     "pagination-bug.json": 0,
+     "session-logout.json": 4
+    }
+   },
+   "jev": {
+    "labels": 129,
+    "accuracyByWeight": {
+     "0": 0.8940568475452197,
+     "0.05": 0.9018087855297159,
+     "0.1": 0.8992248062015505,
+     "0.2": 0.8501291989664083,
+     "0.3": 0.7467700258397932,
+     "0.5": 0.6175710594315246
+    },
+    "minAccuracyAtDefault": 0.8914728682170543,
+    "topKMisses": {
+     "checkout-bug.json": 0,
+     "invoice-date-ja.json": 0,
+     "memory-leak.json": 0,
+     "pagination-bug.json": 0,
+     "session-logout.json": 0
+    }
+   }
+  },
+  "sessions": {
+   "local": {
+    "labels": 472,
+    "accuracyByWeight": {
+     "0": 0.4851694915254237,
+     "0.05": 0.4809322033898305,
+     "0.1": 0.4851694915254237,
+     "0.2": 0.5,
+     "0.3": 0.5317796610169492,
+     "0.5": 0.5508474576271186
+    },
+    "minAccuracyAtDefault": 0.4851694915254237,
+    "topKMisses": {
+     "csv-mojibake.json": 0,
+     "flaky-order-test.json": 0,
+     "recorded-config-precedence.json": 0,
+     "recorded-csv-import-encoding.json": 1,
+     "recorded-flag-rollout.json": 1,
+     "recorded-invoice-rounding.json": 0,
+     "recorded-month-boundary.json": 0,
+     "recorded-permission-check.json": 1,
+     "recorded-pii-logging.json": 0,
+     "recorded-retry-backoff.json": 1,
+     "recorded-search-normalize.json": 1,
+     "recorded-webhook-dedupe.json": 0,
+     "search-latency.json": 0,
+     "stale-price.json": 1,
+     "webpack-upgrade.json": 1
+    }
+   },
+   "jev": {
+    "labels": 472,
+    "accuracyByWeight": {
+     "0": 0.7330508474576272,
+     "0.05": 0.7323446327683616,
+     "0.1": 0.7217514124293785,
+     "0.2": 0.7076271186440678,
+     "0.3": 0.693502824858757,
+     "0.5": 0.7033898305084746
+    },
+    "minAccuracyAtDefault": 0.7203389830508474,
+    "topKMisses": {
+     "csv-mojibake.json": 0,
+     "flaky-order-test.json": 0,
+     "recorded-config-precedence.json": 0,
+     "recorded-csv-import-encoding.json": 0.6666666666666666,
+     "recorded-flag-rollout.json": 0.3333333333333333,
+     "recorded-invoice-rounding.json": 0,
+     "recorded-month-boundary.json": 0,
+     "recorded-permission-check.json": 0.3333333333333333,
+     "recorded-pii-logging.json": 0,
+     "recorded-retry-backoff.json": 0,
+     "recorded-search-normalize.json": 0,
+     "recorded-webhook-dedupe.json": 0.6666666666666666,
+     "search-latency.json": 0,
+     "stale-price.json": 0,
+     "webpack-upgrade.json": 0
+    }
+   }
+  },
+  "all": {
+   "local": {
+    "labels": 601,
+    "accuracyByWeight": {
+     "0": 0.5357737104825291,
+     "0.05": 0.5324459234608985,
+     "0.1": 0.5357737104825291,
+     "0.2": 0.5490848585690515,
+     "0.3": 0.5707154742096506,
+     "0.5": 0.562396006655574
+    },
+    "minAccuracyAtDefault": 0.5357737104825291,
+    "topKMisses": {
+     "checkout-bug.json": 0,
+     "invoice-date-ja.json": 2,
+     "memory-leak.json": 0,
+     "pagination-bug.json": 0,
+     "session-logout.json": 4,
+     "csv-mojibake.json": 0,
+     "flaky-order-test.json": 0,
+     "recorded-config-precedence.json": 0,
+     "recorded-csv-import-encoding.json": 1,
+     "recorded-flag-rollout.json": 1,
+     "recorded-invoice-rounding.json": 0,
+     "recorded-month-boundary.json": 0,
+     "recorded-permission-check.json": 1,
+     "recorded-pii-logging.json": 0,
+     "recorded-retry-backoff.json": 1,
+     "recorded-search-normalize.json": 1,
+     "recorded-webhook-dedupe.json": 0,
+     "search-latency.json": 0,
+     "stale-price.json": 1,
+     "webpack-upgrade.json": 1
+    }
+   },
+   "jev": {
+    "labels": 601,
+    "accuracyByWeight": {
+     "0": 0.7676095396561285,
+     "0.05": 0.7687188019966721,
+     "0.1": 0.7598447032723238,
+     "0.2": 0.7382140876317248,
+     "0.3": 0.7049362174154187,
+     "0.5": 0.684969495285635
+    },
+    "minAccuracyAtDefault": 0.7587354409317804,
+    "topKMisses": {
+     "checkout-bug.json": 0,
+     "invoice-date-ja.json": 0,
+     "memory-leak.json": 0,
+     "pagination-bug.json": 0,
+     "session-logout.json": 0,
+     "csv-mojibake.json": 0,
+     "flaky-order-test.json": 0,
+     "recorded-config-precedence.json": 0,
+     "recorded-csv-import-encoding.json": 0.6666666666666666,
+     "recorded-flag-rollout.json": 0.3333333333333333,
+     "recorded-invoice-rounding.json": 0,
+     "recorded-month-boundary.json": 0,
+     "recorded-permission-check.json": 0.3333333333333333,
+     "recorded-pii-logging.json": 0,
+     "recorded-retry-backoff.json": 0,
+     "recorded-search-normalize.json": 0,
+     "recorded-webhook-dedupe.json": 0.6666666666666666,
+     "search-latency.json": 0,
+     "stale-price.json": 0,
+     "webpack-upgrade.json": 0
+    }
+   }
+  }
+ },
+ "retention": {
+  "local": {
+   "0.25": {
+    "probes": 0.652910052910053,
+    "relevantTokens": 0.25786350695506677
+   },
+   "0.5": {
+    "probes": 0.7984126984126985,
+    "relevantTokens": 0.35745595822874054
+   },
+   "byLanguage": {
+    "en": {
+     "0.25": {
+      "probes": 0.5987654320987654,
+      "relevantTokens": 0.27501936470586297
+     },
+     "0.5": {
+      "probes": 0.7592592592592592,
+      "relevantTokens": 0.38289053662670336
+     }
+    },
+    "ja": {
+     "0.25": {
+      "probes": 0.7341269841269842,
+      "relevantTokens": 0.2321297203288726
+     },
+     "0.5": {
+      "probes": 0.8571428571428572,
+      "relevantTokens": 0.3193040906317962
+     }
+    }
+   },
+   "byKind": {
+    "written": {
+     "0.25": {
+      "probes": 0.4492063492063491,
+      "relevantTokens": 0.4418409247074602
+     },
+     "0.5": {
+      "probes": 0.6857142857142857,
+      "relevantTokens": 0.5922823096611924
+     }
+    },
+    "recorded": {
+     "0.25": {
+      "probes": 0.7547619047619047,
+      "relevantTokens": 0.16587479807887018
+     },
+     "0.5": {
+      "probes": 0.8547619047619047,
+      "relevantTokens": 0.2400427825125145
+     }
+    }
+   }
+  },
+  "jev": {
+   "0.25": {
+    "probes": 0.8564373897707231,
+    "relevantTokens": 0.36813183526962445
+   },
+   "0.5": {
+    "probes": 0.9555555555555556,
+    "relevantTokens": 0.50136319611889
+   },
+   "byLanguage": {
+    "en": {
+     "0.25": {
+      "probes": 0.8083480305702528,
+      "relevantTokens": 0.3937285123081704
+     },
+     "0.5": {
+      "probes": 0.9576719576719578,
+      "relevantTokens": 0.5577545627149771
+     }
+    },
+    "ja": {
+     "0.25": {
+      "probes": 0.9285714285714285,
+      "relevantTokens": 0.32973681971180563
+     },
+     "0.5": {
+      "probes": 0.9523809523809524,
+      "relevantTokens": 0.41677614622475917
+     }
+    }
+   },
+   "byKind": {
+    "written": {
+     "0.25": {
+      "probes": 0.8264550264550264,
+      "relevantTokens": 0.5527159778115068
+     },
+     "0.5": {
+      "probes": 0.9333333333333333,
+      "relevantTokens": 0.7317033742899872
+     }
+    },
+    "recorded": {
+     "0.25": {
+      "probes": 0.8714285714285716,
+      "relevantTokens": 0.2758397639986833
+     },
+     "0.5": {
+      "probes": 0.9666666666666668,
+      "relevantTokens": 0.38619310703334137
+     }
+    }
+   }
+  },
+  "recency": {
+   "0.25": {
+    "probes": 0.662962962962963,
+    "relevantTokens": 0.29322093703789537
+   },
+   "0.5": {
+    "probes": 0.8037037037037037,
+    "relevantTokens": 0.4247762001355785
+   },
+   "byLanguage": {
+    "en": {
+     "0.25": {
+      "probes": 0.689594356261023,
+      "relevantTokens": 0.3469706350251366
+     },
+     "0.5": {
+      "probes": 0.8447971781305115,
+      "relevantTokens": 0.49767714299374105
+     }
+    },
+    "ja": {
+     "0.25": {
+      "probes": 0.623015873015873,
+      "relevantTokens": 0.21259639005703357
+     },
+     "0.5": {
+      "probes": 0.7420634920634921,
+      "relevantTokens": 0.3154247858483345
+     }
+    }
+   },
+   "byKind": {
+    "written": {
+     "0.25": {
+      "probes": 0.5031746031746032,
+      "relevantTokens": 0.3545102056545296
+     },
+     "0.5": {
+      "probes": 0.5825396825396825,
+      "relevantTokens": 0.4857613669234748
+     }
+    },
+    "recorded": {
+     "0.25": {
+      "probes": 0.7428571428571429,
+      "relevantTokens": 0.26257630272957827
+     },
+     "0.5": {
+      "probes": 0.9142857142857143,
+      "relevantTokens": 0.39428361674163026
+     }
+    }
+   }
+  },
+  "random": {
+   "0.25": {
+    "probes": 0.6201587301587301,
+    "relevantTokens": 0.23571055873604613
+   },
+   "0.5": {
+    "probes": 0.6925925925925926,
+    "relevantTokens": 0.3222223999006717
+   },
+   "byLanguage": {
+    "en": {
+     "0.25": {
+      "probes": 0.6134920634920635,
+      "relevantTokens": 0.25787870966440174
+     },
+     "0.5": {
+      "probes": 0.6914902998236332,
+      "relevantTokens": 0.35805833622353017
+     }
+    },
+    "ja": {
+     "0.25": {
+      "probes": 0.6301587301587301,
+      "relevantTokens": 0.20245833234351282
+     },
+     "0.5": {
+      "probes": 0.6942460317460317,
+      "relevantTokens": 0.2684684954163839
+     }
+    }
+   },
+   "byKind": {
+    "written": {
+     "0.25": {
+      "probes": 0.5888095238095237,
+      "relevantTokens": 0.3248996481732542
+     },
+     "0.5": {
+      "probes": 0.6846825396825397,
+      "relevantTokens": 0.4616558895113794
+     }
+    },
+    "recorded": {
+     "0.25": {
+      "probes": 0.6358333333333335,
+      "relevantTokens": 0.19111601401744213
+     },
+     "0.5": {
+      "probes": 0.6965476190476191,
+      "relevantTokens": 0.25250565509531786
+     }
+    }
+   }
+  },
+  "labels": {
+   "0.25": {
+    "probes": 0.802116402116402,
+    "relevantTokens": 0.39709166584232386
+   },
+   "0.5": {
+    "probes": 0.9047619047619048,
+    "relevantTokens": 0.5337140180058024
+   },
+   "byLanguage": {
+    "en": {
+     "0.25": {
+      "probes": 0.7654320987654321,
+      "relevantTokens": 0.44660856717079295
+     },
+     "0.5": {
+      "probes": 0.8888888888888888,
+      "relevantTokens": 0.5887480808939319
+     }
+    },
+    "ja": {
+     "0.25": {
+      "probes": 0.8571428571428572,
+      "relevantTokens": 0.32281631384962006
+     },
+     "0.5": {
+      "probes": 0.9285714285714285,
+      "relevantTokens": 0.4511629236736079
+     }
+    }
+   },
+   "byKind": {
+    "written": {
+     "0.25": {
+      "probes": 0.7206349206349206,
+      "relevantTokens": 0.5793069486777364
+     },
+     "0.5": {
+      "probes": 0.8285714285714285,
+      "relevantTokens": 0.757490056206054
+     }
+    },
+    "recorded": {
+     "0.25": {
+      "probes": 0.8428571428571429,
+      "relevantTokens": 0.3059840244246176
+     },
+     "0.5": {
+      "probes": 0.9428571428571428,
+      "relevantTokens": 0.4218259989056765
+     }
+    }
+   }
+  }
+ },
+ "perSession": {
+  "csv-mojibake.json": {
+   "language": "ja",
+   "recorded": false,
+   "probes": 6,
+   "local": [
+    {
+     "0.25": {
+      "probes": 0.8333333333333334,
+      "relevantTokens": 0.599444958371878
+     },
+     "0.5": {
+      "probes": 1,
+      "relevantTokens": 0.8260869565217391
+     }
+    }
+   ],
+   "jev": [
+    {
+     "0.25": {
+      "probes": 1,
+      "relevantTokens": 0.833950046253469
+     },
+     "0.5": {
+      "probes": 1,
+      "relevantTokens": 1
+     }
+    },
+    {
+     "0.25": {
+      "probes": 1,
+      "relevantTokens": 0.833950046253469
+     },
+     "0.5": {
+      "probes": 1,
+      "relevantTokens": 0.9213691026827012
+     }
+    },
+    {
+     "0.25": {
+      "probes": 1,
+      "relevantTokens": 0.833950046253469
+     },
+     "0.5": {
+      "probes": 1,
+      "relevantTokens": 1
+     }
+    }
+   ],
+   "recency": {
+    "0.25": {
+     "probes": 0.16666666666666666,
+     "relevantTokens": 0.2858464384828862
+    },
+    "0.5": {
+     "probes": 0.16666666666666666,
+     "relevantTokens": 0.2858464384828862
+    }
+   },
+   "random": {
+    "0.25": {
+     "probes": 0.7416666666666666,
+     "relevantTokens": 0.44833487511563375
+    },
+    "0.5": {
+     "probes": 0.7583333333333333,
+     "relevantTokens": 0.5144542090656798
+    }
+   },
+   "labels": {
+    "0.25": {
+     "probes": 1,
+     "relevantTokens": 0.8260869565217391
+    },
+    "0.5": {
+     "probes": 1,
+     "relevantTokens": 1
+    }
+   }
+  },
+  "flaky-order-test.json": {
+   "language": "en",
+   "recorded": false,
+   "probes": 9,
+   "local": [
+    {
+     "0.25": {
+      "probes": 0.5555555555555556,
+      "relevantTokens": 0.6565034965034965
+     },
+     "0.5": {
+      "probes": 1,
+      "relevantTokens": 1
+     }
+    }
+   ],
+   "jev": [
+    {
+     "0.25": {
+      "probes": 0.6666666666666666,
+      "relevantTokens": 0.6430769230769231
+     },
+     "0.5": {
+      "probes": 1,
+      "relevantTokens": 1
+     }
+    },
+    {
+     "0.25": {
+      "probes": 0.6666666666666666,
+      "relevantTokens": 0.6430769230769231
+     },
+     "0.5": {
+      "probes": 1,
+      "relevantTokens": 1
+     }
+    },
+    {
+     "0.25": {
+      "probes": 0.7777777777777778,
+      "relevantTokens": 0.6945454545454546
+     },
+     "0.5": {
+      "probes": 1,
+      "relevantTokens": 1
+     }
+    }
+   ],
+   "recency": {
+    "0.25": {
+     "probes": 0.7777777777777778,
+     "relevantTokens": 0.6
+    },
+    "0.5": {
+     "probes": 0.8888888888888888,
+     "relevantTokens": 0.9082517482517483
+    }
+   },
+   "random": {
+    "0.25": {
+     "probes": 0.5666666666666667,
+     "relevantTokens": 0.36685314685314685
+    },
+    "0.5": {
+     "probes": 0.6722222222222223,
+     "relevantTokens": 0.5637902097902099
+    }
+   },
+   "labels": {
+    "0.25": {
+     "probes": 0.8888888888888888,
+     "relevantTokens": 0.6805594405594405
+    },
+    "0.5": {
+     "probes": 1,
+     "relevantTokens": 1
+    }
+   }
+  },
+  "recorded-config-precedence.json": {
+   "language": "en",
+   "recorded": true,
+   "probes": 7,
+   "local": [
+    {
+     "0.25": {
+      "probes": 0.42857142857142855,
+      "relevantTokens": 0.3491988689915174
+     },
+     "0.5": {
+      "probes": 0.42857142857142855,
+      "relevantTokens": 0.3491988689915174
+     }
+    }
+   ],
+   "jev": [
+    {
+     "0.25": {
+      "probes": 0.8571428571428571,
+      "relevantTokens": 0.9709393653785737
+     },
+     "0.5": {
+      "probes": 0.8571428571428571,
+      "relevantTokens": 0.9709393653785737
+     }
+    },
+    {
+     "0.25": {
+      "probes": 0.8571428571428571,
+      "relevantTokens": 0.5160226201696513
+     },
+     "0.5": {
+      "probes": 0.8571428571428571,
+      "relevantTokens": 0.5160226201696513
+     }
+    },
+    {
+     "0.25": {
+      "probes": 0.8571428571428571,
+      "relevantTokens": 0.8512409676405907
+     },
+     "0.5": {
+      "probes": 0.8571428571428571,
+      "relevantTokens": 0.8512409676405907
+     }
+    }
+   ],
+   "recency": {
+    "0.25": {
+     "probes": 0.5714285714285714,
+     "relevantTokens": 0.7288721332076658
+    },
+    "0.5": {
+     "probes": 1,
+     "relevantTokens": 1
+    }
+   },
+   "random": {
+    "0.25": {
+     "probes": 0.6928571428571428,
+     "relevantTokens": 0.5080819981149859
+    },
+    "0.5": {
+     "probes": 0.7071428571428571,
+     "relevantTokens": 0.544038642789821
+    }
+   },
+   "labels": {
+    "0.25": {
+     "probes": 1,
+     "relevantTokens": 0.9668551680804273
+    },
+    "0.5": {
+     "probes": 1,
+     "relevantTokens": 1
+    }
+   }
+  },
+  "recorded-csv-import-encoding.json": {
+   "language": "ja",
+   "recorded": true,
+   "probes": 7,
+   "local": [
+    {
+     "0.25": {
+      "probes": 1,
+      "relevantTokens": 0.15395425470052335
+     },
+     "0.5": {
+      "probes": 1,
+      "relevantTokens": 0.15395425470052335
+     }
+    }
+   ],
+   "jev": [
+    {
+     "0.25": {
+      "probes": 1,
+      "relevantTokens": 0.2394843962008141
+     },
+     "0.5": {
+      "probes": 1,
+      "relevantTokens": 0.2937584803256445
+     }
+    },
+    {
+     "0.25": {
+      "probes": 1,
+      "relevantTokens": 0.21709633649932158
+     },
+     "0.5": {
+      "probes": 1,
+      "relevantTokens": 0.3039833301027331
+     }
+    },
+    {
+     "0.25": {
+      "probes": 1,
+      "relevantTokens": 0.23192479162628415
+     },
+     "0.5": {
+      "probes": 1,
+      "relevantTokens": 0.3039833301027331
+     }
+    }
+   ],
+   "recency": {
+    "0.25": {
+     "probes": 0.7142857142857143,
+     "relevantTokens": 0.17857142857142858
+    },
+    "0.5": {
+     "probes": 1,
+     "relevantTokens": 0.31028300058150804
+    }
+   },
+   "random": {
+    "0.25": {
+     "probes": 0.7499999999999999,
+     "relevantTokens": 0.1526797829036635
+    },
+    "0.5": {
+     "probes": 0.7642857142857142,
+     "relevantTokens": 0.17758528784648187
+    }
+   },
+   "labels": {
+    "0.25": {
+     "probes": 1,
+     "relevantTokens": 0.257123473541384
+    },
+    "0.5": {
+     "probes": 1,
+     "relevantTokens": 0.31028300058150804
+    }
+   }
+  },
+  "recorded-flag-rollout.json": {
+   "language": "en",
+   "recorded": true,
+   "probes": 6,
+   "local": [
+    {
+     "0.25": {
+      "probes": 1,
+      "relevantTokens": 0.08433004464531775
+     },
+     "0.5": {
+      "probes": 1,
+      "relevantTokens": 0.08433004464531775
+     }
+    }
+   ],
+   "jev": [
+    {
+     "0.25": {
+      "probes": 1,
+      "relevantTokens": 0.211155817670727
+     },
+     "0.5": {
+      "probes": 1,
+      "relevantTokens": 0.211155817670727
+     }
+    },
+    {
+     "0.25": {
+      "probes": 1,
+      "relevantTokens": 0.211155817670727
+     },
+     "0.5": {
+      "probes": 1,
+      "relevantTokens": 0.211155817670727
+     }
+    },
+    {
+     "0.25": {
+      "probes": 1,
+      "relevantTokens": 0.211155817670727
+     },
+     "0.5": {
+      "probes": 1,
+      "relevantTokens": 0.211155817670727
+     }
+    }
+   ],
+   "recency": {
+    "0.25": {
+     "probes": 1,
+     "relevantTokens": 0.13614066030976135
+    },
+    "0.5": {
+     "probes": 1,
+     "relevantTokens": 0.211155817670727
+    }
+   },
+   "random": {
+    "0.25": {
+     "probes": 0.7249999999999999,
+     "relevantTokens": 0.11016645538224108
+    },
+    "0.5": {
+     "probes": 0.7249999999999999,
+     "relevantTokens": 0.11016645538224108
+    }
+   },
+   "labels": {
+    "0.25": {
+     "probes": 1,
+     "relevantTokens": 0.211155817670727
+    },
+    "0.5": {
+     "probes": 1,
+     "relevantTokens": 0.211155817670727
+    }
+   }
+  },
+  "recorded-invoice-rounding.json": {
+   "language": "en",
+   "recorded": true,
+   "probes": 7,
+   "local": [
+    {
+     "0.25": {
+      "probes": 0.7142857142857143,
+      "relevantTokens": 0.307974335472044
+     },
+     "0.5": {
+      "probes": 1,
+      "relevantTokens": 0.5411549037580201
+     }
+    }
+   ],
+   "jev": [
+    {
+     "0.25": {
+      "probes": 0.7142857142857143,
+      "relevantTokens": 0.35618698441796515
+     },
+     "0.5": {
+      "probes": 0.8571428571428571,
+      "relevantTokens": 0.7055912007332722
+     }
+    },
+    {
+     "0.25": {
+      "probes": 0.7142857142857143,
+      "relevantTokens": 0.35618698441796515
+     },
+     "0.5": {
+      "probes": 0.8571428571428571,
+      "relevantTokens": 0.6570119156736939
+     }
+    },
+    {
+     "0.25": {
+      "probes": 0.7142857142857143,
+      "relevantTokens": 0.3836846929422548
+     },
+     "0.5": {
+      "probes": 0.8571428571428571,
+      "relevantTokens": 0.7055912007332722
+     }
+    }
+   ],
+   "recency": {
+    "0.25": {
+     "probes": 0.2857142857142857,
+     "relevantTokens": 0.368102658111824
+    },
+    "0.5": {
+     "probes": 1,
+     "relevantTokens": 0.6733272227314391
+    }
+   },
+   "random": {
+    "0.25": {
+     "probes": 0.5071428571428572,
+     "relevantTokens": 0.2864527956003666
+    },
+    "0.5": {
+     "probes": 0.7071428571428571,
+     "relevantTokens": 0.530852428964253
+    }
+   },
+   "labels": {
+    "0.25": {
+     "probes": 0.2857142857142857,
+     "relevantTokens": 0.368102658111824
+    },
+    "0.5": {
+     "probes": 1,
+     "relevantTokens": 0.7860678276810266
+    }
+   }
+  },
+  "recorded-month-boundary.json": {
+   "language": "ja",
+   "recorded": true,
+   "probes": 7,
+   "local": [
+    {
+     "0.25": {
+      "probes": 0.8571428571428571,
+      "relevantTokens": 0.15491626857052865
+     },
+     "0.5": {
+      "probes": 0.8571428571428571,
+      "relevantTokens": 0.15491626857052865
+     }
+    }
+   ],
+   "jev": [
+    {
+     "0.25": {
+      "probes": 1,
+      "relevantTokens": 0.21486692214814426
+     },
+     "0.5": {
+      "probes": 1,
+      "relevantTokens": 0.21486692214814426
+     }
+    },
+    {
+     "0.25": {
+      "probes": 1,
+      "relevantTokens": 0.21486692214814426
+     },
+     "0.5": {
+      "probes": 1,
+      "relevantTokens": 0.21486692214814426
+     }
+    },
+    {
+     "0.25": {
+      "probes": 1,
+      "relevantTokens": 0.21486692214814426
+     },
+     "0.5": {
+      "probes": 1,
+      "relevantTokens": 0.21486692214814426
+     }
+    }
+   ],
+   "recency": {
+    "0.25": {
+     "probes": 1,
+     "relevantTokens": 0.21486692214814426
+    },
+    "0.5": {
+     "probes": 1,
+     "relevantTokens": 0.21486692214814426
+    }
+   },
+   "random": {
+    "0.25": {
+     "probes": 0.65,
+     "relevantTokens": 0.11774896320016796
+    },
+    "0.5": {
+     "probes": 0.6642857142857144,
+     "relevantTokens": 0.12167305370360648
+    }
+   },
+   "labels": {
+    "0.25": {
+     "probes": 1,
+     "relevantTokens": 0.21486692214814426
+    },
+    "0.5": {
+     "probes": 1,
+     "relevantTokens": 0.21486692214814426
+    }
+   }
+  },
+  "recorded-permission-check.json": {
+   "language": "ja",
+   "recorded": true,
+   "probes": 7,
+   "local": [
+    {
+     "0.25": {
+      "probes": 0.5714285714285714,
+      "relevantTokens": 0.10920021682353521
+     },
+     "0.5": {
+      "probes": 0.5714285714285714,
+      "relevantTokens": 0.10920021682353521
+     }
+    }
+   ],
+   "jev": [
+    {
+     "0.25": {
+      "probes": 1,
+      "relevantTokens": 0.21534519292366827
+     },
+     "0.5": {
+      "probes": 1,
+      "relevantTokens": 0.270388804021091
+     }
+    },
+    {
+     "0.25": {
+      "probes": 1,
+      "relevantTokens": 0.21534519292366827
+     },
+     "0.5": {
+      "probes": 1,
+      "relevantTokens": 0.270388804021091
+     }
+    },
+    {
+     "0.25": {
+      "probes": 1,
+      "relevantTokens": 0.21534519292366827
+     },
+     "0.5": {
+      "probes": 1,
+      "relevantTokens": 0.270388804021091
+     }
+    }
+   ],
+   "recency": {
+    "0.25": {
+     "probes": 0.7142857142857143,
+     "relevantTokens": 0.20785492534371458
+    },
+    "0.5": {
+     "probes": 1,
+     "relevantTokens": 0.270388804021091
+    }
+   },
+   "random": {
+    "0.25": {
+     "probes": 0.5785714285714285,
+     "relevantTokens": 0.1419430345439314
+    },
+    "0.5": {
+     "probes": 0.6071428571428571,
+     "relevantTokens": 0.1531932193367171
+    }
+   },
+   "labels": {
+    "0.25": {
+     "probes": 1,
+     "relevantTokens": 0.2503819050904253
+    },
+    "0.5": {
+     "probes": 1,
+     "relevantTokens": 0.270388804021091
+    }
+   }
+  },
+  "recorded-pii-logging.json": {
+   "language": "en",
+   "recorded": true,
+   "probes": 6,
+   "local": [
+    {
+     "0.25": {
+      "probes": 1,
+      "relevantTokens": 0.1528575906383868
+     },
+     "0.5": {
+      "probes": 1,
+      "relevantTokens": 0.1528575906383868
+     }
+    }
+   ],
+   "jev": [
+    {
+     "0.25": {
+      "probes": 1,
+      "relevantTokens": 0.21042733256712987
+     },
+     "0.5": {
+      "probes": 1,
+      "relevantTokens": 0.21042733256712987
+     }
+    },
+    {
+     "0.25": {
+      "probes": 1,
+      "relevantTokens": 0.21042733256712987
+     },
+     "0.5": {
+      "probes": 1,
+      "relevantTokens": 0.21042733256712987
+     }
+    },
+    {
+     "0.25": {
+      "probes": 1,
+      "relevantTokens": 0.21042733256712987
+     },
+     "0.5": {
+      "probes": 1,
+      "relevantTokens": 0.21042733256712987
+     }
+    }
+   ],
+   "recency": {
+    "0.25": {
+     "probes": 1,
+     "relevantTokens": 0.21737540486887472
+    },
+    "0.5": {
+     "probes": 1,
+     "relevantTokens": 0.21737540486887472
+    }
+   },
+   "random": {
+    "0.25": {
+     "probes": 0.7416666666666668,
+     "relevantTokens": 0.11744331835753838
+    },
+    "0.5": {
+     "probes": 0.7416666666666668,
+     "relevantTokens": 0.11744331835753838
+    }
+   },
+   "labels": {
+    "0.25": {
+     "probes": 1,
+     "relevantTokens": 0.21737540486887472
+    },
+    "0.5": {
+     "probes": 1,
+     "relevantTokens": 0.21737540486887472
+    }
+   }
+  },
+  "recorded-retry-backoff.json": {
+   "language": "en",
+   "recorded": true,
+   "probes": 7,
+   "local": [
+    {
+     "0.25": {
+      "probes": 0.14285714285714285,
+      "relevantTokens": 0.07421101280866235
+     },
+     "0.5": {
+      "probes": 0.8571428571428571,
+      "relevantTokens": 0.46837448831374623
+     }
+    }
+   ],
+   "jev": [
+    {
+     "0.25": {
+      "probes": 0.14285714285714285,
+      "relevantTokens": 0.07421101280866235
+     },
+     "0.5": {
+      "probes": 1,
+      "relevantTokens": 0.5485276640697214
+     }
+    },
+    {
+     "0.25": {
+      "probes": 0.14285714285714285,
+      "relevantTokens": 0.07421101280866235
+     },
+     "0.5": {
+      "probes": 0.8571428571428571,
+      "relevantTokens": 0.5160438399577446
+     }
+    },
+    {
+     "0.25": {
+      "probes": 0.14285714285714285,
+      "relevantTokens": 0.07421101280866235
+     },
+     "0.5": {
+      "probes": 1,
+      "relevantTokens": 0.5427175491879044
+     }
+    }
+   ],
+   "recency": {
+    "0.25": {
+     "probes": 0.14285714285714285,
+     "relevantTokens": 0.15806153439852105
+    },
+    "0.5": {
+     "probes": 0.14285714285714285,
+     "relevantTokens": 0.3954839561600423
+    }
+   },
+   "random": {
+    "0.25": {
+     "probes": 0.3714285714285714,
+     "relevantTokens": 0.19133104450019814
+    },
+    "0.5": {
+     "probes": 0.6571428571428571,
+     "relevantTokens": 0.4358378449755711
+    }
+   },
+   "labels": {
+    "0.25": {
+     "probes": 0.14285714285714285,
+     "relevantTokens": 0.15806153439852105
+    },
+    "0.5": {
+     "probes": 0.42857142857142855,
+     "relevantTokens": 0.5581671728509178
+    }
+   }
+  },
+  "recorded-search-normalize.json": {
+   "language": "ja",
+   "recorded": true,
+   "probes": 6,
+   "local": [
+    {
+     "0.25": {
+      "probes": 1,
+      "relevantTokens": 0.1648811842617842
+     },
+     "0.5": {
+      "probes": 1,
+      "relevantTokens": 0.2792169848071679
+     }
+    }
+   ],
+   "jev": [
+    {
+     "0.25": {
+      "probes": 1,
+      "relevantTokens": 0.24230619400077913
+     },
+     "0.5": {
+      "probes": 1,
+      "relevantTokens": 0.33692052980132453
+     }
+    },
+    {
+     "0.25": {
+      "probes": 1,
+      "relevantTokens": 0.2318367744448773
+     },
+     "0.5": {
+      "probes": 1,
+      "relevantTokens": 0.33692052980132453
+     }
+    },
+    {
+     "0.25": {
+      "probes": 1,
+      "relevantTokens": 0.2514608492403584
+     },
+     "0.5": {
+      "probes": 1,
+      "relevantTokens": 0.33692052980132453
+     }
+    }
+   ],
+   "recency": {
+    "0.25": {
+     "probes": 1,
+     "relevantTokens": 0.211482275029217
+    },
+    "0.5": {
+     "probes": 1,
+     "relevantTokens": 0.33692052980132453
+    }
+   },
+   "random": {
+    "0.25": {
+     "probes": 0.7250000000000001,
+     "relevantTokens": 0.14110586287495128
+    },
+    "0.5": {
+     "probes": 0.7500000000000001,
+     "relevantTokens": 0.17548208024931827
+    }
+   },
+   "labels": {
+    "0.25": {
+     "probes": 1,
+     "relevantTokens": 0.211482275029217
+    },
+    "0.5": {
+     "probes": 1,
+     "relevantTokens": 0.33692052980132453
+    }
+   }
+  },
+  "recorded-webhook-dedupe.json": {
+   "language": "en",
+   "recorded": true,
+   "probes": 6,
+   "local": [
+    {
+     "0.25": {
+      "probes": 0.8333333333333334,
+      "relevantTokens": 0.10722420387640208
+     },
+     "0.5": {
+      "probes": 0.8333333333333334,
+      "relevantTokens": 0.10722420387640208
+     }
+    }
+   ],
+   "jev": [
+    {
+     "0.25": {
+      "probes": 1,
+      "relevantTokens": 0.2288452447462289
+     },
+     "0.5": {
+      "probes": 1,
+      "relevantTokens": 0.3130345094331514
+     }
+    },
+    {
+     "0.25": {
+      "probes": 1,
+      "relevantTokens": 0.25209506209978944
+     },
+     "0.5": {
+      "probes": 1,
+      "relevantTokens": 0.3130345094331514
+     }
+    },
+    {
+     "0.25": {
+      "probes": 1,
+      "relevantTokens": 0.1678628217800507
+     },
+     "0.5": {
+      "probes": 1,
+      "relevantTokens": 0.3130345094331514
+     }
+    }
+   ],
+   "recency": {
+    "0.25": {
+     "probes": 1,
+     "relevantTokens": 0.20443508530663115
+    },
+    "0.5": {
+     "probes": 1,
+     "relevantTokens": 0.3130345094331514
+    }
+   },
+   "random": {
+    "0.25": {
+     "probes": 0.6166666666666667,
+     "relevantTokens": 0.14420688469637716
+    },
+    "0.5": {
+     "probes": 0.6416666666666667,
+     "relevantTokens": 0.15878421934762993
+    }
+   },
+   "labels": {
+    "0.25": {
+     "probes": 1,
+     "relevantTokens": 0.20443508530663115
+    },
+    "0.5": {
+     "probes": 1,
+     "relevantTokens": 0.3130345094331514
+    }
+   }
+  },
+  "search-latency.json": {
+   "language": "en",
+   "recorded": false,
+   "probes": 7,
+   "local": [
+    {
+     "0.25": {
+      "probes": 0.2857142857142857,
+      "relevantTokens": 0.13614827201783725
+     },
+     "0.5": {
+      "probes": 0.2857142857142857,
+      "relevantTokens": 0.13614827201783725
+     }
+    }
+   ],
+   "jev": [
+    {
+     "0.25": {
+      "probes": 0.8571428571428571,
+      "relevantTokens": 0.2640746934225195
+     },
+     "0.5": {
+      "probes": 1,
+      "relevantTokens": 0.2831661092530658
+     }
+    },
+    {
+     "0.25": {
+      "probes": 0.8571428571428571,
+      "relevantTokens": 0.25989409141583053
+     },
+     "0.5": {
+      "probes": 0.8571428571428571,
+      "relevantTokens": 0.2755016722408027
+     }
+    },
+    {
+     "0.25": {
+      "probes": 0.8571428571428571,
+      "relevantTokens": 0.2640746934225195
+     },
+     "0.5": {
+      "probes": 1,
+      "relevantTokens": 0.2831661092530658
+     }
+    }
+   ],
+   "recency": {
+    "0.25": {
+     "probes": 0.42857142857142855,
+     "relevantTokens": 0.19091415830546266
+    },
+    "0.5": {
+     "probes": 0.5714285714285714,
+     "relevantTokens": 0.2129319955406912
+    }
+   },
+   "random": {
+    "0.25": {
+     "probes": 0.6214285714285714,
+     "relevantTokens": 0.1328525641025641
+    },
+    "0.5": {
+     "probes": 0.6428571428571429,
+     "relevantTokens": 0.16618589743589746
+    }
+   },
+   "labels": {
+    "0.25": {
+     "probes": 0.5714285714285714,
+     "relevantTokens": 0.2129319955406912
+    },
+    "0.5": {
+     "probes": 0.5714285714285714,
+     "relevantTokens": 0.2129319955406912
+    }
+   }
+  },
+  "stale-price.json": {
+   "language": "ja",
+   "recorded": false,
+   "probes": 7,
+   "local": [
+    {
+     "0.25": {
+      "probes": 0.14285714285714285,
+      "relevantTokens": 0.21038143924498623
+     },
+     "0.5": {
+      "probes": 0.7142857142857143,
+      "relevantTokens": 0.39244986236728274
+     }
+    }
+   ],
+   "jev": [
+    {
+     "0.25": {
+      "probes": 0.5714285714285714,
+      "relevantTokens": 0.2567833267793944
+     },
+     "0.5": {
+      "probes": 0.7142857142857143,
+      "relevantTokens": 0.41525756979944944
+     }
+    },
+    {
+     "0.25": {
+      "probes": 0.5714285714285714,
+      "relevantTokens": 0.2292567833267794
+     },
+     "0.5": {
+      "probes": 0.7142857142857143,
+      "relevantTokens": 0.43491938655131734
+     }
+    },
+    {
+     "0.25": {
+      "probes": 0.5714285714285714,
+      "relevantTokens": 0.24262681871804956
+     },
+     "0.5": {
+      "probes": 0.7142857142857143,
+      "relevantTokens": 0.3621706645694062
+     }
+    }
+   ],
+   "recency": {
+    "0.25": {
+     "probes": 0.14285714285714285,
+     "relevantTokens": 0.17695635076681085
+    },
+    "0.5": {
+     "probes": 0.2857142857142857,
+     "relevantTokens": 0.4742430200550531
+    }
+   },
+   "random": {
+    "0.25": {
+     "probes": 0.33571428571428563,
+     "relevantTokens": 0.21293747542272903
+    },
+    "0.5": {
+     "probes": 0.6214285714285712,
+     "relevantTokens": 0.46842312229650007
+    }
+   },
+   "labels": {
+    "0.25": {
+     "probes": 0.14285714285714285,
+     "relevantTokens": 0.17695635076681085
+    },
+    "0.5": {
+     "probes": 0.5714285714285714,
+     "relevantTokens": 0.5745182854895793
+    }
+   }
+  },
+  "webpack-upgrade.json": {
+   "language": "en",
+   "recorded": false,
+   "probes": 7,
+   "local": [
+    {
+     "0.25": {
+      "probes": 0.42857142857142855,
+      "relevantTokens": 0.6067264573991031
+     },
+     "0.5": {
+      "probes": 0.42857142857142855,
+      "relevantTokens": 0.6067264573991031
+     }
+    }
+   ],
+   "jev": [
+    {
+     "0.25": {
+      "probes": 1,
+      "relevantTokens": 0.6233183856502242
+     },
+     "0.5": {
+      "probes": 1,
+      "relevantTokens": 1
+     }
+    },
+    {
+     "0.25": {
+      "probes": 1,
+      "relevantTokens": 0.8255605381165919
+     },
+     "0.5": {
+      "probes": 1,
+      "relevantTokens": 1
+     }
+    },
+    {
+     "0.25": {
+      "probes": 1,
+      "relevantTokens": 0.8426008968609865
+     },
+     "0.5": {
+      "probes": 1,
+      "relevantTokens": 1
+     }
+    }
+   ],
+   "recency": {
+    "0.25": {
+     "probes": 1,
+     "relevantTokens": 0.5188340807174888
+    },
+    "0.5": {
+     "probes": 1,
+     "relevantTokens": 0.5475336322869955
+    }
+   },
+   "random": {
+    "0.25": {
+     "probes": 0.6785714285714285,
+     "relevantTokens": 0.46352017937219736
+    },
+    "0.5": {
+     "probes": 0.7285714285714286,
+     "relevantTokens": 0.5954260089686099
+    }
+   },
+   "labels": {
+    "0.25": {
+     "probes": 1,
+     "relevantTokens": 1
+    },
+    "0.5": {
+     "probes": 1,
+     "relevantTokens": 1
+    }
+   }
+  }
+ },
+ "exploratory": {
+  "atCut": {
+   "note": "Not preregistered. Each recorded session cut at cutAfterMessage and scored afresh; probes stated only after the cut excluded; hand-written sessions measured whole.",
+   "excludedProbes": {
+    "csv-mojibake.json": 0,
+    "flaky-order-test.json": 0,
+    "recorded-config-precedence.json": 1,
+    "recorded-csv-import-encoding.json": 1,
+    "recorded-flag-rollout.json": 1,
+    "recorded-invoice-rounding.json": 1,
+    "recorded-month-boundary.json": 1,
+    "recorded-permission-check.json": 1,
+    "recorded-pii-logging.json": 1,
+    "recorded-retry-backoff.json": 1,
+    "recorded-search-normalize.json": 1,
+    "recorded-webhook-dedupe.json": 1,
+    "search-latency.json": 0,
+    "stale-price.json": 0,
+    "webpack-upgrade.json": 0
+   },
+   "retention": {
+    "local": {
+     "0.25": {
+      "probes": 0.6364021164021165,
+      "relevantTokens": 0.27896783679864323
+     },
+     "0.5": {
+      "probes": 0.7596825396825398,
+      "relevantTokens": 0.3821825347147996
+     }
+    },
+    "jev": {
+     "0.25": {
+      "probes": 0.8544973544973544,
+      "relevantTokens": 0.3680484035288631
+     },
+     "0.5": {
+      "probes": 0.9571428571428572,
+      "relevantTokens": 0.49636264844365713
+     }
+    },
+    "recency": {
+     "0.25": {
+      "probes": 0.7343915343915344,
+      "relevantTokens": 0.29524226757863753
+     },
+     "0.5": {
+      "probes": 0.8608465608465609,
+      "relevantTokens": 0.4038369485336974
+     }
+    },
+    "random": {
+     "0.25": {
+      "probes": 0.6411587301587302,
+      "relevantTokens": 0.23682962098709823
+     },
+     "0.5": {
+      "probes": 0.7173386243386243,
+      "relevantTokens": 0.31488959015556267
+     }
+    },
+    "labels": {
+     "0.25": {
+      "probes": 0.8291005291005291,
+      "relevantTokens": 0.38330523891151436
+     },
+     "0.5": {
+      "probes": 0.9428571428571428,
+      "relevantTokens": 0.5115873365030315
+     }
+    }
+   },
+   "perSession": {
+    "csv-mojibake.json": {
+     "local": [
+      {
+       "0.25": {
+        "probes": 0.8333333333333334,
+        "relevantTokens": 0.599444958371878
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 0.8260869565217391
+       }
+      }
+     ],
+     "jev": [
+      {
+       "0.25": {
+        "probes": 1,
+        "relevantTokens": 0.833950046253469
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 1
+       }
+      },
+      {
+       "0.25": {
+        "probes": 1,
+        "relevantTokens": 0.8515263644773358
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 1
+       }
+      },
+      {
+       "0.25": {
+        "probes": 1,
+        "relevantTokens": 0.833950046253469
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 1
+       }
+      }
+     ],
+     "recency": {
+      "0.25": {
+       "probes": 0.16666666666666666,
+       "relevantTokens": 0.2858464384828862
+      },
+      "0.5": {
+       "probes": 0.16666666666666666,
+       "relevantTokens": 0.2858464384828862
+      }
+     },
+     "random": {
+      "0.25": {
+       "probes": 0.7416666666666666,
+       "relevantTokens": 0.44833487511563375
+      },
+      "0.5": {
+       "probes": 0.7583333333333333,
+       "relevantTokens": 0.5144542090656798
+      }
+     },
+     "labels": {
+      "0.25": {
+       "probes": 1,
+       "relevantTokens": 0.8260869565217391
+      },
+      "0.5": {
+       "probes": 1,
+       "relevantTokens": 1
+      }
+     }
+    },
+    "flaky-order-test.json": {
+     "local": [
+      {
+       "0.25": {
+        "probes": 0.5555555555555556,
+        "relevantTokens": 0.6565034965034965
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 1
+       }
+      }
+     ],
+     "jev": [
+      {
+       "0.25": {
+        "probes": 0.6666666666666666,
+        "relevantTokens": 0.7020979020979021
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 1
+       }
+      },
+      {
+       "0.25": {
+        "probes": 0.6666666666666666,
+        "relevantTokens": 0.7020979020979021
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 1
+       }
+      },
+      {
+       "0.25": {
+        "probes": 0.6666666666666666,
+        "relevantTokens": 0.6430769230769231
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 1
+       }
+      }
+     ],
+     "recency": {
+      "0.25": {
+       "probes": 0.7777777777777778,
+       "relevantTokens": 0.6
+      },
+      "0.5": {
+       "probes": 0.8888888888888888,
+       "relevantTokens": 0.9082517482517483
+      }
+     },
+     "random": {
+      "0.25": {
+       "probes": 0.5666666666666667,
+       "relevantTokens": 0.36685314685314685
+      },
+      "0.5": {
+       "probes": 0.6722222222222223,
+       "relevantTokens": 0.5637902097902099
+      }
+     },
+     "labels": {
+      "0.25": {
+       "probes": 0.8888888888888888,
+       "relevantTokens": 0.6805594405594405
+      },
+      "0.5": {
+       "probes": 1,
+       "relevantTokens": 1
+      }
+     }
+    },
+    "recorded-config-precedence.json": {
+     "local": [
+      {
+       "0.25": {
+        "probes": 0.3333333333333333,
+        "relevantTokens": 0.5051847912789151
+       },
+       "0.5": {
+        "probes": 0.3333333333333333,
+        "relevantTokens": 0.5051847912789151
+       }
+      }
+     ],
+     "jev": [
+      {
+       "0.25": {
+        "probes": 0.8333333333333334,
+        "relevantTokens": 0.8766285562350439
+       },
+       "0.5": {
+        "probes": 0.8333333333333334,
+        "relevantTokens": 0.8766285562350439
+       }
+      },
+      {
+       "0.25": {
+        "probes": 0.8333333333333334,
+        "relevantTokens": 0.9130550385535762
+       },
+       "0.5": {
+        "probes": 0.8333333333333334,
+        "relevantTokens": 0.9130550385535762
+       }
+      },
+      {
+       "0.25": {
+        "probes": 0.8333333333333334,
+        "relevantTokens": 0.9537357085881415
+       },
+       "0.5": {
+        "probes": 0.8333333333333334,
+        "relevantTokens": 0.9537357085881415
+       }
+      }
+     ],
+     "recency": {
+      "0.25": {
+       "probes": 1,
+       "relevantTokens": 0.9438978994948152
+      },
+      "0.5": {
+       "probes": 1,
+       "relevantTokens": 1
+      }
+     },
+     "random": {
+      "0.25": {
+       "probes": 0.7,
+       "relevantTokens": 0.5974474873703801
+      },
+      "0.5": {
+       "probes": 0.7,
+       "relevantTokens": 0.5974474873703801
+      }
+     },
+     "labels": {
+      "0.25": {
+       "probes": 1,
+       "relevantTokens": 1
+      },
+      "0.5": {
+       "probes": 1,
+       "relevantTokens": 1
+      }
+     }
+    },
+    "recorded-csv-import-encoding.json": {
+     "local": [
+      {
+       "0.25": {
+        "probes": 1,
+        "relevantTokens": 0.18654195895037673
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 0.18654195895037673
+       }
+      }
+     ],
+     "jev": [
+      {
+       "0.25": {
+        "probes": 1,
+        "relevantTokens": 0.21792673421667966
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 0.2604312808521694
+       }
+      },
+      {
+       "0.25": {
+        "probes": 1,
+        "relevantTokens": 0.21792673421667966
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 0.2604312808521694
+       }
+      },
+      {
+       "0.25": {
+        "probes": 1,
+        "relevantTokens": 0.22312288906209404
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 0.2604312808521694
+       }
+      }
+     ],
+     "recency": {
+      "0.25": {
+       "probes": 1,
+       "relevantTokens": 0.2034294621979735
+      },
+      "0.5": {
+       "probes": 1,
+       "relevantTokens": 0.2604312808521694
+      }
+     },
+     "random": {
+      "0.25": {
+       "probes": 0.8166666666666667,
+       "relevantTokens": 0.15493115094829826
+      },
+      "0.5": {
+       "probes": 0.8166666666666667,
+       "relevantTokens": 0.16376721226292543
+      }
+     },
+     "labels": {
+      "0.25": {
+       "probes": 1,
+       "relevantTokens": 0.2604312808521694
+      },
+      "0.5": {
+       "probes": 1,
+       "relevantTokens": 0.2604312808521694
+      }
+     }
+    },
+    "recorded-flag-rollout.json": {
+     "local": [
+      {
+       "0.25": {
+        "probes": 1,
+        "relevantTokens": 0.07616849394114253
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 0.07616849394114253
+       }
+      }
+     ],
+     "jev": [
+      {
+       "0.25": {
+        "probes": 1,
+        "relevantTokens": 0.17414887478361224
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 0.17414887478361224
+       }
+      },
+      {
+       "0.25": {
+        "probes": 1,
+        "relevantTokens": 0.17414887478361224
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 0.17414887478361224
+       }
+      },
+      {
+       "0.25": {
+        "probes": 1,
+        "relevantTokens": 0.17414887478361224
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 0.17414887478361224
+       }
+      }
+     ],
+     "recency": {
+      "0.25": {
+       "probes": 1,
+       "relevantTokens": 0.17414887478361224
+      },
+      "0.5": {
+       "probes": 1,
+       "relevantTokens": 0.17414887478361224
+      }
+     },
+     "random": {
+      "0.25": {
+       "probes": 0.8200000000000001,
+       "relevantTokens": 0.09634160415464513
+      },
+      "0.5": {
+       "probes": 0.8200000000000001,
+       "relevantTokens": 0.09634160415464513
+      }
+     },
+     "labels": {
+      "0.25": {
+       "probes": 1,
+       "relevantTokens": 0.17414887478361224
+      },
+      "0.5": {
+       "probes": 1,
+       "relevantTokens": 0.17414887478361224
+      }
+     }
+    },
+    "recorded-invoice-rounding.json": {
+     "local": [
+      {
+       "0.25": {
+        "probes": 0.5,
+        "relevantTokens": 0.39052682455292415
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 0.7095215079748671
+       }
+      }
+     ],
+     "jev": [
+      {
+       "0.25": {
+        "probes": 0.6666666666666666,
+        "relevantTokens": 0.3429192846785887
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 0.7742870952150798
+       }
+      },
+      {
+       "0.25": {
+        "probes": 0.6666666666666666,
+        "relevantTokens": 0.3429192846785887
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 0.7742870952150798
+       }
+      },
+      {
+       "0.25": {
+        "probes": 0.8333333333333334,
+        "relevantTokens": 0.3554857419043016
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 0.7742870952150798
+       }
+      }
+     ],
+     "recency": {
+      "0.25": {
+       "probes": 0.3333333333333333,
+       "relevantTokens": 0.31996133397776705
+      },
+      "0.5": {
+       "probes": 1,
+       "relevantTokens": 0.5693571773803769
+      }
+     },
+     "random": {
+      "0.25": {
+       "probes": 0.45833333333333337,
+       "relevantTokens": 0.2910343160947318
+      },
+      "0.5": {
+       "probes": 0.7333333333333333,
+       "relevantTokens": 0.5492387626872886
+      }
+     },
+     "labels": {
+      "0.25": {
+       "probes": 0.6666666666666666,
+       "relevantTokens": 0.40381826969550505
+      },
+      "0.5": {
+       "probes": 1,
+       "relevantTokens": 0.8269695505074915
+      }
+     }
+    },
+    "recorded-month-boundary.json": {
+     "local": [
+      {
+       "0.25": {
+        "probes": 0.8333333333333334,
+        "relevantTokens": 0.13533834586466165
+       },
+       "0.5": {
+        "probes": 0.8333333333333334,
+        "relevantTokens": 0.13533834586466165
+       }
+      }
+     ],
+     "jev": [
+      {
+       "0.25": {
+        "probes": 1,
+        "relevantTokens": 0.17315347191508182
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 0.17315347191508182
+       }
+      },
+      {
+       "0.25": {
+        "probes": 1,
+        "relevantTokens": 0.17315347191508182
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 0.17315347191508182
+       }
+      },
+      {
+       "0.25": {
+        "probes": 1,
+        "relevantTokens": 0.17315347191508182
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 0.17315347191508182
+       }
+      }
+     ],
+     "recency": {
+      "0.25": {
+       "probes": 1,
+       "relevantTokens": 0.17315347191508182
+      },
+      "0.5": {
+       "probes": 1,
+       "relevantTokens": 0.17315347191508182
+      }
+     },
+     "random": {
+      "0.25": {
+       "probes": 0.7000000000000001,
+       "relevantTokens": 0.10410769570986289
+      },
+      "0.5": {
+       "probes": 0.7000000000000001,
+       "relevantTokens": 0.10410769570986289
+      }
+     },
+     "labels": {
+      "0.25": {
+       "probes": 1,
+       "relevantTokens": 0.17315347191508182
+      },
+      "0.5": {
+       "probes": 1,
+       "relevantTokens": 0.17315347191508182
+      }
+     }
+    },
+    "recorded-permission-check.json": {
+     "local": [
+      {
+       "0.25": {
+        "probes": 0.6666666666666666,
+        "relevantTokens": 0.13022261212852287
+       },
+       "0.5": {
+        "probes": 0.6666666666666666,
+        "relevantTokens": 0.13022261212852287
+       }
+      }
+     ],
+     "jev": [
+      {
+       "0.25": {
+        "probes": 1,
+        "relevantTokens": 0.1881785283474065
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 0.1881785283474065
+       }
+      },
+      {
+       "0.25": {
+        "probes": 1,
+        "relevantTokens": 0.1881785283474065
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 0.1881785283474065
+       }
+      },
+      {
+       "0.25": {
+        "probes": 1,
+        "relevantTokens": 0.1881785283474065
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 0.1881785283474065
+       }
+      }
+     ],
+     "recency": {
+      "0.25": {
+       "probes": 1,
+       "relevantTokens": 0.1881785283474065
+      },
+      "0.5": {
+       "probes": 1,
+       "relevantTokens": 0.1881785283474065
+      }
+     },
+     "random": {
+      "0.25": {
+       "probes": 0.675,
+       "relevantTokens": 0.10787641188726835
+      },
+      "0.5": {
+       "probes": 0.675,
+       "relevantTokens": 0.10787641188726835
+      }
+     },
+     "labels": {
+      "0.25": {
+       "probes": 1,
+       "relevantTokens": 0.1881785283474065
+      },
+      "0.5": {
+       "probes": 1,
+       "relevantTokens": 0.1881785283474065
+      }
+     }
+    },
+    "recorded-pii-logging.json": {
+     "local": [
+      {
+       "0.25": {
+        "probes": 1,
+        "relevantTokens": 0.1466798810703667
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 0.1466798810703667
+       }
+      }
+     ],
+     "jev": [
+      {
+       "0.25": {
+        "probes": 1,
+        "relevantTokens": 0.16782292699041956
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 0.16782292699041956
+       }
+      },
+      {
+       "0.25": {
+        "probes": 1,
+        "relevantTokens": 0.16782292699041956
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 0.16782292699041956
+       }
+      },
+      {
+       "0.25": {
+        "probes": 1,
+        "relevantTokens": 0.16782292699041956
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 0.16782292699041956
+       }
+      }
+     ],
+     "recency": {
+      "0.25": {
+       "probes": 1,
+       "relevantTokens": 0.17514590904085453
+      },
+      "0.5": {
+       "probes": 1,
+       "relevantTokens": 0.17514590904085453
+      }
+     },
+     "random": {
+      "0.25": {
+       "probes": 0.8000000000000002,
+       "relevantTokens": 0.0953859707080718
+      },
+      "0.5": {
+       "probes": 0.8000000000000002,
+       "relevantTokens": 0.0953859707080718
+      }
+     },
+     "labels": {
+      "0.25": {
+       "probes": 1,
+       "relevantTokens": 0.17514590904085453
+      },
+      "0.5": {
+       "probes": 1,
+       "relevantTokens": 0.17514590904085453
+      }
+     }
+    },
+    "recorded-retry-backoff.json": {
+     "local": [
+      {
+       "0.25": {
+        "probes": 0.16666666666666666,
+        "relevantTokens": 0.17643257216716932
+       },
+       "0.5": {
+        "probes": 0.3333333333333333,
+        "relevantTokens": 0.5299439896596295
+       }
+      }
+     ],
+     "jev": [
+      {
+       "0.25": {
+        "probes": 0.16666666666666666,
+        "relevantTokens": 0.17643257216716932
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 0.5178802240413615
+       }
+      },
+      {
+       "0.25": {
+        "probes": 0.16666666666666666,
+        "relevantTokens": 0.17643257216716932
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 0.5178802240413615
+       }
+      },
+      {
+       "0.25": {
+        "probes": 0.16666666666666666,
+        "relevantTokens": 0.17643257216716932
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 0.5226195605342525
+       }
+      }
+     ],
+     "recency": {
+      "0.25": {
+       "probes": 0.16666666666666666,
+       "relevantTokens": 0.17643257216716932
+      },
+      "0.5": {
+       "probes": 1,
+       "relevantTokens": 0.5355450236966824
+      }
+     },
+     "random": {
+      "0.25": {
+       "probes": 0.2333333333333333,
+       "relevantTokens": 0.20452391210685045
+      },
+      "0.5": {
+       "probes": 0.5916666666666667,
+       "relevantTokens": 0.3990736751400259
+      }
+     },
+     "labels": {
+      "0.25": {
+       "probes": 0.16666666666666666,
+       "relevantTokens": 0.17643257216716932
+      },
+      "0.5": {
+       "probes": 1,
+       "relevantTokens": 0.5355450236966824
+      }
+     }
+    },
+    "recorded-search-normalize.json": {
+     "local": [
+      {
+       "0.25": {
+        "probes": 1,
+        "relevantTokens": 0.13187102203987167
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 0.25537846509915313
+       }
+      }
+     ],
+     "jev": [
+      {
+       "0.25": {
+        "probes": 1,
+        "relevantTokens": 0.14207564041870496
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 0.2837304718320972
+       }
+      },
+      {
+       "0.25": {
+        "probes": 1,
+        "relevantTokens": 0.14207564041870496
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 0.2837304718320972
+       }
+      },
+      {
+       "0.25": {
+        "probes": 1,
+        "relevantTokens": 0.13613171321866288
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 0.2837304718320972
+       }
+      }
+     ],
+     "recency": {
+      "0.25": {
+       "probes": 1,
+       "relevantTokens": 0.1482299721214034
+      },
+      "0.5": {
+       "probes": 1,
+       "relevantTokens": 0.2837304718320972
+      }
+     },
+     "random": {
+      "0.25": {
+       "probes": 0.8800000000000001,
+       "relevantTokens": 0.135129661774762
+      },
+      "0.5": {
+       "probes": 0.8800000000000001,
+       "relevantTokens": 0.15373467992215034
+      }
+     },
+     "labels": {
+      "0.25": {
+       "probes": 1,
+       "relevantTokens": 0.1482299721214034
+      },
+      "0.5": {
+       "probes": 1,
+       "relevantTokens": 0.2837304718320972
+      }
+     }
+    },
+    "recorded-webhook-dedupe.json": {
+     "local": [
+      {
+       "0.25": {
+        "probes": 0.8,
+        "relevantTokens": 0.09634642644839728
+       },
+       "0.5": {
+        "probes": 0.8,
+        "relevantTokens": 0.09634642644839728
+       }
+      }
+     ],
+     "jev": [
+      {
+       "0.25": {
+        "probes": 1,
+        "relevantTokens": 0.24381544652247475
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 0.2690566555398052
+       }
+      },
+      {
+       "0.25": {
+        "probes": 1,
+        "relevantTokens": 0.24381544652247475
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 0.2690566555398052
+       }
+      },
+      {
+       "0.25": {
+        "probes": 1,
+        "relevantTokens": 0.24381544652247475
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 0.2690566555398052
+       }
+      }
+     ],
+     "recency": {
+      "0.25": {
+       "probes": 1,
+       "relevantTokens": 0.1535049613608304
+      },
+      "0.5": {
+       "probes": 1,
+       "relevantTokens": 0.2690566555398052
+      }
+     },
+     "random": {
+      "0.25": {
+       "probes": 0.5900000000000001,
+       "relevantTokens": 0.14116786318533087
+      },
+      "0.5": {
+       "probes": 0.62,
+       "relevantTokens": 0.14809090493392474
+      }
+     },
+     "labels": {
+      "0.25": {
+       "probes": 1,
+       "relevantTokens": 0.1535049613608304
+      },
+      "0.5": {
+       "probes": 1,
+       "relevantTokens": 0.2690566555398052
+      }
+     }
+    },
+    "search-latency.json": {
+     "local": [
+      {
+       "0.25": {
+        "probes": 0.2857142857142857,
+        "relevantTokens": 0.13614827201783725
+       },
+       "0.5": {
+        "probes": 0.2857142857142857,
+        "relevantTokens": 0.13614827201783725
+       }
+      }
+     ],
+     "jev": [
+      {
+       "0.25": {
+        "probes": 0.7142857142857143,
+        "relevantTokens": 0.1967670011148272
+       },
+       "0.5": {
+        "probes": 0.7142857142857143,
+        "relevantTokens": 0.1967670011148272
+       }
+      },
+      {
+       "0.25": {
+        "probes": 0.8571428571428571,
+        "relevantTokens": 0.25989409141583053
+       },
+       "0.5": {
+        "probes": 0.8571428571428571,
+        "relevantTokens": 0.25989409141583053
+       }
+      },
+      {
+       "0.25": {
+        "probes": 0.8571428571428571,
+        "relevantTokens": 0.25989409141583053
+       },
+       "0.5": {
+        "probes": 0.8571428571428571,
+        "relevantTokens": 0.25989409141583053
+       }
+      }
+     ],
+     "recency": {
+      "0.25": {
+       "probes": 0.42857142857142855,
+       "relevantTokens": 0.19091415830546266
+      },
+      "0.5": {
+       "probes": 0.5714285714285714,
+       "relevantTokens": 0.2129319955406912
+      }
+     },
+     "random": {
+      "0.25": {
+       "probes": 0.6214285714285714,
+       "relevantTokens": 0.1328525641025641
+      },
+      "0.5": {
+       "probes": 0.6428571428571429,
+       "relevantTokens": 0.16618589743589746
+      }
+     },
+     "labels": {
+      "0.25": {
+       "probes": 0.5714285714285714,
+       "relevantTokens": 0.2129319955406912
+      },
+      "0.5": {
+       "probes": 0.5714285714285714,
+       "relevantTokens": 0.2129319955406912
+      }
+     }
+    },
+    "stale-price.json": {
+     "local": [
+      {
+       "0.25": {
+        "probes": 0.14285714285714285,
+        "relevantTokens": 0.21038143924498623
+       },
+       "0.5": {
+        "probes": 0.7142857142857143,
+        "relevantTokens": 0.39244986236728274
+       }
+      }
+     ],
+     "jev": [
+      {
+       "0.25": {
+        "probes": 0.5714285714285714,
+        "relevantTokens": 0.24262681871804956
+       },
+       "0.5": {
+        "probes": 0.7142857142857143,
+        "relevantTokens": 0.41525756979944944
+       }
+      },
+      {
+       "0.25": {
+        "probes": 0.5714285714285714,
+        "relevantTokens": 0.24262681871804956
+       },
+       "0.5": {
+        "probes": 0.7142857142857143,
+        "relevantTokens": 0.5493511600471883
+       }
+      },
+      {
+       "0.25": {
+        "probes": 0.7142857142857143,
+        "relevantTokens": 0.2504915454187967
+       },
+       "0.5": {
+        "probes": 0.7142857142857143,
+        "relevantTokens": 0.48092803775068815
+       }
+      }
+     ],
+     "recency": {
+      "0.25": {
+       "probes": 0.14285714285714285,
+       "relevantTokens": 0.17695635076681085
+      },
+      "0.5": {
+       "probes": 0.2857142857142857,
+       "relevantTokens": 0.4742430200550531
+      }
+     },
+     "random": {
+      "0.25": {
+       "probes": 0.33571428571428563,
+       "relevantTokens": 0.21293747542272903
+      },
+      "0.5": {
+       "probes": 0.6214285714285712,
+       "relevantTokens": 0.46842312229650007
+      }
+     },
+     "labels": {
+      "0.25": {
+       "probes": 0.14285714285714285,
+       "relevantTokens": 0.17695635076681085
+      },
+      "0.5": {
+       "probes": 0.5714285714285714,
+       "relevantTokens": 0.5745182854895793
+      }
+     }
+    },
+    "webpack-upgrade.json": {
+     "local": [
+      {
+       "0.25": {
+        "probes": 0.42857142857142855,
+        "relevantTokens": 0.6067264573991031
+       },
+       "0.5": {
+        "probes": 0.42857142857142855,
+        "relevantTokens": 0.6067264573991031
+       }
+      }
+     ],
+     "jev": [
+      {
+       "0.25": {
+        "probes": 1,
+        "relevantTokens": 0.8426008968609865
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 1
+       }
+      },
+      {
+       "0.25": {
+        "probes": 1,
+        "relevantTokens": 0.6233183856502242
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 1
+       }
+      },
+      {
+       "0.25": {
+        "probes": 1,
+        "relevantTokens": 0.8426008968609865
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 1
+       }
+      }
+     ],
+     "recency": {
+      "0.25": {
+       "probes": 1,
+       "relevantTokens": 0.5188340807174888
+      },
+      "0.5": {
+       "probes": 1,
+       "relevantTokens": 0.5475336322869955
+      }
+     },
+     "random": {
+      "0.25": {
+       "probes": 0.6785714285714285,
+       "relevantTokens": 0.46352017937219736
+      },
+      "0.5": {
+       "probes": 0.7285714285714286,
+       "relevantTokens": 0.5954260089686099
+      }
+     },
+     "labels": {
+      "0.25": {
+       "probes": 1,
+       "relevantTokens": 1
+      },
+      "0.5": {
+       "probes": 1,
+       "relevantTokens": 1
+      }
+     }
+    }
+   },
+   "comparisons": {
+    "recency": {
+     "0.25": {
+      "probes": 0.1201058201058201,
+      "low": 0.0021164021164021313,
+      "high": 0.2608465608465609
+     },
+     "0.5": {
+      "probes": 0.0962962962962963,
+      "low": -0.0037037037037036978,
+      "high": 0.23121693121693124
+     }
+    },
+    "local": {
+     "0.25": {
+      "probes": 0.2180952380952381,
+      "low": 0.11968253968253965,
+      "high": 0.32391534391534393
+     },
+     "0.5": {
+      "probes": 0.19746031746031747,
+      "low": 0.08158730158730158,
+      "high": 0.32539682539682535
+     }
+    },
+    "random": {
+     "0.25": {
+      "probes": 0.21333862433862433,
+      "low": 0.15396825396825392,
+      "high": 0.2675238095238095
+     },
+     "0.5": {
+      "probes": 0.23980423280423277,
+      "low": 0.19452380952380952,
+      "high": 0.286037037037037
+     }
+    },
+    "labels": {
+     "0.25": {
+      "probes": 0.0253968253968254,
+      "low": -0.04444444444444443,
+      "high": 0.11111111111111112
+     },
+     "0.5": {
+      "probes": 0.014285714285714287,
+      "low": -0.023809523809523798,
+      "high": 0.05873015873015874
+     }
+    }
+   }
+  },
+  "comparisons": {
+   "recency": {
+    "0.25": {
+     "probes": 0.1934744268077601,
+     "low": 0.07619047619047618,
+     "high": 0.3236331569664903
+    },
+    "0.5": {
+     "probes": 0.15185185185185185,
+     "low": 0.01375661375661376,
+     "high": 0.3185185185185186
+    }
+   },
+   "local": {
+    "0.25": {
+     "probes": 0.2035273368606702,
+     "low": 0.10035273368606701,
+     "high": 0.31463844797178125
+    },
+    "0.5": {
+     "probes": 0.15714285714285714,
+     "low": 0.04444444444444446,
+     "high": 0.2825396825396826
+    }
+   },
+   "random": {
+    "0.25": {
+     "probes": 0.23627865961199296,
+     "low": 0.15404761904761907,
+     "high": 0.2987389770723104
+    },
+    "0.5": {
+     "probes": 0.26296296296296295,
+     "low": 0.22301587301587306,
+     "high": 0.30185185185185187
+    }
+   },
+   "labels": {
+    "0.25": {
+     "probes": 0.054320987654320994,
+     "low": -0.024691358024691357,
+     "high": 0.1495590828924162
+    },
+    "0.5": {
+     "probes": 0.05079365079365081,
+     "low": -0.02857142857142858,
+     "high": 0.1492063492063492
+    }
+   }
+  }
+ },
+ "retentionDifference": {
+  "0.25": {
+   "probes": 0.1934744268077601,
+   "low": 0.07619047619047618,
+   "high": 0.3236331569664903
+  },
+  "0.5": {
+   "probes": 0.15185185185185185,
+   "low": 0.01375661375661376,
+   "high": 0.3185185185185186
+  }
+ },
+ "jevUsage": {
+  "requests": 108,
+  "inputTokens": 683328,
+  "outputTokens": 78960,
+  "usd": 0.028699776000000003
+ }
+}
