@@ -240,7 +240,7 @@ removal note off. Alongside Jev and truncation are keyword overlap, a random ord
 themselves:
 
 <!-- generated:holdout-retention -->
-| What survives a 25% budget (ranking alone, no `keepUserText`; Jev: mean of 3 runs) | Whole session (preregistered) | Up to the fix request (exploratory) |
+| What survives a 25% budget (ranking alone, no `keepUserText`; Jev: mean of 3 runs) | Whole session (v1, preregistered) | Up to the fix request (v2, exploratory here) |
 | --- | --- | --- |
 | **Jev** | **23.6%** | 41.1% |
 | Plain truncation (newest kept) | 0.0% | 31.0% |
@@ -250,7 +250,7 @@ themselves:
 
 **On the holdout, Jev kept less of what the tasks needed than a random ordering of the same entries did** (23.6% vs. 26.5%), and less than keyword overlap (28.3%). It beat plain truncation only because truncation scores 0% on the preregistered measure by construction (see below).
 
-Preregistered measure: Jev minus plain truncation is +23.6 points, 95% CI [+9.5, +37.7]. Exploratory comparisons on the same measure: Jev minus random order is −2.9 points [−12.4, +6.4], and Jev minus keyword overlap −4.7 [−19.1, +11.7]. Up to the fix request: Jev minus plain truncation is +10.1 points [+0.7, +22.0], and Jev minus random order +7.6 [−2.4, +19.7].
+Preregistered measure: Jev minus plain truncation is +23.6 points, 95% CI [+9.5, +37.7]. Exploratory comparisons on the same measure: Jev minus random order is −2.9 points [−12.4, +6.4], and Jev minus keyword overlap −4.7 [−19.1, +11.7]. Up to the fix request (v2): Jev minus plain truncation is +10.1 points [+0.7, +22.0], and Jev minus random order +7.6 [−2.4, +19.7].
 <!-- /generated:holdout-retention -->
 
 Read the preregistered column with two things in mind, both found by an

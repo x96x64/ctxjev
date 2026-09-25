@@ -124,7 +124,7 @@ function holdoutRetention() {
   const cutVsRandom = r.exploratory.atCut.comparisons.random['0.25']
   const lines = [
     table(
-      [`What survives a 25% budget (ranking alone, no \`keepUserText\`; Jev: mean of ${r.runs} runs)`, 'Whole session (preregistered)', 'Up to the fix request (exploratory)'],
+      [`What survives a 25% budget (ranking alone, no \`keepUserText\`; Jev: mean of ${r.runs} runs)`, 'Whole session (v1, preregistered)', 'Up to the fix request (v2, exploratory here)'],
       RANKINGS.map(([key, label]) => {
         const whole = pct1(at25(r.retention, key))
         return [key === 'jev' ? `**${label}**` : label, key === 'jev' ? `**${whole}**` : whole, pct1(at25(r.exploratory.atCut.retention, key))]
@@ -135,7 +135,7 @@ function holdoutRetention() {
     '',
     `Preregistered measure: Jev minus plain truncation is ${points1(d.probes)} points, 95% CI ${interval1(d.low, d.high)}. ` +
       `Exploratory comparisons on the same measure: Jev minus random order is ${points1(vsRandom.probes)} points ${interval1(vsRandom.low, vsRandom.high)}, and Jev minus keyword overlap ${points1(vsLocal.probes)} ${interval1(vsLocal.low, vsLocal.high)}. ` +
-      `Up to the fix request: Jev minus plain truncation is ${points1(cutVsRecency.probes)} points ${interval1(cutVsRecency.low, cutVsRecency.high)}, and Jev minus random order ${points1(cutVsRandom.probes)} ${interval1(cutVsRandom.low, cutVsRandom.high)}.`,
+      `Up to the fix request (v2): Jev minus plain truncation is ${points1(cutVsRecency.probes)} points ${interval1(cutVsRecency.low, cutVsRecency.high)}, and Jev minus random order ${points1(cutVsRandom.probes)} ${interval1(cutVsRandom.low, cutVsRandom.high)}.`,
   ]
   return block(lines.join('\n'))
 }
@@ -435,10 +435,10 @@ function designRetention() {
     table(
       ['25% 予算で残った「必要な事実」の割合（順位付けのみ）', 'Jev', '単純な切り捨て', 'キーワード一致', 'ランダム順', 'ラベル順'],
       [
-        row(`dev ${Object.keys(retentionDev.perSession).length} セッション・全会話`, retentionDev.retention),
-        row(`dev・修正依頼まで（探索的）`, retentionDev.exploratory.atCut.retention),
-        row(`ホールドアウト ${Object.keys(retentionHoldout.perSession).length} セッション・全会話（事前登録の指標）`, retentionHoldout.retention),
-        row('ホールドアウト・修正依頼まで（探索的）', retentionHoldout.exploratory.atCut.retention),
+        row(`dev ${Object.keys(retentionDev.perSession).length} セッション・全会話（v1）`, retentionDev.retention),
+        row(`dev・修正依頼まで（v2・探索的）`, retentionDev.exploratory.atCut.retention),
+        row(`ホールドアウト ${Object.keys(retentionHoldout.perSession).length} セッション・全会話（v1・事前登録の指標）`, retentionHoldout.retention),
+        row('ホールドアウト・修正依頼まで（v2・探索的）', retentionHoldout.exploratory.atCut.retention),
       ],
     ),
   )
@@ -452,8 +452,8 @@ function designRetentionDiffs() {
     table(
       ['ホールドアウト・25% 予算', 'Jev − 切り捨て', 'Jev − キーワード一致', 'Jev − ランダム順'],
       [
-        ['全会話（事前登録の指標）', `${points1(d.probes)} ${interval1(d.low, d.high)}`, fmt(r.exploratory.comparisons.local['0.25']), fmt(r.exploratory.comparisons.random['0.25'])],
-        ['修正依頼まで（探索的）', fmt(r.exploratory.atCut.comparisons.recency['0.25']), fmt(r.exploratory.atCut.comparisons.local['0.25']), fmt(r.exploratory.atCut.comparisons.random['0.25'])],
+        ['全会話（v1・事前登録の指標）', `${points1(d.probes)} ${interval1(d.low, d.high)}`, fmt(r.exploratory.comparisons.local['0.25']), fmt(r.exploratory.comparisons.random['0.25'])],
+        ['修正依頼まで（v2・探索的）', fmt(r.exploratory.atCut.comparisons.recency['0.25']), fmt(r.exploratory.atCut.comparisons.local['0.25']), fmt(r.exploratory.atCut.comparisons.random['0.25'])],
       ],
     ),
   )

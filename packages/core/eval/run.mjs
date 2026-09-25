@@ -33,13 +33,19 @@
  * times (default 1), since its answers vary slightly between calls; results are averaged. Every
  * Jev request's token usage is totaled and reported, with its cost at Jev's published price.
  *
- * Exploratory, not preregistered (PREREGISTRATION.md, "Changes after registration"): the same budget
- * retention measured on each recorded session cut at the point the fix request arrives
- * (`cutAfterMessage`, what tasks.mjs actually prunes), scored afresh on that shorter history. The
- * registered measure uses the whole session, and on the holdout the part after the cut holds 22-43%
- * of the tokens but none of the labeled probes, which puts plain truncation at 0% by construction.
- * Probes stated only after the cut are left out here; hand-written sessions have no cut and are
- * measured whole. It's reported next to the registered measure and never replaces it.
+ * Two versions of the budget-retention measure, both always computed and labeled in the output:
+ *
+ * - **v1, whole session** (`retention`, `retentionDifference`): Round 1's preregistered measure,
+ *   unchanged so every saved result stays reproducible. It scores each recorded session including
+ *   the implementation after the fix request, where the holdout labeled no probe, which puts plain
+ *   truncation at 0% there by construction.
+ * - **v2, up to the fix request** (`retentionV2`, `retentionDifferenceV2`; also kept under
+ *   `exploratory.atCut` for the files and docs that read it there): each recorded session cut at
+ *   `cutAfterMessage` (what tasks.mjs actually prunes) and scored afresh on that shorter history;
+ *   probes stated only after the cut are left out; hand-written sessions have no cut and are
+ *   measured whole. Added after Round 1's results were seen, so on Round 1's material it is
+ *   exploratory (PREREGISTRATION.md, "Changes after registration"); it is the measure Round 2
+ *   registers before its run.
  *
  * `--out <file>` saves everything computed, per session and per run, as JSON (eval/results/ keeps
  * the runs the docs cite; `node eval/check-docs.mjs` checks the docs against them).
@@ -52,7 +58,9 @@
  * without a key, for local use). It only ever reads the dev split, so holdout sessions can't be
  * tuned against by way of a failing release.
  *
- * Usage: node eval/run.mjs [--gate [--allow-skip]] [--runs N] [--split dev|holdout|all] [--json] [--out file.json]
+ * `--budgets 0.1,0.15,0.25` measures retention at other budgets (default 0.25,0.5; --gate needs 0.5).
+ *
+ * Usage: node eval/run.mjs [--gate [--allow-skip]] [--runs N] [--split dev|holdout|all] [--budgets …] [--json] [--out file.json]
  *        (from packages/core, after `pnpm build`)
  */
 import { execFileSync } from 'node:child_process'
@@ -69,12 +77,15 @@ const examplesDir = join(__dirname, '../../../examples')
 
 const CANDIDATE_WEIGHTS = [0, 0.05, 0.1, 0.2, 0.3, 0.5]
 const TOP_K = 5
-const BUDGETS = [0.25, 0.5]
+const DEFAULT_BUDGETS = [0.25, 0.5]
 const RANDOM_SEEDS = 20
 
 const { values: args } = parseArgs({
-  options: { gate: { type: 'boolean' }, 'allow-skip': { type: 'boolean' }, json: { type: 'boolean' }, out: { type: 'string' }, runs: { type: 'string', default: '1' }, split: { type: 'string' } },
+  options: { gate: { type: 'boolean' }, 'allow-skip': { type: 'boolean' }, json: { type: 'boolean' }, out: { type: 'string' }, runs: { type: 'string', default: '1' }, split: { type: 'string' }, budgets: { type: 'string' } },
 })
+const BUDGETS = args.budgets ? args.budgets.split(',').map(Number) : DEFAULT_BUDGETS
+if (BUDGETS.length === 0 || BUDGETS.some((b) => !(b > 0 && b < 1))) throw new Error(`--budgets must be shares between 0 and 1, got ${args.budgets}`)
+if (args.gate && !BUDGETS.includes(0.5)) throw new Error('--gate checks retention at a 50% budget; keep 0.5 in --budgets')
 const runs = Number(args.runs)
 const split = parseSplit(args.split ?? (args.gate ? 'dev' : 'all'))
 if (args.gate && split !== 'dev') throw new Error('--gate only reads the dev split')
@@ -315,11 +326,11 @@ for (const set of ['short', 'sessions', 'all']) {
   log()
 }
 
-log(`== sessions (${split} split): budget retention (${heldOut.length} sessions; probe retention / relevant-token recall) ==`)
-log(`  ${'strategy'.padEnd(9)}${BUDGETS.map((b) => `budget ${b * 100}%`.padEnd(22)).join('')}by language and kind (probes at 25% / 50%)`)
+log(`== retention v1, whole session (${split} split; Round 1's preregistered measure): ${heldOut.length} sessions; probe retention / relevant-token recall ==`)
+log(`  ${'strategy'.padEnd(9)}${BUDGETS.map((b) => `budget ${b * 100}%`.padEnd(22)).join('')}by language and kind (probes at ${BUDGETS.map((b) => `${b * 100}%`).join(' / ')})`)
 for (const [strategy, r] of Object.entries(retentionSummary)) {
   const cols = BUDGETS.map((b) => `${pct(r[b].probes)} / ${pct(r[b].relevantTokens)}`.padEnd(22)).join('')
-  const langs = [...Object.entries(r.byLanguage), ...Object.entries(r.byKind)].map(([key, lr]) => `${key} ${pct(lr[0.25].probes).trim()}/${pct(lr[0.5].probes).trim()}`).join('  ')
+  const langs = [...Object.entries(r.byLanguage), ...Object.entries(r.byKind)].map(([key, lr]) => `${key} ${BUDGETS.map((b) => pct(lr[b].probes).trim()).join('/')}`).join('  ')
   log(`  ${strategy.padEnd(9)}${cols}${langs}`)
 }
 // Jev minus plain truncation, per session, with a 95% interval that resamples whole sessions: the
@@ -360,7 +371,7 @@ if (scorers.includes('jev') && heldOut.length > 1) {
   summary.exploratory.atCut.comparisons = differences((f) => averageRetention(results.jev[f.name].map((r) => r.retentionAtCut)), other(true))
 }
 
-log(`== exploratory, not preregistered: the same retention with each recorded session cut where the fix request arrives ==`)
+log(`== retention v2, up to the fix request (exploratory on Round 1's material; Round 2's registered measure): each recorded session cut where the fix request arrives ==`)
 log(`  ${'strategy'.padEnd(9)}${BUDGETS.map((b) => `budget ${b * 100}%`.padEnd(22)).join('')}`)
 for (const [strategy, r] of Object.entries(summary.exploratory.atCut.retention)) {
   log(`  ${strategy.padEnd(9)}${BUDGETS.map((b) => `${pct(r[b].probes)} / ${pct(r[b].relevantTokens)}`.padEnd(22)).join('')}`)
@@ -374,6 +385,14 @@ if (scorers.includes('jev')) {
   log(`\nJev usage: ${jevUsage.requests} requests, ${jevUsage.inputTokens.toLocaleString('en-US')} input tokens, ${jevUsage.outputTokens.toLocaleString('en-US')} output tokens (free) — ~$${usd.toFixed(4)}`)
 }
 log()
+
+// Both versions of the retention measure under their own names (v1 also stays under its original keys).
+summary.metrics = {
+  v1: 'whole session: Round 1 preregistered measure (retention, retentionDifference)',
+  v2: 'up to the fix request: recorded sessions cut at cutAfterMessage and scored afresh, probes stated only after the cut left out (retentionV2, retentionDifferenceV2); exploratory on Round 1 material',
+}
+summary.retentionV2 = summary.exploratory.atCut.retention
+if (summary.exploratory.atCut.comparisons) summary.retentionDifferenceV2 = summary.exploratory.atCut.comparisons.recency
 
 // Which code produced a saved file: the commit, and whether anything was uncommitted on top of it.
 let commit

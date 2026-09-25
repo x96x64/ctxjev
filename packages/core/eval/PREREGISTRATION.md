@@ -224,7 +224,7 @@ anything; it doesn't change the decision below.
 The 25%-budget interval's lower bound is above 0 here too. Jev retained less than a random ordering (23.6% vs. 26.5%) and less than keyword overlap (28.3%).
 <!-- /generated:prereg-secondary-rerun -->
 
-#### Exploratory: retention up to the fix request (not preregistered)
+#### Exploratory: retention up to the fix request ("v2"; not preregistered)
 
 Same file, same runs. Each recorded session is cut where the fix request arrives and scored afresh
 on that history; probes stated only after the cut are left out. See "Changes after registration"
