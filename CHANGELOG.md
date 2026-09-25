@@ -5,6 +5,12 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 (`.claude-plugin/marketplace.json`, `packages/claude-plugin/.claude-plugin/plugin.json`,
 `plugins/ctxjev/plugin.json`). A bump in one is a bump in all, even when only one changed.
 
+## Unreleased
+
+- README: the Quick Start's `ctxjev prune` example now uses a sample that the default settings
+  actually prune and shows the command's real output (the old sample came back unchanged), and
+  says why a short Anthropic Messages conversation can come back with nothing removed.
+
 ## 0.6.0 — 2026-09-25
 
 **Breaking changes, in short** (each is described below): the default scorer of `ctxjev-core`,

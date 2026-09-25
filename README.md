@@ -412,11 +412,19 @@ judgment? `export TYPESAFE_API_KEY=...` (console.typesafe.ai/settings/keys, no w
 `--scorer jev` — see [Does It Work?](#does-it-work) for what that currently buys you.
 
 `ctxjev prune` writes a ctxjev-format or Anthropic Messages transcript back out with the drops
-removed (to stdout, or `--out <file>`):
+removed (to stdout, or `--out <file>`). With the defaults, on the same sample as the first report in
+[How Scoring Works](#how-scoring-works):
 
-```bash
-ctxjev prune examples/sample-transcripts/anthropic-messages.json --out pruned.json
+```console
+$ ctxjev prune examples/sample-transcripts/checkout-bug.json --out pruned.json
+removed 2 of 7 entries, ~27 tokens · scored by position alone
 ```
+
+`e1` and `e2`, the two entries that report marks `drop`, are gone from `pruned.json`. In an
+Anthropic Messages transcript, `prune` by default never touches the first message or the latest
+turn (your last instruction and every tool call after it; `--no-protect-last-turn` lets that turn
+be pruned), and skips any removal that would save less than the note it leaves in its place, so a
+short conversation can come back with nothing removed.
 
 Or from a clone of `main`, to run the exact sample transcript above:
 
