@@ -27,7 +27,7 @@ config shape differs.
 
 ## Setup
 
-Every example below pins the version (`ctxjev-mcp@0.6.0`, the latest on npm), so your host runs the
+Every example below pins the version (`ctxjev-mcp@0.6.1`, the latest on npm), so your host runs the
 release you chose rather than whatever npm has at the time; change the pin to upgrade.
 
 Get a key at [console.typesafe.ai/settings/keys](https://console.typesafe.ai/settings/keys) (no
@@ -37,7 +37,7 @@ returns an error saying `TYPESAFE_API_KEY` isn't set.
 **Claude Code:**
 
 ```bash
-claude mcp add ctxjev --env TYPESAFE_API_KEY=... -- npx ctxjev-mcp@0.6.0
+claude mcp add ctxjev --env TYPESAFE_API_KEY=... -- npx ctxjev-mcp@0.6.1
 ```
 
 The ctxjev repo also carries a project-level `.mcp.json`, which runs the server from
@@ -51,11 +51,11 @@ a local stdio server doesn't use, so it's safe to ignore (or `claude mcp remove 
 **Codex CLI** (verified against `codex-cli` v0.155.1):
 
 ```bash
-codex mcp add ctxjev --env TYPESAFE_API_KEY=... -- npx ctxjev-mcp@0.6.0
+codex mcp add ctxjev --env TYPESAFE_API_KEY=... -- npx ctxjev-mcp@0.6.1
 ```
 
 Or through the [Agent Plugins](https://agent-plugins.org) bundle in the ctxjev repo
-(`.agents/plugins/marketplace.json`), which registers the same `npx ctxjev-mcp@0.6.0` command:
+(`.agents/plugins/marketplace.json`), which registers the same `npx ctxjev-mcp@0.6.1` command:
 
 ```bash
 codex plugin marketplace add x96x64/ctxjev
@@ -71,7 +71,7 @@ codex plugin add ctxjev@ctxjev-plugins
     "ctxjev": {
       "type": "stdio",
       "command": "npx",
-      "args": ["ctxjev-mcp@0.6.0"],
+      "args": ["ctxjev-mcp@0.6.1"],
       "env": { "TYPESAFE_API_KEY": "..." }
     }
   }

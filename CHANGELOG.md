@@ -5,7 +5,7 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 (`.claude-plugin/marketplace.json`, `packages/claude-plugin/.claude-plugin/plugin.json`,
 `plugins/ctxjev/plugin.json`). A bump in one is a bump in all, even when only one changed.
 
-## Unreleased
+## 0.6.1 — 2026-09-25
 
 - `ctxjev-cli`: `ctxjev analyze` on an Anthropic Messages conversation reports what `ctxjev prune`
   would actually remove with the same settings (protection, the removal note, `--min-saved-tokens`),
