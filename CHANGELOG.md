@@ -42,6 +42,9 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
   own "history was removed" note is no longer made (it used to report negative `savedTokens`), and
   `minSavedTokens` now counts the note. Very large conversations (150,000 tool calls) no longer crash
   it with a stack overflow.
+- `ctxjev-core`, `ctxjev-cli`, `ctxjev-claude`: in a Claude Code transcript, a tool call that never
+  got its result stays where it was made. It used to be moved after everything else, so the
+  default `recency` scorer took it for the newest entry.
 - `ctxjev-core`, `ctxjev-cli`, `ctxjev-claude`: a Claude Code transcript that repeats a record id is
   parsed, keeping the last copy with a warning, instead of failing as a whole (the plugin preserved
   nothing).

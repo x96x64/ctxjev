@@ -122,6 +122,31 @@ describe('parseClaudeCodeTranscript', () => {
     expect(entries[0].content).toContain('no result')
   })
 
+  // The second audit: an unfinished call was appended after everything else, so recency, which
+  // ranks by position, took it for the newest entry of the session.
+  it('keeps unfinished tool calls where they were made, in order, not after later entries', () => {
+    const jsonl = [
+      record({ type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: 'fix the double charge' } }),
+      record({
+        type: 'assistant',
+        uuid: 'a1',
+        timestamp: '2026-01-01T00:00:01.000Z',
+        message: {
+          role: 'assistant',
+          content: [
+            { type: 'tool_use', id: 'first', name: 'Bash', input: { command: 'sleep 1' } },
+            { type: 'tool_use', id: 'answered', name: 'Bash', input: { command: 'ls' } },
+            { type: 'tool_use', id: 'second', name: 'Bash', input: { command: 'sleep 2' } },
+          ],
+        },
+      }),
+      record({ type: 'user', uuid: 'r1', timestamp: '2026-01-01T00:00:02.000Z', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'answered', content: 'src' }] } }),
+      record({ type: 'assistant', uuid: 'a2', timestamp: '2026-01-01T00:00:03.000Z', message: { role: 'assistant', content: [{ type: 'text', text: 'moving on' }] } }),
+      record({ type: 'user', uuid: 'u2', timestamp: '2026-01-01T00:00:04.000Z', message: { role: 'user', content: 'now check the refund path' } }),
+    ].join('\n')
+    expect(parseClaudeCodeTranscript(jsonl).map((e) => e.id)).toEqual(['u1', 'first', 'second', 'answered', 'a2:text:0', 'u2'])
+  })
+
   it('labels a tool entry with the input that identifies the call, not just the tool name', () => {
     const jsonl = [
       record({ type: 'assistant', uuid: 'a1', timestamp: '2026-01-01T00:00:01.000Z', message: { role: 'assistant', content: [{ type: 'tool_use', id: 'c1', name: 'Read', input: { file_path: 'src/payments.ts' } }] } }),
