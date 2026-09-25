@@ -642,7 +642,7 @@ function changesCutAnalysis() {
     const total = entries.reduce((sum, e) => sum + e.sourceTokens, 0)
     const after = entries.filter((e) => e.timestamp > session.cutAfterMessage).reduce((sum, e) => sum + e.sourceTokens, 0)
     const onlyAfter = session.probes.filter((p) => p.entryIds.every((id) => byId.get(id)?.timestamp > session.cutAfterMessage)).length
-    rows[sessionSplit(name)].push({ share: after / total, onlyAfter })
+    rows[sessionSplit(name)]?.push({ share: after / total, onlyAfter }) // Round 1's two splits only
   }
   const range = (xs) => `${pct0(Math.min(...xs))}〜${pct0(Math.max(...xs))}`
   const counts = (rs) => [...new Set(rs.map((r) => r.onlyAfter))].sort().join('・')

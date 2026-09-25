@@ -57,6 +57,13 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: node examples/eval-tasks/verify.mjs
+      # The Round 2 task format (real history diffs, pristine-copy checks, Japanese probes) on its
+      # fixture, and every committed session against its task format's rules.
+      - name: harness-selftest and check-sessions
+        working-directory: packages/core
+        run: |
+          node eval/harness-selftest.mjs
+          node eval/check-sessions.mjs
       # The eval agent's commands run in a sandbox (packages/core/eval/sandbox.mjs), and --selftest
       # fails unless it keeps the agent inside its copy of the repo and off the network. Ubuntu 24.04
       # restricts the user namespaces the `unshare` backend needs; lift that for this job only.

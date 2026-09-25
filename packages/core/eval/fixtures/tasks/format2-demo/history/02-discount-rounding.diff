@@ -1,0 +1,9 @@
+diff --git a/src/discount.js b/src/discount.js
+new file mode 100644
+index 0000000..e0ef5b8
+--- /dev/null
++++ b/src/discount.js
+@@ -0,0 +1,3 @@
++export function discounted(price, percent) {
++  return Math.round(price * (100 - percent)) / 100
++}

@@ -1,0 +1,15 @@
+{
+  "format": 2,
+  "split": "fixture",
+  "language": "ja",
+  "goal": "カートに 20 個までしか入らないはずが、21 個目も入ってしまうと問い合わせがありました。原因を調べてください。まだ編集はしないで、調査だけお願いします。",
+  "prompts": [
+    "ありがとう。上限は config/limits.json の maxItems です。config/limits.json は運用が管理しているので変更しないでください。修正方針をまとめてください。まだ編集しないで。",
+    "じゃあ修正して、テストを実行して。"
+  ],
+  "history": [
+    { "message": "カートの初版", "date": "2026-03-02T09:00:00+09:00", "author": "田中 一郎" },
+    { "message": "上限を設定ファイルから読む", "date": "2026-06-10T14:20:00+09:00", "author": "佐藤 花子", "diff": "history/01-limit-from-config.diff" },
+    { "message": "割引額の端数処理", "date": "2026-08-01T11:05:00+09:00", "author": "田中 一郎", "diff": "history/02-discount-rounding.diff" }
+  ]
+}

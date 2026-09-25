@@ -3,13 +3,14 @@
  * Writes hand-made labels and probes into an eval session. The spec file lists the relevant entry
  * ids (everything else is labeled irrelevant) and probes as { fact, question, entryIds }; ids can
  * be written as unique prefixes of a tool call's id (`tool:toolu_01KNS`) for readability.
- * Refuses a spec that names an unknown id, an ambiguous prefix, or a probe entry not labeled
- * relevant.
+ * Refuses a spec that names an unknown id, an ambiguous prefix, a probe entry not labeled
+ * relevant, or, for a Japanese format-2 task, a probe not written in Japanese (probes.mjs).
  *
  * Usage: node eval/label-session.mjs <session.json> <spec.json>
  */
 import { readFileSync, writeFileSync } from 'node:fs'
 import { messagesToEntries } from '../dist/index.js'
+import { probeLanguageProblems, taskSpecFor } from './probes.mjs'
 
 const [sessionPath, specPath] = process.argv.slice(2)
 const session = JSON.parse(readFileSync(sessionPath, 'utf8'))
@@ -29,5 +30,8 @@ session.probes = spec.probes.map((p) => {
   for (const id of entryIds) if (!relevant.has(id)) throw new Error(`probe "${p.fact}" cites ${id}, which isn't labeled relevant`)
   return { fact: p.fact, question: p.question, entryIds }
 })
+const taskSpec = taskSpecFor(session)
+const problems = taskSpec ? probeLanguageProblems(taskSpec, session.probes) : []
+if (problems.length > 0) throw new Error(`not written:\n  ${problems.join('\n  ')}`)
 writeFileSync(sessionPath, `${JSON.stringify(session, null, 1)}\n`)
 console.log(`${sessionPath}: ${relevant.size}/${ids.length} relevant, ${session.probes.length} probes`)
