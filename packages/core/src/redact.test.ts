@@ -182,3 +182,64 @@ describe('redactSecrets: shapes added from the blind corpus\'s dev half', () => 
     expect(redactSecrets(text)).toBe(text)
   })
 })
+
+// PR #15's independent review: shapes 0.6.1 masked and the first version of this change didn't
+// (cookies outside a bare `Cookie:` header, `mysql -p` and `curl -u` far along a long command, a
+// short `--token`), shapes neither masked, and ordinary text the new rules masked.
+describe('redactSecrets: the independent review of the masking change', () => {
+  const longMysql = `mysql --host=prod-db.cluster-c9akciq32.eu-west-1.rds.amazonaws.com --port=3306 --ssl-ca=/etc/ssl/certs/rds-combined-ca-bundle.pem --ssl-mode=VERIFY_IDENTITY --default-character-set=utf8mb4 --database=app --user=admin -pS3cretPassw0rd`
+  const longCurl = `curl -X POST https://api.example.com/v1/import -H 'Content-Type: application/json' -d '${JSON.stringify({ items: Array.from({ length: 12 }, (_, i) => ({ id: i, name: `item-${i}`, tags: ['a', 'b'] })) })}' -u admin:S3cretPassw0rd`
+  const regressions: Array<[string, string, string]> = [
+    ['Cookie in a JSON header object', '{"Cookie": "sessionid=Zq8Xw7Vu6Ts5Rq4Pab"}', 'Zq8Xw7Vu6Ts5Rq4Pab'],
+    ['Cookie in a Python requests dict', "headers={'Cookie': 'sessionid=Zq8Xw7Vu6Ts5Rq4Pab'}", 'Zq8Xw7Vu6Ts5Rq4Pab'],
+    ['Cookie in escaped JSON', '{\\"Cookie\\": \\"sessionid=Zq8Xw7Vu6Ts5Rq4Pab\\"}', 'Zq8Xw7Vu6Ts5Rq4Pab'],
+    ['document.cookie', 'document.cookie = "sid=Zq8Xw7Vu6Ts5Rq4Pab"', 'Zq8Xw7Vu6Ts5Rq4Pab'],
+    ['AUTH_COOKIE', 'AUTH_COOKIE=Zq8Xw7Vu6Ts5Rq4Pab', 'Zq8Xw7Vu6Ts5Rq4Pab'],
+    ['SESSION_COOKIE', 'SESSION_COOKIE=Zq8Xw7Vu6Ts5Rq4Pab', 'Zq8Xw7Vu6Ts5Rq4Pab'],
+    ['WordPress login cookie', 'Cookie: wordpress_logged_in_5c3a1f=admin%7C1727164800%7CZq8Xw7Vu6Ts5Rq4Pab', 'Zq8Xw7Vu6Ts5Rq4Pab'],
+    ['Drupal session cookie', 'Cookie: SSESS4f2a9c1e7b3d5a8c=Zq8Xw7Vu6Ts5Rq4Pab', 'Zq8Xw7Vu6Ts5Rq4Pab'],
+    ['mysql -p on a long command', longMysql, 'S3cretPassw0rd'],
+    ['curl -u on a long command', longCurl, 'S3cretPassw0rd'],
+    ['--token with a short value', 'app --token abc123', 'abc123'],
+    ['--api-key with a numeric value', 'app --api-key 12345678901234', '12345678901234'],
+  ]
+  it.each(regressions)('masks, as 0.6.1 did: %s', (_name, text, secret) => {
+    const masked = redactSecrets(text)
+    expect(masked).not.toContain(secret)
+    expect(redactSecrets(masked)).toBe(masked)
+  })
+
+  const missed: Array<[string, string, string]> = [
+    ['a URL password with no user name', 'REDIS_URL=redis://:Zq8Xw7Vu6Ts5Rq4P@cache:6379/0', 'Zq8Xw7Vu6Ts5Rq4P'],
+    ['a Kubernetes env var over two lines', 'env:\n  - name: DB_PASSWORD\n    value: "Hk3tR8pLq2Zx"', 'Hk3tR8pLq2Zx'],
+    ['curl -u with no space', 'curl -uadmin:S3cretPassw0rd https://api.example.com', 'S3cretPassw0rd'],
+    ['az login -p', 'az login --service-principal -u http://app -p Zq8Xw7Vu6Ts5Rq4P --tenant contoso', 'Zq8Xw7Vu6Ts5Rq4P'],
+    ['sqlcmd -P', 'sqlcmd -S db.internal -U sa -P Zq8Xw7Vu6Ts5Rq4P -Q "SELECT 1"', 'Zq8Xw7Vu6Ts5Rq4P'],
+    ['a SigV4 signature in an Authorization header', `Authorization: AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20260925/us-east-1/s3/aws4_request, SignedHeaders=host;x-amz-date, Signature=${'5d672d79c15b13162d9279b0855cfba6789a8edb4c82c400e06b5924a6f2b5d7'}`, '5d672d79c15b13162d9279b0855cfba6789a8edb4c82c400e06b5924a6f2b5d7'],
+    ['a .netrc default entry', 'machine api.example.com login svc password Zq8Xw7Vu6Ts5Rq4P\ndefault login anonymous password Hk3tR8pLq2Zx', 'Hk3tR8pLq2Zx'],
+  ]
+  it.each(missed)('masks: %s', (_name, text, secret) => {
+    const masked = redactSecrets(text)
+    expect(masked).not.toContain(secret)
+    expect(redactSecrets(masked)).toBe(masked)
+  })
+
+  const harmless = [
+    '12:30:45:123:4567',
+    'config.yml:3:image:node:20',
+    'state machine enters login\npassword prompt shown twice',
+    'print("Enter password " + user + "")',
+    'the password "is too short"',
+    'docker login ghcr.io && docker run -p 8080:80 app',
+    'GET /download?key=reports/2026/q3.csv HTTP/1.1',
+    '<Token>Identifier</Token>',
+    'Authorization: missing credentials',
+    'const STORAGE_KEY = "todos-v1"',
+    'httpie --auth basic',
+    'Cookie: a small file the browser keeps',
+    'COOKIE_NAME=sessionid',
+  ]
+  it.each(harmless)('leaves alone: %s', (text) => {
+    expect(redactSecrets(text)).toBe(text)
+  })
+})

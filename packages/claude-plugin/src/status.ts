@@ -11,6 +11,8 @@ import { STATUS_MARKER } from './statusMarker.js'
 // Masked here too, whatever it came from: a goal read from the transcript never went through the
 // masking the state files did, and a file an earlier version wrote went through weaker masking.
 const quote = (text: string) => quoteAsData(redactSecrets(text))
+// Masked before it's cut, never after: a cut can leave half a token no rule recognizes.
+const quoteCut = (text: string, length: number) => quoteAsData(truncate(redactSecrets(text), length))
 const mask = (text: string) => redactSecrets(String(text))
 
 /**
@@ -50,13 +52,13 @@ export async function statusReport(cwd: string, sessionId: string | undefined, t
   if (lastRun.reason) lines.push(`  Reason: ${mask(lastRun.reason)}`)
   if (lastRun.note) lines.push(`  Note: ${mask(lastRun.note)}`)
   for (const warning of Array.isArray(lastRun.warnings) ? lastRun.warnings : []) lines.push(`  Warning: ${mask(warning)}`)
-  if (lastRun.goal) lines.push(`  Scored against: ${quote(truncate(lastRun.goal, 200))}`)
+  if (lastRun.goal) lines.push(`  Scored against: ${quoteCut(lastRun.goal, 200)}`)
 
   const preserved = await readPreservedContext(cwd, sessionId)
   if (preserved && preserved.entries.length > 0) {
     lines.push('Preserved (highest score first):')
     for (const e of [...preserved.entries].sort((a, b) => b.combinedScore - a.combinedScore)) {
-      lines.push(`  ${e.combinedScore.toFixed(2)}  ${quote(truncate(e.content, 120))}`)
+      lines.push(`  ${e.combinedScore.toFixed(2)}  ${quoteCut(e.content, 120)}`)
     }
   }
   return lines.join('\n')

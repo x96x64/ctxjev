@@ -19,8 +19,8 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
   SIDs, Mailgun, Mailchimp, Shopify, PyPI, Telegram and Discord bot tokens, Google OAuth client
   secrets, Slack app tokens, more GitLab token types, Docker Hub, Postman, New Relic, Atlassian,
   Databricks, Sentry auth tokens, Doppler, Terraform Cloud, Square, and several AI and hosting
-  providers' keys; `sshpass -p`, `redis-cli -a`, and `docker login -p` passwords; and Teams and
-  Zapier webhook URLs.
+  providers' keys; `sshpass -p`, `redis-cli -a`, `docker login -p`, `az login -p`, and `sqlcmd -P`
+  passwords; and Teams and Zapier webhook URLs.
 - `ctxjev-core`: masks more places a credential sits, found by measuring against lines written
   without sight of the masking code (see `packages/core/test/blind-redact/`): an `Authorization`
   header with any scheme (`SSWS`, `OAuth`, …), a `--password`/`--token`/`--db-password`/… argument,
@@ -29,20 +29,42 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
   `auth=('user', '…')`, `.netrc` and `.pgpass` lines, an OAuth `?code=`, a base64-encoded PEM
   private key (a kubeconfig's `client-key-data`), and Vault's older `s.` tokens.
 - `ctxjev-core`: a `Cookie:` or `Set-Cookie:` header has each session or credential cookie masked
-  (`sessionid`, `PHPSESSID`, `…_session_id`, `auth…`, `…token`, `remember…`), and every other
-  cookie left readable; it used to mask whichever cookie came first, analytics included.
+  (`sessionid`, `PHPSESSID`, `…_session_id`, `auth…`, `…token`, `remember…`, WordPress's and
+  Drupal's login cookies), and every other cookie left readable; it used to mask whichever cookie
+  came first, analytics included. The same goes for a header written as data (`"Cookie": "…"`,
+  `{'Cookie': '…'}`) and `document.cookie = "…"`. `AUTH_COOKIE=…` and `SESSION_COOKIE=…` are
+  still masked, but a name that ends in `cookie` without saying what it holds (`COOKIE=…`,
+  `document_cookie=…`) no longer is.
+- `ctxjev-core`: the password in `mysql … -p…` and `curl … -u user:…` is masked however long the
+  command is, and `curl -uuser:…` with no space too. A `&&`, `||`, `|`, `;`, or line break ends the
+  command, so `docker login ghcr.io && docker run -p 8080:80` leaves the port alone.
+- `ctxjev-core`: also masks a URL password with no user name (`redis://:…@host`), a Kubernetes env
+  var over two lines (`- name: DB_PASSWORD` then `value: …`), an AWS SigV4 `Signature=`, and a
+  `.netrc` `default` entry's password.
+- `ctxjev-core`: a credential given as a separate argument (`--token abc123`, `--api-key
+  12345678901234`) is masked however short or numeric, as before; a short word after a token-named
+  flag (`--auth basic`) isn't.
 - `ctxjev-core`: `password=password` and `password=self.password` (code passing a variable on)
-  aren't masked.
+  aren't masked, and neither are these, which the first version of this change masked: a word
+  after `Authorization:` that isn't a scheme or a token ("missing credentials"), a token-named XML
+  element holding a word (`<Token>Identifier</Token>`), `?key=` holding a path, `STORAGE_KEY =
+  "todos-v1"` (a storage key's value must be 20 characters or more), colon-separated numbers or
+  grep output read as a `.pgpass` line, and "password" in prose or a string read as SQL or `.netrc`.
 - `ctxjev-core`: `redactSecrets()` takes time in proportion to its input on long runs of one
   pattern. 100,000 characters of `a.a.a…` took 24 seconds; 200,000 of any of the audit's shapes
   now take well under a second.
 - `ctxjev-claude`: the digest re-injected after compaction and the `/ctxjev:status` report are
-  masked as they're read, not only when the snapshot was written, so a snapshot an earlier version
-  wrote with the weaker masking doesn't bring a secret back. A malformed entry in `preserved.json`
+  masked as they're read, not only when the snapshot was written, and before anything is cut short,
+  so a snapshot or last-run record an earlier version wrote with the weaker masking doesn't bring a
+  secret back. A malformed entry in `preserved.json`
   is skipped instead of logging a `toFixed` error.
-- `ctxjev-claude`: the state directories (`~/.claude/ctxjev`, `sessions/`, and each session's) are
-  made private to the user (0700) even when they already existed with looser permissions, and the
-  plugin refuses to keep excerpts in one that belongs to another user.
+- `ctxjev-claude`: on macOS and Linux, the state directories (`~/.claude/ctxjev`, `sessions/`, and
+  each session's) are made private to the user (0700) even when they already existed with looser
+  permissions, and the plugin refuses to keep excerpts in one that belongs to another user, or to
+  read or delete anything there: a file planted in such a directory is never re-injected, and
+  `/ctxjev:status` says why nothing was kept. (Running Claude Code as root on a `~/.claude` that
+  another user owns, such as a bind mount in a container, therefore keeps nothing.) Windows has no
+  such owner and mode bits, so none of this applies there.
 
 ## 0.6.1 — 2026-09-25
 

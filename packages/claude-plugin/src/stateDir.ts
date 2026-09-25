@@ -43,16 +43,44 @@ export async function ensureSessionDir(cwd: string, sessionId: string | undefine
 
 async function ensurePrivateDir(path: string): Promise<void> {
   await mkdir(path, { recursive: true, mode: 0o700 })
-  // Windows has no POSIX owner or mode bits; its per-user profile directory is private already.
-  if (process.platform === 'win32') return
+  const info = await checkOwnDir(path)
+  if (info && (info.mode & 0o777) !== 0o700) await chmod(path, 0o700)
+}
+
+/**
+ * Throws if `path` (a directory, or a symlink to one) isn't a directory or belongs to another user:
+ * the link and what it points at must both be the user's. Returns its stat on POSIX; on Windows,
+ * which has no POSIX owner or mode bits (its per-user profile directory is private already),
+ * nothing, and checks nothing.
+ */
+async function checkOwnDir(path: string) {
+  if (process.platform === 'win32') return undefined
   const uid = process.getuid?.()
   const link = await lstat(path)
   const info = link.isSymbolicLink() ? await stat(path) : link
   if (!info.isDirectory()) throw new Error(`${path} isn't a directory`)
   if (uid !== undefined && (link.uid !== uid || info.uid !== uid)) {
-    throw new Error(`${path} belongs to another user (uid ${info.uid}), so ctxjev won't keep transcript excerpts there`)
+    throw new Error(`${path} belongs to another user (uid ${info.uid}), so ctxjev won't keep or read transcript excerpts there`)
   }
-  if ((info.mode & 0o777) !== 0o700) await chmod(path, 0o700)
+  return info
+}
+
+/**
+ * Why the session's state can't be trusted, if it can't: a directory on the way to it (the state
+ * root, `sessions/`, the session's own) that isn't a directory or belongs to another user. What's
+ * read from there is re-injected into the conversation, so a file another user could have planted
+ * is never read. One that doesn't exist yet is fine: there's nothing to read.
+ */
+export async function sessionDirProblem(cwd: string, sessionId: string | undefined): Promise<string | undefined> {
+  for (const path of [stateRoot(), join(stateRoot(), 'sessions'), sessionDir(cwd, sessionId)]) {
+    try {
+      await checkOwnDir(path)
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return undefined
+      return err instanceof Error ? err.message : String(err)
+    }
+  }
+  return undefined
 }
 
 async function pruneOldSessions(): Promise<void> {
