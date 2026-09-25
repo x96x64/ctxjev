@@ -74,16 +74,17 @@ and with `--scorer jev`:
 $ ctxjev analyze checkout-bug.json --scorer jev
 score: 0–1, Jev's judgment of relevance to your goal, blended with recency · keep = leave as-is, summarize = worth shortening, drop = worth removing
 
-  e1  bash       summarize  score 0.52  ran: npm test -- checkout.test.ts — 12 passed, 0 failed
-  e2  read       drop       score 0.29  read package.json — saw the dependency list and script names
+  e1  bash       summarize  score 0.51  ran: npm test -- checkout.test.ts — 12 passed, 0 failed
+  e2  read       drop       score 0.28  read package.json — saw the dependency list and script names
   e3  grep       keep       score 0.84  grep "charge" in src/payments.ts — found chargeCustomer() c…
-  e4  bash       drop       score 0.13  ran: git log --oneline -5 — recent commits about unrelated …
+  e4  bash       drop       score 0.14  ran: git log --oneline -5 — recent commits about unrelated …
   e5  read       keep       score 0.88  read src/payments.ts — the retry handler re-calls chargeCus…
   e6  assistant  keep       score 0.90  Found it: the retry path doesn't check for an in-flight or …
   e7  bash       drop       score 0.15  ran: ls public/audio — unrelated, was checking something el…
 
 3 keep, 1 summarize, 3 drop (of 7 entries)
-prune would remove the 3 entries marked drop, ~44 / 154 tokens (29%); the 1 entry marked summarize (~16 tokens) stays as it is unless you shorten it yourself
+prune would remove 2 of the 3 entries marked drop, ~28 / 154 tokens (18%); the 1 entry marked summarize (~16 tokens) stays as it is unless you shorten it yourself
+1 marked drop but kept: 1 protected in the last 2 entries
 Jev cost: 1,290 input tokens, 123 output tokens (free) — ~$0.000054
 ```
 
