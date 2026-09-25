@@ -25,7 +25,7 @@ export function parseTranscript(raw: string): TranscriptFile {
     parsedJson = JSON.parse(raw)
   } catch (err) {
     if (!firstLineIsJsonRecord(raw)) {
-      throw new Error(`could not parse this file: it's not valid JSON (${describeJsonError(raw, err)}), and its first line isn't a Claude Code .jsonl record either`)
+      throw new Error(`could not parse this file: it's not valid JSON (${describeJsonError(raw, err)}), and its first line isn't a Claude Code .jsonl record either`, { cause: err })
     }
     return parseClaudeCode(raw)
   }
