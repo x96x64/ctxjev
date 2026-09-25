@@ -17,7 +17,7 @@ import {
   type PruningPolicy,
   type ScoreCache,
 } from 'ctxjev-core'
-import { formatReport } from './report.js'
+import { describeKeptDrops, formatReport } from './report.js'
 import { DEFAULT_CACHE_PATH, loadFileScoreCache } from './scoreCache.js'
 import { parseTranscript, type TranscriptFile } from './transcript.js'
 import { describePolicyOrderingError, parseThreshold } from './validation.js'
@@ -288,7 +288,7 @@ async function runPrune(argv: string[]) {
     }),
   )
   await writeOutput(transcript.wrapped ? { goal, messages: result.messages } : result.messages, values.out as string | undefined)
-  console.error(messagesSummary(transcript.entries.length, result))
+  console.error(messagesSummary(transcript.entries.length, result, protectLast))
 }
 
 async function writeOutput(output: unknown, out: string | undefined): Promise<void> {
@@ -301,24 +301,23 @@ function offlineNote(scorer: Scorer): string {
   return scorer === 'local' ? ' · scored offline by keyword overlap' : scorer === 'recency' ? ' · scored by position alone' : ''
 }
 
-function messagesSummary(total: number, result: PruneMessagesResult): string {
+function messagesSummary(total: number, result: PruneMessagesResult, protectLast: number): string {
+  const kept = describeKeptDrops(result.keptDrops, protectLast)
+  const keptLine = kept ? `\n${kept}` : ''
   if (result.heldBack !== undefined) {
-    return pc.dim(`left unchanged: pruning would save only ~${result.heldBack.toLocaleString()} tokens, under --min-saved-tokens`)
+    return pc.dim(`left unchanged: pruning would save only ~${result.heldBack.toLocaleString()} tokens, under --min-saved-tokens${keptLine}`)
   }
-  const removed = new Set(result.removed)
-  const protectedDrops = result.decisions.filter((d) => d.action === 'drop' && !removed.has(d.entryId)).length
   const parts = [
     `removed ${result.removed.length} of ${total} entries`,
     ...(result.summarized.length > 0 ? [`shortened ${result.summarized.length}`] : []),
     result.savedTokens > 0 ? `~${result.savedTokens.toLocaleString()} tokens saved` : 'no tokens saved',
-    ...(protectedDrops > 0 ? [`${protectedDrops} marked drop but protected`] : []),
   ]
   const cache =
     result.cache.firstChangedMessage === null
       ? ''
       : `\nprompt cache: rewritten from message ${result.cache.firstChangedMessage} on (~${result.cache.invalidatedTokens.toLocaleString()} tokens on the next request)`
   const budget = result.overBudget ? `\n${pc.yellow('⚠')} still over --target-tokens: what's left is protected` : ''
-  return pc.dim(`${parts.join(', ')}${cache}`) + budget
+  return pc.dim(`${parts.join(', ')}${keptLine}${cache}`) + budget
 }
 
 async function main() {

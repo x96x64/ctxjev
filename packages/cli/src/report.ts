@@ -1,5 +1,5 @@
 import pc from 'picocolors'
-import { truncate, type Entry, type JevUsage, type PruneDecision, type SavingsReport } from 'ctxjev-core'
+import { truncate, type Entry, type JevUsage, type KeptDrops, type PruneDecision, type SavingsReport } from 'ctxjev-core'
 import { estimateCostUsd } from './cost.js'
 
 const ACTION_COLOR: Record<PruneDecision['action'], (s: string) => string> = {
@@ -90,4 +90,26 @@ export function formatReport(
   )
 
   return lines.join('\n')
+}
+
+/**
+ * Why `prune` kept entries the policy marked `drop`, each reason counted separately; undefined when
+ * every drop was removed. Only what really is protected is called "protected": the rest were left
+ * because the change as a whole wasn't worth making.
+ */
+export function describeKeptDrops(kept: KeptDrops, protectLast: number): string | undefined {
+  const reasons: Array<[number, string]> = [
+    [kept.firstMessage.length, 'protected as the first message'],
+    [kept.latestTurn.length, 'protected as part of the latest turn'],
+    [kept.lastMessages.length, `protected in the last ${protectLast === 1 ? 'message' : `${protectLast} messages`}`],
+    [kept.userText.length, 'protected as your own text'],
+    [kept.noNetSaving.length, 'not removed, since removing them would save no tokens once the removal note is counted'],
+    [kept.belowMinSaved.length, 'held back by --min-saved-tokens'],
+  ]
+  const total = reasons.reduce((sum, [n]) => sum + n, 0)
+  if (total === 0) return undefined
+  return `${total} marked drop but kept: ${reasons
+    .filter(([n]) => n > 0)
+    .map(([n, why]) => `${n} ${why}`)
+    .join('; ')}`
 }
