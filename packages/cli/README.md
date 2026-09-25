@@ -38,7 +38,8 @@ for summarizing, whatever they say.
 `ctxjev analyze` reports what would be kept, dropped, or summarized. `ctxjev prune` writes a
 ctxjev-format or Anthropic Messages transcript back out with the drops removed, to stdout or
 `--out <file>`; for Anthropic Messages it keeps every `tool_use`/`tool_result` pair intact, and
-never touches the first message or the last `--protect-last` messages (default 2). A Claude Code
+never touches the first message, the latest turn (your last instruction and everything after it),
+or the last `--protect-last` messages (default 2). A Claude Code
 `.jsonl` can be analyzed but not pruned, since Claude Code doesn't load an edited transcript.
 
 ```bash
@@ -96,7 +97,8 @@ between runs, and the cost line is computed from what Jev's API actually reporte
 | `--scorer <name>` | `recency` (default: position alone, plain truncation), `local` (keyword overlap), or `jev` (opt in; needs `TYPESAFE_API_KEY`). Only `jev` sends anything. |
 | `--offline` | Same as `--scorer local`. |
 | `--out <file>` | `prune`: writes the result here instead of to stdout. |
-| `--protect-last <n>` | `prune`, Anthropic Messages only: never touches the last n messages (default 2). |
+| `--protect-last <n>` | `prune`, Anthropic Messages only: never touches the last n messages (default 2). An error on any other format, which has no messages to protect. |
+| `--no-protect-last-turn` | `prune`, Anthropic Messages only: lets the latest turn (the last user message with text, and every tool call after it) be pruned too. By default it never is; use this when the only instruction is the first message. |
 | `--target-tokens <n>` | `prune`, Anthropic Messages only: after the drops, keeps removing the lowest-scoring entries until the conversation fits in n tokens. |
 | `--summarize-excerpts` | `prune`, Anthropic Messages only: shortens entries marked summarize to the head and tail of their text, instead of leaving them as they are. |
 | `--drop-user-text` | `prune`, Anthropic Messages only: lets what the user wrote be removed too. By default it's kept, because that's where constraints and changes of plan live. |

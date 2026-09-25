@@ -64,6 +64,12 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
   wrote, one at a time. It could previously delete your own files inside `.ctxjev/preserved/`.
 - `ctxjev-claude`: `/ctxjev:status` says the last run is unknown when `last-run.json` can't be read,
   instead of "no compaction in this session", and shows transcript warnings.
+- `ctxjev-cli`: `ctxjev prune --protect-last` on a ctxjev-format transcript is an error instead of
+  being silently ignored (that format has no messages to protect). New `--no-protect-last-turn`
+  for Anthropic Messages.
+- `ctxjev-cli`: the report's legend says what the score means for the scorer used: under the
+  default `recency` it's position in the transcript, not relevance. A run that saves nothing says
+  "no tokens saved" instead of showing a number as saved.
 - `ctxjev-cli`: `--version` / `-v` work after the command too (`ctxjev analyze --version`), and an
   unknown option gets a plain message pointing at `--help`.
 - `ctxjev-mcp`: an entry's `id` and `toolName` are capped at 256 characters, so every string a

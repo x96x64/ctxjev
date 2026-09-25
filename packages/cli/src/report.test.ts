@@ -59,6 +59,22 @@ describe('formatReport', () => {
     expect(() => formatReport(entries, [], savings, usage)).not.toThrow()
   })
 
+  // The second audit: under recency the legend still said "higher = more relevant to your goal".
+  it('says what the score means for each scorer: position under recency, not relevance', () => {
+    const recency = stripAnsi(formatReport(entries, decisions, savings, usage, 'recency'))
+    expect(recency).toContain('position in the transcript')
+    expect(recency).toContain('not relevance')
+    expect(recency).not.toContain('more relevant')
+    expect(stripAnsi(formatReport(entries, decisions, savings, usage, 'local'))).toContain("shares your goal's words, ranked within this transcript")
+    expect(stripAnsi(formatReport(entries, decisions, savings, usage, 'jev'))).toContain("Jev's judgment of relevance")
+  })
+
+  it('never shows a saving when nothing is dropped', () => {
+    const none = stripAnsi(formatReport(entries, decisions, { ...savings, droppedEntries: 0, droppedTokens: 0 }, usage))
+    expect(none).toContain('no tokens saved by dropping')
+    expect(none).not.toMatch(/~-?\d+ \/ \d+ tokens saved/)
+  })
+
   it('labels an offline run instead of printing a Jev cost line', () => {
     const report = stripAnsi(formatReport(entries, decisions, savings, { inputTokens: 0, outputTokens: 0 }, 'local'))
     expect(report).toContain('Scored offline by keyword overlap')

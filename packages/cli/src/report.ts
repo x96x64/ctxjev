@@ -18,6 +18,13 @@ function maxLength(values: string[], floor: number): number {
   return max
 }
 
+// What "score" means depends on the scorer: under recency it's position, not relevance at all.
+const SCORE_LEGEND: Record<'jev' | 'local' | 'recency', string> = {
+  recency: 'score: 0–1, position in the transcript (oldest 0, newest 1), not relevance: the goal isn\'t used',
+  local: 'score: 0–1, how much an entry shares your goal\'s words, ranked within this transcript (1 = most)',
+  jev: 'score: 0–1, Jev\'s judgment of relevance to your goal, blended with recency',
+}
+
 export function formatReport(
   entries: Entry[],
   decisions: PruneDecision[],
@@ -28,11 +35,7 @@ export function formatReport(
   const decisionByEntryId = new Map(decisions.map((d) => [d.entryId, d]))
   const lines: string[] = []
 
-  lines.push(
-    pc.dim(
-      `score: 0–1, higher = more relevant to your goal · ${pc.green('keep')} = as-is, ${pc.yellow('summarize')} = shorten, ${pc.red('drop')} = remove`,
-    ),
-  )
+  lines.push(pc.dim(`${SCORE_LEGEND[scorer]} · ${pc.green('keep')} = as-is, ${pc.yellow('summarize')} = shorten, ${pc.red('drop')} = remove`))
   lines.push('')
 
   const idWidth = maxLength(entries.map((e) => e.id), 2)
@@ -61,8 +64,13 @@ export function formatReport(
   const droppedPct = savings.totalTokens === 0 ? 0 : Math.round((savings.droppedTokens / savings.totalTokens) * 100)
   const summarizable =
     savings.summarizableTokens > 0 ? `, plus ~${savings.summarizableTokens.toLocaleString()} in entries marked summarize (savings there depend on your summarizer)` : ''
+  // Only ever a saving: nothing to drop reads as that, never as "~0" or a negative number saved.
   lines.push(
-    pc.dim(`~${savings.droppedTokens.toLocaleString()} / ${savings.totalTokens.toLocaleString()} tokens saved by dropping (${droppedPct}%)${summarizable}`),
+    pc.dim(
+      savings.droppedTokens > 0
+        ? `~${savings.droppedTokens.toLocaleString()} / ${savings.totalTokens.toLocaleString()} tokens saved by dropping (${droppedPct}%)${summarizable}`
+        : `no tokens saved by dropping (of ${savings.totalTokens.toLocaleString()})${summarizable}`,
+    ),
   )
 
   if (scorer === 'local') {
