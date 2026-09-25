@@ -246,7 +246,8 @@ describe('redactSecrets: the independent review of the masking change', () => {
 
 // The second independent review, of the first fix: a command was cut at a `;` or `|` inside quotes,
 // the cut points were reused after an earlier command's password had been masked (moving the text),
-// and more ways to write a cookie header. Everything here was masked by 0.6.1.
+// and more ways to write a cookie header. Most of these were masked by 0.6.1; the rest (sshpass,
+// redis-cli, docker, a CRLF continuation, and the XML, SAS, pgpass, and SQL shapes) weren't.
 describe('redactSecrets: the second review of the masking change', () => {
   const pw = 'S3cr3tPw9xQ'
   const leaks: Array<[string, string, string]> = [
@@ -361,5 +362,94 @@ describe('redactSecrets: the second review — cookie names that don\'t say what
   ]
   it.each(harmless)('leaves alone: %s', (text) => {
     expect(redactSecrets(text)).toBe(text)
+  })
+})
+
+// The third independent review: close variants of the second review's findings that still leaked
+// what 0.6.1 masked, and a regular expression that took exponential time.
+describe('redactSecrets: the third review of the masking change', () => {
+  const pw = 'S3cr3tPw9xQ'
+  const leaks: Array<[string, string, string]> = [
+    ['an apostrophe earlier on the line, then mysql -e with ";"', `Let's check: mysql -u root -e 'SHOW DATABASES; SELECT 1' -p${pw}`, pw],
+    ['an apostrophe earlier on the line, then curl -H with ";"', `Here's the call: curl -H 'Accept: text/html; q=0.9' -u admin:${pw} https://x`, pw],
+    ['an apostrophe earlier on the line, then a quoted password', "Don't worry: mysql -u root -p'Xy7;kPq9' db", 'kPq9'],
+    ["an apostrophe in mysql's own arguments", `mysql -u o'brien -e 'USE a; SELECT 1' -p${pw}`, pw],
+    ['an apostrophe, then a quoted curl user:password', "it's: curl -u 'admin:Xy7;kPq9' https://x", 'Xy7'],
+    ['--api_key', 'python run.py --api_key Zq8Xw7Vu6Ts5Rq4Pab', 'Zq8Xw7Vu6Ts5Rq4Pab'],
+    ['--client_secret', 'python run.py --client_secret Zq8Xw7Vu6Ts5Rq4Pab', 'Zq8Xw7Vu6Ts5Rq4Pab'],
+    ['--API_KEY', 'tool --API_KEY Zq8Xw7Vu6Ts5Rq4Pab', 'Zq8Xw7Vu6Ts5Rq4Pab'],
+    ['a scheme-less token and more words after it', 'level=info authorization=a1b2c3d4e5f6g7h8i9j0 path=/v1/users status=200', 'a1b2c3d4e5f6g7h8i9j0'],
+    ['a scheme-less token, then a word', 'Authorization: a1b2c3d4e5f6g7h8i9j0 rejected', 'a1b2c3d4e5f6g7h8i9j0'],
+    ['a scheme-less token, then HTTP/1.1', 'Authorization: a1b2c3d4e5f6g7h8i9j0 HTTP/1.1', 'a1b2c3d4e5f6g7h8i9j0'],
+    ['two -H Cookie headers', `curl -H "Cookie: theme=dark" -H "Cookie: sessionid=Zq8Xw7Vu6Ts5Rq4Pab" https://x`, 'Zq8Xw7Vu6Ts5Rq4Pab'],
+    ["two -H Cookie headers in single quotes", `curl -H 'Cookie: theme=dark' -H 'Cookie: sessionid=Zq8Xw7Vu6Ts5Rq4Pab' https://x`, 'Zq8Xw7Vu6Ts5Rq4Pab'],
+    ['two Set-Cookie headers on a line', 'Set-Cookie: theme=dark; Path=/ Set-Cookie: sessionid=Zq8Xw7Vu6Ts5Rq4Pab; Path=/', 'Zq8Xw7Vu6Ts5Rq4Pab'],
+    ['a cookie list under MY_COOKIE', 'MY_COOKIE="sessionid=Zq8Xw7Vu6Ts5Rq4Pab"', 'Zq8Xw7Vu6Ts5Rq4Pab'],
+    ['a cookie list under rawCookie', 'const rawCookie = "sid=Zq8Xw7Vu6Ts5Rq4Pab"', 'Zq8Xw7Vu6Ts5Rq4Pab'],
+    ['a cookie list under CURL_COOKIE', 'CURL_COOKIE=sessionid=Zq8Xw7Vu6Ts5Rq4Pab', 'Zq8Xw7Vu6Ts5Rq4Pab'],
+    ['a cookie list under req_cookie', 'req_cookie: "sessionid=Zq8Xw7Vu6Ts5Rq4Pab"', 'Zq8Xw7Vu6Ts5Rq4Pab'],
+    ['a base64 token after Cookie:', 'Cookie: dGhpcyBpcyBhIHNlc3Npb24gdG9rZW4=', 'dGhpcyBpcyBhIHNlc3Npb24gdG9rZW4'],
+    ['a base64 token in COOKIE=', 'COOKIE=dGhpcyBpcyBhIHNlc3Npb24gdG9rZW4=', 'dGhpcyBpcyBhIHNlc3Npb24gdG9rZW4'],
+    ['a base64 token in export COOKIE="…"', 'export COOKIE="dGhpcyBpcyBhIHNlc3Npb24gdG9rZW4="', 'dGhpcyBpcyBhIHNlc3Npb24gdG9rZW4'],
+    ['a short token cookie', 'Cookie: uid=a8f3k2m9x1', 'a8f3k2m9x1'],
+    ['a short token cookie as data', '"Cookie": "uid=a8f3k2m9x1"', 'a8f3k2m9x1'],
+    ['a password-like cookie', 'Cookie: user=S3cr3tPw9xQ', 'S3cr3tPw9xQ'],
+    ['a cookie before a plain one', 'Cookie: SSID=AbCdEf1234; theme=dark', 'AbCdEf1234'],
+    ['a JSON-escaped slash in a cookie', '{"Cookie":"sessionid=Zq8Xw7\\/Vu6Ts5Rq4Pab"}', 'Vu6Ts5Rq4Pab'],
+    ['a JSON-escaped slash later in a cookie', '{"Cookie":"sessionid=Zq8Xw7Vu\\/6Ts5Rq4Pab"}', '6Ts5Rq4Pab'],
+  ]
+  it.each(leaks)('masks: %s', (_name, text, secret) => {
+    const masked = redactSecrets(text)
+    expect(masked).not.toContain(secret)
+    expect(redactSecrets(masked)).toBe(masked)
+  })
+
+  const harmless = [
+    'Set-Cookie: a=b; SameSite=Lax; HttpOnly',
+    'Cookie: theme=dark; lang=en-GB',
+    'const cookie = req.headers.cookie',
+    'const cookie = getCookieValue()',
+    'docker login ghcr.io && docker run -p 8080:80 img',
+  ]
+  it.each(harmless)('leaves alone: %s', (text) => {
+    expect(redactSecrets(text)).toBe(text)
+  })
+
+  // A bash header with CRLF line ends and a block of comments: NETRC_HINT's comment-line group was
+  // ambiguous about the trailing whitespace, and 30 lines took 30 seconds.
+  it('takes linear time on comment blocks with trailing whitespace', () => {
+    const scale = Number(process.env.CTXJEV_TIME_LIMIT_SCALE ?? 1)
+    const texts = [
+      '#!/bin/bash\r\n#   --mode MODE   release or debug; release is the default\r\n' + '#   more help text here\r\n'.repeat(2000),
+      'use the default\r\n' + '# comment\r\n'.repeat(5000),
+      'machine example.com\n' + '# comment \n'.repeat(5000) + 'login u\npassword Hk3tR8pLq2Zx',
+    ]
+    for (const text of texts) {
+      const start = performance.now()
+      redactSecrets(text)
+      expect(performance.now() - start).toBeLessThan(1000 * scale)
+    }
+    expect(redactSecrets(texts[2])).not.toContain('Hk3tR8pLq2Zx')
+  })
+})
+
+describe('redactSecrets: the third review, found by its fuzzers', () => {
+  const cases: Array<[string, string]> = [
+    ['MY_COOKIE=Zq8/Xw7+Vu6Ts5Rq4Pab==', 'Zq8/Xw7+Vu6Ts5Rq4Pab'],
+    ['--token curl -u admin:Q3flivtx7Z2k8g2f https://x', 'Q3flivtx7Z2k8g2f'],
+    ['--token mysql -u root -pQf7ngh1x7Z3k5amk db', 'Qf7ngh1x7Z3k5amk'],
+    ['authorization=a1b2c3d4e5f6g7h8i9j0 Authorization: b1b2c3d4e5f6g7h8i9j0', 'b1b2c3d4e5f6g7h8i9j0'],
+    ['Cookie: sessionid=abc1234', 'abc1234'],
+    ['"Cookie": "sessionid=abc1234"', 'abc1234'],
+    ['MY_COOKIE=Zq8/Xw7+Vu6Ts5Rq4Pab==.', 'Zq8/Xw7+Vu6Ts5Rq4Pab'],
+    ['--token "Cookie": "sessionid=Q7dk51cx7Z1khxvw"', 'Q7dk51cx7Z1khxvw'],
+    ['(Cookie: theme=dark; sessionid=Zq8Xw7Vu6Ts5Rq4Pab)', 'Zq8Xw7Vu6Ts5Rq4Pab'],
+    ['password "password": "Q1pp8oux7Z0kh9bj"', 'Q1pp8oux7Z0kh9bj'],
+    ['--token "password": "Q1pp8oux7Z0kh9bj"', 'Q1pp8oux7Z0kh9bj'],
+  ]
+  it.each(cases)('masks %s', (text, secret) => {
+    const masked = redactSecrets(text)
+    expect(masked).not.toContain(secret)
+    expect(redactSecrets(masked)).toBe(masked)
   })
 })
