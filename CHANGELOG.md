@@ -47,6 +47,9 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 - `ctxjev-core`: `cacheKeyFor()` returns a SHA-256 digest; keys from earlier versions don't match.
 - `ctxjev-claude`: a `/ctxjev:set-goal` goal, error messages, and warnings are masked before they're
   saved to `~/.claude/ctxjev/`.
+- `ctxjev-claude`: `/ctxjev:set-goal` and `/ctxjev:status` may run only the plugin's own
+  `dist/status.js` without asking, instead of any `node` command (`Bash(node:*)`). The model can
+  invoke `/ctxjev:set-goal` itself, so the old rule let it run arbitrary Node code unprompted.
 - `ctxjev-claude`: cleaning up what versions before 0.6.0 left in your project removes only files it
   wrote, one at a time. It could previously delete your own files inside `.ctxjev/preserved/`.
 - `ctxjev-claude`: `/ctxjev:status` says the last run is unknown when `last-run.json` can't be read,

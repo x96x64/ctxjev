@@ -1,7 +1,7 @@
 ---
 description: Check what ctxjev is currently doing without waiting for a real compaction to trigger it — shows what the last PreCompact run did (and why, if it skipped or failed), the goal the next compaction will score against, and every preserved entry with its score, highest first. The fastest way to confirm the plugin is actually working.
 disable-model-invocation: true
-allowed-tools: Bash(node:*)
+allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/dist/status.js" *)
 ---
 
 The user ran `/ctxjev:status`, a read-only diagnostic. Its report:
