@@ -60,7 +60,8 @@ rank), so the thresholds read as shares of the batch rather than as probabilitie
 rarely reaches 0.3, and the thresholds used to drop almost everything, relevant entries included.
 When most entries share no word with the goal, they tie in the middle and are marked for
 summarizing, not dropped; pass `targetTokens` to `pruneMessages()` if you need a fixed size.
-`scoreEntries()` still returns the raw overlap.
+`scoreEntries()` still returns the raw overlap; `rankLocalRelevance()` turns it into the ranked
+scale, which the Claude Code plugin uses too.
 
 With `scorer: 'jev'`, entry content and the goal are sent to TypeSafe AI's Jev API. Every request
 passes through `redactSecrets()` first, masking common secret formats to `[REDACTED]` (best-effort, not

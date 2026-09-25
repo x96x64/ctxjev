@@ -181,9 +181,17 @@ export async function pruneContext(
 ): Promise<PruneDecision[]> {
   validatePolicy(policy)
   let scored = await scoreEntries(entries, goal, policy.recencyWeight, options)
-  if (options.scorer === 'local') {
-    const ranks = percentileRanks(scored.map((s) => s.relevance))
-    scored = scored.map((s, i) => ({ ...s, relevance: ranks[i], combinedScore: combineScore(ranks[i], s.recency, policy.recencyWeight) }))
-  }
+  if (options.scorer === 'local') scored = rankLocalRelevance(scored, policy.recencyWeight)
   return scored.map((entry) => ({ ...entry, action: decideAction(entry.combinedScore, policy) }))
+}
+
+/**
+ * The `'local'` scale everything ctxjev shows or acts on uses: `scoreEntries()`' keyword overlap
+ * (a share of the goal's words) turned into each entry's percentile rank within the batch (ties
+ * averaged), with `combinedScore` blended from that. `pruneContext()` applies it before its
+ * thresholds; the Claude Code plugin ranks its digest by it, so "score 0.8" means the same in both.
+ */
+export function rankLocalRelevance(scored: ScoredEntry[], recencyWeight: number = DEFAULT_POLICY.recencyWeight): ScoredEntry[] {
+  const ranks = percentileRanks(scored.map((s) => s.relevance))
+  return scored.map((s, i) => ({ ...s, relevance: ranks[i], combinedScore: combineScore(ranks[i], s.recency, recencyWeight) }))
 }

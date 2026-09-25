@@ -133,6 +133,16 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 - `ctxjev-core`: timestamps too far apart to subtract (±1e308) are ranked by order for recency
   instead of turning every score into NaN (the CLI stopped with "decideAction received a NaN score";
   the MCP server returned `recency: null`).
+- `ctxjev-claude`: **changes which excerpts the offline digest keeps.** The plugin's default
+  `local` scoring now ranks keyword overlap within the session before blending in recency, as
+  `pruneContext()` and `ctxjev analyze --scorer local` do, so a score in the digest or in
+  `/ctxjev:status` means what the same score means in the CLI. It used to blend the raw overlap,
+  which let recency count for more, and the same entry could show 0.20 in the digest and 0.80 in
+  the CLI. Only entries sharing a word with the goal are kept, as before. On the development
+  sessions this changed some of the five excerpts kept; whether that helps or hurts hasn't been
+  measured (the plugin's default hasn't been evaluated).
+- `ctxjev-core`: `rankLocalRelevance(scored, recencyWeight)` turns `scoreEntries()`' raw keyword
+  overlap into the ranked scale `pruneContext()` uses. A new export.
 
 ## 0.6.1 — 2026-09-25
 

@@ -1,5 +1,5 @@
 import { STATUS_MARKER } from './statusMarker.js'
-import { DEFAULT_POLICY, isGoalCandidate, isSubstantiveMessage, scoreEntries, splitCjkBigrams, type Entry, type EntryRole, type ScoredEntry } from 'ctxjev-core'
+import { DEFAULT_POLICY, isGoalCandidate, isSubstantiveMessage, rankLocalRelevance, scoreEntries, splitCjkBigrams, type Entry, type EntryRole, type ScoredEntry } from 'ctxjev-core'
 
 export type SelectedEntry = ScoredEntry & { content: string }
 
@@ -17,9 +17,13 @@ export async function selectPreserved(entries: Entry[], goal: string, limit = DE
 
   const scored = await scoreEntries(entries, goal, undefined, { scorer })
   // Jev's probabilities share pruneContext's scale, so anything it would drop doesn't earn a slot
-  // either. Keyword overlap isn't on that scale — any overlap at all is its only meaningful bar.
-  const minRelevance = scorer === 'jev' ? DEFAULT_POLICY.dropBelow : Number.MIN_VALUE
-  return rankForPreservation(scored, entries, goal, limit, minRelevance)
+  // either.
+  if (scorer === 'jev') return rankForPreservation(scored, entries, goal, limit, DEFAULT_POLICY.dropBelow)
+  // Keyword overlap is ranked within the batch, the way pruneContext() (and so the CLI) ranks it,
+  // so a digest's score means what the CLI's does. Any overlap at all is still what earns a slot.
+  const overlapping = new Set(scored.filter((s) => s.relevance > 0).map((s) => s.entryId))
+  const ranked = rankLocalRelevance(scored, DEFAULT_POLICY.recencyWeight).filter((s) => overlapping.has(s.entryId))
+  return rankForPreservation(ranked, entries, goal, limit, 0)
 }
 
 /**
