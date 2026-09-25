@@ -28,6 +28,11 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
   underscore (`mcp__ghp_…`). Jev scores cached by earlier versions are ignored.
 - `ctxjev-core`: a tool call's input is masked before it's shortened. Shortened first, a token cut
   at 160 characters could reach Jev as a prefix too short to recognize.
+- `ctxjev-core`: `pruneMessages()` never touches the latest turn: your last instruction and every
+  tool round-trip after it (`protectLastTurn`, default on). It used to protect only the last two
+  messages, so a turn with three tool calls lost the first two. `protectLast` still applies as a
+  floor. **Breaking for agent loops whose only user text is the first message**: that whole loop
+  is now the latest turn and nothing is pruned; pass `protectLastTurn: false` to prune within it.
 - `ctxjev-core`: `pruneMessages()` never makes a conversation larger. A removal smaller than its
   own "history was removed" note is no longer made (it used to report negative `savedTokens`), and
   `minSavedTokens` now counts the note. Very large conversations (150,000 tool calls) no longer crash

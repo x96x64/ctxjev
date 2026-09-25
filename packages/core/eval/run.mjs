@@ -178,6 +178,9 @@ async function retention(fixture, score, recencyWeight) {
       // Compares rankings alone; the shipped keepUserText would keep user-stated facts for every strategy.
       keepUserText: false,
       marker: false,
+      // As every saved result was measured: only the last 2 messages protected. 0.6.0's default
+      // protects the whole latest turn, which would change these numbers.
+      protectLastTurn: false,
     })
     const gone = new Set(removed)
     const kept = fixture.entries.filter((e) => !gone.has(e.id))

@@ -131,7 +131,9 @@ const { messages: pruned, removed } = await pruneMessages(
   'Fix a bug where checkout charges customers twice on a slow network retry.',
 )
 // `pruned` is still a valid request: tool_use/tool_result pairs are removed together, and the
-// first message and the latest turn are never touched.
+// first message and the latest turn (your last instruction and everything after it) are never
+// touched. If your loop's only instruction is the first message, pass `protectLastTurn: false`,
+// or that whole loop is the latest turn and nothing is removed.
 ```
 
 Any other history shape works through `pruneContext(entries, goal)`, which takes plain
@@ -497,7 +499,8 @@ are in the [`ctxjev-mcp` README](packages/mcp-server/README.md).
   separately, since it depends on your summarizer.
 - **Pruning a conversation keeps it a valid request.**
   [`pruneMessages()`](packages/core/src/anthropicMessages.ts) removes a `tool_use` and its
-  `tool_result` together, never touches the first message or the latest turn, and reports how much
+  `tool_result` together, never touches the first message or the latest turn (from the last user
+  message with text of its own onward: `protectLastTurn`), and reports how much
   of a prompt cache the change invalidates. See
   [prompt caching](packages/core/README.md#with-prompt-caching).
 - **Recency is relative to the batch**, oldest 0 to newest 1, not to `Date.now()`, so a transcript

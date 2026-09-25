@@ -96,8 +96,14 @@ the two per `PruningPolicy.recencyWeight` before `action` is decided.
 - **`pruneMessages(messages, goal, options?)`** takes an Anthropic Messages conversation and returns
   `{ messages, decisions, removed }`: the conversation with dropped entries removed, still a valid
   request. A `tool_use` and its `tool_result` are removed together, a message left empty is
-  removed, and the first message and the last `protectLast` messages (default 2) are never
-  touched. `messagesToEntries(messages)` exposes the entry mapping on its own. Options:
+  removed, and the first message and the latest turn are never touched.
+  `messagesToEntries(messages)` exposes the entry mapping on its own. Options:
+  - `protectLastTurn` (default `true`): the latest turn is the last user message with text of its
+    own (an instruction, not only tool results) and everything after it, however many tool
+    round-trips that is. **In an agent loop whose only user text is the first message, that's the
+    whole conversation, so nothing is pruned**: pass `protectLastTurn: false` there.
+  - `protectLast` (default 2): the last this-many messages are never touched either way, a floor
+    for tool calls still waiting on a result.
   - `targetTokens`: after the drops, keep removing the lowest-scoring unprotected entries until
     the conversation fits. `overBudget` in the result says if only protected entries are left.
   - `summarize`: shorten entries marked `summarize` instead of leaving them as they are, either

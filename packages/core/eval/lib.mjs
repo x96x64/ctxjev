@@ -99,6 +99,8 @@ export async function pruneTo(messages, goal, ranking, strategy, budget, extra =
     targetTokens: Math.floor(total * budget),
     keepUserText: extra.keepUserText ?? false,
     marker: extra.marker ?? false,
+    // As every saved result was measured (see run.mjs): 0.6.0's default protectLastTurn would change them.
+    protectLastTurn: extra.protectLastTurn ?? false,
   })
   return pruned
 }
