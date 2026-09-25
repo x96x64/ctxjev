@@ -199,6 +199,15 @@ for (const field of ['id', 'role', 'toolName', 'content', 'timestamp', 'sourceTo
   }
 }
 
+// Values that only break things together: the audit's ±1e308 (their difference is Infinity).
+const extremes = { '±1e308': [-1e308, 1e308], '±MAX_VALUE': [-Number.MAX_VALUE, Number.MAX_VALUE], '1e308 twice': [1e308, 1e308], '-1e308 and 0': [-1e308, 0] }
+for (const [label, [low, high]] of Object.entries(extremes)) {
+  const entries = [entry(0, { timestamp: low }), entry(1, { timestamp: 0 }), entry(2, { timestamp: high })]
+  for (const scorer of scorers) {
+    await check('pruneContext', `timestamps ${label}, ${scorerName(scorer)}`, () => core.pruneContext(entries, 'fix the checkout retry', undefined, { scorer }), { validate: (d) => validDecisions(d, entries) })
+  }
+}
+
 // The goal, the entries themselves, the policy, and the options.
 for (const [label, goal] of Object.entries(ALL)) await check('pruneContext', `goal = ${label}`, () => core.pruneContext([entry(0), entry(1)], goal, undefined, { scorer: 'local' }), { validate: (d) => validDecisions(d, [entry(0), entry(1)]) })
 for (const [label, entries] of Object.entries({ ...WRONG, 'array of null': [null], 'array of strings': ['a'], 'duplicate ids': [entry(0), entry(0)] })) {
@@ -324,6 +333,7 @@ for (const field of ['id', 'role', 'toolName', 'content', 'timestamp', 'sourceTo
   }
 }
 for (const [label, value] of Object.entries(STRINGS)) await checkCli(`content = ${label}`, cliEntries(['content', value]))
+for (const [label, [low, high]] of Object.entries(extremes)) await checkCli(`timestamps ${label}`, { goal: 'g', entries: [entry(0, { timestamp: low }), entry(1, { timestamp: 0 }), entry(2, { timestamp: high })] })
 await checkCli('5,000,000-character entry', { goal: 'g', entries: [entry(0, { content: '█'.repeat(5_000_000) }), entry(1)] })
 await checkCli('no entries', { goal: 'g', entries: [] })
 // The two oldest, so the default policy marks them drop and the report adds them up.
@@ -372,6 +382,12 @@ for (const field of ['id', 'role', 'toolName', 'content', 'timestamp', 'sourceTo
     entries[1] = withField(entries[1], field, value)
     await checkMcp(`entries[1].${field} = ${label}`, { goal: 'fix the checkout retry', entries })
   }
+}
+for (const [label, [low, high]] of Object.entries(extremes)) {
+  const entries = mcpBase()
+  entries[0].timestamp = low
+  entries[2].timestamp = high
+  await checkMcp(`timestamps ${label}`, { goal: 'g', entries })
 }
 for (const [label, goal] of Object.entries({ ...WRONG, empty: '', huge: 'x'.repeat(5000), unicode: Object.values(UNICODE).join(' ').slice(0, 1500) })) await checkMcp(`goal = ${label}`, { goal, entries: mcpBase() })
 for (const n of [0, 1, 500, 501]) await checkMcp(`${n} entries`, { goal: 'g', entries: Array.from({ length: n }, (_, i) => ({ id: `e${i}`, role: 'tool', content: `c${i}`, timestamp: i })) })
