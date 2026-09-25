@@ -27,7 +27,7 @@ const VERSION: string = JSON.parse(
   readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../package.json'), 'utf8'),
 ).version
 
-const HELP = `${pc.bold('ctxjev')} — score and prune AI agent context with Jev
+const HELP = `${pc.bold('ctxjev')} — score and prune AI agent context (offline by default; Jev if you opt in)
 
 ${pc.bold('Try it right now')}
   curl -O https://raw.githubusercontent.com/x96x64/ctxjev/main/examples/sample-transcripts/checkout-bug.json

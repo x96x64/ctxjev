@@ -48,9 +48,10 @@ list, so there you can drop what scored low before it's ever sent to the model a
 > typed output. See [`CLAUDE.md`](CLAUDE.md) for the full list of things this project deliberately
 > never asks Jev to do.
 
-**Where things stand (2026-09-24).** A [preregistered comparison](packages/core/eval/PREREGISTRATION.md)
-on six tasks Jev's ranking had never seen found no difference in whether the agent finished the
-job: Jev and plain truncation both passed every task, on two models. So **the default scorer is
+<!-- checked-prose -->
+**Where things stand.** A [preregistered comparison](packages/core/eval/PREREGISTRATION.md)
+on <!-- generated:holdout-task-count -->6<!-- /generated:holdout-task-count --> tasks Jev's ranking had never seen found no difference in whether the agent finished the
+job: Jev and plain truncation both passed every task, with Claude Haiku 4.5 and with Claude Sonnet 5. So **the default scorer is
 `'recency'` (plain truncation)** in `ctxjev-core`, `ctxjev-cli`, and `pruneMessages()`; Jev is
 opt-in via `scorer: 'jev'`. On the other measure — how much of what a task needs survives a tight
 budget — Jev beat truncation only because truncation scores nothing there by construction; **it kept
@@ -58,6 +59,7 @@ less than a random ordering of the same entries**, and less than plain keyword o
 opposite of what the pre-holdout numbers below showed. Read [Does It Work?](#does-it-work) before
 deciding whether to opt in; `ctxjev-mcp`, whose only job is exposing Jev, keeps calling it
 regardless of this default.
+<!-- /checked-prose -->
 
 ## Choosing a Package
 
@@ -200,10 +202,10 @@ masking can't catch everything. The default scorer, and `--scorer local`, send n
 
 ## Does It Work?
 
-The numbers below split into two groups. **Dev** (<!-- generated:session-counts -->15 of the 21 sessions: 5 written by hand and 10 recorded<!-- /generated:session-counts -->
+The numbers below come from the dev and holdout splits. **Dev** (<!-- generated:session-counts -->15 of the 21 sessions: 5 written by hand and 10 recorded<!-- /generated:session-counts -->
 in [`examples/eval-sessions`](examples/eval-sessions), and the tasks they were recorded on) informed 0.5.0's design — `keepUserText`, the
 removal note, and the plugin's goal inference were all built from failures seen on it, so read
-those numbers as optimistic. **Holdout** (6 further tasks, recorded and labeled after that design
+those numbers as optimistic. **Holdout** (<!-- generated:holdout-task-count -->6<!-- /generated:holdout-task-count --> further tasks, recorded and labeled after that design
 was frozen, [preregistered](packages/core/eval/PREREGISTRATION.md) before any of them were scored)
 is what actually decided the default scorer, below. It has now been run and looked at closely, so
 it can't confirm anything new; a fresh holdout is part of the
@@ -211,13 +213,14 @@ it can't confirm anything new; a fresh holdout is part of the
 
 Every number in this section is generated from the saved results in
 [`eval/results/`](packages/core/eval/results) by
-[`eval/check-docs.mjs`](packages/core/eval/check-docs.mjs), and CI fails if the two disagree.
+[`eval/check-docs.mjs`](packages/core/eval/check-docs.mjs), and CI fails if they disagree. So does a
+number typed into the prose here instead of generated.
 
 ### Holdout: does Jev's ranking beat plain truncation?
 
-No, on task success; and on what survives a tight budget, no better than chance. Six tasks
+No, on task success; and on what survives a tight budget, no better than chance. <!-- generated:holdout-task-count -->6<!-- /generated:holdout-task-count --> tasks
 (`rate-limit-window`, `coupon-stacking`, `upload-size-limit`, `audit-retention`, `shipping-fee`,
-`room-booking`), each with a mid-session constraint and one changed or added later, run through
+`room-booking`), each with a mid-session constraint and another changed or added later, run through
 [`eval/tasks.mjs`](packages/core/eval/tasks.mjs) and [`eval/run.mjs`](packages/core/eval/run.mjs)
 exactly as preregistered:
 
@@ -254,19 +257,19 @@ themselves:
 Preregistered measure: Jev minus plain truncation is +23.6 points, 95% CI [+9.5, +37.7]. Exploratory comparisons on the same measure: Jev minus random order is −2.9 points [−12.4, +6.4], and Jev minus keyword overlap −4.7 [−19.1, +11.7]. Up to the fix request (v2): Jev minus plain truncation is +10.1 points [+0.7, +22.0], and Jev minus random order +7.6 [−2.4, +19.7].
 <!-- /generated:holdout-retention -->
 
-Read the preregistered column with two things in mind, both found by an
+Read the preregistered column with these in mind, both found by an
 [independent audit](docs/audits/2026-09-24-audit-ja.md):
 
 - It measures the **whole** recorded session, including the implementation after the fix request.
-  On these six sessions that part is a large share of the tokens but holds none of the labeled
-  facts, so plain truncation, which keeps the newest entries, scores 0% by construction. (Each dev
-  session labels one fact there, which is part of why the two splits disagree.) The "up to the fix
+  On the holdout sessions that part is a large share of the tokens but holds none of the labeled
+  facts, so plain truncation, which keeps the newest entries, can't score anything by construction.
+  (Each dev session labels a fact there, which is part of why the splits disagree.) The "up to the fix
   request" column measures what `tasks.mjs` actually prunes instead. It was added after the
   results were seen, is labeled exploratory in
   [`PREREGISTRATION.md`](packages/core/eval/PREREGISTRATION.md), and decides nothing.
 - Jev's answers vary between runs. This is a saved re-run of the preregistered command; earlier
   runs, whose output wasn't saved, gave different values (all of them are in `PREREGISTRATION.md`).
-  With six sessions, differences of a few points are within that variation.
+  With this few sessions, differences of a few points are within that variation.
 
 On the dev sessions, Jev beat keyword overlap by a wide margin
 (<!-- generated:dev-vs-local -->85.6% vs. 65.3% at a 25% budget<!-- /generated:dev-vs-local -->); on the holdout it didn't.
@@ -282,7 +285,7 @@ No demonstrated effect. The preregistered plugin comparison
 ([`eval/plugin.mjs`](packages/core/eval/plugin.mjs) `--split holdout`: the summary of a simulated
 compaction alone, against the same summary plus the plugin's digest, decided on tasks passed) errored
 on its first attempt because the hook couldn't reach Jev from the recording sandbox. It was then run
-to completion twice on 2026-09-24, in two separate sessions on the same code, but both results sat on
+to completion on 2026-09-24 in <!-- generated:plugin-run-count -->two<!-- /generated:plugin-run-count --> separate sessions on the same code, but both results sat on
 branches that were never merged until they were
 [recovered](packages/core/eval/results/README.md#recovered-from-archive-tags-2026-09-25) on
 2026-09-25. Both runs are shown; neither was chosen in advance as *the* run.
@@ -304,22 +307,22 @@ below keyword overlap on the retention measure above, the plugin now scores offl
 overlap by default and sends nothing; Jev is opt-in with `CTXJEV_SCORER=jev`. That isn't evidence
 the offline digest helps either: it hasn't been shown to.
 
-### Dev sessions (15 sessions, optimistic — see above)
+### Dev sessions (optimistic — see above)
 
-- **Written sessions (5).** Written by hand, with raw tool output, dead ends, and distractors that
+- **Written sessions.** Written by hand, with raw tool output, dead ends, and distractors that
   share the goal's words.
-- **Recorded sessions (10).** Real Claude Code sessions, recorded on the throwaway task repos in
+- **Recorded sessions.** Real Claude Code sessions, recorded on the throwaway task repos in
   [`examples/eval-tasks`](examples/eval-tasks). Each task has a planted bug. The user states
-  constraints partway through, and in two of them changes the plan. The session ends with the fix.
+  constraints partway through, and in some of them changes the plan. The session ends with the fix.
 
-Intervals are 95% bootstrap intervals that resample whole sessions or tasks. With 10 tasks they're
+Intervals are 95% bootstrap intervals that resample whole sessions or tasks. With this few tasks they're
 wide, and they're shown so you can see how wide.
 
 **1. Can an agent still finish the job?** [`eval/tasks.mjs`](packages/core/eval/tasks.mjs) cuts
 each recorded session before "now implement the fix" and prunes the history to 25% of its tokens.
 Claude Haiku 4.5 then does the fix with real tools in a fresh copy of the repo. It passes if the
 hidden acceptance tests pass, and those tests include the constraints the user stated mid-session.
-10 tasks × 2 runs:
+<!-- generated:dev-task-design -->10 tasks × 2 runs<!-- /generated:dev-task-design -->:
 
 <!-- generated:dev-tasks -->
 | History given to the agent | Tasks passed | 95% CI |
@@ -333,26 +336,24 @@ hidden acceptance tests pass, and those tests include the constraints the user s
 | Only the task | 40% | [15, 70] |
 <!-- /generated:dev-tasks -->
 
-Against truncation with the same two options, the fair comparison, Jev is <!-- generated:dev-task-diff -->+10 points [0, +30]<!-- /generated:dev-task-diff -->:
-two runs out of twenty, both on one task (`webhook-dedupe`, which truncation failed twice). On the
-other nine tasks the two passed every run.
+Against truncation with the same options (user text kept, gap marked), the fair comparison, Jev is <!-- generated:dev-task-diff -->+10 points [0, +30]<!-- /generated:dev-task-diff -->:
+<!-- generated:dev-task-misses -->truncation failed 2 of its 20 runs and Jev 0, all on `webhook-dedupe`. On the other 9 tasks both passed every run<!-- /generated:dev-task-misses -->.
 
 The misses were agents that lost something the user said and filled the gap with their own guess.
-One lost "keep the mark for 24 hours" and kept a later "maybe 25h for margin". Another lost the
+An agent lost "keep the mark for 24 hours" and kept a later "maybe 25h for margin". Another lost the
 exact masking format. That's why `pruneMessages()` now keeps what the user wrote and adds a
-one-line note where it removed history. Both were designed from these failures, which is why these
+short note where it removed history. Both were designed from these failures, which is why these
 tasks can't also be the test of them.
 
-**With a stronger agent (Claude Sonnet 5), the difference goes away.** Same 10 tasks, 2 runs,
-effort low: <!-- generated:dev-sonnet -->Jev as shipped passed 90%, and truncation with the same options passed 95% (−5 points [−15, 0])<!-- /generated:dev-sonnet -->. Both passed every run on nine of the ten tasks. The tenth is the "24 hours vs. maybe 25h"
-task, where the recorded assistant's later suggestion contradicts the user: Jev lost it both times,
-truncation once. So at a 25% budget on tasks this size, a strong agent recovers from pruning
+**With a stronger agent (Claude Sonnet 5), the difference goes away.** Same <!-- generated:dev-task-design -->10 tasks × 2 runs<!-- /generated:dev-task-design -->,
+effort low: <!-- generated:dev-sonnet -->Jev as shipped passed 90%, and truncation with the same options passed 95% (−5 points [−15, 0])<!-- /generated:dev-sonnet -->. Both passed every run on <!-- generated:dev-sonnet-clean -->9 of the 10<!-- /generated:dev-sonnet-clean --> tasks. The rest is the "24 hours vs. maybe 25h"
+task (<!-- generated:dev-sonnet-missed -->`webhook-dedupe`: Jev lost it in 2 of 2 runs, truncation in 1<!-- /generated:dev-sonnet-missed -->), where the recorded assistant's later suggestion contradicts the user. So at a 25% budget on tasks this size, a strong agent recovers from pruning
 whichever way it's done. What made the difference for Haiku was the weaker agent, not the ranking
 alone.
 
 **2. Can a model still answer from what's left?** [`eval/outcome.mjs`](packages/core/eval/outcome.mjs)
 has Claude Haiku 4.5 answer each needed fact as a question from the pruned conversation, and Claude
-Sonnet 5 grade it (102 questions, 2 runs):
+Sonnet 5 grade it (<!-- generated:outcome-design -->102 questions, 2 runs<!-- /generated:outcome-design -->):
 
 <!-- generated:outcome -->
 | Context | 25% budget | 50% budget |
@@ -372,7 +373,7 @@ Jev not falling below truncation or keyword overlap there at a 50% budget
 [`eval/plugin.mjs`](packages/core/eval/plugin.mjs) runs the shipped hooks on each recorded
 history. Claude Haiku 4.5 simulates the compaction summary; Claude Code's own compaction prompt
 isn't public, so ours only approximates it, and it asks for every user instruction. The agent then
-finishes the task from the summary, with or without the plugin's digest (10 tasks × 2 runs):
+finishes the task from the summary, with or without the plugin's digest (<!-- generated:plugin-design -->10 tasks × 2 runs<!-- /generated:plugin-design -->):
 
 <!-- generated:plugin -->
 | After compaction | Tasks passed | Answers right |
@@ -393,10 +394,10 @@ What this doesn't show:
 
 - Any of it on unseen material. The dev tasks and sessions informed the design, and the holdout
   has since been run and analyzed, so neither can confirm a new claim.
-- The tasks are small, and 10 tasks × 2 runs is a small sample.
-- Most runs use Claude Haiku 4.5. Claude Sonnet 5 was checked on the task eval only, with 2 runs
-  and two conditions.
-- The recordings come from one recording model on tasks written for this eval.
+- The tasks are small, and <!-- generated:dev-task-design -->10 tasks × 2 runs<!-- /generated:dev-task-design --> is a small sample.
+- Most runs use Claude Haiku 4.5. Claude Sonnet 5 was checked on the task eval only, with fewer
+  conditions.
+- The recordings come from the same recording model on tasks written for this eval.
 - Token counts come from `gpt-tokenizer`, an approximation of Claude's tokenizer.
 
 Every answer, verdict, digest, summary, and agent run is in
@@ -407,7 +408,23 @@ Every answer, verdict, digest, summary, and agent run is in
 ```bash
 npm install -g ctxjev-cli
 
-ctxjev analyze transcript.jsonl --goal "Fix the checkout double-charge bug."
+# A small synthetic Claude Code session from this repo; or point it at one of your own.
+curl -O https://raw.githubusercontent.com/x96x64/ctxjev/main/examples/sample-transcripts/claude-code-session.jsonl
+ctxjev analyze claude-code-session.jsonl
+```
+
+```console
+$ ctxjev analyze claude-code-session.jsonl
+score: 0–1, position in the transcript (oldest 0, newest 1), not relevance: the goal isn't used · keep = leave as-is, summarize = worth shortening, drop = worth removing
+
+  u1         user       drop       score 0.00  fix the memory leak that crashes the server after a few hou…
+  call1      Bash       summarize  score 0.32  Bash(node --heap-prof server.js): heap snapshot saved — ret…
+  call2      Read       keep       score 0.66  Read({"file":"README.md"}): general project setup instructi…
+  a3:text:0  assistant  keep       score 1.00  Found it — the websocket disconnect handler never calls rem…
+
+2 keep, 1 summarize, 1 drop (of 4 entries)
+prune can't write back a Claude Code transcript, so nothing is removed (entries marked drop hold ~14 / 81 tokens, 17%)
+Scored by position alone (newest kept, like plain truncation) — no Jev call, nothing sent.
 ```
 
 No key is needed: the default scorer, `recency`, ranks by position alone and

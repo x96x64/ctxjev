@@ -185,6 +185,15 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
   published, and the plugin's marketplace entry pins a commit (`sha`) as well as the release tag,
   which the workflow checks ships exactly the released plugin files. A tag can be moved; a commit
   can't.
+- `ctxjev-cli`: `--help`, the CLI README, and the three packages' npm descriptions no longer
+  describe Jev as the default; the default has scored offline, sending nothing, since 0.6.0.
+- Docs: SECURITY.md said the marketplace installs `main`, that the plugin sends content whenever
+  `TYPESAFE_API_KEY` is set, and that the eval harness has no sandbox; none of that has been true
+  since 0.6.0. The README's Quick Start downloads the sample transcript it runs and shows its
+  output, and its status line no longer carries a date that goes stale.
+- Docs: every eval number in the README, ROADMAP, and preregistration prose is generated from the
+  saved results and checked in CI, not only the tables; a hand-edited number in a sentence used to
+  pass the check.
 
 ## 0.6.1 — 2026-09-25
 

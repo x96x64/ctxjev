@@ -149,7 +149,7 @@ the README says it has no demonstrated effect.
 
 ## Results
 
-Run 2026-09-24, after all six holdout sessions were hand-labeled and committed (`claude/holdout-results`,
+Run 2026-09-24, after all <!-- generated:holdout-task-count -->6<!-- /generated:holdout-task-count --> holdout sessions were hand-labeled and committed (`claude/holdout-results`,
 labeling commit before any of the runs below). Commands, from `packages/core` with both
 `ANTHROPIC_API_KEY` and `TYPESAFE_API_KEY` set, in this order:
 
@@ -163,7 +163,7 @@ node eval/run.mjs --split holdout --runs 3
 
 ### Primary endpoint: task success
 
-Hidden acceptance tests passed, all six holdout tasks, 3 runs each (95% CI resamples tasks):
+Hidden acceptance tests passed, all <!-- generated:holdout-task-count -->6<!-- /generated:holdout-task-count --> holdout tasks, <!-- generated:holdout-runs -->3<!-- /generated:holdout-runs --> runs each (95% CI resamples tasks):
 
 <!-- generated:prereg-primary -->
 | condition | Claude Haiku 4.5 | Claude Sonnet 5 |
@@ -174,8 +174,8 @@ Hidden acceptance tests passed, all six holdout tasks, 3 runs each (95% CI resam
 | `recency+user+marker` | 100% [100%, 100%] | 100% [100%, 100%] |
 <!-- /generated:prereg-primary -->
 
-Every task passed under both `full` and both pruned conditions, on both models, in all 3 runs (`en`
-and `ja` both 100% throughout); only `goal-only` (no history at all beyond the goal) failed, on
+Every task passed under both `full` and both pruned conditions, on both models, in all <!-- generated:holdout-runs -->3<!-- /generated:holdout-runs --> runs (`en`
+and `ja` alike); only `goal-only` (no history at all beyond the goal) failed, on
 every task.
 
 Jev − recency (task success), same tasks resampled together:
@@ -187,6 +187,7 @@ Jev − recency (task success), same tasks resampled together:
 
 ### Secondary endpoint: probe retention at a 25%/50% budget (ranking alone, `eval/run.mjs`)
 
+<!-- unverified: how the two runs below were made; neither run's output was saved -->
 Run once with `--json` and once for the printed table, per the steps above; both are independent
 sets of Jev calls (Jev's answers vary between calls per fixture), so their point estimates differ
 slightly — both are reported:
@@ -264,8 +265,9 @@ sandbox, not of the plugin or the harness, and neither is in scope to change her
 and `eval/*.mjs` are both off-limits for this task). The plugin comparison needs to be re-run in an
 environment where the hook subprocess can actually reach Jev.
 
-### Plugin: two completed re-runs (recovered 2026-09-25)
+### Plugin: <!-- generated:plugin-run-count -->two<!-- /generated:plugin-run-count --> completed re-runs (recovered 2026-09-25)
 
+<!-- unverified: provenance, as recorded (tags and blob hashes are in results/README.md) -->
 After the proxy and deadline changes listed under "Changes after registration", the registered
 command (`node eval/plugin.mjs --split holdout --runs 3 --max-usd 5 --out
 eval/results/plugin-holdout.json`) was run to completion twice on 2026-09-24, from commit `2cf4eba`,
@@ -299,6 +301,7 @@ say which of two would count, so both are reported, and the rule is applied to e
 - `summary+ctxjev(task goal)` − `summary`: tasks passed **−11 [−22, 0] pp**, answers right +6 [−1, +15] pp
 <!-- /generated:prereg-plugin-rerun -->
 
+<!-- unverified: the spend the two commits recorded; the files keep only the agent runs' cost -->
 Claude API spend, as the two commits recorded it (the files keep per-row cost for the agent runs
 only): $4.23 (`d8aa0b1`) and $4.10 (`042cf4c`), each against the $5 cap.
 
@@ -306,16 +309,16 @@ only): $4.23 (`d8aa0b1`) and $4.10 (`042cf4c`), each against the $5 cap.
 
 1. **Primary (default scorer).** Rule: if Haiku's Jev − recency interval's lower bound is above 0,
    and Sonnet's point estimate isn't below 0, Jev stays the default. Haiku's interval is
-   **[+0, +0]** — the lower bound is 0, not above 0 — so the "if" already fails regardless of
-   Sonnet (whose point estimate, +0 pp, does happen to satisfy its own half). **Branch: Otherwise.**
+   **<!-- generated:prereg-haiku-interval -->[0, 0]<!-- /generated:prereg-haiku-interval -->**, whose lower bound is not above 0, so the "if" already fails regardless of
+   Sonnet (whose point estimate, <!-- generated:prereg-sonnet-point -->0 pp<!-- /generated:prereg-sonnet-point -->, does happen to satisfy its own part). **Branch: Otherwise.**
    The default scorer for `pruneMessages()`, `pruneContext()`, and the CLI becomes `recency`; Jev
    becomes opt-in via `scorer: 'jev'`. Both scorers pass every holdout task at both budgets tested
    here, so this is a "no measurable difference on this material" result, not evidence recency is
    better — but the preregistered rule is written on the interval alone, and it does not clear zero.
 2. **Secondary (what the ranking keeps).** Rule: if the interval's lower bound is above 0, the
    README may say Jev keeps more of what a task needs than truncation does, on unseen sessions.
-   The printed run's 25%-budget interval is **[+7.1, +30.3]**, and the `--json` run's is
-   **[+4.8, +38.9]** — both lower bounds are above 0. **Branch: satisfied.** The README may state
+   The printed run's 25%-budget interval and the `--json` run's (both in the table marked
+   unverified above) have lower bounds above 0. **Branch: satisfied.** The README may state
    that Jev retains more of what a task needs than plain truncation on unseen sessions, at a 25%
    budget; this does not change the decision above — the default scorer is still `recency` per rule 1.
 3. **Plugin.** Rule: same rule, on `plugin.mjs --split holdout` (summary vs. summary+digest); if the
@@ -324,21 +327,23 @@ only): $4.23 (`d8aa0b1`) and $4.10 (`042cf4c`), each against the $5 cap.
    branch of the rule can be applied from this run. No README change follows from this run either
    way; the plugin's status is unchanged pending a re-run.
 
-   **Applied to the two recovered re-runs (added 2026-09-25):** in both, for both digest
+   **Applied to the <!-- generated:plugin-run-count -->two<!-- /generated:plugin-run-count --> recovered re-runs (added 2026-09-25):** in both, for both digest
    conditions, the tasks-passed interval's lower bound is not above 0 (the figures are in "Plugin:
    two completed re-runs" above). **Branch: not satisfied, in both runs.** The plugin stays
    available, and the README and plugin README say it has no demonstrated effect on unseen tasks.
-   The two runs' point estimates differ (see the tables above), which is itself a reminder of how
-   little six tasks can separate.
+   The runs' point estimates differ (see the tables above), which is itself a reminder of how
+   little <!-- generated:holdout-task-count -->6<!-- /generated:holdout-task-count --> tasks can separate.
 
 ### Spend
 
+<!-- unverified: the plugin attempt's cost is in no saved file (it errored before writing one); the task runs' costs are in theirs -->
 Claude API (`ANTHROPIC_API_KEY`): $3.03 (`tasks-holdout.json`, Claude Haiku 4.5) + $1.71
 (`tasks-holdout-sonnet.json`, Claude Sonnet 5) + $0.02 (`plugin.mjs`, before it errored) =
 **$4.76 total**. `eval/run.mjs` uses only `TYPESAFE_API_KEY` (Jev) and reports no dollar cost.
 
 ### Process note
 
+<!-- unverified: a record of a mistake in the procedure, as it happened -->
 Before committing the six labeled sessions, `eval/run.mjs --split holdout --runs 1` was run once by
 mistake to sanity-check that the label files loaded correctly (it queries the live `local` and
 `jev` scorers). This happened after all six sessions were fully labeled by hand from content alone

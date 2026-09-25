@@ -52,9 +52,10 @@ and [CHANGELOG.md](CHANGELOG.md).
   - Goal inference fixed on real transcripts.
   - `/ctxjev:set-goal` made per-session.
   - Plugin state moved out of the project.
+  <!-- checked-prose -->
   - The eval split into dev and holdout, and the holdout comparison preregistered — then run:
-    Jev tied plain truncation on task success (+0 points, 95% CI [+0, +0], two models, six unseen
-    tasks). **`recency` (plain truncation) is now the default scorer**; Jev is opt-in
+    Jev tied plain truncation on task success (<!-- generated:holdout-diff-short -->0 points, 95% CI [0, 0] with Claude Haiku 4.5 and with Claude Sonnet 5, 6 unseen tasks<!-- /generated:holdout-diff-short -->).
+    <!-- /checked-prose --> **`recency` (plain truncation) is now the default scorer**; Jev is opt-in
     (`scorer: 'jev'`). `ctxjev-mcp` is unaffected, since exposing Jev is its whole purpose.
   - The release gate made strict.
   - The plugin's holdout comparison, run twice: no demonstrated effect in either run. The plugin

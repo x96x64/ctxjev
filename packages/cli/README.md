@@ -2,7 +2,7 @@
 
 # ctxjev-cli
 
-**See what Jev would keep, drop, or summarize, right from your terminal.**
+**See what an agent's history can lose, and prune it, right from your terminal: offline by default, with Jev if you opt in.**
 
 [![npm](https://img.shields.io/npm/v/ctxjev-cli.svg)](https://www.npmjs.com/package/ctxjev-cli)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -46,10 +46,13 @@ or the last `--protect-last` messages (default 2). A Claude Code
 `.jsonl` can be analyzed but not pruned, since Claude Code doesn't load an edited transcript.
 
 ```bash
-ctxjev analyze transcript.jsonl --goal "Fix the checkout double-charge bug."
+ctxjev analyze path/to/session.jsonl                       # a Claude Code session; the goal is inferred
+ctxjev analyze checkout-bug.json --goal "Fix the checkout double-charge bug."
 ```
 
-Against the sample transcript in the ctxjev repo, the default ranks by position:
+Against the sample transcript in the ctxjev repo
+([`examples/sample-transcripts/checkout-bug.json`](https://github.com/x96x64/ctxjev/blob/main/examples/sample-transcripts/checkout-bug.json)),
+the default ranks by position:
 
 ```console
 $ ctxjev analyze checkout-bug.json
@@ -123,9 +126,10 @@ Auto-detected, no flag needed:
   `~/.claude/projects`). The goal is inferred from your first request plus your latest instruction unless `--goal`
   overrides it.
 
-> Never point this at a real, sensitive session log without checking its contents first. Entry
-> content is sent to the live Jev API for scoring. Common secret formats are masked to
-> `[REDACTED]` first, but that masking is best-effort and can't catch everything.
+> With the default `recency` scorer, and with `--scorer local`, nothing leaves your machine. With
+> `--scorer jev`, entry content is sent to the live Jev API for scoring, so don't point that at a
+> real, sensitive session log without checking its contents first: common secret formats are
+> masked to `[REDACTED]` first, but that masking is best-effort and can't catch everything.
 
 ## Related Packages
 

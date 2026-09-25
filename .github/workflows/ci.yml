@@ -90,10 +90,13 @@ jobs:
           node eval/tasks.mjs --selftest
         env:
           CTXJEV_SANDBOX: docker
-      # Every eval number in README.md and PREREGISTRATION.md must match the saved results.
+      # Every eval number in the docs (tables and results prose) must match the saved results;
+      # --selftest proves the check catches the third audit's example edits.
       - name: check-docs
         working-directory: packages/core
-        run: node eval/check-docs.mjs
+        run: |
+          node eval/check-docs.mjs
+          node eval/check-docs.mjs --selftest
 
   # Known vulnerabilities in any dependency, dev tools included. High or critical fails the build;
   # Dependabot (.github/dependabot.yml) proposes the updates.
