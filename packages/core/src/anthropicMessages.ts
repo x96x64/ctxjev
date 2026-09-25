@@ -181,6 +181,11 @@ export type PruneMessagesResult = {
 
 type Replacement = { text: string; saved: number }
 
+/** The one-line note added where history was removed (see `marker`). */
+function removalNote(count: number, tokens: number): string {
+  return `[ctxjev: ${count} earlier entries (~${tokens.toLocaleString('en-US')} tokens) were removed from this conversation to save space. Re-read files or re-run commands rather than relying on what they said.]`
+}
+
 /** The index of the last user message with text of its own, or -1: where the latest turn starts. */
 export function lastTurnStart(messages: AnthropicMessage[]): number {
   for (let m = messages.length - 1; m >= 0; m--) {
@@ -246,11 +251,19 @@ export async function pruneMessages(messages: AnthropicMessage[], goal: string, 
   const sizeOf = (entry: MappedEntry) => tokensOf(entry) - (replacements.get(entry.id)?.saved ?? 0)
   const untouchedTotal = mapped.reduce((sum, e) => sum + tokensOf(e), 0)
   let remaining = mapped.filter((e) => !removed.has(e.id)).reduce((sum, e) => sum + sizeOf(e), 0)
-  if (targetTokens !== undefined && remaining > targetTokens) {
+  // What's left has to fit with the removal note the change adds, so the note is counted against the
+  // budget as entries are removed. (Counted even if no user message ends up taking the note, which
+  // can cost one removal more than strictly needed.)
+  let removedCount = removed.size
+  let removedTokens = mapped.filter((e) => removed.has(e.id)).reduce((sum, e) => sum + tokensOf(e), 0)
+  const fits = () => remaining + (marker && removedCount > 0 ? estimateTokens(removalNote(removedCount, removedTokens)) : 0) <= targetTokens!
+  if (targetTokens !== undefined && !fits()) {
     const byScore = prunable.filter((e) => !removed.has(e.id)).sort((a, b) => decisionById.get(a.id)!.combinedScore - decisionById.get(b.id)!.combinedScore)
     for (const entry of byScore) {
-      if (remaining <= targetTokens) break
+      if (fits()) break
       remaining -= sizeOf(entry)
+      removedCount++
+      removedTokens += tokensOf(entry)
       removed.add(entry.id)
       replacements.delete(entry.id)
     }
@@ -327,8 +340,7 @@ export async function pruneMessages(messages: AnthropicMessage[], goal: string, 
   if (marker && removedEntries.length > 0) {
     const k = pruned.findIndex((m, i) => m.role === 'user' && originalIndex[i] >= firstChangedMessage && originalIndex[i] > 0 && originalIndex[i] < lastProtected)
     if (k >= 0) {
-      const removedTokens = removedEntries.reduce((sum, e) => sum + tokensOf(e), 0)
-      const text = `[ctxjev: ${removedEntries.length} earlier entries (~${removedTokens.toLocaleString('en-US')} tokens) were removed from this conversation to save space. Re-read files or re-run commands rather than relying on what they said.]`
+      const text = removalNote(removedEntries.length, removedEntries.reduce((sum, e) => sum + tokensOf(e), 0))
       note = { index: k, text, tokens: estimateTokens(text) }
     }
   }
@@ -351,7 +363,8 @@ export async function pruneMessages(messages: AnthropicMessage[], goal: string, 
     summarized: [...replacements.keys()],
     savedTokens,
     cache: { firstChangedMessage, invalidatedTokens },
-    overBudget: targetTokens !== undefined && remaining > targetTokens,
+    // The result as sent: what's left and the note.
+    overBudget: targetTokens !== undefined && remaining + (note?.tokens ?? 0) > targetTokens,
     // Every unprotected drop was removed, so only protected ones are left to explain.
     keptDrops: keptDrops(undefined),
   }

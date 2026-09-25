@@ -110,6 +110,20 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
   longer than 128 characters is counted in pieces, which can move its count by about a token per
   piece; every other text counts exactly as before (on every sample and eval session in this repo,
   one string of 6,078 changed, by one token).
+- `ctxjev-cli`: `ctxjev prune` on ctxjev's own format keeps the first user entry (usually the
+  original request) and the last two entries by default, as it already did for an Anthropic
+  Messages conversation's first message and tail; under the default `recency` scorer the first
+  request is oldest, so it used to be the first thing removed, silently. `--no-protect-first` and
+  `--protect-last <n>` (now for this format too; `0` turns it off) change that, and `prune` warns
+  when the first user entry goes. `analyze` reports the same, and `analyze --json` adds `prune`.
+- `ctxjev-cli`: `ctxjev prune` writes back every field of the file it doesn't change (such as
+  `groundTruth` in the samples, or anything next to `messages` in a wrapped Anthropic Messages
+  file); it used to write only `goal` and `entries`/`messages`.
+- `ctxjev-core`: `pruneEntries(entries, decisions, options)` applies `pruneContext()`'s decisions
+  to a plain entry list with that protection. A new export; nothing existing changed.
+- `ctxjev-core`, `ctxjev-cli`: `overBudget` (and `prune --target-tokens`' "still over" warning)
+  counts the one-line removal note, and the budget leaves room for it. The result could be over the
+  target with `overBudget` false (the audit found 38 of 807 targets; this repo's sample showed 119).
 
 ## 0.6.1 — 2026-09-25
 
