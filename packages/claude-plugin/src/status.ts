@@ -2,11 +2,16 @@
 import { readFile, readdir } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { parseClaudeCodeTranscript, quoteAsData as quote, resolveClaudeCodeGoal, truncate } from 'ctxjev-core'
+import { parseClaudeCodeTranscript, quoteAsData, redactSecrets, resolveClaudeCodeGoal, truncate } from 'ctxjev-core'
 import { readLastRun } from './lastRun.js'
 import { readPreservedContext } from './preserve.js'
 import { sessionKey } from './stateDir.js'
 import { STATUS_MARKER } from './statusMarker.js'
+
+// Masked here too, whatever it came from: a goal read from the transcript never went through the
+// masking the state files did, and a file an earlier version wrote went through weaker masking.
+const quote = (text: string) => quoteAsData(redactSecrets(text))
+const mask = (text: string) => redactSecrets(String(text))
 
 /**
  * `/ctxjev:status`: what the last PreCompact run in this session did, the goal the next one will
@@ -15,7 +20,7 @@ import { STATUS_MARKER } from './statusMarker.js'
  *
  * Goals and excerpts are quoted and labeled because the report lands in the model's context: in a
  * manual test, Claude Haiku read an unquoted `Goal: fix computeTotal` line as a request and edited
- * the code.
+ * the code. Everything shown is masked too (see `quote` and `mask`).
  */
 export async function statusReport(cwd: string, sessionId: string | undefined, transcriptPath?: string): Promise<string> {
   const lines = [
@@ -42,9 +47,9 @@ export async function statusReport(cwd: string, sessionId: string | undefined, t
   }
   const scorer = lastRun.scorer === 'local' ? 'offline keyword overlap' : lastRun.scorer === 'jev' ? 'Jev' : undefined
   lines.push(`Last run: ${lastRun.at}, ${lastRun.outcome}${lastRun.preserved ? ` (${lastRun.preserved} entries)` : ''}${scorer ? `, scored with ${scorer}` : ''}`)
-  if (lastRun.reason) lines.push(`  Reason: ${lastRun.reason}`)
-  if (lastRun.note) lines.push(`  Note: ${lastRun.note}`)
-  for (const warning of lastRun.warnings ?? []) lines.push(`  Warning: ${warning}`)
+  if (lastRun.reason) lines.push(`  Reason: ${mask(lastRun.reason)}`)
+  if (lastRun.note) lines.push(`  Note: ${mask(lastRun.note)}`)
+  for (const warning of Array.isArray(lastRun.warnings) ? lastRun.warnings : []) lines.push(`  Warning: ${mask(warning)}`)
   if (lastRun.goal) lines.push(`  Scored against: ${quote(truncate(lastRun.goal, 200))}`)
 
   const preserved = await readPreservedContext(cwd, sessionId)

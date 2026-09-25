@@ -1,0 +1,156 @@
+import { spawn } from 'node:child_process'
+import { createServer } from 'node:http'
+import type { AddressInfo } from 'node:net'
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { subprocessEnv } from '../../../test-support/subprocessEnv.js'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+
+// The third audit (docs/audits/2026-09-25-audit-3-ja.md, check 22) ran the plugin's default path on
+// a synthetic transcript and found `Error: DB_PASSWORD=hunter22` in preserved.json and in the
+// digest re-injected after compaction. These run the shipped hooks (dist/) the same way, and check
+// every place a secret could end up: each file written, the digest, the status report, and, with
+// CTXJEV_SCORER=jev, the request body sent to (a local stand-in for) Jev.
+const dist = join(dirname(fileURLToPath(import.meta.url)), '..', 'dist')
+
+function runHook(script: string, stdin: string, env: Record<string, string | undefined> = {}): Promise<{ exitCode: number | null; stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    const child = spawn('node', [join(dist, script)], { env: subprocessEnv({ CTXJEV_STATE_DIR: state, ...env }), stdio: ['pipe', 'pipe', 'pipe'] })
+    let stdout = ''
+    let stderr = ''
+    child.stdout.on('data', (d) => (stdout += d))
+    child.stderr.on('data', (d) => (stderr += d))
+    child.on('error', reject)
+    child.on('close', (exitCode) => resolve({ exitCode, stdout, stderr }))
+    child.stdin.end(stdin)
+  })
+}
+
+let cwd: string
+let state: string
+
+beforeEach(async () => {
+  cwd = await mkdtemp(join(tmpdir(), 'ctxjev-secrets-test-'))
+  state = await mkdtemp(join(tmpdir(), 'ctxjev-secrets-state-'))
+})
+
+afterEach(async () => {
+  await rm(cwd, { recursive: true, force: true })
+  await rm(state, { recursive: true, force: true })
+})
+
+// Each secret sits in a tool result relevant to the goal, so the offline scorer preserves it.
+const SECRETS = ['hunter22', 'abcd1234efgh5678', 'q9Zt7Lm2Vx4Rk8Np']
+const LEAKS = [
+  'Error: DB_PASSWORD=hunter22 was rejected by the checkout database',
+  'checkout database env: API_KEY=abcd1234efgh5678 loaded',
+  'checkout database callback https://db.example.com/cb?access_token=q9Zt7Lm2Vx4Rk8Np failed',
+]
+
+async function writeTranscript(): Promise<string> {
+  const records: unknown[] = [
+    { type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: 'fix the checkout database connection error' } },
+  ]
+  LEAKS.forEach((text, i) => {
+    const id = `c${i}`
+    records.push(
+      { type: 'assistant', uuid: `a${i}`, timestamp: `2026-01-01T00:00:0${2 * i + 1}.000Z`, message: { role: 'assistant', content: [{ type: 'tool_use', id, name: 'Bash', input: { command: 'npm run db:check' } }] } },
+      { type: 'user', uuid: `r${i}`, timestamp: `2026-01-01T00:00:0${2 * i + 2}.000Z`, message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: id, content: text }] } },
+    )
+  })
+  const path = join(cwd, 'transcript.jsonl')
+  await writeFile(path, records.map((r) => JSON.stringify(r)).join('\n'), 'utf8')
+  return path
+}
+
+async function expectNoSecretIn(text: string) {
+  for (const secret of SECRETS) expect(text).not.toContain(secret)
+}
+
+async function expectNoSecretOnDisk(sessionId: string) {
+  const dir = join(state, 'sessions', sessionId)
+  const files = await readdir(dir)
+  expect(files).toContain('preserved.json')
+  for (const file of files) await expectNoSecretIn(await readFile(join(dir, file), 'utf8'))
+}
+
+describe('secrets on the plugin’s paths (dist)', () => {
+  it('default (offline): masked in every file written, in the digest, and in the status report', async () => {
+    const transcriptPath = await writeTranscript()
+    const pre = await runHook('preCompact.js', JSON.stringify({ cwd, transcript_path: transcriptPath, session_id: 'sess-1' }), { TYPESAFE_API_KEY: undefined })
+    expect(pre.exitCode).toBe(0)
+    await expectNoSecretOnDisk('sess-1')
+    const preserved = JSON.parse(await readFile(join(state, 'sessions', 'sess-1', 'preserved.json'), 'utf8'))
+    expect(preserved.entries.length).toBe(LEAKS.length)
+
+    const digest = await runHook('sessionStartCompact.js', JSON.stringify({ cwd, session_id: 'sess-1' }))
+    expect(digest.exitCode).toBe(0)
+    expect(digest.stdout).toContain('[REDACTED]')
+    await expectNoSecretIn(digest.stdout)
+
+    const status = await runHook('statusHook.js', JSON.stringify({ prompt: '/ctxjev:status', cwd, session_id: 'sess-1', transcript_path: transcriptPath }))
+    expect(status.exitCode).toBe(0)
+    expect(status.stdout).toContain('Preserved')
+    await expectNoSecretIn(status.stdout)
+  }, 20_000)
+
+  it('with CTXJEV_SCORER=jev: masked in the request body sent to Jev, and on disk', async () => {
+    const transcriptPath = await writeTranscript()
+    const bodies: string[] = []
+    const jev = createServer((req, res) => {
+      let body = ''
+      req.on('data', (d) => (body += d))
+      req.on('end', () => {
+        bodies.push(body)
+        res.statusCode = 400
+        res.end('{"error":"not a real Jev"}')
+      })
+    })
+    await new Promise<void>((resolve) => jev.listen(0, '127.0.0.1', resolve))
+    try {
+      const pre = await runHook('preCompact.js', JSON.stringify({ cwd, transcript_path: transcriptPath, session_id: 'sess-1' }), {
+        TYPESAFE_API_KEY: 'not-a-real-key',
+        TYPESAFE_BASE_URL: `http://127.0.0.1:${(jev.address() as AddressInfo).port}`,
+        CTXJEV_SCORER: 'jev',
+      })
+      expect(pre.exitCode).toBe(0)
+      expect(bodies.length).toBeGreaterThan(0)
+      for (const body of bodies) {
+        expect(body).toContain('[REDACTED]')
+        await expectNoSecretIn(body)
+      }
+      await expectNoSecretOnDisk('sess-1')
+    } finally {
+      jev.closeAllConnections()
+      jev.close()
+    }
+  }, 20_000)
+
+  it('masks a snapshot an earlier version wrote unmasked before re-injecting it or reporting it', async () => {
+    await mkdir(join(state, 'sessions', 'sess-1'), { recursive: true })
+    const snapshot = {
+      goal: 'fix the database; DB_PASSWORD=hunter22',
+      scoredAt: '2026-01-01T00:00:00.000Z',
+      scorer: 'local',
+      entries: LEAKS.map((content, i) => ({ entryId: `c${i}`, relevance: 0.5, recency: 1, combinedScore: 0.5, content })),
+    }
+    await writeFile(join(state, 'sessions', 'sess-1', 'preserved.json'), JSON.stringify(snapshot), 'utf8')
+    await writeFile(
+      join(state, 'sessions', 'sess-1', 'last-run.json'),
+      JSON.stringify({ at: '2026-01-01T00:00:00.000Z', outcome: 'error', reason: 'Error: DB_PASSWORD=hunter22', goal: snapshot.goal }),
+      'utf8',
+    )
+
+    const digest = await runHook('sessionStartCompact.js', JSON.stringify({ cwd, session_id: 'sess-1' }))
+    expect(digest.exitCode).toBe(0)
+    expect(digest.stdout).toContain('[REDACTED]')
+    await expectNoSecretIn(digest.stdout)
+
+    const status = await runHook('statusHook.js', JSON.stringify({ prompt: '/ctxjev:status', cwd, session_id: 'sess-1' }))
+    expect(status.exitCode).toBe(0)
+    expect(status.stdout).toContain('Preserved')
+    await expectNoSecretIn(status.stdout)
+  }, 20_000)
+})

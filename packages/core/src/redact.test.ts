@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { FORMATS, HARMLESS, PW } from '../test/redactCases.js'
+import { AUDIT3_FORMATS, AUDIT3_LINES, FORMATS, HARMLESS, PW } from '../test/redactCases.js'
 import { redactSecrets } from './redact.js'
 
 describe('redactSecrets', () => {
@@ -79,5 +79,56 @@ describe('redactSecrets: the audit’s secret formats', () => {
 describe('redactSecrets: leaves ordinary text alone', () => {
   it.each(HARMLESS)('%s', (text) => {
     expect(redactSecrets(text)).toBe(text)
+  })
+})
+
+// The third audit: a label that isn't a credential ("Error:", "env:", "https:") swallowed the
+// assignment after it, so the credential in it was never looked at.
+describe('redactSecrets: the third audit\'s lines', () => {
+  const cases = AUDIT3_LINES.flatMap(({ text, secret }) => [
+    { text, secret },
+    { text: `out: ${text}`, secret },
+  ])
+  it.each(cases)('masks $text', ({ text, secret }) => {
+    const masked = redactSecrets(text)
+    expect(masked).not.toContain(secret)
+    expect(masked).toContain('[REDACTED]')
+    expect(redactSecrets(masked)).toBe(masked)
+  })
+
+  it('keeps the labels and names around what it masked', () => {
+    expect(redactSecrets('Error: DB_PASSWORD=hunter22')).toBe('Error: DB_PASSWORD=[REDACTED]')
+    expect(redactSecrets('error: password: hunter22')).toBe('error: password: [REDACTED]')
+    expect(redactSecrets('https://x.example.com/cb?access_token=abcd1234efgh5678')).toBe('https://x.example.com/cb?access_token=[REDACTED]')
+  })
+
+  it.each(AUDIT3_FORMATS)('masks $name', ({ text, secret }) => {
+    const masked = redactSecrets(text)
+    expect(masked).not.toContain(secret)
+    expect(masked).toContain('[REDACTED]')
+    expect(redactSecrets(masked)).toBe(masked)
+  })
+})
+
+// Every repeating quantifier is bounded or anchored: before, 100,000 characters of `a.a.a.…` took
+// 24 seconds (an unbounded assignment name re-tried at every dot), so a long minified or dotted
+// line could hold up a hook. Generous limits: the point is linear against quadratic, not speed.
+describe('redactSecrets: time on long runs', () => {
+  const N = 200_000
+  const runs: Array<[string, string]> = [
+    ['a.a.a…', 'a.'.repeat(N / 2)],
+    ['a-a-a…', 'a-'.repeat(N / 2)],
+    ['a:a:a…', 'a:'.repeat(N / 2)],
+    ['x:tokenx:…', 'x:tokenx:'.repeat(N / 9)],
+    ['Error: …', 'Error: '.repeat(N / 7)],
+    ['a://b:…', 'a://b:'.repeat(N / 6)],
+    ['mysql …', 'mysql '.repeat(N / 6)],
+    ['"a": "…', '"a": "'.repeat(N / 6)],
+    ['█…', '█'.repeat(N)],
+  ]
+  it.each(runs)('%s (200,000 characters) in under 2 seconds', (_name, text) => {
+    const start = performance.now()
+    redactSecrets(text)
+    expect(performance.now() - start).toBeLessThan(2000)
   })
 })

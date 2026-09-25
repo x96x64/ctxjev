@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { lstat, mkdir, readFile, readdir, rm, rmdir, stat, unlink } from 'node:fs/promises'
+import { chmod, lstat, mkdir, readFile, readdir, rm, rmdir, stat, unlink } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 
@@ -28,13 +28,31 @@ export function sessionDir(cwd: string, sessionId: string | undefined): string {
   return join(stateRoot(), 'sessions', sessionKey(sessionId, cwd))
 }
 
-/** Creates the session's directory (private to the user), and drops the oldest sessions' state. */
+/**
+ * Creates the session's directory, private to the user, and drops the oldest sessions' state. The
+ * state root, `sessions/`, and the session's own directory are each made 0700 even if they already
+ * existed with looser permissions (mkdir's mode only applies to what it creates), and each is
+ * refused if it belongs to another user: it holds transcript excerpts.
+ */
 export async function ensureSessionDir(cwd: string, sessionId: string | undefined): Promise<string> {
   const dir = sessionDir(cwd, sessionId)
-  await mkdir(stateRoot(), { recursive: true, mode: 0o700 })
-  await mkdir(dir, { recursive: true, mode: 0o700 })
+  for (const path of [stateRoot(), join(stateRoot(), 'sessions'), dir]) await ensurePrivateDir(path)
   await pruneOldSessions()
   return dir
+}
+
+async function ensurePrivateDir(path: string): Promise<void> {
+  await mkdir(path, { recursive: true, mode: 0o700 })
+  // Windows has no POSIX owner or mode bits; its per-user profile directory is private already.
+  if (process.platform === 'win32') return
+  const uid = process.getuid?.()
+  const link = await lstat(path)
+  const info = link.isSymbolicLink() ? await stat(path) : link
+  if (!info.isDirectory()) throw new Error(`${path} isn't a directory`)
+  if (uid !== undefined && (link.uid !== uid || info.uid !== uid)) {
+    throw new Error(`${path} belongs to another user (uid ${info.uid}), so ctxjev won't keep transcript excerpts there`)
+  }
+  if ((info.mode & 0o777) !== 0o700) await chmod(path, 0o700)
 }
 
 async function pruneOldSessions(): Promise<void> {

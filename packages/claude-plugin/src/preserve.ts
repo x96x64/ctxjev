@@ -22,12 +22,21 @@ export async function writePreservedContext(cwd: string, sessionId: string | und
   await atomicWriteFile(join(dir, FILE), JSON.stringify(masked, null, 2), { mode: 0o600 })
 }
 
+/**
+ * Masked again on the way out, since what's read here is re-injected into the conversation (the
+ * digest) or shown (the status report): a snapshot written by an earlier version, whose masking
+ * missed `Error: DB_PASSWORD=…` and similar, must not bring the secret back.
+ */
 export async function readPreservedContext(cwd: string, sessionId: string | undefined): Promise<PreservedContext | undefined> {
+  let data: PreservedContext
   try {
-    return JSON.parse(await readFile(join(sessionDir(cwd, sessionId), FILE), 'utf8'))
+    data = JSON.parse(await readFile(join(sessionDir(cwd, sessionId), FILE), 'utf8'))
   } catch {
     return undefined
   }
+  if (typeof data !== 'object' || data === null || typeof data.goal !== 'string' || !Array.isArray(data.entries)) return undefined
+  const entries = data.entries.filter((e) => typeof e === 'object' && e !== null && typeof e.content === 'string' && typeof e.combinedScore === 'number' && Number.isFinite(e.combinedScore))
+  return { ...data, goal: redactSecrets(data.goal), entries: entries.map((e) => ({ ...e, content: redactSecrets(e.content) })) }
 }
 
 /** Called before any of preCompact's early returns, so an earlier compaction's snapshot is never re-injected as current. */

@@ -5,6 +5,33 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 (`.claude-plugin/marketplace.json`, `packages/claude-plugin/.claude-plugin/plugin.json`,
 `plugins/ctxjev/plugin.json`). A bump in one is a bump in all, even when only one changed.
 
+## Unreleased
+
+- `ctxjev-core`: secret masking no longer misses a credential that follows a label which isn't
+  one. `Error: DB_PASSWORD=hunter22`, `env: API_KEY=…`, `out: password: …`, and
+  `https://…?access_token=…` all went through unmasked, on every path: sent to Jev with
+  `--scorer jev` or `CTXJEV_SCORER=jev`, and in the Claude Code plugin's default offline mode,
+  written to `preserved.json` and re-injected after compaction. Found by the third independent audit.
+- `ctxjev-core`: masks URL query parameters that carry a credential under a name of their own
+  (`?sig=`, `?signature=`, `X-Amz-Signature=`, `?key=`, `?sessionid=`, `?jwt=`), and a token used
+  as a URL's user name, such as a Sentry DSN's key or `https://<token>@github.com`.
+- `ctxjev-core`: masks more token formats: HashiCorp Vault, DigitalOcean, Linear, Twilio API key
+  SIDs, Mailgun, Mailchimp, Shopify, PyPI, Telegram and Discord bot tokens, Google OAuth client
+  secrets, Slack app tokens, more GitLab token types, Docker Hub, Postman, New Relic, Atlassian,
+  Databricks, Sentry auth tokens, Doppler, Terraform Cloud, Square, and several AI and hosting
+  providers' keys; `sshpass -p`, `redis-cli -a`, and `docker login -p` passwords; and Teams and
+  Zapier webhook URLs.
+- `ctxjev-core`: `redactSecrets()` takes time in proportion to its input on long runs of one
+  pattern. 100,000 characters of `a.a.a…` took 24 seconds; 200,000 of any of the audit's shapes
+  now take well under a second.
+- `ctxjev-claude`: the digest re-injected after compaction and the `/ctxjev:status` report are
+  masked as they're read, not only when the snapshot was written, so a snapshot an earlier version
+  wrote with the weaker masking doesn't bring a secret back. A malformed entry in `preserved.json`
+  is skipped instead of logging a `toFixed` error.
+- `ctxjev-claude`: the state directories (`~/.claude/ctxjev`, `sessions/`, and each session's) are
+  made private to the user (0700) even when they already existed with looser permissions, and the
+  plugin refuses to keep excerpts in one that belongs to another user.
+
 ## 0.6.1 — 2026-09-25
 
 - `ctxjev-cli`: `ctxjev analyze` on an Anthropic Messages conversation reports what `ctxjev prune`

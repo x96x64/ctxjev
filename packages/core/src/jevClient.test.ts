@@ -4,6 +4,7 @@ import type { ScoreCache } from './cache.js'
 import { buildJevRequest, scoreRelevance, type JevClient } from './jevClient.js'
 import { pruneContext, scoreEntries } from './prune.js'
 import type { Entry } from './types.js'
+import { AUDIT3_LINES } from '../test/redactCases.js'
 
 describe('buildJevRequest', () => {
   const entries: Entry[] = [
@@ -43,6 +44,14 @@ describe('buildJevRequest', () => {
     expect(state.latest).toHaveLength(1)
     expect(state.latest![0].content.length).toBeLessThanOrEqual(200)
     expect(state.latest![0].content.startsWith('npm test: all passed')).toBe(true)
+  })
+
+  // The third audit found each of these sent as-is: a label before the credential hid it.
+  it('masks the third audit\'s lines in the goal, every entry, and the latest activity', () => {
+    const leaky: Entry[] = AUDIT3_LINES.map(({ text }, i) => ({ id: `x${i}`, role: 'tool', toolName: 'Bash', content: `out: ${text}`, timestamp: i }))
+    const request = buildJevRequest(`fix it; ${AUDIT3_LINES[1].text}`, leaky, leaky)
+    const sent = JSON.stringify({ state: request.state, questions: request.questions })
+    for (const { secret } of AUDIT3_LINES) expect(sent).not.toContain(secret)
   })
 
   it('omits latest entirely when none is given', () => {
