@@ -515,6 +515,36 @@ function designPluginHoldout() {
   )
 }
 
+const runHoldoutRecovered = load('run-holdout-fa22e81.json')
+const runDevRecovered = load('run-dev-ac67ad5.json')
+
+/** The two recovered retention runs (old run.mjs --json output), in Japanese. */
+function designRecoveredRetention() {
+  const h = runHoldoutRecovered.retention
+  const d = runDevRecovered.retention
+  const diff = runHoldoutRecovered.retentionDifference['0.25']
+  return (
+    `ホールドアウト（v1、25% 予算）で Jev ${pct1(h.jev[0.25].probes)}、ランダム順 ${pct1(h.random[0.25].probes)}、キーワード一致 ${pct1(h.local[0.25].probes)}、切り捨て ${pct1(h.recency[0.25].probes)}` +
+    `（Jev − 切り捨て ${points1(diff.probes)} ${interval1(diff.low, diff.high)}）。dev の Jev は ${pct1(d.jev[0.25].probes)}／${pct1(d.jev[0.5].probes)}（25%／50% 予算）`
+  )
+}
+
+const localCalibration = load('local-calibration-dev.json')
+
+/** eval/calibrate-local.mjs on the dev split, in Japanese, labeled as dev. */
+function localCalibrationSummary() {
+  const s = localCalibration.summary
+  const v = (k) => `関連項目の削除 ${pct1(s[k].relevantDropped)}・全項目の削除 ${pct1(s[k].entriesDropped)}`
+  return `dev のみ（${localCalibration.fixtures} 件の会話、既定の閾値、会話ごとの平均）：従来（生の一致度）${v('raw')}、同点を最小順位 ${v('min')}、同点を平均順位 ${v('mid')}。事前に決めた規則で「${localCalibration.chosen === 'mid' ? '平均順位' : '最小順位'}」を採用`
+}
+
+/** The preregistered primary endpoint on the holdout, in Japanese. */
+function jaHoldoutPrimary() {
+  const haiku = taskDiff(tasksHoldout.rows, SHIPPED, TRUNCATION)
+  const sonnet = taskDiff(tasksHoldoutSonnet.rows, SHIPPED, TRUNCATION)
+  return `Haiku ${points0(haiku.value)} ${interval0(haiku.interval)}、Sonnet ${points0(sonnet.value)} ${interval0(sonnet.interval)}（Jev − 切り捨て、課題成功、ポイント）`
+}
+
 // The new holdout's size (design choices, stated here so the estimate below is reproducible).
 const PLAN = {
   tasks: 24,
@@ -584,30 +614,57 @@ function designCommands() {
   return block(
     [
       '```bash',
-      '# 0. 課題の検証（API 不要）',
+      '# 0. 基盤の自己検査（API 不要・無料）。すべて実装済み',
       'node examples/eval-tasks/verify.mjs',
-      'cd packages/core && node eval/tasks.mjs --selftest --split holdout2          # --split holdout2（ラウンド2で実装）',
+      'cd packages/core',
+      'node eval/harness-selftest.mjs && node eval/check-sessions.mjs',
+      'docker pull node:22-bookworm        # Mac では Docker Desktop が必要（隔離の既定）',
+      'node eval/tasks.mjs --selftest --split holdout2',
       '',
-      '# 1. 記録と取り込み（課題ごと、Claude のログインを使用）',
-      'node examples/eval-tasks/record.mjs <task> <workdir>',
-      'node packages/core/eval/import-claude-code.mjs <task> <transcript> <repo>',
+      '# 1. 記録と取り込み（課題ごと、Claude のログインを使用）。実装済み',
+      'node ../../examples/eval-tasks/record.mjs <task> <workdir>',
+      'node eval/import-claude-code.mjs <task> <transcript> <repo>',
       '',
-      '# 2. ラベル付け（どの採点方式も実行する前）→ コミット',
-      'node packages/core/eval/label-session.mjs <session>',
+      '# 2. ラベル付け（どの採点方式も実行する前）→ コミット。実装済み（holdout2 はコミット前だと読めない）',
+      'node eval/label-session.mjs <session> <spec>',
       '',
-      '# 3. 本番（ANTHROPIC_API_KEY と TYPESAFE_API_KEY を設定、packages/core で）',
-      `node eval/run.mjs --split holdout2 --runs ${PLAN.runs} --budgets ${budgets} --measure at-cut --out eval/results/retention-holdout2.json   # --budgets, --measure（ラウンド2で実装）`,
-      `node eval/tasks.mjs --split holdout2 --conditions ${PLAN.referenceConditions.join(',')},${ranked} --budgets ${budgets} --rescore-each-run --runs ${PLAN.runs} --max-usd ${haiku} --out eval/results/tasks-holdout2.json`,
-      `node eval/tasks.mjs --split holdout2 --conditions ${PLAN.sonnetConditions.map((c) => `${c}+user+marker`).join(',')} --budgets 0.15 --rescore-each-run --runs ${PLAN.runs} --agent-model claude-sonnet-5 --max-usd ${sonnet} --out eval/results/tasks-holdout2-sonnet.json`,
-      `node eval/outcome.mjs --split holdout2 --runs ${PLAN.runs} --budgets ${budgets} --max-usd ${qa} --out eval/results/outcome-holdout2.json`,
-      `node eval/plugin.mjs --split holdout2 --runs ${PLAN.runs} --max-usd ${plugins} --out eval/results/plugin-holdout2.json`,
-      `node eval/real-compaction.mjs --split holdout2 --tasks ${PLAN.realCompactionTasks} --runs ${PLAN.runs} --max-usd ${real} --out eval/results/real-compaction-holdout2.json   # 新規（ラウンド2で実装）`,
+      '# 3. 本番（ANTHROPIC_API_KEY と TYPESAFE_API_KEY を設定）',
+      `node eval/run.mjs --split holdout2 --runs ${PLAN.runs} --budgets ${budgets} --out eval/results/retention-holdout2.json   # 実装済み（v2 は retentionV2）`,
+      `node eval/tasks.mjs --split holdout2 --conditions ${PLAN.referenceConditions.join(',')},${ranked} --budgets ${budgets} --rescore-each-run --runs ${PLAN.runs} --max-usd ${haiku} --out eval/results/tasks-holdout2.json   # --budgets, --rescore-each-run, random/hybrid（2a で実装）`,
+      `node eval/tasks.mjs --split holdout2 --conditions ${PLAN.sonnetConditions.map((c) => `${c}+user+marker`).join(',')} --budgets 0.15 --rescore-each-run --runs ${PLAN.runs} --agent-model claude-sonnet-5 --max-usd ${sonnet} --out eval/results/tasks-holdout2-sonnet.json   # 同上`,
+      `node eval/outcome.mjs --split holdout2 --runs ${PLAN.runs} --budgets ${budgets} --max-usd ${qa} --out eval/results/outcome-holdout2.json   # --budgets（2a で実装）`,
+      `node eval/plugin.mjs --split holdout2 --runs ${PLAN.runs} --max-usd ${plugins} --out eval/results/plugin-holdout2.json   # 実装済み`,
+      `node eval/real-compaction.mjs --split holdout2 --tasks ${PLAN.realCompactionTasks} --runs ${PLAN.runs} --max-usd ${real} --out eval/results/real-compaction-holdout2.json   # 新規（2a で実装）`,
       '',
-      '# 4. 人手の抜き取り検査（3.5）と、文書の数値の生成',
-      'node eval/spot-check.mjs --sample 120 --seed 20261001 --out eval/results/spot-check-holdout2.json   # 新規（ラウンド2で実装）',
+      '# 4. 人手の抜き取り検査（120件）と、文書の数値の生成。実装済み',
+      'node eval/spot-check.mjs --from eval/results/outcome-holdout2.json --sample 120 --seed 20261001 --out eval/results/human-review/holdout2-items.json',
+      'node eval/review.mjs eval/results/human-review/holdout2-items.json',
+      'node eval/spot-check.mjs --kappa eval/results/human-review/holdout2-items.json',
       'node eval/check-docs.mjs --write',
       '```',
     ].join('\n'),
+  )
+}
+
+/** Round 2b's cost checkpoints: each paid step's cap and the running total, from the same estimate. */
+function designCheckpoints() {
+  const { rows } = costEstimates()
+  const steps = [
+    ['2b-1', '課題成功（Haiku 4.5）', rows[0]],
+    ['2b-2', '課題成功（Sonnet 5、主予算のみ）', rows[1]],
+    ['2b-3', '質問応答（Haiku 回答＋Sonnet 採点）', rows[2]],
+    ['2b-4', 'プラグイン（模擬の圧縮）', rows[3]],
+    ['2b-5', '本物の Claude Code 圧縮', rows[4]],
+  ]
+  let total = 0
+  return block(
+    table(
+      ['チェックポイント', '内容', '見積もり（USD）', 'このコマンドの上限（--max-usd）', '累計の上限'],
+      steps.map(([id, label, row]) => {
+        total += cap(row[2])
+        return [id, label, `$${row[2].toFixed(0)}`, `$${cap(row[2])}`, `$${total}`]
+      }),
+    ),
   )
 }
 
@@ -673,6 +730,10 @@ const RENDERERS = {
   'design-outcome-plugin': designOutcomeAndPlugin,
   'design-cost': designCost,
   'design-commands': designCommands,
+  'design-checkpoints': designCheckpoints,
+  'design-recovered-retention': designRecoveredRetention,
+  'local-calibration': localCalibrationSummary,
+  'ja-holdout-primary': jaHoldoutPrimary,
   'design-precision': designPrecision,
   'changes-holdout-retention': changesHoldoutRetention,
   'changes-precommit': changesPrecommit,
@@ -710,6 +771,8 @@ const DOCS = [
   // No results section to police here: its tables are statuses, and its eval numbers are generated inline.
   { path: 'docs/audits/2026-09-25-round-1-changes-ja.md' },
   { path: 'packages/claude-plugin/README.md' },
+  // Status tables, not results; the eval numbers in them are generated inline.
+  { path: 'docs/audits/2026-09-25-audit-2-triage-ja.md' },
 ]
 const GENERATED = /<!-- generated:([\w-]+) -->([\s\S]*?)<!-- \/generated:\1 -->/g
 
