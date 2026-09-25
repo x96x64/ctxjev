@@ -136,3 +136,14 @@ that was never part of what the parent session's compaction actually operates on
   `packages/claude-plugin/src` or `packages/core/src`. CI fails if it's stale.
 - CHANGELOG entries are for users: one line per change, what changed and why it matters to them.
   Investigation detail belongs in the commit message.
+
+## Branch hygiene
+
+- One new branch per task. Changes reach `main` only through pull requests; a ruleset blocks direct
+  pushes, force pushes, and deleting `main`.
+- Merge with a merge commit, never squash or rebase: the audit documents in `docs/audits/` cite
+  individual commit hashes, which a squash or rebase would orphan.
+- Merged branches are deleted automatically ("Automatically delete head branches" is on).
+- Never delete a branch with commits not in `main` without the owner's explicit OK. Before deleting
+  any branch, record its name and tip SHA (e.g. in the PR or report that deletes it).
+- Don't delete `dependabot/...` branches by hand; Dependabot manages them.
