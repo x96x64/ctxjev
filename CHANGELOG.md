@@ -128,8 +128,9 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
   raw error or a wrong number. A string `sourceTokens` (`"100"`) printed `NaN%`, a text block with
   no `text` died with "Cannot read properties of undefined", and a tool call with no `id` or a
   `tool_result` with no `tool_use_id` failed the same way; `pruneContext()`, `scoreEntries()`,
-  `summarizeSavings()`, `messagesToEntries()`, and `pruneMessages()` now check what they read, as
-  do a policy's thresholds and weight and `pruneMessages()`' numeric options.
+  `summarizeSavings()`, `messagesToEntries()`, and `pruneMessages()` now check what they read
+  (including that the goal is a string), as do a policy's thresholds and weight and
+  `pruneMessages()`' numeric options.
 - `ctxjev-core`: timestamps too far apart to subtract (±1e308) are ranked by order for recency
   instead of turning every score into NaN (the CLI stopped with "decideAction received a NaN score";
   the MCP server returned `recency: null`).

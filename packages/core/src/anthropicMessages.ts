@@ -3,7 +3,7 @@ import { MAX_CONCURRENT_CHUNK_REQUESTS, mapWithConcurrencyLimit, pruneContext, t
 import { redactSecrets } from './redact.js'
 import { estimateTokens } from './tokenEstimate.js'
 import { DEFAULT_POLICY, type Entry, type PruneDecision, type PruningPolicy } from './types.js'
-import { validateMessages } from './validate.js'
+import { validateGoal, validateMessages } from './validate.js'
 
 /**
  * The Anthropic Messages API's conversation shape, loosely typed: only the blocks ctxjev reads are
@@ -211,6 +211,7 @@ export async function pruneMessages(messages: AnthropicMessage[], goal: string, 
   const count = (name: string, value: unknown, min: number) => {
     if (typeof value !== 'number' || !Number.isFinite(value) || value < min) throw new Error(`${name} must be a number of at least ${min}, got ${String(value)}`)
   }
+  validateGoal(goal)
   count('protectLast', protectLast, 0)
   count('minSavedTokens', minSavedTokens, 0)
   if (targetTokens !== undefined) count('targetTokens', targetTokens, 0)

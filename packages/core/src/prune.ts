@@ -6,7 +6,7 @@ import { percentileRanks } from './percentile.js'
 import { combineScore, decideAction } from './policy.js'
 import { computeRecency } from './recency.js'
 import { redactSecrets } from './redact.js'
-import { validateEntries, validatePolicy, validateRecencyWeight } from './validate.js'
+import { validateEntries, validateGoal, validatePolicy, validateRecencyWeight } from './validate.js'
 import { DEFAULT_POLICY, type Entry, type JevUsage, type PruneDecision, type PruningPolicy, type ScoredEntry } from './types.js'
 
 /**
@@ -119,6 +119,7 @@ export async function scoreEntries(
   options: ScoreEntriesOptions = {},
 ): Promise<ScoredEntry[]> {
   validateEntries(entries)
+  validateGoal(goal)
   validateRecencyWeight(recencyWeight)
   const { scorer } = options
   // Types stop a TypeScript caller's typo; a JavaScript one ('Jev') would otherwise get recency in silence.

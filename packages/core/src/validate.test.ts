@@ -89,3 +89,12 @@ describe('Anthropic Messages blocks are checked before reading them', () => {
     await expectPlainError(() => pruneMessages(messages as AnthropicMessage[], 'goal'), message)
   })
 })
+
+// Found by scripts/boundary-bruteforce.mjs: a goal that isn't a string reached the keyword scorer
+// and died with "text.matchAll is not a function".
+describe('the goal is checked', () => {
+  it.each([undefined, null, 7, {}, []])('%j', async (goal) => {
+    await expectPlainError(() => pruneContext([entry()], goal as unknown as string, undefined, { scorer: 'local' }), /goal must be a string/)
+    await expectPlainError(() => pruneMessages([{ role: 'user', content: 'x' }], goal as unknown as string), /goal must be a string/)
+  })
+})

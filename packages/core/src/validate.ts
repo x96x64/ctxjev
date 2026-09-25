@@ -29,6 +29,10 @@ export function validateEntries(entries: unknown, where = 'entries'): asserts en
   entries.forEach((entry, i) => validateEntry(entry, `${where}[${i}]`))
 }
 
+export function validateGoal(goal: unknown): asserts goal is string {
+  if (typeof goal !== 'string') throw new Error(`goal must be a string, got ${goal === null ? 'null' : typeof goal}`)
+}
+
 export function validatePolicy(policy: PruningPolicy): void {
   if (!isObject(policy)) throw new Error('policy must be an object with dropBelow, summarizeBelow, and recencyWeight')
   for (const key of ['dropBelow', 'summarizeBelow', 'recencyWeight'] as const) {
