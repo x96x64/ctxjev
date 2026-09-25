@@ -94,7 +94,12 @@ describe('pruneMessages', () => {
     expect(withNote.messages).toBe(conversation)
     expect(withNote.savedTokens).toBe(0)
 
-    const { messages, removed } = await pruneMessages(conversation, 'Fix the checkout double charge on retry', { scorer: 'local', marker: false })
+    // Scores fixed here rather than by keyword overlap: this test is about the pairing, and since
+    // 0.6.0 'local' ranks overlap within the batch (see prune.test.ts), which in a batch this small
+    // summarizes the zero-overlap entries instead of dropping them.
+    const unrelated = ['msg:1:0', 'tool:t1', 'msg:5:0', 'msg:6', 'tool:t3']
+    const scorer = async (_goal: string, entries: Entry[]) => entries.map((e) => (unrelated.includes(e.id) ? 0 : 1))
+    const { messages, removed } = await pruneMessages(conversation, 'Fix the checkout double charge on retry', { scorer, policy: noRecency, marker: false })
 
     expect(removed.sort()).toEqual(['msg:1:0', 'msg:5:0', 'tool:t1'])
     expectValidToolPairing(messages)

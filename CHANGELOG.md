@@ -28,6 +28,11 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
   underscore (`mcp__ghp_…`). Jev scores cached by earlier versions are ignored.
 - `ctxjev-core`: a tool call's input is masked before it's shortened. Shortened first, a token cut
   at 160 characters could reach Jev as a prefix too short to recognize.
+- `ctxjev-core`, `ctxjev-cli`: with `scorer: 'local'` / `--scorer local`, `pruneContext()` (and so
+  `pruneMessages()` and `ctxjev prune`) ranks keyword overlap within the batch before applying the
+  thresholds. Raw overlap rarely reaches the 0.3 drop threshold, so it used to drop nearly every
+  entry, most of the relevant ones included. Tie handling was chosen on the dev split only
+  (`eval/calibrate-local.mjs`). `scoreEntries()` and the Claude Code plugin still use raw overlap.
 - `ctxjev-core`: `pruneMessages()` never touches the latest turn: your last instruction and every
   tool round-trip after it (`protectLastTurn`, default on). It used to protect only the last two
   messages, so a turn with three tool calls lost the first two. `protectLast` still applies as a

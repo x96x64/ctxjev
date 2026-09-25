@@ -53,6 +53,14 @@ its position in the batch (oldest 0, newest 1), so with the default thresholds (
 touches the first message, the latest turn, or (by default) anything the user wrote; `pruneContext()`
 has no such protection, so exclude what must stay before calling it.
 
+**With `'local'`**, keyword overlap is ranked within the batch before the thresholds apply: each
+decision's `relevance` is the entry's percentile rank of overlap (tied entries share their average
+rank), so the thresholds read as shares of the batch rather than as probabilities. Raw overlap
+rarely reaches 0.3, and the thresholds used to drop almost everything, relevant entries included.
+When most entries share no word with the goal, they tie in the middle and are marked for
+summarizing, not dropped; pass `targetTokens` to `pruneMessages()` if you need a fixed size.
+`scoreEntries()` still returns the raw overlap.
+
 With `scorer: 'jev'`, entry content and the goal are sent to TypeSafe AI's Jev API. Every request
 passes through `redactSecrets()` first, masking common secret formats to `[REDACTED]` (best-effort, not
 exhaustive). It's exported too, if you want to apply the same masking elsewhere.
