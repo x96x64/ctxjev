@@ -191,9 +191,9 @@ The `entries` array above is the one shape every agent's history maps onto, rega
 `ctxjev analyze` also auto-detects a real Claude Code session `.jsonl` and infers the goal from
 your first request plus your latest instruction unless `--goal` overrides it. See
 [`examples/sample-transcripts/claude-code-session.jsonl`](examples/sample-transcripts/claude-code-session.jsonl)
-for a synthetic one. **Be careful pointing it at a real session log**: entry content is sent to the
-live Jev API, and although common secret formats are masked first, that masking can't catch
-everything.
+for a synthetic one. **Be careful pointing it at a real session log with `--scorer jev`**: entry
+content is sent to the live Jev API, and although common secret formats are masked first, that
+masking can't catch everything. The default scorer, and `--scorer local`, send nothing.
 
 ## Does It Work?
 

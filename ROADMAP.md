@@ -5,13 +5,14 @@ and [CHANGELOG.md](CHANGELOG.md).
 
 ## Next
 
-1. **Re-run the plugin's holdout comparison** (`eval/plugin.mjs --split holdout`): the first
-   attempt errored because the recording sandbox's hook subprocess couldn't reach Jev (see
-   [PREREGISTRATION.md](packages/core/eval/PREREGISTRATION.md)'s Results). Needs an environment
-   where `preCompact.js`'s narrowed subprocess environment can actually make outbound requests.
-2. **Look into why keyword overlap beat Jev on holdout retention** (28.3% vs. 15.6% at a 25%
-   budget) when it lost badly on dev (65% vs. 85%) — task phrasing overlapping the goal's words,
-   or a labeling difference between the two rounds, are the leading guesses; neither is confirmed.
+1. **Round 2** ([plan, in Japanese](docs/design/round-2-scoring-and-evaluation.md)): a hybrid of
+   cheap deterministic signals, built on the dev split only, with Jev as an optional feature
+   compared with and without it; 24 new tasks, 8 of them written by a separate agent from a written
+   spec; preregistered and committed before any scoring, then run once within a fixed budget.
+2. **Why Jev ranked below keyword overlap and a random order on the holdout's retention measure**
+   when it beat both on dev. The labeling difference between the two splits (the holdout labeled
+   nothing after the fix request) is the leading explanation; the Round 2 retention measure (v2)
+   stops at the fix request for that reason.
 3. Token budgets with Claude's own token counting instead of `gpt-tokenizer`, if scorer choice
    starts to hinge on budgets tighter than 25%.
 
@@ -56,3 +57,5 @@ and [CHANGELOG.md](CHANGELOG.md).
     tasks). **`recency` (plain truncation) is now the default scorer**; Jev is opt-in
     (`scorer: 'jev'`). `ctxjev-mcp` is unaffected, since exposing Jev is its whole purpose.
   - The release gate made strict.
+  - The plugin's holdout comparison, run twice: no demonstrated effect in either run. The plugin
+    now scores offline by default; Jev is opt-in (`CTXJEV_SCORER=jev`).
