@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "ctxjev",
-      "source": "./packages/claude-plugin",
+      "source": {"source": "git-subdir", "url": "https://github.com/x96x64/ctxjev.git", "path": "packages/claude-plugin", "ref": "v0.6.0"},
       "displayName": "ctxjev",
       "description": "Scores your session's context right before Claude Code compacts it (offline by keyword overlap by default; Jev if you opt in), then hands the highest-scoring entries back as a reminder the instant compaction finishes — so the detail that mattered most doesn't have to survive being summarized to still be there. Works automatically; /ctxjev:set-goal aims it at something specific, /ctxjev:status shows what's cached.",
       "keywords": ["context", "pruning", "jev", "tokens", "compaction"],
