@@ -37,6 +37,7 @@ export type PruneEntriesResult = {
  */
 export function pruneEntries(entries: Entry[], decisions: PruneDecision[], options: PruneEntriesOptions = {}): PruneEntriesResult {
   const { protectFirstUserEntry = true, protectLast = 2 } = options
+  if (typeof protectLast !== 'number' || !Number.isFinite(protectLast) || protectLast < 0) throw new Error(`protectLast must be a number of at least 0, got ${String(protectLast)}`)
   const decisionById = new Map(decisions.map((d) => [d.entryId, d]))
   const firstUser = entries.find((e) => e.role === 'user')
   const tailStart = entries.length - Math.max(0, Math.floor(protectLast))

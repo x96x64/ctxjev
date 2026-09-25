@@ -333,3 +333,36 @@ describe('ctxjev flags', () => {
     expect(result.stderr).not.toContain('To specify a positional argument')
   }, 15_000)
 })
+
+// The third audit's checks 14-16, run the same way: through the CLI, on files.
+describe('malformed input is named, never a raw error or a NaN', () => {
+  it('a string sourceTokens ("100") is refused, not printed as "NaN%"', async () => {
+    const file = join(dir, 's.json')
+    await writeFile(file, JSON.stringify({ goal: 'g', entries: [{ id: 'a', role: 'tool', content: 'x', timestamp: 1, sourceTokens: '100' }, { id: 'b', role: 'tool', content: 'y', timestamp: 2 }] }))
+    const result = await run(['analyze', file])
+    expect(result.exitCode).toBe(1)
+    expect(result.stderr).toContain('entries[0].sourceTokens must be a non-negative number')
+    expect(result.stdout).not.toContain('NaN')
+  }, 15_000)
+
+  it('a text block with no text is named, not "Cannot read properties of undefined"', async () => {
+    const file = join(dir, 'b.json')
+    await writeFile(file, JSON.stringify([{ role: 'user', content: [{ type: 'text' }] }, { role: 'assistant', content: 'ok' }]))
+    for (const command of ['analyze', 'prune']) {
+      const result = await run([command, file])
+      expect(result.exitCode).toBe(1)
+      expect(result.stderr).toContain('messages[0].content[0].text must be a string')
+      expect(result.stderr).not.toContain('Cannot read properties')
+    }
+  }, 15_000)
+
+  it('timestamps of ±1e308 are scored by their order, not NaN', async () => {
+    const file = join(dir, 't.json')
+    await writeFile(file, JSON.stringify({ goal: 'g', entries: [{ id: 'old', role: 'tool', content: 'x', timestamp: -1e308 }, { id: 'mid', role: 'tool', content: 'y', timestamp: 0 }, { id: 'new', role: 'tool', content: 'z', timestamp: 1e308 }] }))
+    const result = await run(['analyze', file, '--json'])
+    expect(result.exitCode).toBe(0)
+    expect(result.stderr).not.toContain('NaN')
+    const { decisions } = JSON.parse(result.stdout)
+    expect(decisions.map((d: { recency: number }) => d.recency)).toEqual([0, 0.5, 1])
+  }, 15_000)
+})

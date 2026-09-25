@@ -6,6 +6,7 @@ import { percentileRanks } from './percentile.js'
 import { combineScore, decideAction } from './policy.js'
 import { computeRecency } from './recency.js'
 import { redactSecrets } from './redact.js'
+import { validateEntries, validatePolicy, validateRecencyWeight } from './validate.js'
 import { DEFAULT_POLICY, type Entry, type JevUsage, type PruneDecision, type PruningPolicy, type ScoredEntry } from './types.js'
 
 /**
@@ -117,6 +118,8 @@ export async function scoreEntries(
   recencyWeight: number = DEFAULT_POLICY.recencyWeight,
   options: ScoreEntriesOptions = {},
 ): Promise<ScoredEntry[]> {
+  validateEntries(entries)
+  validateRecencyWeight(recencyWeight)
   const { scorer } = options
   // Types stop a TypeScript caller's typo; a JavaScript one ('Jev') would otherwise get recency in silence.
   if (scorer !== undefined && typeof scorer !== 'function' && !(BUILT_IN_SCORERS as readonly string[]).includes(scorer)) {
@@ -176,6 +179,7 @@ export async function pruneContext(
   policy: PruningPolicy = DEFAULT_POLICY,
   options: ScoreEntriesOptions = {},
 ): Promise<PruneDecision[]> {
+  validatePolicy(policy)
   let scored = await scoreEntries(entries, goal, policy.recencyWeight, options)
   if (options.scorer === 'local') {
     const ranks = percentileRanks(scored.map((s) => s.relevance))

@@ -1,7 +1,5 @@
 import { jsonErrorOffset } from './jsonError.js'
-import { estimateTokens, inferGoalFromEntries, messagesToEntries, parseClaudeCodeTranscript, resolveClaudeCodeGoal, type AnthropicMessage, type Entry, type EntryRole } from 'ctxjev-core'
-
-const VALID_ROLES: EntryRole[] = ['user', 'assistant', 'tool']
+import { estimateTokens, inferGoalFromEntries, messagesToEntries, parseClaudeCodeTranscript, resolveClaudeCodeGoal, validateEntries, validateMessages, type AnthropicMessage, type Entry } from 'ctxjev-core'
 
 export type TranscriptFile =
   /** `file`: the whole parsed file, so prune can write back every field it doesn't change. */
@@ -85,11 +83,9 @@ function looksLikeClaudeCodeRecord(parsed: unknown): boolean {
 function parseAnthropicMessages(messages: unknown, goal: unknown, file: Record<string, unknown> | undefined): TranscriptFile {
   if (!Array.isArray(messages)) throw new Error('"messages" must be an array')
   if (goal !== undefined && typeof goal !== 'string') throw new Error('"goal" must be a string when present')
-  messages.forEach((message, index) => {
-    const { role, content } = (message ?? {}) as Record<string, unknown>
-    if (role !== 'user' && role !== 'assistant') throw new Error(`messages[${index}].role must be "user" or "assistant"`)
-    if (typeof content !== 'string' && !Array.isArray(content)) throw new Error(`messages[${index}].content must be a string or an array of blocks`)
-  })
+  // Every message and block ctxjev reads (a text block's text, a tool call's id and name, ...), so a
+  // malformed one is named here instead of failing later with a raw TypeError.
+  validateMessages(messages)
   const typed = messages as AnthropicMessage[]
   const entries = messagesToEntries(typed)
   return { format: 'anthropic-messages', goal: goal ?? inferGoalFromEntries(entries), entries, messages: typed, wrapped: file !== undefined, ...(file && { file }) }
@@ -110,35 +106,10 @@ function parseCtxjevFormat(parsed: unknown): TranscriptFile {
     throw new Error('"goal" must be a string when present')
   }
 
-  entries.forEach((entry, index) => validateEntry(entry, index))
+  // A malformed entry (a bad timestamp, especially) doesn't fail loudly — it poisons every other
+  // entry's recency-relative score to NaN, which then silently reads as "keep everything", and a
+  // string sourceTokens printed "NaN%". Rejected here, with the field named.
+  validateEntries(entries)
 
   return { format: 'ctxjev', goal, entries: entries as Entry[], file: parsed as Record<string, unknown> }
-}
-
-/** A malformed entry (a bad timestamp, especially) doesn't fail loudly — it poisons every other
- * entry's recency-relative score to NaN, which then silently reads as "keep everything". Reject
- * it here instead, at the one place ctxjev's own transcript format is actually parsed. */
-function validateEntry(entry: unknown, index: number): void {
-  const where = `entries[${index}]`
-  if (typeof entry !== 'object' || entry === null) {
-    throw new Error(`${where} must be an object`)
-  }
-
-  const { id, role, toolName, content, timestamp } = entry as Record<string, unknown>
-
-  if (typeof id !== 'string' || id.length === 0) {
-    throw new Error(`${where}.id must be a non-empty string`)
-  }
-  if (typeof role !== 'string' || !VALID_ROLES.includes(role as EntryRole)) {
-    throw new Error(`${where}.role must be one of ${VALID_ROLES.join(', ')}`)
-  }
-  if (toolName !== undefined && typeof toolName !== 'string') {
-    throw new Error(`${where}.toolName must be a string when present`)
-  }
-  if (typeof content !== 'string') {
-    throw new Error(`${where}.content must be a string`)
-  }
-  if (typeof timestamp !== 'number' || !Number.isFinite(timestamp)) {
-    throw new Error(`${where}.timestamp must be a finite number`)
-  }
 }

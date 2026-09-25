@@ -3,6 +3,7 @@ import { MAX_CONCURRENT_CHUNK_REQUESTS, mapWithConcurrencyLimit, pruneContext, t
 import { redactSecrets } from './redact.js'
 import { estimateTokens } from './tokenEstimate.js'
 import { DEFAULT_POLICY, type Entry, type PruneDecision, type PruningPolicy } from './types.js'
+import { validateMessages } from './validate.js'
 
 /**
  * The Anthropic Messages API's conversation shape, loosely typed: only the blocks ctxjev reads are
@@ -32,6 +33,7 @@ export function messagesToEntries(messages: AnthropicMessage[]): Entry[] {
 }
 
 function mapMessages(messages: AnthropicMessage[]): MappedEntry[] {
+  validateMessages(messages)
   const entries: MappedEntry[] = []
   const results = new Map<string, { location: Location; text: string; isError?: boolean }>()
 
@@ -206,6 +208,13 @@ export function lastTurnStart(messages: AnthropicMessage[]): number {
  */
 export async function pruneMessages(messages: AnthropicMessage[], goal: string, options: PruneMessagesOptions = {}): Promise<PruneMessagesResult> {
   const { policy = DEFAULT_POLICY, protectLastTurn = true, protectLast = 2, targetTokens, summarize, minSavedTokens = 0, keepUserText = true, marker = true, ...scoreOptions } = options
+  const count = (name: string, value: unknown, min: number) => {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < min) throw new Error(`${name} must be a number of at least ${min}, got ${String(value)}`)
+  }
+  count('protectLast', protectLast, 0)
+  count('minSavedTokens', minSavedTokens, 0)
+  if (targetTokens !== undefined) count('targetTokens', targetTokens, 0)
+  if (summarize !== undefined && summarize !== 'excerpt' && typeof summarize !== 'function') throw new Error(`summarize must be 'excerpt' or a function, got ${String(summarize)}`)
   const mapped = mapMessages(messages)
   const decisions = await pruneContext(mapped.map(toEntry), goal, policy, scoreOptions)
   const decisionById = new Map(decisions.map((d) => [d.entryId, d]))
