@@ -1,0 +1,459 @@
+{
+  "runs": 3,
+  "sets": {
+    "short": {
+      "local": {
+        "labels": 129,
+        "accuracyByWeight": {
+          "0": 0.7209302325581395,
+          "0.05": 0.7209302325581395,
+          "0.1": 0.7209302325581395,
+          "0.2": 0.7286821705426356,
+          "0.3": 0.7131782945736435,
+          "0.5": 0.6046511627906976
+        },
+        "minAccuracyAtDefault": 0.7209302325581395,
+        "topKMisses": {
+          "checkout-bug.json": 0,
+          "invoice-date-ja.json": 2,
+          "memory-leak.json": 0,
+          "pagination-bug.json": 0,
+          "session-logout.json": 4
+        }
+      },
+      "jev": {
+        "labels": 129,
+        "accuracyByWeight": {
+          "0": 0.8914728682170544,
+          "0.05": 0.9043927648578811,
+          "0.1": 0.9043927648578811,
+          "0.2": 0.8604651162790699,
+          "0.3": 0.7441860465116279,
+          "0.5": 0.6253229974160207
+        },
+        "minAccuracyAtDefault": 0.8992248062015504,
+        "topKMisses": {
+          "checkout-bug.json": 0,
+          "invoice-date-ja.json": 0,
+          "memory-leak.json": 0,
+          "pagination-bug.json": 0,
+          "session-logout.json": 0
+        }
+      }
+    },
+    "sessions": {
+      "local": {
+        "labels": 472,
+        "accuracyByWeight": {
+          "0": 0.4851694915254237,
+          "0.05": 0.4809322033898305,
+          "0.1": 0.4851694915254237,
+          "0.2": 0.5,
+          "0.3": 0.5317796610169492,
+          "0.5": 0.5508474576271186
+        },
+        "minAccuracyAtDefault": 0.4851694915254237,
+        "topKMisses": {
+          "csv-mojibake.json": 0,
+          "flaky-order-test.json": 0,
+          "recorded-config-precedence.json": 0,
+          "recorded-csv-import-encoding.json": 1,
+          "recorded-flag-rollout.json": 1,
+          "recorded-invoice-rounding.json": 0,
+          "recorded-month-boundary.json": 0,
+          "recorded-permission-check.json": 1,
+          "recorded-pii-logging.json": 0,
+          "recorded-retry-backoff.json": 1,
+          "recorded-search-normalize.json": 1,
+          "recorded-webhook-dedupe.json": 0,
+          "search-latency.json": 0,
+          "stale-price.json": 1,
+          "webpack-upgrade.json": 1
+        }
+      },
+      "jev": {
+        "labels": 472,
+        "accuracyByWeight": {
+          "0": 0.7387005649717514,
+          "0.05": 0.7323446327683616,
+          "0.1": 0.7245762711864406,
+          "0.2": 0.7055084745762712,
+          "0.3": 0.6949152542372882,
+          "0.5": 0.7076271186440678
+        },
+        "minAccuracyAtDefault": 0.7245762711864406,
+        "topKMisses": {
+          "csv-mojibake.json": 0,
+          "flaky-order-test.json": 0,
+          "recorded-config-precedence.json": 0,
+          "recorded-csv-import-encoding.json": 1,
+          "recorded-flag-rollout.json": 0,
+          "recorded-invoice-rounding.json": 0,
+          "recorded-month-boundary.json": 0,
+          "recorded-permission-check.json": 0,
+          "recorded-pii-logging.json": 0,
+          "recorded-retry-backoff.json": 0,
+          "recorded-search-normalize.json": 0,
+          "recorded-webhook-dedupe.json": 0,
+          "search-latency.json": 0,
+          "stale-price.json": 0,
+          "webpack-upgrade.json": 0
+        }
+      }
+    },
+    "all": {
+      "local": {
+        "labels": 601,
+        "accuracyByWeight": {
+          "0": 0.5357737104825291,
+          "0.05": 0.5324459234608985,
+          "0.1": 0.5357737104825291,
+          "0.2": 0.5490848585690515,
+          "0.3": 0.5707154742096506,
+          "0.5": 0.562396006655574
+        },
+        "minAccuracyAtDefault": 0.5357737104825291,
+        "topKMisses": {
+          "checkout-bug.json": 0,
+          "invoice-date-ja.json": 2,
+          "memory-leak.json": 0,
+          "pagination-bug.json": 0,
+          "session-logout.json": 4,
+          "csv-mojibake.json": 0,
+          "flaky-order-test.json": 0,
+          "recorded-config-precedence.json": 0,
+          "recorded-csv-import-encoding.json": 1,
+          "recorded-flag-rollout.json": 1,
+          "recorded-invoice-rounding.json": 0,
+          "recorded-month-boundary.json": 0,
+          "recorded-permission-check.json": 1,
+          "recorded-pii-logging.json": 0,
+          "recorded-retry-backoff.json": 1,
+          "recorded-search-normalize.json": 1,
+          "recorded-webhook-dedupe.json": 0,
+          "search-latency.json": 0,
+          "stale-price.json": 1,
+          "webpack-upgrade.json": 1
+        }
+      },
+      "jev": {
+        "labels": 601,
+        "accuracyByWeight": {
+          "0": 0.7714919578480309,
+          "0.05": 0.7692734331669439,
+          "0.1": 0.7631724902939544,
+          "0.2": 0.7387687188019966,
+          "0.3": 0.7054908485856904,
+          "0.5": 0.6899611758180809
+        },
+        "minAccuracyAtDefault": 0.762063227953411,
+        "topKMisses": {
+          "checkout-bug.json": 0,
+          "invoice-date-ja.json": 0,
+          "memory-leak.json": 0,
+          "pagination-bug.json": 0,
+          "session-logout.json": 0,
+          "csv-mojibake.json": 0,
+          "flaky-order-test.json": 0,
+          "recorded-config-precedence.json": 0,
+          "recorded-csv-import-encoding.json": 1,
+          "recorded-flag-rollout.json": 0,
+          "recorded-invoice-rounding.json": 0,
+          "recorded-month-boundary.json": 0,
+          "recorded-permission-check.json": 0,
+          "recorded-pii-logging.json": 0,
+          "recorded-retry-backoff.json": 0,
+          "recorded-search-normalize.json": 0,
+          "recorded-webhook-dedupe.json": 0,
+          "search-latency.json": 0,
+          "stale-price.json": 0,
+          "webpack-upgrade.json": 0
+        }
+      }
+    }
+  },
+  "retention": {
+    "local": {
+      "0.25": {
+        "probes": 0.652910052910053,
+        "relevantTokens": 0.25786350695506677
+      },
+      "0.5": {
+        "probes": 0.7984126984126985,
+        "relevantTokens": 0.35745595822874054
+      },
+      "byLanguage": {
+        "en": {
+          "0.25": {
+            "probes": 0.5987654320987654,
+            "relevantTokens": 0.27501936470586297
+          },
+          "0.5": {
+            "probes": 0.7592592592592592,
+            "relevantTokens": 0.38289053662670336
+          }
+        },
+        "ja": {
+          "0.25": {
+            "probes": 0.7341269841269842,
+            "relevantTokens": 0.2321297203288726
+          },
+          "0.5": {
+            "probes": 0.8571428571428572,
+            "relevantTokens": 0.3193040906317962
+          }
+        }
+      },
+      "byKind": {
+        "written": {
+          "0.25": {
+            "probes": 0.4492063492063491,
+            "relevantTokens": 0.4418409247074602
+          },
+          "0.5": {
+            "probes": 0.6857142857142857,
+            "relevantTokens": 0.5922823096611924
+          }
+        },
+        "recorded": {
+          "0.25": {
+            "probes": 0.7547619047619047,
+            "relevantTokens": 0.16587479807887018
+          },
+          "0.5": {
+            "probes": 0.8547619047619047,
+            "relevantTokens": 0.2400427825125145
+          }
+        }
+      }
+    },
+    "jev": {
+      "0.25": {
+        "probes": 0.8596119929453263,
+        "relevantTokens": 0.3678154956879181
+      },
+      "0.5": {
+        "probes": 0.9555555555555556,
+        "relevantTokens": 0.5158639401792368
+      },
+      "byLanguage": {
+        "en": {
+          "0.25": {
+            "probes": 0.8083480305702528,
+            "relevantTokens": 0.3936041658629759
+          },
+          "0.5": {
+            "probes": 0.9576719576719578,
+            "relevantTokens": 0.575485097261693
+          }
+        },
+        "ja": {
+          "0.25": {
+            "probes": 0.9365079365079364,
+            "relevantTokens": 0.32913249042533144
+          },
+          "0.5": {
+            "probes": 0.9523809523809524,
+            "relevantTokens": 0.42643220455555236
+          }
+        }
+      },
+      "byKind": {
+        "written": {
+          "0.25": {
+            "probes": 0.835978835978836,
+            "relevantTokens": 0.5214894828060235
+          },
+          "0.5": {
+            "probes": 0.9238095238095237,
+            "relevantTokens": 0.7444217019235125
+          }
+        },
+        "recorded": {
+          "0.25": {
+            "probes": 0.8714285714285716,
+            "relevantTokens": 0.29097850212886545
+          },
+          "0.5": {
+            "probes": 0.9714285714285715,
+            "relevantTokens": 0.4015850593070988
+          }
+        }
+      }
+    },
+    "recency": {
+      "0.25": {
+        "probes": 0.662962962962963,
+        "relevantTokens": 0.29322093703789537
+      },
+      "0.5": {
+        "probes": 0.8037037037037037,
+        "relevantTokens": 0.4247762001355785
+      },
+      "byLanguage": {
+        "en": {
+          "0.25": {
+            "probes": 0.689594356261023,
+            "relevantTokens": 0.3469706350251366
+          },
+          "0.5": {
+            "probes": 0.8447971781305115,
+            "relevantTokens": 0.49767714299374105
+          }
+        },
+        "ja": {
+          "0.25": {
+            "probes": 0.623015873015873,
+            "relevantTokens": 0.21259639005703357
+          },
+          "0.5": {
+            "probes": 0.7420634920634921,
+            "relevantTokens": 0.3154247858483345
+          }
+        }
+      },
+      "byKind": {
+        "written": {
+          "0.25": {
+            "probes": 0.5031746031746032,
+            "relevantTokens": 0.3545102056545296
+          },
+          "0.5": {
+            "probes": 0.5825396825396825,
+            "relevantTokens": 0.4857613669234748
+          }
+        },
+        "recorded": {
+          "0.25": {
+            "probes": 0.7428571428571429,
+            "relevantTokens": 0.26257630272957827
+          },
+          "0.5": {
+            "probes": 0.9142857142857143,
+            "relevantTokens": 0.39428361674163026
+          }
+        }
+      }
+    },
+    "random": {
+      "0.25": {
+        "probes": 0.6201587301587301,
+        "relevantTokens": 0.23571055873604613
+      },
+      "0.5": {
+        "probes": 0.6925925925925926,
+        "relevantTokens": 0.3222223999006717
+      },
+      "byLanguage": {
+        "en": {
+          "0.25": {
+            "probes": 0.6134920634920635,
+            "relevantTokens": 0.25787870966440174
+          },
+          "0.5": {
+            "probes": 0.6914902998236332,
+            "relevantTokens": 0.35805833622353017
+          }
+        },
+        "ja": {
+          "0.25": {
+            "probes": 0.6301587301587301,
+            "relevantTokens": 0.20245833234351282
+          },
+          "0.5": {
+            "probes": 0.6942460317460317,
+            "relevantTokens": 0.2684684954163839
+          }
+        }
+      },
+      "byKind": {
+        "written": {
+          "0.25": {
+            "probes": 0.5888095238095237,
+            "relevantTokens": 0.3248996481732542
+          },
+          "0.5": {
+            "probes": 0.6846825396825397,
+            "relevantTokens": 0.4616558895113794
+          }
+        },
+        "recorded": {
+          "0.25": {
+            "probes": 0.6358333333333335,
+            "relevantTokens": 0.19111601401744213
+          },
+          "0.5": {
+            "probes": 0.6965476190476191,
+            "relevantTokens": 0.25250565509531786
+          }
+        }
+      }
+    },
+    "labels": {
+      "0.25": {
+        "probes": 0.802116402116402,
+        "relevantTokens": 0.39709166584232386
+      },
+      "0.5": {
+        "probes": 0.9047619047619048,
+        "relevantTokens": 0.5337140180058024
+      },
+      "byLanguage": {
+        "en": {
+          "0.25": {
+            "probes": 0.7654320987654321,
+            "relevantTokens": 0.44660856717079295
+          },
+          "0.5": {
+            "probes": 0.8888888888888888,
+            "relevantTokens": 0.5887480808939319
+          }
+        },
+        "ja": {
+          "0.25": {
+            "probes": 0.8571428571428572,
+            "relevantTokens": 0.32281631384962006
+          },
+          "0.5": {
+            "probes": 0.9285714285714285,
+            "relevantTokens": 0.4511629236736079
+          }
+        }
+      },
+      "byKind": {
+        "written": {
+          "0.25": {
+            "probes": 0.7206349206349206,
+            "relevantTokens": 0.5793069486777364
+          },
+          "0.5": {
+            "probes": 0.8285714285714285,
+            "relevantTokens": 0.757490056206054
+          }
+        },
+        "recorded": {
+          "0.25": {
+            "probes": 0.8428571428571429,
+            "relevantTokens": 0.3059840244246176
+          },
+          "0.5": {
+            "probes": 0.9428571428571428,
+            "relevantTokens": 0.4218259989056765
+          }
+        }
+      }
+    }
+  },
+  "retentionDifference": {
+    "0.25": {
+      "probes": 0.1966490299823633,
+      "low": 0.07936507936507936,
+      "high": 0.3285714285714285
+    },
+    "0.5": {
+      "probes": 0.15185185185185185,
+      "low": 0.011111111111111094,
+      "high": 0.32063492063492066
+    }
+  }
+}
