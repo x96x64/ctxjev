@@ -11,10 +11,13 @@
  *    summary alone is a fair baseline, not a straw man.
  *
  * Then, the same way tasks.mjs and outcome.mjs measure: the agent finishes the task from
- * (A) the summary alone, (B) the summary plus the plugin's digest as it works today (goal inferred
- * from the latest user message), or (C) the summary plus the digest scored against a candidate goal,
- * the session's first request plus its latest instruction (set through a /ctxjev:set-goal record
- * in the transcript). A model also answers the probe questions whose facts come before the cut,
+ * (A) the summary alone, (B) the summary plus the plugin's digest with the goal the plugin infers
+ * itself, or (C) the summary plus the digest scored against the session's first request plus its
+ * latest instruction, set through a /ctxjev:set-goal record in the transcript. When plugin.json
+ * (dev) was recorded, the plugin inferred the goal from the latest message alone (0.4.0), so (B)
+ * and (C) differed; since 0.5.0 it infers exactly (C)'s goal, so on the holdout runs they are the
+ * same goal supplied two ways (see eval/results/README.md). The digest is scored with Jev
+ * (CTXJEV_SCORER=jev), as every saved result was. A model also answers the probe questions whose facts come before the cut,
  * from the same contexts. The summary is made once per task and run, and every condition shares it.
  *
  * Needs ANTHROPIC_API_KEY and TYPESAFE_API_KEY. By hand:

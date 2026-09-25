@@ -199,8 +199,8 @@ masking can't catch everything. The default scorer, and `--scorer local`, send n
 
 ## Does It Work?
 
-The numbers below split into two groups. **Dev** (10 of the 15 sessions in
-[`examples/eval-sessions`](examples/eval-sessions)) informed 0.5.0's design — `keepUserText`, the
+The numbers below split into two groups. **Dev** (<!-- generated:session-counts -->15 of the 21 sessions: 5 written by hand and 10 recorded<!-- /generated:session-counts -->
+in [`examples/eval-sessions`](examples/eval-sessions), and the tasks they were recorded on) informed 0.5.0's design — `keepUserText`, the
 removal note, and the plugin's goal inference were all built from failures seen on it, so read
 those numbers as optimistic. **Holdout** (6 further tasks, recorded and labeled after that design
 was frozen, [preregistered](packages/core/eval/PREREGISTRATION.md) before any of them were scored)

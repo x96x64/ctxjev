@@ -649,6 +649,14 @@ function changesCutAnalysis() {
   return `ホールドアウト ${rows.holdout.length} 会話では切り取り点以降がトークンの ${range(rows.holdout.map((r) => r.share))}、そこにしかない事実は各 ${counts(rows.holdout)} 件。dev の記録 ${rows.dev.length} 会話では各 ${counts(rows.dev)} 件`
 }
 
+/** How many sessions each split has, and of what kind: counted from the files, never typed. */
+function sessionCounts() {
+  const names = readdirSync(join(root, 'examples/eval-sessions')).filter((f) => f.endsWith('.json'))
+  const dev = names.filter((f) => sessionSplit(f) === 'dev')
+  const recorded = dev.filter((f) => f.startsWith('recorded-')).length
+  return `${dev.length} of the ${names.length} sessions: ${dev.length - recorded} written by hand and ${recorded} recorded`
+}
+
 /** How precise a task-success difference was with 10 dev tasks, and the rough width with the plan's task count. */
 function designPrecision() {
   const d = taskDiff(tasksDev.rows, SHIPPED, TRUNCATION)
@@ -690,6 +698,7 @@ const RENDERERS = {
   'plugin-holdout-inline': pluginHoldoutInline,
   'prereg-plugin-rerun': preregPluginRerun,
   'design-plugin-holdout': designPluginHoldout,
+  'session-counts': sessionCounts,
 }
 
 // --- checking -----------------------------------------------------------------------------------
