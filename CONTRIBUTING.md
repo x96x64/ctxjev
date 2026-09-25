@@ -65,8 +65,8 @@ Releases are made by the maintainer, from `main`, only through the
   next release, unless npm is showing something wrong or misleading.
 - **Versions are lockstep** across the four packages and the three plugin manifests. Bump all seven
   together, then run `node scripts/check-versions.mjs --update-pins` so every `ctxjev-mcp@<version>`
-  in the MCP setup examples names the new version. The publish workflow refuses to run if any of
-  them disagree.
+  in the MCP setup examples names the new version, and the marketplace serves the plugin from the
+  new tag (below). The publish workflow refuses to run if any of them disagree.
 - **0.x semantics:** a changed default or removed option is a minor bump (0.5 → 0.6) and is called
   out as breaking in the CHANGELOG; fixes and additions are patch bumps.
 - **The CHANGELOG section for the version must exist** before publishing; it becomes the GitHub
@@ -78,10 +78,14 @@ Releases are made by the maintainer, from `main`, only through the
 - **The npm CLI and the GitHub Actions used are pinned** (npm by exact version in `publish.yml`,
   actions by commit SHA). Bump them on purpose; Dependabot proposes the action and dependency
   updates weekly.
-- **The Claude Code plugin** isn't on npm. Today the marketplace entry points at
-  `packages/claude-plugin` on `main`, so plugin users get `main` as soon as it's pushed, released
-  or not. Moving it to released commits only (a `release` branch the publish workflow advances) is
-  planned; see [`docs/design/round-2-scoring-and-evaluation.md`](docs/design/round-2-scoring-and-evaluation.md).
+- **The Claude Code plugin** isn't on npm; the marketplace installs it from this repository. From
+  the 0.6.0 release commit on, its entry in `.claude-plugin/marketplace.json` is a `git-subdir`
+  source at `ref: "v<version>"`, the tag the publish workflow creates, so plugin users get released
+  code only (before, it pointed at `packages/claude-plugin` on `main`, released or not).
+  `--update-pins` moves the ref, and the workflow's version check refuses a release whose entry
+  doesn't name its own tag. Between merging the release commit and the workflow creating the tag,
+  a new install fails for those few minutes; existing installs are unaffected. Claude Code updates
+  an installed plugin when its `version` changes, so the version bump is what reaches users.
 
 ## Reporting a vulnerability
 

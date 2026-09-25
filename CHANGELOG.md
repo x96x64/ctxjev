@@ -79,6 +79,8 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
   tool call accepts is bounded (a 5,000,000-character id used to pass validation).
 - `ctxjev-mcp`: starts without `TYPESAFE_API_KEY` and lists its tools; each call then returns an
   error saying the key is missing. Hosts used to see only "connection closed".
+- `ctxjev-claude`: from this release on, the marketplace installs the plugin from the release's
+  tag (`v0.6.0`), not from whatever is on `main`, so you only ever get released code.
 - `ctxjev-mcp`: every setup example pins the version (`npx ctxjev-mcp@0.5.0`), so hosts run the
   release you chose.
 - `ctxjev-core`: new `jevClient` option (bring your own Jev client), and new exports
