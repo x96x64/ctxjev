@@ -167,7 +167,11 @@ export type PruneMessagesResult = {
    * on the next request. `null` when nothing changed.
    */
   cache: { firstChangedMessage: number | null; invalidatedTokens: number }
-  /** `targetTokens` was set and the result still doesn't fit — only protected entries are left over it. */
+  /**
+   * `targetTokens` was set and the result still doesn't fit. When something was removed, every
+   * unprotected entry went and only protected ones are left; when nothing was (see `keptDrops`'
+   * `noNetSaving` and `belowMinSaved`), unprotected entries are still there too.
+   */
   overBudget: boolean
   /** Set when `minSavedTokens` held the changes back: what they would have saved. */
   heldBack?: number

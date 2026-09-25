@@ -20,7 +20,11 @@ export type PruneAction = 'keep' | 'drop' | 'summarize'
 
 export type ScoredEntry = {
   entryId: string
-  /** Jev's relevance probability (Noul), 0-1 — the sole signal `@typesafe-ai/sdk`'s noul() returns. */
+  /**
+   * The scorer's relevance, 0-1: Jev's probability (Noul) under `'jev'`; keyword overlap under
+   * `'local'` (in `pruneContext()`, its percentile rank within the batch); the entry's position
+   * under `'recency'`, which ignores the goal; or what your `CustomScorer` returned.
+   */
   relevance: number
   /** This entry's position in the batch, oldest=0 to newest=1 — see `recency.ts`. */
   recency: number
@@ -33,11 +37,14 @@ export type PruneDecision = ScoredEntry & {
 }
 
 export type PruningPolicy = {
-  /** Below this relevance, an entry is dropped outright. */
+  /** Below this `combinedScore`, an entry is marked `drop`. */
   dropBelow: number
-  /** Between dropBelow and this, an entry is summarized rather than kept verbatim or dropped. */
+  /**
+   * Between `dropBelow` and this, an entry is marked `summarize`: worth shortening. ctxjev itself
+   * only shortens one when `pruneMessages()` is given `summarize`; otherwise it's left as it is.
+   */
   summarizeBelow: number
-  /** Weight applied to recency when combining with Jev's relevance score (0 = ignore recency entirely). */
+  /** Weight applied to recency when combining it with the scorer's relevance (0 = ignore recency entirely). */
   recencyWeight: number
 }
 

@@ -43,9 +43,8 @@ describe('formatReport', () => {
 
   it('includes the summary counts and a token-savings percentage', () => {
     const report = stripAnsi(formatReport(entries, decisions, savings, usage))
-    expect(report).toContain('1 kept')
-    expect(report).toContain('1 dropped')
-    expect(report).toMatch(/40%/)
+    expect(report).toContain('1 keep, 0 summarize, 1 drop (of 2 entries)')
+    expect(report).toContain('prune would remove the 1 entry marked drop, ~4 / 10 tokens (40%)')
   })
 
   it('includes token usage and an estimated cost', () => {
@@ -71,8 +70,8 @@ describe('formatReport', () => {
 
   it('never shows a saving when nothing is dropped', () => {
     const none = stripAnsi(formatReport(entries, decisions, { ...savings, droppedEntries: 0, droppedTokens: 0 }, usage))
-    expect(none).toContain('no tokens saved by dropping')
-    expect(none).not.toMatch(/~-?\d+ \/ \d+ tokens saved/)
+    expect(none).toContain('prune would remove nothing, since no entry is marked drop')
+    expect(none).not.toMatch(/~-?\d+ \/ \d+ tokens/)
   })
 
   it('labels an offline run instead of printing a Jev cost line', () => {

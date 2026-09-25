@@ -44,13 +44,13 @@ export const scoreRelevanceInput = {
 
 export const pruneHistoryInput = {
   ...scoreRelevanceInput,
-  dropBelow: z.number().min(0).max(1).optional().describe(`Combined-score floor below which an entry is dropped. Defaults to ${DEFAULT_POLICY.dropBelow}.`),
+  dropBelow: z.number().min(0).max(1).optional().describe(`Combined-score floor below which an entry is marked drop. Defaults to ${DEFAULT_POLICY.dropBelow}.`),
   summarizeBelow: z
     .number()
     .min(0)
     .max(1)
     .optional()
-    .describe(`Combined-score floor below which an entry is summarized rather than kept verbatim. Defaults to ${DEFAULT_POLICY.summarizeBelow}.`),
+    .describe(`Combined-score floor below which an entry is marked summarize (worth shortening) rather than keep. Defaults to ${DEFAULT_POLICY.summarizeBelow}.`),
 }
 
 /** dropBelow/summarizeBelow are each in range on their own, but nothing above stops a reversed
