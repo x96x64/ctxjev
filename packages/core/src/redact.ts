@@ -105,6 +105,12 @@ const QUERY_LONG_SECRET_NAMES = /^code$/i
 // Cookies that hold a login: session ids, auth and remember-me tokens.
 const SESSION_COOKIE = /^(?:.*sess(?:ion)?(?:[_-]?(?:id|key|token))?|sid|.*auth.*|.*token|jwt|remember.*|connect\.sid|__Secure-.*|__Host-.*)$/i
 
+// .netrc: `password <value>` (on a line of its own or after machine/login), only in text that has a
+// `machine` entry (checked once, not per match), so prose like "password must be 12 characters"
+// isn't touched.
+const NETRC_HINT = /(?:^|\s)machine[ \t]+\S/
+const NETRC_PASSWORD = /(^[ \t]*(?:(?:machine|login|account)[ \t]+\S+[ \t]+)*password[ \t]+)(\S+)/gm
+
 const POSITIONAL_PATTERNS: Rule[] = [
   // scheme://user:password@host — the password may itself contain "@", so it runs to the last one.
   [/\b([a-z][a-z0-9+.-]{0,31}:\/\/[^\s:/?#@"'<>]{1,256}:)[^\s/?#"'<>]{0,1024}(@)/gi, `$1${REDACTED}$2`],
@@ -131,10 +137,6 @@ const POSITIONAL_PATTERNS: Rule[] = [
   // A user name and password passed to a credential constructor: NetworkCredential("u", "p"),
   // HTTPBasicAuth('u', 'p'), UsernamePasswordCredentials("u", "p"), requests' auth=('u', 'p').
   [/(\b(?:NetworkCredential|UsernamePasswordCredentials|PasswordAuthentication|HTTPBasicAuth|HTTPDigestAuth|BasicAuth|basicAuth|auth\s*=\s*)\(\s*(["'])[^"'\n]{0,128}\2\s*,\s*)(["'])([^"'\n]{1,256})\3/g, `$1$3${REDACTED}$3`],
-  // .netrc: `password <value>` (a line of its own or after machine/login), only in text that has a
-  // `machine` entry, so prose like "password must be 12 characters" isn't touched.
-  [/(^[ \t]*(?:(?:machine|login|account)[ \t]+\S+[ \t]+)*password[ \t]+)(\S+)/gm, (match, head: string, value: string, ...rest: unknown[]) =>
-    /(?:^|\s)machine[ \t]+\S/.test(rest[rest.length - 1] as string) && !isMasked(value) ? `${head}${REDACTED}` : match],
   // ~/.pgpass: hostname:port:database:username:password, one per line.
   [/^([^:\s#]{1,253}:(?:[0-9]{1,5}|\*):[^:\s]{1,128}:[^:\s]{1,128}:)(\S+)$/gm, (match, head: string, value: string) => (isMasked(value) ? match : `${head}${REDACTED}`)],
   // Cookie / Set-Cookie headers: only cookies named like a session or a credential, so analytics and
@@ -294,6 +296,7 @@ export function redactSecrets(text: string): string {
   let out = text
   for (const rule of TOKEN_PATTERNS) out = applyRule(out, rule)
   for (const rule of POSITIONAL_PATTERNS) out = applyRule(out, rule)
+  if (NETRC_HINT.test(out)) out = out.replace(NETRC_PASSWORD, (match, head: string, value: string) => (isMasked(value) ? match : `${head}${REDACTED}`))
   out = out.replace(CARD_CANDIDATE, (match: string) => {
     if (looksLikeCardNumber(match)) return REDACTED
     // 4-4-4-4 followed by three more digits: a 19-digit card, or a 16-digit one and its CVC.

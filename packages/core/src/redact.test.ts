@@ -125,6 +125,10 @@ describe('redactSecrets: time on long runs', () => {
     ['mysql …', 'mysql '.repeat(N / 6)],
     ['"a": "…', '"a": "'.repeat(N / 6)],
     ['█…', '█'.repeat(N)],
+    ['.netrc password lines…', `machine h\n${'password x\n'.repeat(N / 11)}`],
+    ['Cookie: a=b; …', `Cookie: ${'a=b; '.repeat(N / 5)}`],
+    ['.pgpass lines…', 'h:5432:d:u:p\n'.repeat(N / 13)],
+    [' --token …', ' --token '.repeat(N / 9)],
   ]
   it.each(runs)('%s (200,000 characters) in under 2 seconds', (_name, text) => {
     const start = performance.now()
