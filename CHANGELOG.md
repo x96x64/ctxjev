@@ -104,6 +104,12 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
   (Running Claude Code as root on a `~/.claude` that another user owns, such as a bind mount in a
   container, therefore keeps nothing.) Windows has no POSIX owner and mode bits, so the ownership
   and permission checks don't apply there; the symlink and hard-link refusals do.
+- `ctxjev-core`, `ctxjev-cli`: token counting no longer slows to a halt on a long run of one
+  character or of unpunctuated text. 100,000 `█` took 82 seconds and `ctxjev analyze` on a
+  5,000,000-character entry didn't finish in two minutes; both now take well under a second. A run
+  longer than 128 characters is counted in pieces, which can move its count by about a token per
+  piece; every other text counts exactly as before (on every sample and eval session in this repo,
+  one string of 6,078 changed, by one token).
 
 ## 0.6.1 — 2026-09-25
 
