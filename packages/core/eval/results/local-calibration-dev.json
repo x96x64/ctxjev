@@ -1,0 +1,455 @@
+{
+ "generatedAt": "2026-09-25T03:09:22.633Z",
+ "commit": "8e17b6bb0e47ddc7b3e9c272611bdc2934dde807",
+ "split": "dev",
+ "policy": {
+  "dropBelow": 0.3,
+  "summarizeBelow": 0.6,
+  "recencyWeight": 0.1
+ },
+ "fixtures": 20,
+ "rule": "lower relevantDropped wins; min unless mid is more than 1 point lower",
+ "chosen": "mid",
+ "summary": {
+  "raw": {
+   "entriesDropped": 0.8269605217247982,
+   "tokensDropped": 0.8584110806235865,
+   "relevantDropped": 0.7349773024458379,
+   "relevantKept": 0.06039921320098664
+  },
+  "min": {
+   "entriesDropped": 0.4570159744456472,
+   "tokensDropped": 0.3111058712601025,
+   "relevantDropped": 0.341853868861878,
+   "relevantKept": 0.4457535080289657
+  },
+  "mid": {
+   "entriesDropped": 0.28103843326232175,
+   "tokensDropped": 0.16785456670848903,
+   "relevantDropped": 0.20029118415274022,
+   "relevantKept": 0.5126759400972788
+  }
+ },
+ "perFixture": {
+  "checkout-bug.json": {
+   "set": "short",
+   "raw": {
+    "entriesDropped": 0.5714285714285714,
+    "tokensDropped": 0.3684210526315789,
+    "relevantDropped": 0,
+    "relevantKept": 0
+   },
+   "min": {
+    "entriesDropped": 0.42857142857142855,
+    "tokensDropped": 0.2941970310391363,
+    "relevantDropped": 0,
+    "relevantKept": 1
+   },
+   "mid": {
+    "entriesDropped": 0.42857142857142855,
+    "tokensDropped": 0.2941970310391363,
+    "relevantDropped": 0,
+    "relevantKept": 1
+   }
+  },
+  "invoice-date-ja.json": {
+   "set": "short",
+   "raw": {
+    "entriesDropped": 0.7142857142857143,
+    "tokensDropped": 0.7387218045112782,
+    "relevantDropped": 0.7272727272727273,
+    "relevantKept": 0.09090909090909091
+   },
+   "min": {
+    "entriesDropped": 0.5714285714285714,
+    "tokensDropped": 0.5764411027568922,
+    "relevantDropped": 0.6363636363636364,
+    "relevantKept": 0.2727272727272727
+   },
+   "mid": {
+    "entriesDropped": 0.21428571428571427,
+    "tokensDropped": 0.18483709273182958,
+    "relevantDropped": 0.09090909090909091,
+    "relevantKept": 0.36363636363636365
+   }
+  },
+  "memory-leak.json": {
+   "set": "short",
+   "raw": {
+    "entriesDropped": 0.8333333333333334,
+    "tokensDropped": 0.7968253968253968,
+    "relevantDropped": 0.5,
+    "relevantKept": 0
+   },
+   "min": {
+    "entriesDropped": 0.6666666666666666,
+    "tokensDropped": 0.5142857142857142,
+    "relevantDropped": 0,
+    "relevantKept": 1
+   },
+   "mid": {
+    "entriesDropped": 0.16666666666666666,
+    "tokensDropped": 0.09523809523809523,
+    "relevantDropped": 0,
+    "relevantKept": 1
+   }
+  },
+  "pagination-bug.json": {
+   "set": "short",
+   "raw": {
+    "entriesDropped": 0.9833333333333333,
+    "tokensDropped": 0.9688888888888889,
+    "relevantDropped": 0.9285714285714286,
+    "relevantKept": 0.07142857142857142
+   },
+   "min": {
+    "entriesDropped": 0.7166666666666667,
+    "tokensDropped": 0.5649382716049383,
+    "relevantDropped": 0.07142857142857142,
+    "relevantKept": 0.9285714285714286
+   },
+   "mid": {
+    "entriesDropped": 0,
+    "tokensDropped": 0,
+    "relevantDropped": 0,
+    "relevantKept": 0.9285714285714286
+   }
+  },
+  "session-logout.json": {
+   "set": "short",
+   "raw": {
+    "entriesDropped": 0.9285714285714286,
+    "tokensDropped": 0.9188280499519692,
+    "relevantDropped": 0.8888888888888888,
+    "relevantKept": 0.1111111111111111
+   },
+   "min": {
+    "entriesDropped": 0.5714285714285714,
+    "tokensDropped": 0.6292026897214217,
+    "relevantDropped": 0.8888888888888888,
+    "relevantKept": 0.1111111111111111
+   },
+   "mid": {
+    "entriesDropped": 0.21428571428571427,
+    "tokensDropped": 0.23102785782901056,
+    "relevantDropped": 0.3333333333333333,
+    "relevantKept": 0.1111111111111111
+   }
+  },
+  "csv-mojibake.json": {
+   "set": "sessions",
+   "raw": {
+    "entriesDropped": 0.7428571428571429,
+    "tokensDropped": 0.8988695757870426,
+    "relevantDropped": 0.6956521739130435,
+    "relevantKept": 0.08695652173913043
+   },
+   "min": {
+    "entriesDropped": 0.4857142857142857,
+    "tokensDropped": 0.8002917223775374,
+    "relevantDropped": 0.5217391304347826,
+    "relevantKept": 0.34782608695652173
+   },
+   "mid": {
+    "entriesDropped": 0.2,
+    "tokensDropped": 0.7041448887808436,
+    "relevantDropped": 0.13043478260869565,
+    "relevantKept": 0.34782608695652173
+   }
+  },
+  "flaky-order-test.json": {
+   "set": "sessions",
+   "raw": {
+    "entriesDropped": 0.7777777777777778,
+    "tokensDropped": 0.813216453135536,
+    "relevantDropped": 0.6,
+    "relevantKept": 0.05
+   },
+   "min": {
+    "entriesDropped": 0.3611111111111111,
+    "tokensDropped": 0.6011944899335324,
+    "relevantDropped": 0.2,
+    "relevantKept": 0.5
+   },
+   "mid": {
+    "entriesDropped": 0.3611111111111111,
+    "tokensDropped": 0.6011944899335324,
+    "relevantDropped": 0.2,
+    "relevantKept": 0.5
+   }
+  },
+  "recorded-config-precedence.json": {
+   "set": "sessions",
+   "raw": {
+    "entriesDropped": 0.9545454545454546,
+    "tokensDropped": 0.9708095690747782,
+    "relevantDropped": 0.9130434782608695,
+    "relevantKept": 0.043478260869565216
+   },
+   "min": {
+    "entriesDropped": 0.36363636363636365,
+    "tokensDropped": 0.17482572877059568,
+    "relevantDropped": 0.21739130434782608,
+    "relevantKept": 0.5217391304347826
+   },
+   "mid": {
+    "entriesDropped": 0.36363636363636365,
+    "tokensDropped": 0.17482572877059568,
+    "relevantDropped": 0.21739130434782608,
+    "relevantKept": 0.5217391304347826
+   }
+  },
+  "recorded-csv-import-encoding.json": {
+   "set": "sessions",
+   "raw": {
+    "entriesDropped": 0.84375,
+    "tokensDropped": 0.9258137079373824,
+    "relevantDropped": 0.8095238095238095,
+    "relevantKept": 0.09523809523809523
+   },
+   "min": {
+    "entriesDropped": 0.46875,
+    "tokensDropped": 0.15438644814763808,
+    "relevantDropped": 0.2857142857142857,
+    "relevantKept": 0.3333333333333333
+   },
+   "mid": {
+    "entriesDropped": 0.21875,
+    "tokensDropped": 0.007987880457237296,
+    "relevantDropped": 0.047619047619047616,
+    "relevantKept": 0.5714285714285714
+   }
+  },
+  "recorded-flag-rollout.json": {
+   "set": "sessions",
+   "raw": {
+    "entriesDropped": 0.9166666666666666,
+    "tokensDropped": 0.9764814624627709,
+    "relevantDropped": 0.875,
+    "relevantKept": 0.0625
+   },
+   "min": {
+    "entriesDropped": 0.3333333333333333,
+    "tokensDropped": 0.0586422922871521,
+    "relevantDropped": 0.25,
+    "relevantKept": 0.3125
+   },
+   "mid": {
+    "entriesDropped": 0.3333333333333333,
+    "tokensDropped": 0.0586422922871521,
+    "relevantDropped": 0.25,
+    "relevantKept": 0.4375
+   }
+  },
+  "recorded-invoice-rounding.json": {
+   "set": "sessions",
+   "raw": {
+    "entriesDropped": 0.8571428571428571,
+    "tokensDropped": 0.8400919012062034,
+    "relevantDropped": 0.75,
+    "relevantKept": 0.05
+   },
+   "min": {
+    "entriesDropped": 0.42857142857142855,
+    "tokensDropped": 0.26226306720275705,
+    "relevantDropped": 0.4,
+    "relevantKept": 0.45
+   },
+   "mid": {
+    "entriesDropped": 0.2571428571428571,
+    "tokensDropped": 0.10717978173463527,
+    "relevantDropped": 0.2,
+    "relevantKept": 0.45
+   }
+  },
+  "recorded-month-boundary.json": {
+   "set": "sessions",
+   "raw": {
+    "entriesDropped": 0.7307692307692307,
+    "tokensDropped": 0.8894866947797004,
+    "relevantDropped": 0.631578947368421,
+    "relevantKept": 0.05263157894736842
+   },
+   "min": {
+    "entriesDropped": 0.3076923076923077,
+    "tokensDropped": 0.046919683970723665,
+    "relevantDropped": 0.2631578947368421,
+    "relevantKept": 0.3684210526315789
+   },
+   "mid": {
+    "entriesDropped": 0.3076923076923077,
+    "tokensDropped": 0.046919683970723665,
+    "relevantDropped": 0.2631578947368421,
+    "relevantKept": 0.42105263157894735
+   }
+  },
+  "recorded-permission-check.json": {
+   "set": "sessions",
+   "raw": {
+    "entriesDropped": 0.8461538461538461,
+    "tokensDropped": 0.9322385805964515,
+    "relevantDropped": 0.8421052631578947,
+    "relevantKept": 0.05263157894736842
+   },
+   "min": {
+    "entriesDropped": 0.38461538461538464,
+    "tokensDropped": 0.12042280105700265,
+    "relevantDropped": 0.3157894736842105,
+    "relevantKept": 0.3684210526315789
+   },
+   "mid": {
+    "entriesDropped": 0.38461538461538464,
+    "tokensDropped": 0.12042280105700265,
+    "relevantDropped": 0.3157894736842105,
+    "relevantKept": 0.3684210526315789
+   }
+  },
+  "recorded-pii-logging.json": {
+   "set": "sessions",
+   "raw": {
+    "entriesDropped": 0.9354838709677419,
+    "tokensDropped": 0.969020569541064,
+    "relevantDropped": 0.8947368421052632,
+    "relevantKept": 0.05263157894736842
+   },
+   "min": {
+    "entriesDropped": 0.3548387096774194,
+    "tokensDropped": 0.0589059606626295,
+    "relevantDropped": 0.3157894736842105,
+    "relevantKept": 0.47368421052631576
+   },
+   "mid": {
+    "entriesDropped": 0.2903225806451613,
+    "tokensDropped": 0.05119863870677143,
+    "relevantDropped": 0.21052631578947367,
+    "relevantKept": 0.47368421052631576
+   }
+  },
+  "recorded-retry-backoff.json": {
+   "set": "sessions",
+   "raw": {
+    "entriesDropped": 0.9142857142857143,
+    "tokensDropped": 0.7845514374783512,
+    "relevantDropped": 0.9090909090909091,
+    "relevantKept": 0.045454545454545456
+   },
+   "min": {
+    "entriesDropped": 0.45714285714285713,
+    "tokensDropped": 0.3477658468998961,
+    "relevantDropped": 0.5,
+    "relevantKept": 0.2727272727272727
+   },
+   "mid": {
+    "entriesDropped": 0.3142857142857143,
+    "tokensDropped": 0.14086133240965246,
+    "relevantDropped": 0.3181818181818182,
+    "relevantKept": 0.45454545454545453
+   }
+  },
+  "recorded-search-normalize.json": {
+   "set": "sessions",
+   "raw": {
+    "entriesDropped": 0.6206896551724138,
+    "tokensDropped": 0.8343012185833968,
+    "relevantDropped": 0.5238095238095238,
+    "relevantKept": 0.09523809523809523
+   },
+   "min": {
+    "entriesDropped": 0.3793103448275862,
+    "tokensDropped": 0.046363290175171365,
+    "relevantDropped": 0.2857142857142857,
+    "relevantKept": 0.2857142857142857
+   },
+   "mid": {
+    "entriesDropped": 0.3448275862068966,
+    "tokensDropped": 0.04503046458492003,
+    "relevantDropped": 0.2857142857142857,
+    "relevantKept": 0.5238095238095238
+   }
+  },
+  "recorded-webhook-dedupe.json": {
+   "set": "sessions",
+   "raw": {
+    "entriesDropped": 0.84,
+    "tokensDropped": 0.9128402415818648,
+    "relevantDropped": 0.7777777777777778,
+    "relevantKept": 0.05555555555555555
+   },
+   "min": {
+    "entriesDropped": 0.28,
+    "tokensDropped": 0.05559692231322909,
+    "relevantDropped": 0.2777777777777778,
+    "relevantKept": 0.3888888888888889
+   },
+   "mid": {
+    "entriesDropped": 0.28,
+    "tokensDropped": 0.05559692231322909,
+    "relevantDropped": 0.2777777777777778,
+    "relevantKept": 0.3888888888888889
+   }
+  },
+  "search-latency.json": {
+   "set": "sessions",
+   "raw": {
+    "entriesDropped": 0.9655172413793104,
+    "tokensDropped": 0.9961630695443645,
+    "relevantDropped": 0.9473684210526315,
+    "relevantKept": 0.05263157894736842
+   },
+   "min": {
+    "entriesDropped": 0.6206896551724138,
+    "tokensDropped": 0.18501199040767385,
+    "relevantDropped": 0.47368421052631576,
+    "relevantKept": 0.3684210526315789
+   },
+   "mid": {
+    "entriesDropped": 0.20689655172413793,
+    "tokensDropped": 0.039568345323741004,
+    "relevantDropped": 0.10526315789473684,
+    "relevantKept": 0.5263157894736842
+   }
+  },
+  "stale-price.json": {
+   "set": "sessions",
+   "raw": {
+    "entriesDropped": 0.7096774193548387,
+    "tokensDropped": 0.7785037569421758,
+    "relevantDropped": 0.6956521739130435,
+    "relevantKept": 0.08695652173913043
+   },
+   "min": {
+    "entriesDropped": 0.5483870967741935,
+    "tokensDropped": 0.6595883698137863,
+    "relevantDropped": 0.5652173913043478,
+    "relevantKept": 0.34782608695652173
+   },
+   "mid": {
+    "entriesDropped": 0.3225806451612903,
+    "tokensDropped": 0.32734400522705,
+    "relevantDropped": 0.391304347826087,
+    "relevantKept": 0.391304347826087
+   }
+  },
+  "webpack-upgrade.json": {
+   "set": "sessions",
+   "raw": {
+    "entriesDropped": 0.8529411764705882,
+    "tokensDropped": 0.854148181011535,
+    "relevantDropped": 0.7894736842105263,
+    "relevantKept": 0.05263157894736842
+   },
+   "min": {
+    "entriesDropped": 0.4117647058823529,
+    "tokensDropped": 0.0708740017746229,
+    "relevantDropped": 0.3684210526315789,
+    "relevantKept": 0.2631578947368421
+   },
+   "mid": {
+    "entriesDropped": 0.4117647058823529,
+    "tokensDropped": 0.0708740017746229,
+    "relevantDropped": 0.3684210526315789,
+    "relevantKept": 0.47368421052631576
+   }
+  }
+ }
+}

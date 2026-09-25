@@ -13,6 +13,7 @@ that came from somewhere other than the command that wrote it says so below.
 | `retention-dev.json`, `retention-holdout.json` | `eval/run.mjs --runs 3 --out …` at commit 630072e (Round 1) | dev / holdout |
 | `plugin-holdout-d8aa0b1.json`, `plugin-holdout-042cf4c.json` | `eval/plugin.mjs --split holdout --runs 3 --max-usd 5`, recovered (below) | holdout |
 | `run-holdout-fa22e81.json`, `run-dev-ac67ad5.json` | `eval/run.mjs --runs 3 --json`, recovered (below) | holdout / dev |
+| `local-calibration-dev.json` | `eval/calibrate-local.mjs --out …` (offline, no API calls): how `'local'` meets the thresholds, raw vs. ranked | dev only |
 | `superseded/` | runs replaced by a re-run on a clean tree; see its README | — |
 
 ## Recovered from archive tags (2026-09-25)
