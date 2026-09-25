@@ -125,10 +125,11 @@ excerpts of your real session (your messages, Claude's replies, and tool calls w
 to TypeSafe AI's Jev API for scoring.
 
 - **Secrets are masked first, on a best-effort basis.** Common key formats (Anthropic/OpenAI
-  `sk-…`, GitHub tokens, AWS access keys, Slack tokens, JWTs, bearer tokens, private-key blocks)
-  and the value of anything assigned to a name like `API_KEY`, `SECRET`, `TOKEN`, or `PASSWORD`
-  are replaced with `[REDACTED]` before sending. That narrows exposure; it can't recognize every
-  possible secret.
+  `sk-…`, GitHub tokens, AWS access keys, Slack tokens, JWTs, bearer tokens, private-key blocks,
+  payment card numbers), passwords in URLs, and the value of anything assigned to a name like
+  `API_KEY`, `SECRET`, `TOKEN`, or `PASSWORD`
+  are replaced with `[REDACTED]` before sending, and tool names are masked the same way. Entry ids
+  aren't sent at all. That narrows exposure; it can't recognize every possible secret.
 - **Only short excerpts are sent**, not whole files or full tool output.
 - **Nothing is written into your project.** Scores and excerpts go to
   `~/.claude/ctxjev/sessions/<session id>/` (under `CLAUDE_CONFIG_DIR` if you set it), readable only

@@ -21,6 +21,11 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
   Slack and Discord webhook URLs, `Authorization: Basic`, Azure `AccountKey=`, `mysql -p…`,
   `curl -u user:pass`, and short passwords (`DB_PASS=hunter2`). It no longer masks look-alikes such
   as `tokenizer: gpt-tokenizer4`, placeholders, or `token = get_token()`.
+- `ctxjev-core` (and so the CLI, MCP server, and plugin): Jev requests no longer carry your entry
+  ids (each request names its entries `e0`, `e1`, … and maps the answers back) and mask tool names
+  too. Masking also catches PGP private key blocks, payment card numbers (a card brand's prefix
+  plus a valid check digit, so timestamps and ids are left alone), and tokens right after an
+  underscore (`mcp__ghp_…`). Jev scores cached by earlier versions are ignored.
 - `ctxjev-core`: a tool call's input is masked before it's shortened. Shortened first, a token cut
   at 160 characters could reach Jev as a prefix too short to recognize.
 - `ctxjev-core`: `pruneMessages()` never makes a conversation larger. A removal smaller than its

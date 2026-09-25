@@ -14,12 +14,27 @@ describe('buildJevRequest', () => {
   it('masks secrets in entry content and goal before anything is sent', () => {
     const { state } = buildJevRequest('rotate the key sk-abcdefghijklmnopqrstuvwxyz', entries)
     expect(state.goal).toBe('rotate the key [REDACTED]')
-    expect(state.entries.e1.content).toBe('export TYPESAFE_API_KEY=[REDACTED]')
+    expect(state.entries.e0.content).toBe('export TYPESAFE_API_KEY=[REDACTED]')
   })
 
-  it('asks one question per entry, keyed by entry id', () => {
-    const { questions } = buildJevRequest('goal', entries)
-    expect(Object.keys(questions)).toEqual(['e1', 'weird"id'])
+  it('asks one question per entry, named e0, e1, … in order rather than by entry id', () => {
+    const { state, questions, questionIds } = buildJevRequest('goal', entries)
+    expect(questionIds).toEqual(['e0', 'e1'])
+    expect(Object.keys(questions)).toEqual(['e0', 'e1'])
+    expect(Object.keys(state.entries)).toEqual(['e0', 'e1'])
+    expect(state.entries.e1.content).toBe('plain text')
+  })
+
+  // The audit put a GitHub token in an entry's toolName and id and found both in the request body.
+  it('sends neither an entry id nor an unmasked tool name', () => {
+    const token = ['ghp', '_', 'A1b2C3d4E5f6G7h8J9k0L1m2N3p4Q5'].join('')
+    const leaky: Entry[] = [{ id: `toolu_${token}`, role: 'tool', toolName: token, content: 'ran it', timestamp: 0 }]
+    const latest: Entry[] = [{ id: `later_${token}`, role: 'tool', toolName: `mcp__${token}`, content: 'ran it again', timestamp: 1 }]
+    const request = buildJevRequest('goal', leaky, latest)
+    const sent = JSON.stringify({ state: request.state, questions: request.questions })
+    expect(sent).not.toContain(token)
+    expect(sent).not.toContain('toolu_')
+    expect(request.state.entries.e0.toolName).toBe('[REDACTED]')
   })
 
   it('shares the batch-wide latest activity with the chunk, masked and shortened', () => {
@@ -36,21 +51,29 @@ describe('buildJevRequest', () => {
 })
 
 /**
- * A stand-in for TypeSafeClient that answers every question it's asked with a fixed relevance, and
- * records each request. Lets the Jev path — caching, usage, a missing answer — run without a key.
+ * A stand-in for TypeSafeClient that answers every question it's asked with a relevance chosen by
+ * the entry's content (the request names entries e0, e1, …, never by id), and records each request.
+ * Lets the Jev path — caching, usage, a missing answer — run without a key.
  */
-function fakeJev(relevanceFor: (entryId: string) => number | undefined = () => 0.5, usagePerEntry = 10) {
+function fakeJev(relevanceFor: (content: string) => number | undefined = () => 0.5, usagePerEntry = 10) {
   const requests: Array<{ state: { goal: string; entries: Record<string, { content: string }>; latest?: unknown[] }; questions: Record<string, unknown> }> = []
   const client = {
     systemOne: vi.fn(async (request: (typeof requests)[number]) => {
       requests.push(request)
       const ids = Object.keys(request.questions)
-      const answers = Object.fromEntries(ids.flatMap((id) => (relevanceFor(id) === undefined ? [] : [[id, { noul: relevanceFor(id) }]])))
+      const answers = Object.fromEntries(
+        ids.flatMap((id) => {
+          const relevance = relevanceFor(request.state.entries[id].content)
+          return relevance === undefined ? [] : [[id, { noul: relevance }]]
+        }),
+      )
       return { answers, usage: { input_tokens: ids.length * usagePerEntry, output_tokens: ids.length } }
     }),
   }
   return { client: client as unknown as JevClient, requests, systemOne: client.systemOne }
 }
+
+const sentContents = (request: { state: { entries: Record<string, { content: string }> } }) => Object.values(request.state.entries).map((e) => e.content)
 
 const memoryCache = (): ScoreCache & { store: Map<string, number> } => {
   const store = new Map<string, number>()
@@ -64,7 +87,7 @@ const twoEntries: Entry[] = [
 
 describe('scoreRelevance with an injected client (offline)', () => {
   it('asks once for every uncached entry, caches the answers, and reports usage', async () => {
-    const jev = fakeJev((id) => (id === 'a' ? 0.9 : 0.1))
+    const jev = fakeJev((content) => (content.startsWith('chargeCustomer') ? 0.9 : 0.1))
     const cache = memoryCache()
     const { verdicts, usage } = await scoreRelevance('fix the double charge', twoEntries, cache, [], jev.client)
     expect(verdicts).toEqual([
@@ -72,7 +95,8 @@ describe('scoreRelevance with an injected client (offline)', () => {
       { entryId: 'b', relevance: 0.1 },
     ])
     expect(jev.systemOne).toHaveBeenCalledTimes(1)
-    expect(Object.keys(jev.requests[0].questions)).toEqual(['a', 'b'])
+    expect(Object.keys(jev.requests[0].questions)).toEqual(['e0', 'e1'])
+    expect(sentContents(jev.requests[0])).toEqual(twoEntries.map((e) => e.content))
     expect(usage).toEqual({ inputTokens: 20, outputTokens: 2 })
     expect(cache.store.size).toBe(2)
   })
@@ -93,7 +117,7 @@ describe('scoreRelevance with an injected client (offline)', () => {
     const cache = memoryCache()
     await scoreRelevance('goal', twoEntries.slice(0, 1), cache, [], jev.client)
     await scoreRelevance('goal', twoEntries, cache, [], jev.client)
-    expect(Object.keys(jev.requests[1].questions)).toEqual(['b'])
+    expect(sentContents(jev.requests[1])).toEqual(['ls public/audio'])
   })
 
   it('misses the cache when the latest activity changed, since that can change the verdict', async () => {
@@ -105,7 +129,7 @@ describe('scoreRelevance with an injected client (offline)', () => {
   })
 
   it('fails loudly when an answer is missing, rather than guessing a relevance', async () => {
-    const jev = fakeJev((id) => (id === 'b' ? undefined : 0.5))
+    const jev = fakeJev((content) => (content === 'ls public/audio' ? undefined : 0.5))
     await expect(scoreRelevance('goal', twoEntries, undefined, [], jev.client)).rejects.toThrow('Jev returned no answer for entry "b"')
   })
 

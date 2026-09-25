@@ -12,7 +12,8 @@ export const PW = 'S3cretPassw0rd'
 /**
  * The 2026-09-24 audit (docs/audits/2026-09-24-audit-ja.md, section 4.6) tried 40 secret formats
  * and found 21 passing through. It names the misses but doesn't list all 40, so this table is a
- * reconstruction: every format the audit names, plus the formats redact.ts already handled.
+ * reconstruction: every format the audit names, plus the formats redact.ts already handled. The
+ * second audit (docs/audits/2026-09-25-audit-2-ja.md) named a few more, appended at the end.
  * `secret` is the part that must not survive masking.
  */
 export const FORMATS: Array<{ name: string; text: string; secret: string }> = [
@@ -58,6 +59,22 @@ export const FORMATS: Array<{ name: string; text: string; secret: string }> = [
   { name: 'mysql -p', text: `mysql -u root -p${PW} orders`, secret: PW },
   { name: 'curl -u user:password', text: `curl -u deploy:${PW} https://ci.example.com/api`, secret: PW },
   { name: 'JSON OAuth access token', text: `{"access_token": "${j('ya29', '.', 'a0AfH6SMBx', B62)}", "expires_in": 3599}`, secret: B62 },
+  // Named by the second audit (docs/audits/2026-09-25-audit-2-ja.md, section 4.6) and not already
+  // above in the same shape. Card numbers are test numbers from the card networks' published
+  // lists, or Luhn-valid numbers made up for this table: none is a real account.
+  { name: 'PGP private key block', text: `-----BEGIN PGP PRIVATE KEY BLOCK-----\n\nlQOYBF4x${B62}\n=Ab3d\n-----END PGP PRIVATE KEY BLOCK-----`, secret: B62 },
+  { name: 'Visa card number, grouped', text: 'card on file: 4242 4242 4242 4242, exp 12/30', secret: '4242 4242 4242 4242' },
+  { name: 'Mastercard number, run together', text: 'charged card 5555555555554444 twice', secret: '5555555555554444' },
+  { name: 'Amex card number, dashes', text: 'amex 3782-822463-10005 declined', secret: '822463' },
+  { name: 'Visa card number followed by its CVC', text: 'pay with 4242 4242 4242 4242 123', secret: '4242 4242 4242 4242' },
+  { name: '19-digit card number', text: 'long PAN 4222222222222222224 accepted', secret: '4222222222222222224' },
+  { name: 'SECRET_KEY with spaces, quoted', text: 'SECRET_KEY="correct horse battery staple"', secret: 'correct horse battery staple' },
+  { name: 'PRIVATE_KEY assignment', text: `PRIVATE_KEY=${B62}`, secret: B62 },
+  { name: 'DB_PASSWORD (short)', text: 'DB_PASSWORD=hunter2', secret: 'hunter2' },
+  { name: 'JSON api_key (snake case)', text: `{"api_key": "${B62}"}`, secret: B62 },
+  // Found while testing the fix for the second audit's toolName finding: an underscore before the
+  // prefix hid the token from a word-boundary rule.
+  { name: 'GitHub token after an underscore', text: `tool mcp__${j('ghp', '_', B62)}`, secret: B62 },
 ]
 
 /** Text that must come back unchanged: near-misses for the rules above. */
@@ -84,4 +101,10 @@ export const HARMLESS = [
   'export const password = process.env.DB_PASSWORD',
   'Authorization: Bearer ${TOKEN}',
   'トークン：有効期限切れのため再発行',
+  // Near-misses for the card rule: no brand prefix, a failed Luhn check, or too few digits.
+  'createdAt: 1727164800000',
+  'ts=1727164800000000000 (nanoseconds)',
+  'order id 4242424242424241 failed',
+  'call +1 415 555 0100 after 5pm',
+  'version 4.2.4242424242424242',
 ]
