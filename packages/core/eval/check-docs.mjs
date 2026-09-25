@@ -17,10 +17,12 @@
  * The statistics are the ones each eval script's --report prints (lib.mjs's bootstrap, which is
  * seeded, so the output is stable).
  */
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { messagesToEntries } from '../dist/index.js'
 import { bootstrap, rateDifference, successRate } from './lib.mjs'
+import { sessionSplit } from './split.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const root = join(here, '../../..')
@@ -500,6 +502,44 @@ function designCommands() {
   )
 }
 
+// --- the Round 1 changes record (docs/audits/2026-09-25-round-1-changes-ja.md, in Japanese) -----
+
+const holdoutPrecommit = JSON.parse(readFileSync(join(here, 'results/superseded/retention-holdout-precommit.json'), 'utf8'))
+
+function changesHoldoutRetention() {
+  const r = retentionHoldout.retention
+  return `Jev ${pct1(r.jev[0.25].probes)}、ランダム順 ${pct1(r.random[0.25].probes)}、キーワード一致 ${pct1(r.local[0.25].probes)}、切り捨て ${pct1(r.recency[0.25].probes)}`
+}
+
+function changesPrecommit() {
+  const d = holdoutPrecommit.retentionDifference['0.25']
+  return `Jev ${pct1(holdoutPrecommit.retention.jev[0.25].probes)}（Jev − 切り捨て ${points1(d.probes)} ${interval1(d.low, d.high)}）`
+}
+
+function changesAtCut() {
+  const r = retentionHoldout.exploratory.atCut
+  const c = r.comparisons.random['0.25']
+  return `Jev ${pct1(r.retention.jev[0.25].probes)}、切り捨て ${pct1(r.retention.recency[0.25].probes)}、ランダム順 ${pct1(r.retention.random[0.25].probes)}（Jev − ランダム順 ${points1(c.probes)} ${interval1(c.low, c.high)}）`
+}
+
+/** The audit's 4.3-2 finding, recomputed from the session files: tokens after the cut, and probes only stated there. */
+function changesCutAnalysis() {
+  const dir = join(root, 'examples/eval-sessions')
+  const rows = { dev: [], holdout: [] }
+  for (const name of readdirSync(dir).filter((f) => f.startsWith('recorded-'))) {
+    const session = JSON.parse(readFileSync(join(dir, name), 'utf8'))
+    const entries = messagesToEntries(session.messages)
+    const byId = new Map(entries.map((e) => [e.id, e]))
+    const total = entries.reduce((sum, e) => sum + e.sourceTokens, 0)
+    const after = entries.filter((e) => e.timestamp > session.cutAfterMessage).reduce((sum, e) => sum + e.sourceTokens, 0)
+    const onlyAfter = session.probes.filter((p) => p.entryIds.every((id) => byId.get(id)?.timestamp > session.cutAfterMessage)).length
+    rows[sessionSplit(name)].push({ share: after / total, onlyAfter })
+  }
+  const range = (xs) => `${pct0(Math.min(...xs))}〜${pct0(Math.max(...xs))}`
+  const counts = (rs) => [...new Set(rs.map((r) => r.onlyAfter))].sort().join('・')
+  return `ホールドアウト ${rows.holdout.length} 会話では切り取り点以降がトークンの ${range(rows.holdout.map((r) => r.share))}、そこにしかない事実は各 ${counts(rows.holdout)} 件。dev の記録 ${rows.dev.length} 会話では各 ${counts(rows.dev)} 件`
+}
+
 /** How precise a task-success difference was with 10 dev tasks, and the rough width with the plan's task count. */
 function designPrecision() {
   const d = taskDiff(tasksDev.rows, SHIPPED, TRUNCATION)
@@ -517,6 +557,10 @@ const RENDERERS = {
   'design-cost': designCost,
   'design-commands': designCommands,
   'design-precision': designPrecision,
+  'changes-holdout-retention': changesHoldoutRetention,
+  'changes-precommit': changesPrecommit,
+  'changes-at-cut': changesAtCut,
+  'changes-cut-analysis': changesCutAnalysis,
   'holdout-tasks': holdoutTaskTable,
   'holdout-task-diff': holdoutTaskDiff,
   'holdout-retention': holdoutRetention,
@@ -541,6 +585,8 @@ const DOCS = [
   { path: 'README.md', section: /^## Does It Work\?/m },
   { path: 'packages/core/eval/PREREGISTRATION.md', section: /^## Results/m },
   { path: 'docs/design/round-2-scoring-and-evaluation.md', section: /^## 1\./m },
+  // No results section to police here: its tables are statuses, and its eval numbers are generated inline.
+  { path: 'docs/audits/2026-09-25-round-1-changes-ja.md' },
 ]
 const GENERATED = /<!-- generated:([\w-]+) -->([\s\S]*?)<!-- \/generated:\1 -->/g
 
@@ -591,7 +637,7 @@ for (const { path, section } of DOCS) {
     }
     return `<!-- generated:${name} -->${expected}<!-- /generated:${name} -->`
   })
-  for (const problem of uncheckedTables(updated, section)) {
+  for (const problem of section ? uncheckedTables(updated, section) : []) {
     console.error(`${path}: ${problem}`)
     failed = true
   }

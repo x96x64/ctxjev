@@ -1,0 +1,1542 @@
+{
+ "generatedAt": "2026-09-24T23:38:03.158Z",
+ "commit": "f7fd254c8391e17d1dbb3db794bb33c4006d1615",
+ "node": "22.22.2",
+ "split": "holdout",
+ "budgets": [
+  0.25,
+  0.5
+ ],
+ "randomSeeds": 20,
+ "policy": {
+  "dropBelow": 0.3,
+  "summarizeBelow": 0.6,
+  "recencyWeight": 0.1
+ },
+ "runs": 3,
+ "sets": {
+  "short": {
+   "local": {
+    "labels": 129,
+    "accuracyByWeight": {
+     "0": 0.7209302325581395,
+     "0.05": 0.7209302325581395,
+     "0.1": 0.7209302325581395,
+     "0.2": 0.7286821705426356,
+     "0.3": 0.7131782945736435,
+     "0.5": 0.6046511627906976
+    },
+    "minAccuracyAtDefault": 0.7209302325581395,
+    "topKMisses": {
+     "checkout-bug.json": 0,
+     "invoice-date-ja.json": 2,
+     "memory-leak.json": 0,
+     "pagination-bug.json": 0,
+     "session-logout.json": 4
+    }
+   },
+   "jev": {
+    "labels": 129,
+    "accuracyByWeight": {
+     "0": 0.8914728682170544,
+     "0.05": 0.8940568475452197,
+     "0.1": 0.9018087855297158,
+     "0.2": 0.8604651162790699,
+     "0.3": 0.7467700258397932,
+     "0.5": 0.6124031007751938
+    },
+    "minAccuracyAtDefault": 0.8992248062015504,
+    "topKMisses": {
+     "checkout-bug.json": 0,
+     "invoice-date-ja.json": 0,
+     "memory-leak.json": 0,
+     "pagination-bug.json": 0,
+     "session-logout.json": 0
+    }
+   }
+  },
+  "sessions": {
+   "local": {
+    "labels": 184,
+    "accuracyByWeight": {
+     "0": 0.625,
+     "0.05": 0.625,
+     "0.1": 0.6195652173913043,
+     "0.2": 0.5815217391304348,
+     "0.3": 0.5271739130434783,
+     "0.5": 0.46195652173913043
+    },
+    "minAccuracyAtDefault": 0.6195652173913043,
+    "topKMisses": {
+     "recorded-audit-retention.json": 1,
+     "recorded-coupon-stacking.json": 1,
+     "recorded-rate-limit-window.json": 0,
+     "recorded-room-booking.json": 2,
+     "recorded-shipping-fee.json": 2,
+     "recorded-upload-size-limit.json": 1
+    }
+   },
+   "jev": {
+    "labels": 184,
+    "accuracyByWeight": {
+     "0": 0.5398550724637681,
+     "0.05": 0.5507246376811593,
+     "0.1": 0.5398550724637682,
+     "0.2": 0.5471014492753623,
+     "0.3": 0.5471014492753623,
+     "0.5": 0.5634057971014492
+    },
+    "minAccuracyAtDefault": 0.532608695652174,
+    "topKMisses": {
+     "recorded-audit-retention.json": 2.6666666666666665,
+     "recorded-coupon-stacking.json": 4,
+     "recorded-rate-limit-window.json": 2.6666666666666665,
+     "recorded-room-booking.json": 3.3333333333333335,
+     "recorded-shipping-fee.json": 2,
+     "recorded-upload-size-limit.json": 5
+    }
+   }
+  },
+  "all": {
+   "local": {
+    "labels": 313,
+    "accuracyByWeight": {
+     "0": 0.6645367412140575,
+     "0.05": 0.6645367412140575,
+     "0.1": 0.6613418530351438,
+     "0.2": 0.6421725239616614,
+     "0.3": 0.6038338658146964,
+     "0.5": 0.5207667731629393
+    },
+    "minAccuracyAtDefault": 0.6613418530351438,
+    "topKMisses": {
+     "checkout-bug.json": 0,
+     "invoice-date-ja.json": 2,
+     "memory-leak.json": 0,
+     "pagination-bug.json": 0,
+     "session-logout.json": 4,
+     "recorded-audit-retention.json": 1,
+     "recorded-coupon-stacking.json": 1,
+     "recorded-rate-limit-window.json": 0,
+     "recorded-room-booking.json": 2,
+     "recorded-shipping-fee.json": 2,
+     "recorded-upload-size-limit.json": 1
+    }
+   },
+   "jev": {
+    "labels": 313,
+    "accuracyByWeight": {
+     "0": 0.6847710330138446,
+     "0.05": 0.6922257720979766,
+     "0.1": 0.6890308839190628,
+     "0.2": 0.6762513312034079,
+     "0.3": 0.6293929712460065,
+     "0.5": 0.5835995740149095
+    },
+    "minAccuracyAtDefault": 0.6837060702875399,
+    "topKMisses": {
+     "checkout-bug.json": 0,
+     "invoice-date-ja.json": 0,
+     "memory-leak.json": 0,
+     "pagination-bug.json": 0,
+     "session-logout.json": 0,
+     "recorded-audit-retention.json": 2.6666666666666665,
+     "recorded-coupon-stacking.json": 4,
+     "recorded-rate-limit-window.json": 2.6666666666666665,
+     "recorded-room-booking.json": 3.3333333333333335,
+     "recorded-shipping-fee.json": 2,
+     "recorded-upload-size-limit.json": 5
+    }
+   }
+  }
+ },
+ "retention": {
+  "local": {
+   "0.25": {
+    "probes": 0.2827380952380952,
+    "relevantTokens": 0.16173767998897354
+   },
+   "0.5": {
+    "probes": 0.6666666666666666,
+    "relevantTokens": 0.5147162767341961
+   },
+   "byLanguage": {
+    "en": {
+     "0.25": {
+      "probes": 0.3526785714285714,
+      "relevantTokens": 0.20090661083335562
+     },
+     "0.5": {
+      "probes": 0.6785714285714286,
+      "relevantTokens": 0.5011091397835533
+     }
+    },
+    "ja": {
+     "0.25": {
+      "probes": 0.14285714285714285,
+      "relevantTokens": 0.08339981830020939
+     },
+     "0.5": {
+      "probes": 0.6428571428571428,
+      "relevantTokens": 0.5419305506354816
+     }
+    }
+   },
+   "byKind": {
+    "written": {
+     "0.25": {
+      "probes": null,
+      "relevantTokens": null
+     },
+     "0.5": {
+      "probes": null,
+      "relevantTokens": null
+     }
+    },
+    "recorded": {
+     "0.25": {
+      "probes": 0.2827380952380952,
+      "relevantTokens": 0.16173767998897354
+     },
+     "0.5": {
+      "probes": 0.6666666666666666,
+      "relevantTokens": 0.5147162767341961
+     }
+    }
+   }
+  },
+  "jev": {
+   "0.25": {
+    "probes": 0.22619047619047616,
+    "relevantTokens": 0.13283570333091335
+   },
+   "0.5": {
+    "probes": 0.6121031746031746,
+    "relevantTokens": 0.4237967977278818
+   },
+   "byLanguage": {
+    "en": {
+     "0.25": {
+      "probes": 0.20833333333333331,
+      "relevantTokens": 0.11479916480234151
+     },
+     "0.5": {
+      "probes": 0.5848214285714286,
+      "relevantTokens": 0.3998389346028985
+     }
+    },
+    "ja": {
+     "0.25": {
+      "probes": 0.26190476190476186,
+      "relevantTokens": 0.16890878038805704
+     },
+     "0.5": {
+      "probes": 0.6666666666666666,
+      "relevantTokens": 0.47171252397784824
+     }
+    }
+   },
+   "byKind": {
+    "written": {
+     "0.25": {
+      "probes": null,
+      "relevantTokens": null
+     },
+     "0.5": {
+      "probes": null,
+      "relevantTokens": null
+     }
+    },
+    "recorded": {
+     "0.25": {
+      "probes": 0.22619047619047616,
+      "relevantTokens": 0.13283570333091335
+     },
+     "0.5": {
+      "probes": 0.6121031746031746,
+      "relevantTokens": 0.4237967977278818
+     }
+    }
+   }
+  },
+  "recency": {
+   "0.25": {
+    "probes": 0,
+    "relevantTokens": 0.01593304732410537
+   },
+   "0.5": {
+    "probes": 0.3511904761904761,
+    "relevantTokens": 0.3181097181448161
+   },
+   "byLanguage": {
+    "en": {
+     "0.25": {
+      "probes": 0,
+      "relevantTokens": 0.014918173757183397
+     },
+     "0.5": {
+      "probes": 0.3125,
+      "relevantTokens": 0.2768014989631388
+     }
+    },
+    "ja": {
+     "0.25": {
+      "probes": 0,
+      "relevantTokens": 0.017962794457949308
+     },
+     "0.5": {
+      "probes": 0.42857142857142855,
+      "relevantTokens": 0.4007261565081707
+     }
+    }
+   },
+   "byKind": {
+    "written": {
+     "0.25": {
+      "probes": null,
+      "relevantTokens": null
+     },
+     "0.5": {
+      "probes": null,
+      "relevantTokens": null
+     }
+    },
+    "recorded": {
+     "0.25": {
+      "probes": 0,
+      "relevantTokens": 0.01593304732410537
+     },
+     "0.5": {
+      "probes": 0.3511904761904761,
+      "relevantTokens": 0.3181097181448161
+     }
+    }
+   }
+  },
+  "random": {
+   "0.25": {
+    "probes": 0.2654761904761905,
+    "relevantTokens": 0.18011725925620234
+   },
+   "0.5": {
+    "probes": 0.5873511904761904,
+    "relevantTokens": 0.4371044199610785
+   },
+   "byLanguage": {
+    "en": {
+     "0.25": {
+      "probes": 0.2732142857142857,
+      "relevantTokens": 0.18503533521335147
+     },
+     "0.5": {
+      "probes": 0.5845982142857142,
+      "relevantTokens": 0.4397753177643686
+     }
+    },
+    "ja": {
+     "0.25": {
+      "probes": 0.25,
+      "relevantTokens": 0.17028110734190402
+     },
+     "0.5": {
+      "probes": 0.5928571428571427,
+      "relevantTokens": 0.4317626243544984
+     }
+    }
+   },
+   "byKind": {
+    "written": {
+     "0.25": {
+      "probes": null,
+      "relevantTokens": null
+     },
+     "0.5": {
+      "probes": null,
+      "relevantTokens": null
+     }
+    },
+    "recorded": {
+     "0.25": {
+      "probes": 0.2654761904761905,
+      "relevantTokens": 0.18011725925620234
+     },
+     "0.5": {
+      "probes": 0.5873511904761904,
+      "relevantTokens": 0.4371044199610785
+     }
+    }
+   }
+  },
+  "labels": {
+   "0.25": {
+    "probes": 0.32738095238095233,
+    "relevantTokens": 0.28912844603850846
+   },
+   "0.5": {
+    "probes": 0.9791666666666666,
+    "relevantTokens": 0.8353113103815747
+   },
+   "byLanguage": {
+    "en": {
+     "0.25": {
+      "probes": 0.3839285714285714,
+      "relevantTokens": 0.2965751813562022
+     },
+     "0.5": {
+      "probes": 0.96875,
+      "relevantTokens": 0.8220172239229584
+     }
+    },
+    "ja": {
+     "0.25": {
+      "probes": 0.21428571428571427,
+      "relevantTokens": 0.274234975403121
+     },
+     "0.5": {
+      "probes": 1,
+      "relevantTokens": 0.8618994832988074
+     }
+    }
+   },
+   "byKind": {
+    "written": {
+     "0.25": {
+      "probes": null,
+      "relevantTokens": null
+     },
+     "0.5": {
+      "probes": null,
+      "relevantTokens": null
+     }
+    },
+    "recorded": {
+     "0.25": {
+      "probes": 0.32738095238095233,
+      "relevantTokens": 0.28912844603850846
+     },
+     "0.5": {
+      "probes": 0.9791666666666666,
+      "relevantTokens": 0.8353113103815747
+     }
+    }
+   }
+  }
+ },
+ "perSession": {
+  "recorded-audit-retention.json": {
+   "language": "en",
+   "recorded": true,
+   "probes": 8,
+   "local": [
+    {
+     "0.25": {
+      "probes": 0.375,
+      "relevantTokens": 0.2827855515782623
+     },
+     "0.5": {
+      "probes": 0.75,
+      "relevantTokens": 0.5919297103807354
+     }
+    }
+   ],
+   "jev": [
+    {
+     "0.25": {
+      "probes": 0.375,
+      "relevantTokens": 0.15034168564920272
+     },
+     "0.5": {
+      "probes": 0.625,
+      "relevantTokens": 0.5141555483241133
+     }
+    },
+    {
+     "0.25": {
+      "probes": 0.375,
+      "relevantTokens": 0.33420110641067363
+     },
+     "0.5": {
+      "probes": 0.5,
+      "relevantTokens": 0.49625772860397005
+     }
+    },
+    {
+     "0.25": {
+      "probes": 0.125,
+      "relevantTokens": 0.04848682069638789
+     },
+     "0.5": {
+      "probes": 0.625,
+      "relevantTokens": 0.5141555483241133
+     }
+    }
+   ],
+   "recency": {
+    "0.25": {
+     "probes": 0,
+     "relevantTokens": 0.015294500488122356
+    },
+    "0.5": {
+     "probes": 0.5,
+     "relevantTokens": 0.4646924829157175
+    }
+   },
+   "random": {
+    "0.25": {
+     "probes": 0.33125,
+     "relevantTokens": 0.2469410999023755
+    },
+    "0.5": {
+     "probes": 0.6625,
+     "relevantTokens": 0.508135372600065
+    }
+   },
+   "labels": {
+    "0.25": {
+     "probes": 0.5,
+     "relevantTokens": 0.36641718190693134
+    },
+    "0.5": {
+     "probes": 1,
+     "relevantTokens": 0.8610478359908884
+    }
+   }
+  },
+  "recorded-coupon-stacking.json": {
+   "language": "en",
+   "recorded": true,
+   "probes": 8,
+   "local": [
+    {
+     "0.25": {
+      "probes": 0.125,
+      "relevantTokens": 0.08107311320754718
+     },
+     "0.5": {
+      "probes": 0.375,
+      "relevantTokens": 0.36350235849056606
+     }
+    }
+   ],
+   "jev": [
+    {
+     "0.25": {
+      "probes": 0,
+      "relevantTokens": 0.015330188679245283
+     },
+     "0.5": {
+      "probes": 0.5,
+      "relevantTokens": 0.328125
+     }
+    },
+    {
+     "0.25": {
+      "probes": 0,
+      "relevantTokens": 0.015330188679245283
+     },
+     "0.5": {
+      "probes": 0.5,
+      "relevantTokens": 0.328125
+     }
+    },
+    {
+     "0.25": {
+      "probes": 0,
+      "relevantTokens": 0.015330188679245283
+     },
+     "0.5": {
+      "probes": 0.5,
+      "relevantTokens": 0.328125
+     }
+    }
+   ],
+   "recency": {
+    "0.25": {
+     "probes": 0,
+     "relevantTokens": 0.015330188679245283
+    },
+    "0.5": {
+     "probes": 0.25,
+     "relevantTokens": 0.2326061320754717
+    }
+   },
+   "random": {
+    "0.25": {
+     "probes": 0.2,
+     "relevantTokens": 0.14880601415094336
+    },
+    "0.5": {
+     "probes": 0.50625,
+     "relevantTokens": 0.38593749999999993
+    }
+   },
+   "labels": {
+    "0.25": {
+     "probes": 0.25,
+     "relevantTokens": 0.2326061320754717
+    },
+    "0.5": {
+     "probes": 0.875,
+     "relevantTokens": 0.7323113207547169
+    }
+   }
+  },
+  "recorded-rate-limit-window.json": {
+   "language": "en",
+   "recorded": true,
+   "probes": 8,
+   "local": [
+    {
+     "0.25": {
+      "probes": 0.625,
+      "relevantTokens": 0.294677734375
+     },
+     "0.5": {
+      "probes": 0.875,
+      "relevantTokens": 0.46728515625
+     }
+    }
+   ],
+   "jev": [
+    {
+     "0.25": {
+      "probes": 0.625,
+      "relevantTokens": 0.239990234375
+     },
+     "0.5": {
+      "probes": 0.875,
+      "relevantTokens": 0.520751953125
+     }
+    },
+    {
+     "0.25": {
+      "probes": 0.5,
+      "relevantTokens": 0.281005859375
+     },
+     "0.5": {
+      "probes": 0.875,
+      "relevantTokens": 0.520751953125
+     }
+    },
+    {
+     "0.25": {
+      "probes": 0.5,
+      "relevantTokens": 0.2255859375
+     },
+     "0.5": {
+      "probes": 0.875,
+      "relevantTokens": 0.505859375
+     }
+    }
+   ],
+   "recency": {
+    "0.25": {
+     "probes": 0,
+     "relevantTokens": 0.01171875
+    },
+    "0.5": {
+     "probes": 0.5,
+     "relevantTokens": 0.392578125
+    }
+   },
+   "random": {
+    "0.25": {
+     "probes": 0.36875,
+     "relevantTokens": 0.19310302734375
+    },
+    "0.5": {
+     "probes": 0.6625,
+     "relevantTokens": 0.44173583984375
+    }
+   },
+   "labels": {
+    "0.25": {
+     "probes": 0.5,
+     "relevantTokens": 0.392578125
+    },
+    "0.5": {
+     "probes": 1,
+     "relevantTokens": 0.90673828125
+    }
+   }
+  },
+  "recorded-room-booking.json": {
+   "language": "ja",
+   "recorded": true,
+   "probes": 7,
+   "local": [
+    {
+     "0.25": {
+      "probes": 0.14285714285714285,
+      "relevantTokens": 0.08443998997744927
+     },
+     "0.5": {
+      "probes": 0.7142857142857143,
+      "relevantTokens": 0.601102480581308
+     }
+    }
+   ],
+   "jev": [
+    {
+     "0.25": {
+      "probes": 0.14285714285714285,
+      "relevantTokens": 0.2788774743172137
+     },
+     "0.5": {
+      "probes": 0.7142857142857143,
+      "relevantTokens": 0.594587822600852
+     }
+    },
+    {
+     "0.25": {
+      "probes": 0.42857142857142855,
+      "relevantTokens": 0.23327486845402154
+     },
+     "0.5": {
+      "probes": 0.5714285714285714,
+      "relevantTokens": 0.27486845402154847
+     }
+    },
+    {
+     "0.25": {
+      "probes": 0,
+      "relevantTokens": 0.018541718867451765
+     },
+     "0.5": {
+      "probes": 0.5714285714285714,
+      "relevantTokens": 0.27486845402154847
+     }
+    }
+   ],
+   "recency": {
+    "0.25": {
+     "probes": 0,
+     "relevantTokens": 0.018541718867451765
+    },
+    "0.5": {
+     "probes": 0.2857142857142857,
+     "relevantTokens": 0.3064394888499123
+    }
+   },
+   "random": {
+    "0.25": {
+     "probes": 0.1928571428571428,
+     "relevantTokens": 0.14194437484339767
+    },
+    "0.5": {
+     "probes": 0.5428571428571429,
+     "relevantTokens": 0.39022801302931587
+    }
+   },
+   "labels": {
+    "0.25": {
+     "probes": 0.14285714285714285,
+     "relevantTokens": 0.2788774743172137
+    },
+    "0.5": {
+     "probes": 1,
+     "relevantTokens": 0.7887747431721374
+    }
+   }
+  },
+  "recorded-shipping-fee.json": {
+   "language": "ja",
+   "recorded": true,
+   "probes": 7,
+   "local": [
+    {
+     "0.25": {
+      "probes": 0.14285714285714285,
+      "relevantTokens": 0.0823596466229695
+     },
+     "0.5": {
+      "probes": 0.5714285714285714,
+      "relevantTokens": 0.4827586206896552
+     }
+    }
+   ],
+   "jev": [
+    {
+     "0.25": {
+      "probes": 0.2857142857142857,
+      "relevantTokens": 0.08463949843260188
+     },
+     "0.5": {
+      "probes": 0.7142857142857143,
+      "relevantTokens": 0.5403248788828726
+     }
+    },
+    {
+     "0.25": {
+      "probes": 0.2857142857142857,
+      "relevantTokens": 0.08463949843260188
+     },
+     "0.5": {
+      "probes": 0.7142857142857143,
+      "relevantTokens": 0.6053006554573953
+     }
+    },
+    {
+     "0.25": {
+      "probes": 0.42857142857142855,
+      "relevantTokens": 0.31347962382445144
+     },
+     "0.5": {
+      "probes": 0.7142857142857143,
+      "relevantTokens": 0.5403248788828726
+     }
+    }
+   ],
+   "recency": {
+    "0.25": {
+     "probes": 0,
+     "relevantTokens": 0.01738387004844685
+    },
+    "0.5": {
+     "probes": 0.5714285714285714,
+     "relevantTokens": 0.49501282416642917
+    }
+   },
+   "random": {
+    "0.25": {
+     "probes": 0.30714285714285716,
+     "relevantTokens": 0.19861783984041037
+    },
+    "0.5": {
+     "probes": 0.6428571428571427,
+     "relevantTokens": 0.4732972356796809
+    }
+   },
+   "labels": {
+    "0.25": {
+     "probes": 0.2857142857142857,
+     "relevantTokens": 0.26959247648902823
+    },
+    "0.5": {
+     "probes": 1,
+     "relevantTokens": 0.9350242234254773
+    }
+   }
+  },
+  "recorded-upload-size-limit.json": {
+   "language": "en",
+   "recorded": true,
+   "probes": 7,
+   "local": [
+    {
+     "0.25": {
+      "probes": 0.2857142857142857,
+      "relevantTokens": 0.14509004417261298
+     },
+     "0.5": {
+      "probes": 0.7142857142857143,
+      "relevantTokens": 0.581719334012912
+     }
+    }
+   ],
+   "jev": [
+    {
+     "0.25": {
+      "probes": 0,
+      "relevantTokens": 0.017329255861365953
+     },
+     "0.5": {
+      "probes": 0.42857142857142855,
+      "relevantTokens": 0.26843357118586475
+     }
+    },
+    {
+     "0.25": {
+      "probes": 0,
+      "relevantTokens": 0.017329255861365953
+     },
+     "0.5": {
+      "probes": 0.42857142857142855,
+      "relevantTokens": 0.22765885151206253
+     }
+    },
+    {
+     "0.25": {
+      "probes": 0,
+      "relevantTokens": 0.017329255861365953
+     },
+     "0.5": {
+      "probes": 0.2857142857142857,
+      "relevantTokens": 0.24566768603465852
+     }
+    }
+   ],
+   "recency": {
+    "0.25": {
+     "probes": 0,
+     "relevantTokens": 0.017329255861365953
+    },
+    "0.5": {
+     "probes": 0,
+     "relevantTokens": 0.017329255861365953
+    }
+   },
+   "random": {
+    "0.25": {
+     "probes": 0.19285714285714278,
+     "relevantTokens": 0.1512911994563371
+    },
+    "0.5": {
+     "probes": 0.5071428571428572,
+     "relevantTokens": 0.4232925586136595
+    }
+   },
+   "labels": {
+    "0.25": {
+     "probes": 0.2857142857142857,
+     "relevantTokens": 0.1946992864424057
+    },
+    "0.5": {
+     "probes": 1,
+     "relevantTokens": 0.7879714576962283
+    }
+   }
+  }
+ },
+ "exploratory": {
+  "atCut": {
+   "note": "Not preregistered. Each recorded session cut at cutAfterMessage and scored afresh; probes stated only after the cut excluded; hand-written sessions measured whole.",
+   "excludedProbes": {
+    "recorded-audit-retention.json": 0,
+    "recorded-coupon-stacking.json": 0,
+    "recorded-rate-limit-window.json": 0,
+    "recorded-room-booking.json": 0,
+    "recorded-shipping-fee.json": 0,
+    "recorded-upload-size-limit.json": 0
+   },
+   "retention": {
+    "local": {
+     "0.25": {
+      "probes": 0.375,
+      "relevantTokens": 0.27066379362270077
+     },
+     "0.5": {
+      "probes": 0.7321428571428572,
+      "relevantTokens": 0.5644125145796874
+     }
+    },
+    "jev": {
+     "0.25": {
+      "probes": 0.4037698412698412,
+      "relevantTokens": 0.2586717225310264
+     },
+     "0.5": {
+      "probes": 0.7976190476190476,
+      "relevantTokens": 0.6019073995248417
+     }
+    },
+    "recency": {
+     "0.25": {
+      "probes": 0.3095238095238095,
+      "relevantTokens": 0.2593131568320928
+     },
+     "0.5": {
+      "probes": 0.7797619047619047,
+      "relevantTokens": 0.5771291019182383
+     }
+    },
+    "random": {
+     "0.25": {
+      "probes": 0.334672619047619,
+      "relevantTokens": 0.2667666512160463
+     },
+     "0.5": {
+      "probes": 0.6691964285714285,
+      "relevantTokens": 0.5002120019388693
+     }
+    },
+    "labels": {
+     "0.25": {
+      "probes": 0.3095238095238095,
+      "relevantTokens": 0.26332660731479157
+     },
+     "0.5": {
+      "probes": 0.7797619047619047,
+      "relevantTokens": 0.5771291019182383
+     }
+    }
+   },
+   "perSession": {
+    "recorded-audit-retention.json": {
+     "local": [
+      {
+       "0.25": {
+        "probes": 0.25,
+        "relevantTokens": 0.195248942401562
+       },
+       "0.5": {
+        "probes": 0.875,
+        "relevantTokens": 0.6492027334851936
+       }
+      }
+     ],
+     "jev": [
+      {
+       "0.25": {
+        "probes": 0.5,
+        "relevantTokens": 0.27041978522616333
+       },
+       "0.5": {
+        "probes": 0.875,
+        "relevantTokens": 0.7032216075496258
+       }
+      },
+      {
+       "0.25": {
+        "probes": 0.5,
+        "relevantTokens": 0.27041978522616333
+       },
+       "0.5": {
+        "probes": 0.875,
+        "relevantTokens": 0.7357630979498861
+       }
+      },
+      {
+       "0.25": {
+        "probes": 0.375,
+        "relevantTokens": 0.22844126260982753
+       },
+       "0.5": {
+        "probes": 0.875,
+        "relevantTokens": 0.7032216075496258
+       }
+      }
+     ],
+     "recency": {
+      "0.25": {
+       "probes": 0.5,
+       "relevantTokens": 0.3423364790107387
+      },
+      "0.5": {
+       "probes": 0.75,
+       "relevantTokens": 0.5805401887406443
+      }
+     },
+     "random": {
+      "0.25": {
+       "probes": 0.3875,
+       "relevantTokens": 0.2667263260657338
+      },
+      "0.5": {
+       "probes": 0.7375,
+       "relevantTokens": 0.5438821998047512
+      }
+     },
+     "labels": {
+      "0.25": {
+       "probes": 0.5,
+       "relevantTokens": 0.36641718190693134
+      },
+      "0.5": {
+       "probes": 0.75,
+       "relevantTokens": 0.5805401887406443
+      }
+     }
+    },
+    "recorded-coupon-stacking.json": {
+     "local": [
+      {
+       "0.25": {
+        "probes": 0.375,
+        "relevantTokens": 0.2983490566037736
+       },
+       "0.5": {
+        "probes": 0.5,
+        "relevantTokens": 0.5630896226415094
+       }
+      }
+     ],
+     "jev": [
+      {
+       "0.25": {
+        "probes": 0.375,
+        "relevantTokens": 0.26297169811320753
+       },
+       "0.5": {
+        "probes": 0.625,
+        "relevantTokens": 0.4675707547169811
+       }
+      },
+      {
+       "0.25": {
+        "probes": 0.25,
+        "relevantTokens": 0.2326061320754717
+       },
+       "0.5": {
+        "probes": 0.625,
+        "relevantTokens": 0.4189268867924528
+       }
+      },
+      {
+       "0.25": {
+        "probes": 0.25,
+        "relevantTokens": 0.2326061320754717
+       },
+       "0.5": {
+        "probes": 0.625,
+        "relevantTokens": 0.4189268867924528
+       }
+      }
+     ],
+     "recency": {
+      "0.25": {
+       "probes": 0.25,
+       "relevantTokens": 0.2326061320754717
+      },
+      "0.5": {
+       "probes": 0.625,
+       "relevantTokens": 0.4675707547169811
+      }
+     },
+     "random": {
+      "0.25": {
+       "probes": 0.325,
+       "relevantTokens": 0.2657429245283019
+      },
+      "0.5": {
+       "probes": 0.6,
+       "relevantTokens": 0.45384728773584915
+      }
+     },
+     "labels": {
+      "0.25": {
+       "probes": 0.25,
+       "relevantTokens": 0.2326061320754717
+      },
+      "0.5": {
+       "probes": 0.625,
+       "relevantTokens": 0.4675707547169811
+      }
+     }
+    },
+    "recorded-rate-limit-window.json": {
+     "local": [
+      {
+       "0.25": {
+        "probes": 0.625,
+        "relevantTokens": 0.294677734375
+       },
+       "0.5": {
+        "probes": 0.875,
+        "relevantTokens": 0.46728515625
+       }
+      }
+     ],
+     "jev": [
+      {
+       "0.25": {
+        "probes": 0.625,
+        "relevantTokens": 0.2392578125
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 0.6494140625
+       }
+      },
+      {
+       "0.25": {
+        "probes": 0.625,
+        "relevantTokens": 0.2392578125
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 0.6494140625
+       }
+      },
+      {
+       "0.25": {
+        "probes": 0.625,
+        "relevantTokens": 0.2392578125
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 0.6494140625
+       }
+      }
+     ],
+     "recency": {
+      "0.25": {
+       "probes": 0.25,
+       "relevantTokens": 0.210205078125
+      },
+      "0.5": {
+       "probes": 0.875,
+       "relevantTokens": 0.590087890625
+      }
+     },
+     "random": {
+      "0.25": {
+       "probes": 0.28125,
+       "relevantTokens": 0.225634765625
+      },
+      "0.5": {
+       "probes": 0.70625,
+       "relevantTokens": 0.51551513671875
+      }
+     },
+     "labels": {
+      "0.25": {
+       "probes": 0.25,
+       "relevantTokens": 0.210205078125
+      },
+      "0.5": {
+       "probes": 0.875,
+       "relevantTokens": 0.590087890625
+      }
+     }
+    },
+    "recorded-room-booking.json": {
+     "local": [
+      {
+       "0.25": {
+        "probes": 0.2857142857142857,
+        "relevantTokens": 0.3064394888499123
+       },
+       "0.5": {
+        "probes": 0.8571428571428571,
+        "relevantTokens": 0.6286644951140065
+       }
+      }
+     ],
+     "jev": [
+      {
+       "0.25": {
+        "probes": 0.2857142857142857,
+        "relevantTokens": 0.3064394888499123
+       },
+       "0.5": {
+        "probes": 0.5714285714285714,
+        "relevantTokens": 0.5414683036832874
+       }
+      },
+      {
+       "0.25": {
+        "probes": 0.2857142857142857,
+        "relevantTokens": 0.3064394888499123
+       },
+       "0.5": {
+        "probes": 0.5714285714285714,
+        "relevantTokens": 0.5414683036832874
+       }
+      },
+      {
+       "0.25": {
+        "probes": 0.2857142857142857,
+        "relevantTokens": 0.3064394888499123
+       },
+       "0.5": {
+        "probes": 0.5714285714285714,
+        "relevantTokens": 0.5414683036832874
+       }
+      }
+     ],
+     "recency": {
+      "0.25": {
+       "probes": 0.2857142857142857,
+       "relevantTokens": 0.3064394888499123
+      },
+      "0.5": {
+       "probes": 0.5714285714285714,
+       "relevantTokens": 0.5494863442746178
+      }
+     },
+     "random": {
+      "0.25": {
+       "probes": 0.29999999999999993,
+       "relevantTokens": 0.30806815334502635
+      },
+      "0.5": {
+       "probes": 0.6357142857142857,
+       "relevantTokens": 0.48992733650714104
+      }
+     },
+     "labels": {
+      "0.25": {
+       "probes": 0.2857142857142857,
+       "relevantTokens": 0.3064394888499123
+      },
+      "0.5": {
+       "probes": 0.5714285714285714,
+       "relevantTokens": 0.5494863442746178
+      }
+     }
+    },
+    "recorded-shipping-fee.json": {
+     "local": [
+      {
+       "0.25": {
+        "probes": 0.42857142857142855,
+        "relevantTokens": 0.33456825306355087
+       },
+       "0.5": {
+        "probes": 0.5714285714285714,
+        "relevantTokens": 0.5614135081219721
+       }
+      }
+     ],
+     "jev": [
+      {
+       "0.25": {
+        "probes": 0.2857142857142857,
+        "relevantTokens": 0.26959247648902823
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 0.7657452265602736
+       }
+      },
+      {
+       "0.25": {
+        "probes": 0.2857142857142857,
+        "relevantTokens": 0.3214591051581647
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 0.7657452265602736
+       }
+      },
+      {
+       "0.25": {
+        "probes": 0.2857142857142857,
+        "relevantTokens": 0.26959247648902823
+       },
+       "0.5": {
+        "probes": 1,
+        "relevantTokens": 0.7657452265602736
+       }
+      }
+     ],
+     "recency": {
+      "0.25": {
+       "probes": 0.2857142857142857,
+       "relevantTokens": 0.26959247648902823
+      },
+      "0.5": {
+       "probes": 1,
+       "relevantTokens": 0.7657452265602736
+      }
+     },
+     "random": {
+      "0.25": {
+       "probes": 0.3571428571428571,
+       "relevantTokens": 0.30420347677400966
+      },
+      "0.5": {
+       "probes": 0.7285714285714284,
+       "relevantTokens": 0.5380592761470504
+      }
+     },
+     "labels": {
+      "0.25": {
+       "probes": 0.2857142857142857,
+       "relevantTokens": 0.26959247648902823
+      },
+      "0.5": {
+       "probes": 1,
+       "relevantTokens": 0.7657452265602736
+      }
+     }
+    },
+    "recorded-upload-size-limit.json": {
+     "local": [
+      {
+       "0.25": {
+        "probes": 0.2857142857142857,
+        "relevantTokens": 0.1946992864424057
+       },
+       "0.5": {
+        "probes": 0.7142857142857143,
+        "relevantTokens": 0.5168195718654435
+       }
+      }
+     ],
+     "jev": [
+      {
+       "0.25": {
+        "probes": 0.5714285714285714,
+        "relevantTokens": 0.23309548080190282
+       },
+       "0.5": {
+        "probes": 0.7142857142857143,
+        "relevantTokens": 0.5056065239551478
+       }
+      },
+      {
+       "0.25": {
+        "probes": 0.5714285714285714,
+        "relevantTokens": 0.23309548080190282
+       },
+       "0.5": {
+        "probes": 0.7142857142857143,
+        "relevantTokens": 0.5056065239551478
+       }
+      },
+      {
+       "0.25": {
+        "probes": 0.2857142857142857,
+        "relevantTokens": 0.1946992864424057
+       },
+       "0.5": {
+        "probes": 0.7142857142857143,
+        "relevantTokens": 0.5056065239551478
+       }
+      }
+     ],
+     "recency": {
+      "0.25": {
+       "probes": 0.2857142857142857,
+       "relevantTokens": 0.1946992864424057
+      },
+      "0.5": {
+       "probes": 0.8571428571428571,
+       "relevantTokens": 0.509344206591913
+      }
+     },
+     "random": {
+      "0.25": {
+       "probes": 0.3571428571428571,
+       "relevantTokens": 0.23022426095820592
+      },
+      "0.5": {
+       "probes": 0.6071428571428571,
+       "relevantTokens": 0.4600407747196738
+      }
+     },
+     "labels": {
+      "0.25": {
+       "probes": 0.2857142857142857,
+       "relevantTokens": 0.1946992864424057
+      },
+      "0.5": {
+       "probes": 0.8571428571428571,
+       "relevantTokens": 0.509344206591913
+      }
+     }
+    }
+   },
+   "comparisons": {
+    "recency": {
+     "0.25": {
+      "probes": 0.09424603174603174,
+      "low": -0.0069444444444444475,
+      "high": 0.21924603174603174
+     },
+     "0.5": {
+      "probes": 0.017857142857142867,
+      "low": -0.05059523809523806,
+      "high": 0.08333333333333333
+     }
+    },
+    "local": {
+     "0.25": {
+      "probes": 0.02876984126984126,
+      "low": -0.07142857142857142,
+      "high": 0.13591269841269837
+     },
+     "0.5": {
+      "probes": 0.06547619047619048,
+      "low": -0.10119047619047618,
+      "high": 0.23511904761904764
+     }
+    },
+    "random": {
+     "0.25": {
+      "probes": 0.06909722222222223,
+      "low": -0.02698412698412697,
+      "high": 0.1869543650793651
+     },
+     "0.5": {
+      "probes": 0.12842261904761906,
+      "low": 0.02767857142857144,
+      "high": 0.2291666666666667
+     }
+    },
+    "labels": {
+     "0.25": {
+      "probes": 0.09424603174603174,
+      "low": -0.0069444444444444475,
+      "high": 0.21924603174603174
+     },
+     "0.5": {
+      "probes": 0.017857142857142867,
+      "low": -0.05059523809523806,
+      "high": 0.08333333333333333
+     }
+    }
+   }
+  },
+  "comparisons": {
+   "recency": {
+    "0.25": {
+     "probes": 0.22619047619047616,
+     "low": 0.08035714285714286,
+     "high": 0.375
+    },
+    "0.5": {
+     "probes": 0.2609126984126984,
+     "low": 0.1626984126984127,
+     "high": 0.34920634920634913
+    }
+   },
+   "local": {
+    "0.25": {
+     "probes": -0.05654761904761905,
+     "low": -0.16964285714285712,
+     "high": 0.06845238095238095
+    },
+    "0.5": {
+     "probes": -0.05456349206349207,
+     "low": -0.19444444444444442,
+     "high": 0.07043650793650792
+    }
+   },
+   "random": {
+    "0.25": {
+     "probes": -0.03928571428571428,
+     "low": -0.13794642857142855,
+     "high": 0.06081349206349204
+    },
+    "0.5": {
+     "probes": 0.024751984126984133,
+     "low": -0.06190476190476185,
+     "high": 0.11607142857142862
+    }
+   },
+   "labels": {
+    "0.25": {
+     "probes": -0.1011904761904762,
+     "low": -0.2123015873015873,
+     "high": 0.003968253968253964
+    },
+    "0.5": {
+     "probes": -0.3670634920634921,
+     "low": -0.484126984126984,
+     "high": -0.251984126984127
+    }
+   }
+  }
+ },
+ "retentionDifference": {
+  "0.25": {
+   "probes": 0.22619047619047616,
+   "low": 0.08035714285714286,
+   "high": 0.375
+  },
+  "0.5": {
+   "probes": 0.2609126984126984,
+   "low": 0.1626984126984127,
+   "high": 0.34920634920634913
+  }
+ },
+ "jevUsage": {
+  "requests": 54,
+  "inputTokens": 316767,
+  "outputTokens": 37830,
+  "usd": 0.013304214000000002
+ }
+}
