@@ -57,9 +57,23 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: node examples/eval-tasks/verify.mjs
-      - name: tasks.mjs --selftest
+      # The eval agent's commands run in a sandbox (packages/core/eval/sandbox.mjs), and --selftest
+      # fails unless it keeps the agent inside its copy of the repo and off the network. Ubuntu 24.04
+      # restricts the user namespaces the `unshare` backend needs; lift that for this job only.
+      - name: Allow user namespaces (for the unshare sandbox)
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+      - name: tasks.mjs --selftest (unshare sandbox)
         working-directory: packages/core
         run: node eval/tasks.mjs --selftest
+        env:
+          CTXJEV_SANDBOX: unshare
+      - name: tasks.mjs --selftest (docker sandbox, the default image)
+        working-directory: packages/core
+        run: |
+          docker pull node:22-bookworm
+          node eval/tasks.mjs --selftest
+        env:
+          CTXJEV_SANDBOX: docker
       # Every eval number in README.md and PREREGISTRATION.md must match the saved results.
       - name: check-docs
         working-directory: packages/core

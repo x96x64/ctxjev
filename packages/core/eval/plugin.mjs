@@ -34,6 +34,7 @@ import { parseArgs } from 'node:util'
 import Anthropic from '@anthropic-ai/sdk'
 import { messagesToEntries } from '../dist/index.js'
 import { createAgentRunner, tasksDir } from './agent.mjs'
+import { requireSandbox } from './sandbox.mjs'
 import { inSplit, parseSplit, taskSplit } from './split.mjs'
 import { ANSWER_MODEL, SpendLimitError, bootstrap, createLimiter, createQA, createSpend, firstText, rateDifference, successRate, withCacheBreakpoint } from './lib.mjs'
 
@@ -91,7 +92,7 @@ for (const key of ['ANTHROPIC_API_KEY', 'TYPESAFE_API_KEY']) if (!process.env[ke
 const client = new Anthropic()
 const spend = createSpend(maxUsd)
 const limit = createLimiter(5)
-const runAgent = createAgentRunner({ client, spend, limit, model: ANSWER_MODEL, maxTurns: 25 })
+const runAgent = createAgentRunner({ client, spend, limit, model: ANSWER_MODEL, maxTurns: 25, sandbox: requireSandbox() })
 const { answer, judge } = createQA({ client, spend, limit })
 
 /** The history as Claude Code writes it, so the shipped hooks parse exactly what they would in use. */
