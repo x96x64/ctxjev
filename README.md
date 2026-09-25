@@ -271,9 +271,30 @@ On the dev sessions, Jev beat keyword overlap by a wide margin
 **What this changes:** the default scorer for `ctxjev-core`, `ctxjev-cli`, and `pruneMessages()` is
 now `'recency'` (plain truncation). Pass `scorer: 'jev'` / `--scorer jev` to opt in.
 [`PREREGISTRATION.md`'s Results section](packages/core/eval/PREREGISTRATION.md) has the full
-numbers and commands. The Claude Code plugin comparison didn't complete (the recording environment
-couldn't reach Jev from the hook's restricted subprocess) and is unresolved; the plugin's own
-default is unchanged pending a rerun.
+numbers and commands.
+
+### Holdout: does the Claude Code plugin's digest help?
+
+No demonstrated effect. The preregistered plugin comparison
+([`eval/plugin.mjs`](packages/core/eval/plugin.mjs) `--split holdout`: the summary of a simulated
+compaction alone, against the same summary plus the plugin's digest, decided on tasks passed) errored
+on its first attempt because the hook couldn't reach Jev from the recording sandbox. It was then run
+to completion twice on 2026-09-24, in two separate sessions on the same code, but both results sat on
+branches that were never merged until they were
+[recovered](packages/core/eval/results/README.md#recovered-from-archive-tags-2026-09-25) on
+2026-09-25. Both runs are shown; neither was chosen in advance as *the* run.
+
+<!-- generated:holdout-plugin -->
+| After a simulated compaction (holdout, Claude Haiku 4.5) | Run `d8aa0b1`: tasks passed | answers right | Run `042cf4c`: tasks passed | answers right |
+| --- | --- | --- | --- | --- |
+| Summary alone | 100% | 78% | 100% | 79% |
+| Summary + digest (goal inferred by the plugin) | 94% | 88% | 83% | 82% |
+| Summary + digest (the same goal, set with `/ctxjev:set-goal`) | 100% | 88% | 89% | 85% |
+| Digest (inferred goal) − summary alone, 95% CI | −6 [−17, 0] | +10 [+5, +14] | −17 [−39, 0] | +3 [−3, +9] |
+| Digest (set goal) − summary alone, 95% CI | 0 [0, 0] | +10 [+1, +16] | −11 [−22, 0] | +6 [−1, +15] |
+
+Run `d8aa0b1`: 6 tasks × 3 runs, and the hook scored with Jev in 18 of 18; Run `042cf4c`: 6 tasks × 3 runs, and the hook scored with Jev in 18 of 18. In both runs the two digest conditions scored against the identical goal (18 of 18, 18 of 18), so they are the same configuration measured twice (the goal supplied two ways), not two different goals. **No tasks-passed interval clears zero in either run, so by the preregistered rule the digest has no demonstrated effect on unseen tasks.** Answers right isn't the registered measure; it's shown because the two runs disagree there too.
+<!-- /generated:holdout-plugin -->
 
 ### Dev sessions (15 sessions, optimistic — see above)
 

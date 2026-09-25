@@ -30,13 +30,15 @@ No configuration is required: it activates automatically once installed. Set an 
 with `/ctxjev:set-goal` when you want scoring aimed at something more specific than your first
 request plus your latest instruction.
 
-**What it's shown so far:** in the [plugin eval](../../README.md#does-it-work), against a simulated
-compaction summary that already keeps every user instruction, the digest added +5 points [0, +15]:
-within the noise. How much it helps depends on how much Claude Code's real compaction drops, which
-that eval can't measure. The [preregistered](../../packages/core/eval/PREREGISTRATION.md)
-comparison on unseen tasks ran on 2026-09-24, but its plugin part didn't produce a result (the
-hook couldn't reach Jev from the recording sandbox), so the plugin still has no result on unseen
-tasks.
+**What it's shown so far: no demonstrated effect.** In the [plugin eval](../../README.md#does-it-work),
+against a simulated compaction summary that already keeps every user instruction, the digest added
+<!-- generated:plugin-diff -->+5 points [0, +15]<!-- /generated:plugin-diff --> to tasks passed on
+the tasks it was designed on: within the noise. The
+[preregistered](../../packages/core/eval/PREREGISTRATION.md) comparison on six unseen tasks ran to
+completion twice, and the digest's difference in tasks passed was
+<!-- generated:plugin-holdout-inline -->run `d8aa0b1` 0 [0, 0], run `042cf4c` −11 [−22, 0]<!-- /generated:plugin-holdout-inline --> points (95% CI):
+neither clears zero, so it has no demonstrated effect there either. How much it helps depends on
+how much Claude Code's real compaction drops, which neither eval can measure.
 
 ## How It Works
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * The eval numbers in README.md, PREREGISTRATION.md, and the Round 2 design proposal
- * (docs/design/), generated from the saved results in eval/results/ and checked against them in CI.
+ * The eval numbers in README.md, PREREGISTRATION.md, the plugin README, and the Japanese docs under
+ * docs/, generated from the saved results in eval/results/ and checked against them in CI.
  * Nobody types these numbers by hand.
  *
  * A generated block sits between `<!-- generated:NAME -->` and `<!-- /generated:NAME -->` (inline,
@@ -72,6 +72,12 @@ const outcome = load('outcome.json')
 const plugin = load('plugin.json')
 const retentionDev = load('retention-dev.json')
 const retentionHoldout = load('retention-holdout.json')
+// The two completed runs of the preregistered plugin comparison, recovered from the archive tags
+// (see eval/results/README.md). Both are reported; neither was designated in advance as the run.
+const PLUGIN_HOLDOUT_RUNS = [
+  ['d8aa0b1', load('plugin-holdout-d8aa0b1.json')],
+  ['042cf4c', load('plugin-holdout-042cf4c.json')],
+]
 
 const SHIPPED = 'jev+user+marker'
 const TRUNCATION = 'recency+user+marker'
@@ -250,6 +256,88 @@ function pluginDiff() {
   return `${points0(d.value)} points ${interval0(d.interval)}`
 }
 
+// --- the plugin's holdout comparison (two recovered runs) ---------------------------------------
+
+const INFERRED = 'summary+ctxjev'
+const SET_GOAL = 'summary+ctxjev(task goal)'
+
+function pluginHoldoutStats(file) {
+  const tasks = file.rows.filter((r) => r.kind === 'task')
+  const qa = file.rows.filter((r) => r.kind === 'qa')
+  const contexts = file.rows.filter((r) => r.kind === 'context')
+  const rate = (rows, key, condition) => successRate(key)(rows.filter((r) => r.condition === condition))
+  const diff = (rows, key, condition) => difference(rows, key, (r) => r.condition === condition, (r) => r.condition === 'summary', (r) => r.task)
+  return {
+    taskCount: new Set(tasks.map((r) => r.task)).size,
+    runs: file.runs,
+    tasks: Object.fromEntries(['summary', INFERRED, SET_GOAL].map((c) => [c, rate(tasks, 'success', c)])),
+    answers: Object.fromEntries(['summary', INFERRED, SET_GOAL].map((c) => [c, rate(qa, 'correct', c)])),
+    taskDiff: { [INFERRED]: diff(tasks, 'success', INFERRED), [SET_GOAL]: diff(tasks, 'success', SET_GOAL) },
+    answerDiff: { [INFERRED]: diff(qa, 'correct', INFERRED), [SET_GOAL]: diff(qa, 'correct', SET_GOAL) },
+    jevScored: contexts.filter((r) => r.pluginRun?.scorer === 'jev' && r.taskGoalRun?.scorer === 'jev').length,
+    sameGoal: contexts.filter((r) => r.pluginRun?.goal === r.taskGoalRun?.goal).length,
+    contexts: contexts.length,
+  }
+}
+
+const pluginHoldout = PLUGIN_HOLDOUT_RUNS.map(([name, file]) => ({ name, ...pluginHoldoutStats(file) }))
+const signedDiff = (d) => `${points0(d.value)} ${interval0(d.interval)}`
+// The preregistered plugin rule: the digest has a demonstrated effect only if the tasks-passed
+// interval's lower bound is above 0.
+const clearsZero = (d) => d.interval[0] > 0
+
+function holdoutPlugin() {
+  const header = ['After a simulated compaction (holdout, Claude Haiku 4.5)', ...pluginHoldout.flatMap((r) => [`Run \`${r.name}\`: tasks passed`, 'answers right'])]
+  const row = (label, condition) => [label, ...pluginHoldout.flatMap((r) => [pct0(r.tasks[condition]), pct0(r.answers[condition])])]
+  const diffRow = (label, condition) => [label, ...pluginHoldout.flatMap((r) => [signedDiff(r.taskDiff[condition]), signedDiff(r.answerDiff[condition])])]
+  const anyClears = pluginHoldout.some((r) => clearsZero(r.taskDiff[INFERRED]) || clearsZero(r.taskDiff[SET_GOAL]))
+  return block(
+    [
+      table(header, [
+        row('Summary alone', 'summary'),
+        row('Summary + digest (goal inferred by the plugin)', INFERRED),
+        row('Summary + digest (the same goal, set with `/ctxjev:set-goal`)', SET_GOAL),
+        diffRow('Digest (inferred goal) − summary alone, 95% CI', INFERRED),
+        diffRow('Digest (set goal) − summary alone, 95% CI', SET_GOAL),
+      ]),
+      '',
+      `${pluginHoldout.map((r) => `Run \`${r.name}\`: ${r.taskCount} tasks × ${r.runs} runs, and the hook scored with Jev in ${r.jevScored} of ${r.contexts}`).join('; ')}. ` +
+        `In both runs the two digest conditions scored against the identical goal (${pluginHoldout.map((r) => `${r.sameGoal} of ${r.contexts}`).join(', ')}), so they are the same configuration measured twice (the goal supplied two ways), not two different goals. ` +
+        (anyClears
+          ? 'At least one tasks-passed interval clears zero.'
+          : "**No tasks-passed interval clears zero in either run, so by the preregistered rule the digest has no demonstrated effect on unseen tasks.** Answers right isn't the registered measure; it's shown because the two runs disagree there too."),
+    ].join('\n'),
+  )
+}
+
+/** One line for the plugin READMEs and the design doc: both runs' registered measure. */
+function pluginHoldoutInline() {
+  return pluginHoldout.map((r) => `run \`${r.name}\` ${signedDiff(r.taskDiff[SET_GOAL])}`).join(', ')
+}
+
+function preregPluginRerun() {
+  const lines = pluginHoldout.map((r) => {
+    const t = (c) => signedDiff(r.taskDiff[c])
+    const a = (c) => signedDiff(r.answerDiff[c])
+    return [
+      `**\`plugin-holdout-${r.name}.json\`** (${r.taskCount} tasks × ${r.runs} runs; hook scored with Jev in ${r.jevScored}/${r.contexts}; same goal in both digest conditions ${r.sameGoal}/${r.contexts}):`,
+      '',
+      table(
+        ['context', 'tasks passed', 'answers right'],
+        [
+          ['`summary`', pct0(r.tasks.summary), pct0(r.answers.summary)],
+          [`\`${INFERRED}\``, pct0(r.tasks[INFERRED]), pct0(r.answers[INFERRED])],
+          [`\`${SET_GOAL}\``, pct0(r.tasks[SET_GOAL]), pct0(r.answers[SET_GOAL])],
+        ],
+      ),
+      '',
+      `- \`${INFERRED}\` − \`summary\`: tasks passed ${t(INFERRED)} pp, answers right ${a(INFERRED)} pp`,
+      `- \`${SET_GOAL}\` − \`summary\`: tasks passed **${t(SET_GOAL)} pp**, answers right ${a(SET_GOAL)} pp`,
+    ].join('\n')
+  })
+  return block(lines.join('\n\n'))
+}
+
 function preregPrimaryTable() {
   const cell = (rows, c) => {
     const r = taskRate(rows, c)
@@ -401,7 +489,28 @@ function designOutcomeAndPlugin() {
         Object.entries(PLUGIN_ROWS_JA).map(([condition, label]) => [label, pct0(successRate('success')(tasks.filter((r) => r.condition === condition))), pct0(successRate('correct')(qa.filter((r) => r.condition === condition)))]),
       ),
       '',
-      `ダイジェストの効果（課題成功）: ${points0(pd.value)} ${interval0(pd.interval)}。ホールドアウトでのプラグイン比較は未実施（実行環境の問題で失敗）。`,
+      `ダイジェストの効果（課題成功、dev）: ${points0(pd.value)} ${interval0(pd.interval)}。ホールドアウトでの事前登録の比較は2回完了しており（アーカイブから復元、1.3.1 節）、課題成功の差は ${pluginHoldoutInline()} でした。`,
+    ].join('\n'),
+  )
+}
+
+/** The recovered plugin holdout runs, in Japanese, for the design doc. */
+function designPluginHoldout() {
+  const header = ['模擬の圧縮後（ホールドアウト、Claude Haiku 4.5）', ...pluginHoldout.flatMap((r) => [`実行 \`${r.name}\`：課題成功`, '回答正答'])]
+  const row = (label, condition) => [label, ...pluginHoldout.flatMap((r) => [pct0(r.tasks[condition]), pct0(r.answers[condition])])]
+  const diffRow = (label, condition) => [label, ...pluginHoldout.flatMap((r) => [signedDiff(r.taskDiff[condition]), signedDiff(r.answerDiff[condition])])]
+  return block(
+    [
+      table(header, [
+        row('要約のみ', 'summary'),
+        row('要約＋ダイジェスト（プラグインが推定した目標）', INFERRED),
+        row('要約＋ダイジェスト（同じ目標を `/ctxjev:set-goal` で指定）', SET_GOAL),
+        diffRow('差：ダイジェスト（推定）− 要約のみ［95%CI］', INFERRED),
+        diffRow('差：ダイジェスト（指定）− 要約のみ［95%CI］', SET_GOAL),
+      ]),
+      '',
+      `${pluginHoldout.map((r) => `実行 \`${r.name}\`：${r.taskCount} 課題 × ${r.runs} 回、フックが Jev で採点した回数 ${r.jevScored}／${r.contexts}`).join('。')}。` +
+        `2つのダイジェスト条件は、両実行とも全回で同じ目標で採点されていました（${pluginHoldout.map((r) => `${r.sameGoal}／${r.contexts}`).join('、')}）。つまり「目標の渡し方が違うだけの同じ設定」を2回ずつ測ったものです。`,
     ].join('\n'),
   )
 }
@@ -577,6 +686,10 @@ const RENDERERS = {
   'prereg-primary-diff': preregPrimaryDiff,
   'prereg-secondary-rerun': preregSecondaryRerun,
   'prereg-exploratory-at-cut': preregExploratoryAtCut,
+  'holdout-plugin': holdoutPlugin,
+  'plugin-holdout-inline': pluginHoldoutInline,
+  'prereg-plugin-rerun': preregPluginRerun,
+  'design-plugin-holdout': designPluginHoldout,
 }
 
 // --- checking -----------------------------------------------------------------------------------
@@ -587,6 +700,7 @@ const DOCS = [
   { path: 'docs/design/round-2-scoring-and-evaluation.md', section: /^## 1\./m },
   // No results section to police here: its tables are statuses, and its eval numbers are generated inline.
   { path: 'docs/audits/2026-09-25-round-1-changes-ja.md' },
+  { path: 'packages/claude-plugin/README.md' },
 ]
 const GENERATED = /<!-- generated:([\w-]+) -->([\s\S]*?)<!-- \/generated:\1 -->/g
 
