@@ -21,6 +21,18 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
   Databricks, Sentry auth tokens, Doppler, Terraform Cloud, Square, and several AI and hosting
   providers' keys; `sshpass -p`, `redis-cli -a`, and `docker login -p` passwords; and Teams and
   Zapier webhook URLs.
+- `ctxjev-core`: masks more places a credential sits, found by measuring against lines written
+  without sight of the masking code (see `packages/core/test/blind-redact/`): an `Authorization`
+  header with any scheme (`SSWS`, `OAuth`, …), a `--password`/`--token`/`--db-password`/… argument,
+  an XML element or .NET `<add key=… value=…>` named like a credential, SQL `PASSWORD '…'` and
+  `IDENTIFIED BY '…'`, credential constructors such as `NetworkCredential("user", "…")` and
+  `auth=('user', '…')`, `.netrc` and `.pgpass` lines, an OAuth `?code=`, a base64-encoded PEM
+  private key (a kubeconfig's `client-key-data`), and Vault's older `s.` tokens.
+- `ctxjev-core`: a `Cookie:` or `Set-Cookie:` header has each session or credential cookie masked
+  (`sessionid`, `PHPSESSID`, `…_session_id`, `auth…`, `…token`, `remember…`), and every other
+  cookie left readable; it used to mask whichever cookie came first, analytics included.
+- `ctxjev-core`: `password=password` and `password=self.password` (code passing a variable on)
+  aren't masked.
 - `ctxjev-core`: `redactSecrets()` takes time in proportion to its input on long runs of one
   pattern. 100,000 characters of `a.a.a…` took 24 seconds; 200,000 of any of the audit's shapes
   now take well under a second.

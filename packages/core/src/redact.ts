@@ -33,6 +33,9 @@ const applyRule = (text: string, [pattern, replacement]: Rule) =>
 const TOKEN_PATTERNS: Rule[] = [
   // PEM (RSA, EC, OpenSSH, …) and PGP (`-----BEGIN PGP PRIVATE KEY BLOCK-----`) private keys.
   [/-----BEGIN [A-Z0-9 ]{0,40}PRIVATE KEY(?: BLOCK)?-----[\s\S]*?(?:-----END [A-Z0-9 ]{0,40}PRIVATE KEY(?: BLOCK)?-----|$)/g, REDACTED],
+  // A PEM private key that was base64-encoded again (a Kubernetes secret, a kubeconfig's
+  // client-key-data): "-----BEGIN " and then "PRIVATE KEY" at any of its three alignments.
+  [/LS0tLS1CRUdJTi[A-Za-z0-9+/]{0,60}?(?:UFJJVkFURSBLRV|SSVZBVEUgS0VZ|UklWQVRFIEtFW)[A-Za-z0-9+/=]*/g, REDACTED],
   [/(?<![A-Za-z0-9])sk-[A-Za-z0-9_-]{16,}/g, REDACTED], // Anthropic (sk-ant-...), OpenAI (sk-proj-...), and similar
   [/(?<![A-Za-z0-9])(?:sk|rk)_(?:live|test)_[A-Za-z0-9]{10,}/g, REDACTED], // Stripe secret and restricted keys
   [/(?<![A-Za-z0-9])whsec_[A-Za-z0-9]{16,}/g, REDACTED], // Stripe webhook signing secret
@@ -57,6 +60,7 @@ const TOKEN_PATTERNS: Rule[] = [
   [/(?<![A-Za-z0-9])eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g, REDACTED], // JWT
   [/(?<![A-Za-z0-9])sk\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g, REDACTED], // Mapbox secret token
   [/(?<![A-Za-z0-9])hv[sbr]\.[A-Za-z0-9_-]{24,}/g, REDACTED], // HashiCorp Vault service, batch, and recovery tokens
+  [/(?<![A-Za-z0-9.])s\.(?=[A-Za-z0-9]{0,23}[0-9])[A-Za-z0-9]{24}(?![A-Za-z0-9])/g, REDACTED], // Vault's older service token format
   [/(?<![A-Za-z0-9])[A-Za-z0-9]{14}\.atlasv1\.[A-Za-z0-9_=-]{60,}/g, REDACTED], // Terraform Cloud / Enterprise
   [/(?<![A-Za-z0-9])do[opr]_v1_[a-f0-9]{64}(?![a-f0-9])/g, REDACTED], // DigitalOcean personal, OAuth, and refresh tokens
   [/(?<![A-Za-z0-9])lin_(?:api|oauth)_[A-Za-z0-9]{32,}/g, REDACTED], // Linear
@@ -68,7 +72,7 @@ const TOKEN_PATTERNS: Rule[] = [
   [/(?<![A-Za-z0-9])(?:ATATT3|ATBB)[A-Za-z0-9_=.-]{32,}/g, REDACTED], // Atlassian API token, Bitbucket app password
   [/(?<![A-Za-z0-9])dapi[a-f0-9]{32}(?:-[0-9])?(?![0-9A-Za-z])/g, REDACTED], // Databricks
   [/(?<![A-Za-z0-9])sntry[su]_[A-Za-z0-9+/=_-]{40,}/g, REDACTED], // Sentry auth tokens
-  [/(?<![A-Za-z0-9])dp\.(?:st|pt|sa|ct|scrt|audit)\.[A-Za-z0-9_-]{40,}/g, REDACTED], // Doppler
+  [/(?<![A-Za-z0-9])dp\.(?:st|pt|sa|ct|scrt|audit)\.(?:[a-z0-9_-]{1,40}\.)?[A-Za-z0-9_-]{40,}/g, REDACTED], // Doppler (a service token names its environment)
   // Groq, Replicate, Perplexity, xAI, Supabase, Netlify, Fly, Figma, Grafana, Notion, Buildkite,
   // SonarQube, Pulumi, Shippo. A digit is required so that a hyphenated slug after `xai-` isn't one.
   [/(?<![A-Za-z0-9])(?:gsk_|r8_|pplx-|xai-|sbp_|nfp_|fo1_|figd_|glsa_|glc_|ntn_|bkua_|sq[pau]_|pul-|shippo_(?:live|test)_)(?=[A-Za-z0-9_-]{0,200}[0-9])[A-Za-z0-9_-]{30,}/g, REDACTED],
@@ -95,6 +99,11 @@ const TOKEN_PATTERNS: Rule[] = [
 // URL query parameters that carry a credential under a name the assignment rule below doesn't
 // read as one on its own: a signed URL's signature, an API key passed as `?key=`, a session id.
 const QUERY_SECRET_NAMES = /^(?:sig|signature|x-amz-signature|x-goog-signature|key|sessionid|session_id|jwt)$/i
+// An OAuth authorization code (`?code=…`) is a credential until it's redeemed; short codes (a status,
+// a country, a promotion) aren't one, so only a long value counts.
+const QUERY_LONG_SECRET_NAMES = /^code$/i
+// Cookies that hold a login: session ids, auth and remember-me tokens.
+const SESSION_COOKIE = /^(?:.*sess(?:ion)?(?:[_-]?(?:id|key|token))?|sid|.*auth.*|.*token|jwt|remember.*|connect\.sid|__Secure-.*|__Host-.*)$/i
 
 const POSITIONAL_PATTERNS: Rule[] = [
   // scheme://user:password@host — the password may itself contain "@", so it runs to the last one.
@@ -102,16 +111,49 @@ const POSITIONAL_PATTERNS: Rule[] = [
   // scheme://token@host: a token alone where a user name goes (a Sentry DSN, a git remote with a token).
   [/\b([a-z][a-z0-9+.-]{0,31}:\/\/)([A-Za-z0-9_-]{20,256})(?=@)/gi, (match, scheme: string, user: string) => (/[0-9]/.test(user) && /[A-Za-z]/.test(user) ? `${scheme}${REDACTED}` : match)],
   // An Authorization header's credentials, whatever the scheme.
-  [/(\b(?:Proxy-)?Authorization[ \t]*[:=][ \t]*["']?(?:(?:Bearer|Basic|Token|Digest|Bot)[ \t]+)?)[A-Za-z0-9._~+/=-]{8,}/gi, `$1${REDACTED}`],
+  [/(\b(?:Proxy-)?Authorization[ \t]*[:=][ \t]*["']?(?:[A-Za-z][A-Za-z0-9-]{1,30}[ \t]+)?)[A-Za-z0-9._~+/=-]{8,}/gi, `$1${REDACTED}`],
   [/\b(Bearer\s+)[A-Za-z0-9._~+/=-]{16,}/gi, `$1${REDACTED}`],
   // mysql -u root -pS3cret (the password is glued to -p) and curl -u user:password.
   [/(\bmysql(?:dump|admin|import|sh)?\b[^\n]{0,200}?\s-p)(["']?)(?!\s)[^\s'"]+\2/g, `$1$2${REDACTED}$2`],
   [/(\bcurl\b[^\n]{0,500}?\s(?:-u|--user)[ \t=]+["']?[^\s:'"]{1,256}:)[^\s'"]+/g, `$1${REDACTED}`],
+  // --password S3cret, --token abc…, --db-password …, --client-secret …: a separate argument after a
+  // flag named like a credential (the same words as an assignment's name; `--token-file x` isn't one).
+  [/(\s--([A-Za-z][A-Za-z0-9-]{0,63})[ \t]+)(["']?)(?!-)([^\s'"]+)\3/g, (match, head: string, flag: string, quote: string, value: string) => {
+    const kind = credentialKind(flag)
+    return kind && isMaskableValue(value, kind, quote === '', undefined) ? `${head}${quote}${REDACTED}${quote}` : match
+  }],
+  // Vault / CLI logins that take the token as their argument: `vault login s.…`, `vault login hvs.…`
+  // are caught above by format; this is for a token with no prefix of its own.
   // sshpass -p S3cret, redis-cli -a S3cret, docker login -p S3cret.
   [/(\b(?:sshpass\b[^\n]{0,100}?\s-p|redis-cli\b[^\n]{0,200}?\s-a|docker\s+login\b[^\n]{0,200}?\s-p)[ \t]*)(["']?)(?!-)[^\s'"]+\2/g, `$1$2${REDACTED}$2`],
+  // SQL: CREATE ROLE … PASSWORD '…', CREATE USER … IDENTIFIED BY '…', and the same in prose.
+  [/(\b(?:PASSWORD|PASSWD|IDENTIFIED\s+BY)\s+)(['"])([^'"\n]{1,256})\2/gi, (match, head: string, quote: string, value: string) => (isMasked(value) ? match : `${head}${quote}${REDACTED}${quote}`)],
+  // A user name and password passed to a credential constructor: NetworkCredential("u", "p"),
+  // HTTPBasicAuth('u', 'p'), UsernamePasswordCredentials("u", "p"), requests' auth=('u', 'p').
+  [/(\b(?:NetworkCredential|UsernamePasswordCredentials|PasswordAuthentication|HTTPBasicAuth|HTTPDigestAuth|BasicAuth|basicAuth|auth\s*=\s*)\(\s*(["'])[^"'\n]{0,128}\2\s*,\s*)(["'])([^"'\n]{1,256})\3/g, `$1$3${REDACTED}$3`],
+  // .netrc: `password <value>` (a line of its own or after machine/login), only in text that has a
+  // `machine` entry, so prose like "password must be 12 characters" isn't touched.
+  [/(^[ \t]*(?:(?:machine|login|account)[ \t]+\S+[ \t]+)*password[ \t]+)(\S+)/gm, (match, head: string, value: string, ...rest: unknown[]) =>
+    /(?:^|\s)machine[ \t]+\S/.test(rest[rest.length - 1] as string) && !isMasked(value) ? `${head}${REDACTED}` : match],
+  // ~/.pgpass: hostname:port:database:username:password, one per line.
+  [/^([^:\s#]{1,253}:(?:[0-9]{1,5}|\*):[^:\s]{1,128}:[^:\s]{1,128}:)(\S+)$/gm, (match, head: string, value: string) => (isMasked(value) ? match : `${head}${REDACTED}`)],
+  // Cookie / Set-Cookie headers: only cookies named like a session or a credential, so analytics and
+  // preference cookies stay readable.
+  [/(\b(?:Set-)?Cookie[ \t]*:[ \t]*)([^\r\n]{1,8192})/gi, (_match, head: string, cookies: string) =>
+    head + cookies.replace(/(^|;[ \t]*)([^=;\s]{1,128})=([^;\s]{1,4096})/g, (pair: string, sep: string, name: string, value: string) =>
+      (SESSION_COOKIE.test(name) || credentialKind(name)) && !isMasked(value) && value.length >= 8 ? `${sep}${name}=${REDACTED}` : pair)],
+  // XML and .NET config: <password>…</password>, <add key="ApiKey" value="…"/>.
+  [/(<([A-Za-z_][A-Za-z0-9_.:-]{0,63})>)([^<\n]{1,1024})(<\/\2>)/g, (match, open: string, name: string, value: string, close: string) => {
+    const kind = credentialKind(name)
+    return kind && isMaskableValue(value, kind, false, undefined) ? `${open}${REDACTED}${close}` : match
+  }],
+  [/(\bkey\s*=\s*"([^"\n]{1,128})"\s+value\s*=\s*")([^"\n]{1,1024})"/gi, (match, head: string, name: string, value: string) => {
+    const kind = credentialKind(name)
+    return kind && isMaskableValue(value, kind, false, undefined) ? `${head}${REDACTED}"` : match
+  }],
   // A URL query parameter named in QUERY_SECRET_NAMES.
   [/([?&]([A-Za-z][A-Za-z0-9_-]{0,31})=)([^&#\s"'<>]{8,})/g, (match, head: string, name: string, value: string) =>
-    QUERY_SECRET_NAMES.test(name) && !/^\d+$/.test(value) && !isMasked(value) && !PLACEHOLDER.test(value) ? `${head}${REDACTED}` : match],
+    (QUERY_SECRET_NAMES.test(name) || (QUERY_LONG_SECRET_NAMES.test(name) && value.length >= 16)) && !/^\d+$/.test(value) && !isMasked(value) && !PLACEHOLDER.test(value) ? `${head}${REDACTED}` : match],
 ]
 
 // A payment card number: 13–19 digits, run together or grouped the way cards print them (4-4-4-4,
@@ -165,12 +207,12 @@ type CredentialKind = 'password' | 'token'
 
 const PASSWORD_WORDS = new Set(['password', 'passwd', 'passwort', 'pwd', 'pw', 'pass', 'passphrase'])
 const PASSWORD_SUFFIXES = ['password', 'passwd', 'passphrase']
-const TOKEN_WORDS = new Set(['secret', 'token', 'apikey', 'credential', 'credentials', 'auth', 'cookie'])
+const TOKEN_WORDS = new Set(['secret', 'token', 'apikey', 'credential', 'credentials', 'auth'])
 const TOKEN_SUFFIXES = ['secret', 'token', 'apikey']
 // "<qualifier> key" is a credential (api key, secret key, account key); a bare "key" usually isn't.
 const KEY_QUALIFIERS = new Set(['api', 'access', 'secret', 'private', 'signing', 'encryption', 'master', 'account', 'shared', 'client', 'app', 'service', 'license', 'subscription', 'admin', 'auth', 'webhook', 'deploy', 'hmac', 'jwt', 'storage'])
 // Words that can follow the credential without changing what it is: SECRET_KEY_BASE, token_value.
-const TRAILING_WORDS = new Set(['base', 'value', 'b64', 'base64', 'plain', 'plaintext', 'raw'])
+const TRAILING_WORDS = new Set(['base', 'value', 'b64', 'base64', 'plain', 'plaintext', 'raw', 'data'])
 
 /** Splits `dbPassword`, `DB_PASSWORD`, `x-api-key`, `spring.datasource.password` into lowercase words. */
 function nameWords(name: string): string[] {
@@ -200,9 +242,13 @@ const PLACEHOLDER =
 const REFERENCE = /^(?:process\.env|os\.environ|import\.meta\.env|ENV\[|System\.getenv|getenv)/
 
 /** `next` is the character right after the value: an unquoted value followed by `(` or `[` is code (`token = get_token()`). */
-function isMaskableValue(value: string, kind: CredentialKind, bare: boolean, next: string | undefined): boolean {
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+function isMaskableValue(value: string, kind: CredentialKind, bare: boolean, next: string | undefined, name?: string): boolean {
   if (value.length === 0 || isMasked(value) || PLACEHOLDER.test(value) || REFERENCE.test(value)) return false
   if (bare && (next === '(' || next === '[')) return false
+  // Code passing a variable on: `password=password`, `token=self.token`.
+  if (bare && name !== undefined && new RegExp(`^(?:[A-Za-z_][A-Za-z0-9_]*\\.)*${escapeRegExp(name)}$`, 'i').test(value)) return false
   if (kind === 'password') return true
   // A purely numeric value (MAX_TOKENS=100000) is a setting, not a secret.
   if (/^\d+$/.test(value)) return false
@@ -229,7 +275,7 @@ function maskAssignments(text: string): string {
     const kind = credentialKind(name)
     const value = escaped ?? dq ?? sq ?? bq ?? bare ?? ''
     // Unquoted, a value may also be prose ("Token: expired yesterday"): see isMaskableValue.
-    if (kind && isMaskableValue(value, kind, bare !== undefined, text[end])) {
+    if (kind && isMaskableValue(value, kind, bare !== undefined, text[end], name)) {
       const masked =
         escaped !== undefined ? `\\"${REDACTED}\\"` : dq !== undefined ? `"${REDACTED}"` : sq !== undefined ? `'${REDACTED}'` : bq !== undefined ? `\`${REDACTED}\`` : REDACTED
       out += `${text.slice(copied, start)}${quote}${name}${quote}${sep}${masked}`

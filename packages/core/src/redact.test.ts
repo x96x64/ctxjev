@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { AUDIT3_FORMATS, AUDIT3_LINES, FORMATS, HARMLESS, PW } from '../test/redactCases.js'
+import { AUDIT3_FORMATS, AUDIT3_LINES, B62, FORMATS, HARMLESS, PW, j } from '../test/redactCases.js'
 import { redactSecrets } from './redact.js'
 
 describe('redactSecrets', () => {
@@ -130,5 +130,51 @@ describe('redactSecrets: time on long runs', () => {
     const start = performance.now()
     redactSecrets(text)
     expect(performance.now() - start).toBeLessThan(2000)
+  })
+})
+
+// General shapes added after the blind corpus's dev half showed them missing (the examples here are
+// this file's own, not the corpus's), and the `--flag value` rule, which the rewrite for the third
+// audit dropped by mistake before the dev half caught it.
+describe('redactSecrets: shapes added from the blind corpus\'s dev half', () => {
+  const cases: Array<[string, string, string]> = [
+    ['--password value', 'pg_dump --password S3cretPassw0rd -h db', 'S3cretPassw0rd'],
+    ['--token value', `doppler run --token ${j('dp', '.st.', 'prd.', B62)} -- node app.js`, B62],
+    ['--db-password value', 'deploy --db-password hunter22 --yes', 'hunter22'],
+    ['--client-secret "value"', 'oauth2 --client-secret "Xy9kL2mN4pQ7rS1t" --id app', 'Xy9kL2mN4pQ7rS1t'],
+    ['Authorization with an uncommon scheme', `Authorization: SSWS ${B62}`, B62],
+    ['XML element', '<password>Tr0ub4dor&amp;3x</password>', 'Tr0ub4dor'],
+    ['.NET appSettings', '<add key="StripeSecretKey" value="rT5uV6wX7yZ8aB9c" />', 'rT5uV6wX7yZ8aB9c'],
+    ['SQL CREATE ROLE', "CREATE ROLE app WITH LOGIN PASSWORD 'Qw3rty!Uiop' VALID UNTIL 'infinity';", 'Qw3rty!Uiop'],
+    ['SQL IDENTIFIED BY', "ALTER USER app IDENTIFIED BY 'Zx9Cv8Bn7';", 'Zx9Cv8Bn7'],
+    ['credential constructor', 'new NetworkCredential("svc@example.com", "Pa55w0rd-2026")', 'Pa55w0rd-2026'],
+    ['requests auth tuple', "requests.get(url, auth=('svc', 'Pa55w0rd-2026'))", 'Pa55w0rd-2026'],
+    ['.netrc', 'machine api.example.com\n  login svc\n  password 9f8e7d6c-5b4a-3210', '9f8e7d6c-5b4a-3210'],
+    ['.pgpass', 'db.internal:5432:*:replicator:Hk3%tR8#pL', 'Hk3%tR8#pL'],
+    ['session cookie', 'Cookie: theme=dark; sessionid=Zq8Xw7Vu6Ts5Rq4P', 'Zq8Xw7Vu6Ts5Rq4P'],
+    ['PHP and Java session cookies', 'Cookie: PHPSESSID=k2j3h4g5f6d7s8a9; JSESSIONID=Zq8Xw7Vu6Ts5Rq4P', 'k2j3h4g5f6d7s8a9'],
+    ['Set-Cookie with attributes', 'Set-Cookie: _app_session_id=Zq8Xw7Vu6Ts5Rq4P; Path=/; HttpOnly; Secure', 'Zq8Xw7Vu6Ts5Rq4P'],
+    ['OAuth authorization code', 'GET /callback?state=abc&code=4/0AfJohXn8Kz2mQ9vR7tY6uP5sW HTTP/1.1', '4/0AfJohXn8Kz2mQ9vR7tY6uP5sW'],
+    ['base64-encoded PEM private key', `client-key-data: ${Buffer.from(`-----BEGIN EC PRIVATE KEY-----\n${B62}\n`).toString('base64')}`, Buffer.from(`-----BEGIN EC PRIVATE KEY-----\n${B62}\n`).toString('base64').slice(40, 60)],
+    ['Vault older token', `vault login ${j('s', '.', 'x7U9k2PQqDyIYM1OoSJu2Dab')}`, 'x7U9k2PQqDyIYM1OoSJu2Dab'],
+  ]
+  it.each(cases)('%s', (_name, text, secret) => {
+    const masked = redactSecrets(text)
+    expect(masked).not.toContain(secret)
+    expect(redactSecrets(masked)).toBe(masked)
+  })
+
+  const harmless = [
+    'Cookie: _ga=GA1.1.445478328.1727164800; theme=dark; lang=en-GB',
+    'resp = client.login(username=user, password=password)',
+    'connect(password=self.password, host=self.host)',
+    'GET /errors?code=404&page=2 HTTP/1.1',
+    'the password must be at least 12 characters',
+    '--token-file /run/secrets/token --verbose',
+    '<username>ci-publisher</username>',
+    'localhost:8080:ready',
+  ]
+  it.each(harmless)('leaves alone: %s', (text) => {
+    expect(redactSecrets(text)).toBe(text)
   })
 })
