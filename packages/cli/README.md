@@ -26,7 +26,7 @@ sends nothing, and tied Jev on a [preregistered holdout comparison](../core/eval
 offline. To opt in to Jev instead: `export TYPESAFE_API_KEY=...`
 (console.typesafe.ai/settings/keys, no waitlist) and pass `--scorer jev`.
 
-Versions before 0.6.0 (0.5.0 is the latest on npm as of 2026-09-24) score with Jev by default,
+Versions before 0.6.0 score with Jev by default,
 so they need the key unless you pass `--offline`, and have no `--scorer`.
 
 With the default `recency`, the goal isn't used: an entry's score is its position (oldest 0,

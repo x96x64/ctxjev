@@ -20,10 +20,6 @@ removes what ranked lowest and keeps the request valid.
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)](tsconfig.base.json)
 [![pnpm](https://img.shields.io/badge/maintained%20with-pnpm-F69220?logo=pnpm&logoColor=white)](pnpm-workspace.yaml)
 
-**This README describes `main` (0.6.0, not yet released). npm has 0.5.0**, which scores with Jev by
-default (so `ctxjev analyze` needs `TYPESAFE_API_KEY` there, or `--offline`) and has no `--scorer`
-flag. See [what's on npm vs. `main`](#whats-on-npm-vs-main).
-
 [Why](#why) · [Choosing a Package](#choosing-a-package) · [Claude Code Plugin](#the-claude-code-plugin) · [How Scoring Works](#how-scoring-works) · [Does It Work?](#does-it-work) · [Quick Start](#quick-start) · [MCP Hosts](#using-it-from-an-mcp-host) · [Design Notes](#design-notes) · [Changelog](CHANGELOG.md)
 
 </div>
@@ -110,9 +106,10 @@ so far is within the noise; see [Does It Work?](#does-it-work).
 ```
 
 This repo carries a [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) at its
-root, pointing at the `packages/claude-plugin` subdirectory, so the desktop app can install it
-directly with no local clone needed. `ctxjev-claude` isn't on npm; Claude Code plugins install
-through the marketplace, not `npm install`. See the [plugin README](packages/claude-plugin/README.md)
+root, pointing at the `packages/claude-plugin` subdirectory at the latest release's tag (never
+unreleased `main`), so the desktop app can install it directly with no local clone needed.
+`ctxjev-claude` isn't on npm; Claude Code plugins install through the marketplace, not
+`npm install`. See the [plugin README](packages/claude-plugin/README.md)
 for setup details, including how to make the key visible to the desktop app.
 
 ## How Scoring Works
@@ -409,13 +406,10 @@ npm install -g ctxjev-cli
 ctxjev analyze transcript.jsonl --goal "Fix the checkout double-charge bug."
 ```
 
-On `main` (0.6.0), no key is needed: the default scorer, `recency`, ranks by position alone and
+No key is needed: the default scorer, `recency`, ranks by position alone and
 sends nothing. `--scorer local` scores by keyword overlap instead, also offline. Want Jev's
 judgment? `export TYPESAFE_API_KEY=...` (console.typesafe.ai/settings/keys, no waitlist) and add
 `--scorer jev` — see [Does It Work?](#does-it-work) for what that currently buys you.
-
-**With the npm release (0.5.0)**, the same command asks Jev and fails without `TYPESAFE_API_KEY`;
-add `--offline` for keyword overlap instead (0.5.0 has no `--scorer` and no `recency` scorer).
 
 `ctxjev prune` writes a ctxjev-format or Anthropic Messages transcript back out with the drops
 removed (to stdout, or `--out <file>`):
@@ -435,18 +429,8 @@ node packages/cli/dist/index.js analyze examples/sample-transcripts/checkout-bug
 node packages/cli/dist/index.js analyze examples/sample-transcripts/checkout-bug.json --scorer jev  # needs TYPESAFE_API_KEY
 ```
 
-### What's on npm vs. `main`
-
-| | npm today (0.5.0) | `main` (0.6.0, unreleased) |
-| --- | --- | --- |
-| Default scorer (`ctxjev-core`, `ctxjev-cli`, `pruneMessages()`) | Jev (needs `TYPESAFE_API_KEY`) | `recency`, offline |
-| CLI offline flag | `--offline` (keyword overlap) | `--scorer recency\|local\|jev`; `--offline` = `--scorer local` |
-| Everything in [the changelog's 0.6.0 section](CHANGELOG.md) | no | yes |
-
-The Claude Code plugin isn't on npm: the marketplace installs it from this repository's `main`
-branch, so plugin users get `main` as soon as it's pushed, released or not. Pinning the marketplace
-to released versions is planned (see the
-[Round 2 design proposal](docs/design/round-2-scoring-and-evaluation.md), in Japanese).
+The Claude Code plugin isn't on npm: the marketplace installs it from this repository, at the tag of
+the latest release (`v0.6.0`), so plugin users get released code only.
 
 ## Packages
 
@@ -455,10 +439,10 @@ that engine gets used.
 
 | Package | What it is | Status |
 | --- | --- | --- |
-| [`ctxjev-core`](packages/core) ([npm](https://www.npmjs.com/package/ctxjev-core)) | The engine: `scoreEntries()`/`pruneContext()`/`pruneMessages()`, plus the Claude Code transcript parser, secret masking, and the offline scorers. Everything else wraps this. | ✅ published (npm: 0.5.0) |
-| [`ctxjev-cli`](packages/cli) ([npm](https://www.npmjs.com/package/ctxjev-cli)) | `ctxjev analyze` (a report) and `ctxjev prune` (the transcript with drops removed). | ✅ published (npm: 0.5.0) |
-| [`ctxjev-mcp`](packages/mcp-server) ([npm](https://www.npmjs.com/package/ctxjev-mcp)) | MCP server exposing `score_relevance`/`prune_history` as tools. | ✅ published (npm: 0.5.0) |
-| [`ctxjev-claude`](packages/claude-plugin) | Claude Code plugin: scores at `PreCompact`, re-injects a digest at `SessionStart`, plus `/ctxjev:set-goal` and `/ctxjev:status` (answered by a `UserPromptSubmit` hook without a model turn). | ✅ working (not on npm; installed from `main`) |
+| [`ctxjev-core`](packages/core) ([npm](https://www.npmjs.com/package/ctxjev-core)) | The engine: `scoreEntries()`/`pruneContext()`/`pruneMessages()`, plus the Claude Code transcript parser, secret masking, and the offline scorers. Everything else wraps this. | ✅ published (npm: 0.6.0) |
+| [`ctxjev-cli`](packages/cli) ([npm](https://www.npmjs.com/package/ctxjev-cli)) | `ctxjev analyze` (a report) and `ctxjev prune` (the transcript with drops removed). | ✅ published (npm: 0.6.0) |
+| [`ctxjev-mcp`](packages/mcp-server) ([npm](https://www.npmjs.com/package/ctxjev-mcp)) | MCP server exposing `score_relevance`/`prune_history` as tools. | ✅ published (npm: 0.6.0) |
+| [`ctxjev-claude`](packages/claude-plugin) | Claude Code plugin: scores at `PreCompact`, re-injects a digest at `SessionStart`, plus `/ctxjev:set-goal` and `/ctxjev:status` (answered by a `UserPromptSubmit` hook without a model turn). | ✅ working (not on npm; installed from the release tag) |
 
 ## Using It from an MCP Host
 

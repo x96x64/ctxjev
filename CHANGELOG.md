@@ -5,7 +5,7 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 (`.claude-plugin/marketplace.json`, `packages/claude-plugin/.claude-plugin/plugin.json`,
 `plugins/ctxjev/plugin.json`). A bump in one is a bump in all, even when only one changed.
 
-## 0.6.0 — unreleased
+## 0.6.0 — 2026-09-25
 
 **Breaking changes, in short** (each is described below): the default scorer of `ctxjev-core`,
 `ctxjev-cli`, and `pruneMessages()` is `'recency'`, not Jev; the Claude Code plugin scores offline
