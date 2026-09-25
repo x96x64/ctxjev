@@ -53,6 +53,8 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
   instead of "no compaction in this session", and shows transcript warnings.
 - `ctxjev-cli`: `--version` / `-v` work after the command too (`ctxjev analyze --version`), and an
   unknown option gets a plain message pointing at `--help`.
+- `ctxjev-mcp`: an entry's `id` and `toolName` are capped at 256 characters, so every string a
+  tool call accepts is bounded (a 5,000,000-character id used to pass validation).
 - `ctxjev-mcp`: starts without `TYPESAFE_API_KEY` and lists its tools; each call then returns an
   error saying the key is missing. Hosts used to see only "connection closed".
 - `ctxjev-mcp`: every setup example pins the version (`npx ctxjev-mcp@0.5.0`), so hosts run the
@@ -227,7 +229,9 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 - `ctxjev-core`: requests run at most 5 at a time, instead of all at once.
 - `ctxjev-cli`: transcript entries are validated field by field; `--drop-below` must not exceed
   `--summarize-below`.
-- `ctxjev-mcp`: scores are cached across calls; inputs are size-capped and validated.
+- `ctxjev-mcp`: scores are cached across calls; inputs are validated, and the number of entries,
+  each entry's content, and the goal are size-capped. (Corrected in 0.6.0: this used to say every
+  input was size-capped, but entry ids and tool names weren't until 0.6.0.)
 - `ctxjev-claude`: the hook bundle shrank from 3.3MB to 17KB; the preserved-context file is
   written atomically; re-injected excerpts are labeled as quoted data, not instructions.
 

@@ -9,11 +9,15 @@ const MAX_CONTENT_LENGTH = 4000
 // goal gets embedded into state.goal on every chunked Jev request (jevClient.ts) — an oversized
 // goal is billed once per chunk, not once per call, and deserves the same cap as content.
 const MAX_GOAL_LENGTH = 2000
+// Ids and tool names are labels, not content: a Claude Code tool_use id or record uuid is under 60
+// characters, and MCP tool names under 64. Generous caps, so every string the server accepts is bounded.
+const MAX_ID_LENGTH = 256
+const MAX_TOOL_NAME_LENGTH = 256
 
 export const entrySchema = z.object({
-  id: z.string().min(1),
+  id: z.string().min(1).max(MAX_ID_LENGTH),
   role: z.enum(['user', 'assistant', 'tool']),
-  toolName: z.string().optional(),
+  toolName: z.string().max(MAX_TOOL_NAME_LENGTH).optional(),
   content: z.string().max(MAX_CONTENT_LENGTH),
   // .finite() — bare z.number() only rejects NaN, not Infinity/-Infinity. core's computeRecency
   // takes min/max across the whole batch, so one infinite timestamp turns every entry's recency
