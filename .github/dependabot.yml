@@ -14,6 +14,13 @@ updates:
       # vitest 5 needs Node >= 22.12, and CI still tests the Node 20 line that engines promises.
       - dependency-name: vitest
         versions: ['>=5']
+      # TypeScript 7: typescript-eslint doesn't support it yet, so `pnpm lint` fails (issue #4).
+      - dependency-name: typescript
+        versions: ['>=7']
+      # Stay on the Node 22 line (.nvmrc; engines >=20) so code can't type-check against newer
+      # Node APIs our users may not have (issue #4).
+      - dependency-name: '@types/node'
+        versions: ['>=23']
   - package-ecosystem: github-actions
     directory: /
     schedule:
