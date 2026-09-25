@@ -114,6 +114,8 @@ describe('redactSecrets: the third audit\'s lines', () => {
 // 24 seconds (an unbounded assignment name re-tried at every dot), so a long minified or dotted
 // line could hold up a hook. Generous limits: the point is linear against quadratic, not speed.
 describe('redactSecrets: time on long runs', () => {
+  // Coverage instrumentation slows everything down; scripts/coverage.mjs scales the limit for it.
+  const SCALE = Number(process.env.CTXJEV_TIME_LIMIT_SCALE ?? 1)
   const N = 200_000
   const runs: Array<[string, string]> = [
     ['a.a.a…', 'a.'.repeat(N / 2)],
@@ -133,7 +135,7 @@ describe('redactSecrets: time on long runs', () => {
   it.each(runs)('%s (200,000 characters) in under 2 seconds', (_name, text) => {
     const start = performance.now()
     redactSecrets(text)
-    expect(performance.now() - start).toBeLessThan(2000)
+    expect(performance.now() - start).toBeLessThan(2000 * SCALE)
   })
 })
 

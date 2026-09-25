@@ -7,6 +7,9 @@ import { estimateTokens } from './tokenEstimate.js'
 // quadratic in the length of one pre-token, and a run of one character is one pre-token however
 // long. 100,000 `x` took 8.7 s, 100,000 `█` 82.5 s, and `analyze` on a 5,000,000-character entry
 // didn't finish in 120 s.
+// Coverage instrumentation slows everything down; scripts/coverage.mjs scales the limits for it.
+const SCALE = Number(process.env.CTXJEV_TIME_LIMIT_SCALE ?? 1)
+
 describe('estimateTokens: time on long runs', () => {
   const kana = 'あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん請求書日付検証'
   const random = seededRandom(7)
@@ -20,7 +23,6 @@ describe('estimateTokens: time on long runs', () => {
     ['ab × 50,000', 'ab'.repeat(50_000)],
     ['─ × 100,000', '─'.repeat(100_000)],
     ['😀 × 50,000', '😀'.repeat(50_000)],
-    ['varied kana, 100,000 with no punctuation', variedKana],
     // One pre-token of mixed kinds (the review of the first fix): 200,000 characters of `/\n` took
     // 20.7 seconds, and `!!` plus a combining accent 1.8 seconds at 48,000.
     ['/\\n × 100,000', '/\n'.repeat(100_000)],
@@ -31,8 +33,16 @@ describe('estimateTokens: time on long runs', () => {
   it.each(runs)('%s in under 1 second', (_name, text) => {
     const start = performance.now()
     const tokens = estimateTokens(text)
-    expect(performance.now() - start).toBeLessThan(1000)
+    expect(performance.now() - start).toBeLessThan(1000 * SCALE)
     expect(tokens).toBeGreaterThan(0)
+  })
+
+  // Every 128-character piece of varied text is different, so none is cached: about 0.3 s here,
+  // against 67 s before.
+  it('varied kana, 100,000 with no punctuation, in under 3 seconds', () => {
+    const start = performance.now()
+    expect(estimateTokens(variedKana)).toBeGreaterThan(0)
+    expect(performance.now() - start).toBeLessThan(3000 * SCALE)
   })
 
   // 5,000,000 `█` also overflowed the regular expression engine's stack in the first version of the
@@ -40,8 +50,8 @@ describe('estimateTokens: time on long runs', () => {
   it.each(['x', '█', '😀', '/\n', '!!\u0301'])('5,000,000 characters of %s in under 5 seconds', (unit) => {
     const start = performance.now()
     expect(estimateTokens(unit.repeat(5_000_000 / unit.length + 1).slice(0, 5_000_000))).toBeGreaterThan(0)
-    expect(performance.now() - start).toBeLessThan(5000)
-  })
+    expect(performance.now() - start).toBeLessThan(5000 * SCALE)
+  }, 60_000)
 })
 
 describe('estimateTokens: counts', () => {
@@ -58,7 +68,8 @@ describe('estimateTokens: counts', () => {
     expect(estimateTokens(text)).toBe(encode(text).length)
   })
 
-  it('stays within 2% of encode() on long runs it cuts', () => {
+  // encode() itself, the reference here, is the slow part.
+  it('stays within 2% of encode() on long runs it cuts', { timeout: 60_000 }, () => {
     for (const text of ['x'.repeat(20_000), '█'.repeat(5_000), `log line\n${'='.repeat(10_000)}\nend`, 'ab'.repeat(10_000)]) {
       const exact = encode(text).length
       expect(Math.abs(estimateTokens(text) - exact)).toBeLessThanOrEqual(Math.max(2, exact * 0.02))

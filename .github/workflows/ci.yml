@@ -42,6 +42,11 @@ jobs:
       # raw TypeError, no NaN, no slow call, no broken structure. Offline; about a minute.
       - name: Boundary brute force
         run: node scripts/boundary-bruteforce.mjs
+      # Test coverage per package, in-process and (for the CLI and the MCP server) in the dist/
+      # their tests run as subprocesses, against a minimum for each.
+      - name: Coverage (per-package minimums)
+        if: matrix.node-version == 22
+        run: node scripts/coverage.mjs
 
   # The eval harness itself, with no model calls: every task's template fails its hidden acceptance
   # tests and its solution passes (verify.mjs), and tasks.mjs's workspace tools apply a solution and

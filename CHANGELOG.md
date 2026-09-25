@@ -178,6 +178,9 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
   measured (the plugin's default hasn't been evaluated).
 - `ctxjev-core`: `rankLocalRelevance(scored, recencyWeight)` turns `scoreEntries()`' raw keyword
   overlap into the ranked scale `pruneContext()` uses. A new export.
+- `ctxjev-mcp`: `scoreRelevanceTool()` and `pruneHistoryTool()` take an optional second argument
+  (`jevClient`, `cache`), so their success path is tested offline with a stand-in for Jev; the
+  server itself is unchanged.
 
 ## 0.6.1 — 2026-09-25
 

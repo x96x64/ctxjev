@@ -1,4 +1,4 @@
-import { DEFAULT_POLICY, createUsageAccumulator, pruneContext, scoreEntries, summarizeSavings, type Entry, type PruningPolicy, type ScoreCache } from 'ctxjev-core'
+import { DEFAULT_POLICY, createUsageAccumulator, pruneContext, scoreEntries, summarizeSavings, type Entry, type JevClient, type PruningPolicy, type ScoreCache } from 'ctxjev-core'
 import { validatePolicyOrdering } from './schemas.js'
 
 /**
@@ -34,18 +34,21 @@ export function createBoundedScoreCache(limit = SCORE_CACHE_LIMIT): ScoreCache &
 
 const scoreCache = createBoundedScoreCache()
 
+/** What a tool talks to: the server's shared cache and the default Jev client, unless a test passes its own. */
+export type ToolDeps = { jevClient?: JevClient; cache?: ScoreCache }
+
 export type ScoreRelevanceArgs = {
   goal: string
   entries: Entry[]
   recencyWeight?: number
 }
 
-export async function scoreRelevanceTool({ goal, entries, recencyWeight }: ScoreRelevanceArgs) {
+export async function scoreRelevanceTool({ goal, entries, recencyWeight }: ScoreRelevanceArgs, { jevClient, cache = scoreCache }: ToolDeps = {}) {
   const { usage, onUsage } = createUsageAccumulator()
   // core's own default scorer is 'recency' as of 0.6.0 (see prune.ts), since the holdout eval tied
   // Jev on task success. This tool's whole purpose is exposing Jev scoring, so it keeps asking for
   // it explicitly rather than silently inheriting that default.
-  const scored = await scoreEntries(entries, goal, recencyWeight ?? DEFAULT_POLICY.recencyWeight, { onUsage, cache: scoreCache, scorer: 'jev' })
+  const scored = await scoreEntries(entries, goal, recencyWeight ?? DEFAULT_POLICY.recencyWeight, { onUsage, cache, jevClient, scorer: 'jev' })
   return { scored, usage }
 }
 
@@ -54,7 +57,7 @@ export type PruneHistoryArgs = ScoreRelevanceArgs & {
   summarizeBelow?: number
 }
 
-export async function pruneHistoryTool({ goal, entries, recencyWeight, dropBelow, summarizeBelow }: PruneHistoryArgs) {
+export async function pruneHistoryTool({ goal, entries, recencyWeight, dropBelow, summarizeBelow }: PruneHistoryArgs, { jevClient, cache = scoreCache }: ToolDeps = {}) {
   const policy: PruningPolicy = {
     dropBelow: dropBelow ?? DEFAULT_POLICY.dropBelow,
     summarizeBelow: summarizeBelow ?? DEFAULT_POLICY.summarizeBelow,
@@ -63,7 +66,7 @@ export async function pruneHistoryTool({ goal, entries, recencyWeight, dropBelow
   validatePolicyOrdering(policy.dropBelow, policy.summarizeBelow)
 
   const { usage, onUsage } = createUsageAccumulator()
-  const decisions = await pruneContext(entries, goal, policy, { onUsage, cache: scoreCache, scorer: 'jev' })
+  const decisions = await pruneContext(entries, goal, policy, { onUsage, cache, jevClient, scorer: 'jev' })
   const savings = summarizeSavings(entries, decisions)
   return { decisions, savings, usage }
 }

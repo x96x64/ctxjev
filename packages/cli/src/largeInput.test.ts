@@ -57,6 +57,6 @@ describe('ctxjev analyze on a 5,000,000-character entry', () => {
     const result = await run(['analyze', file])
     expect(result.exitCode).toBe(0)
     expect(result.stdout).toContain('(of 2 entries)')
-    expect(Date.now() - start).toBeLessThan(30_000)
-  }, 60_000)
+    expect(Date.now() - start).toBeLessThan(30_000 * Number(process.env.CTXJEV_TIME_LIMIT_SCALE ?? 1))
+  }, 300_000)
 })

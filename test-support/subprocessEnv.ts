@@ -23,6 +23,8 @@ export function subprocessEnv(extra: Record<string, string | undefined> = {}): R
     const value = process.env[name]
     if (value !== undefined) env[name] = value
   }
+  // Coverage of the subprocess itself (scripts/coverage.mjs): V8 writes it where this points.
+  if (process.env.CTXJEV_SUBPROCESS_COVERAGE) env.NODE_V8_COVERAGE = process.env.CTXJEV_SUBPROCESS_COVERAGE
   for (const [name, value] of Object.entries(extra)) {
     if (value === undefined) delete env[name]
     else env[name] = value
