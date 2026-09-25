@@ -181,6 +181,10 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 - `ctxjev-mcp`: `scoreRelevanceTool()` and `pruneHistoryTool()` take an optional second argument
   (`jevClient`, `cache`), so their success path is tested offline with a stand-in for Jev; the
   server itself is unchanged.
+- Release process: the publish workflow refuses to run unless CI passed on the exact commit being
+  published, and the plugin's marketplace entry pins a commit (`sha`) as well as the release tag,
+  which the workflow checks ships exactly the released plugin files. A tag can be moved; a commit
+  can't.
 
 ## 0.6.1 — 2026-09-25
 
