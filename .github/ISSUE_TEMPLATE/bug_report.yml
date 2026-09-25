@@ -1,0 +1,33 @@
+name: Bug report
+description: Something in ctxjev-core, ctxjev-cli, ctxjev-mcp, or the Claude Code plugin doesn't work as documented.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Never paste a real session transcript, API key, or anything from `~/.claude/`.** Transcripts can hold secrets. A small synthetic example that shows the problem is best. To report a vulnerability, use private reporting instead (see SECURITY.md).
+  - type: dropdown
+    id: package
+    attributes:
+      label: Package
+      options: [ctxjev-core, ctxjev-cli, ctxjev-mcp, ctxjev-claude (plugin), eval harness, docs]
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: "`ctxjev --version`, the npm version, or the plugin's version in `/plugin`."
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      description: Commands and a synthetic input, if you can.
