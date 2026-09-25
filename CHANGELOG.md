@@ -7,6 +7,12 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 
 ## 0.6.0 — unreleased
 
+**Breaking changes, in short** (each is described below): the default scorer of `ctxjev-core`,
+`ctxjev-cli`, and `pruneMessages()` is `'recency'`, not Jev; the Claude Code plugin scores offline
+unless you set `CTXJEV_SCORER=jev`; `pruneMessages()` never prunes the latest turn
+(`protectLastTurn: false` to prune inside a single-instruction agent loop); and Jev scores cached
+by earlier versions are ignored.
+
 - `ctxjev-claude`: **scores offline by keyword overlap by default and sends nothing anywhere.** Jev
   is opt-in: set `CTXJEV_SCORER=jev` as well as `TYPESAFE_API_KEY` (a key alone no longer turns it
   on). On the preregistered holdout tasks the Jev-scored digest showed no demonstrated effect, and
@@ -81,15 +87,14 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
   error saying the key is missing. Hosts used to see only "connection closed".
 - `ctxjev-claude`: from this release on, the marketplace installs the plugin from the release's
   tag (`v0.6.0`), not from whatever is on `main`, so you only ever get released code.
-- `ctxjev-mcp`: every setup example pins the version (`npx ctxjev-mcp@0.5.0`), so hosts run the
-  release you chose.
+- `ctxjev-mcp`: every setup example pins the version (`npx ctxjev-mcp@0.6.0` for this release), so
+  hosts run the release you chose.
 - `ctxjev-core`: new `jevClient` option (bring your own Jev client), and new exports
   `splitCjkBigrams()`, `quoteAsData()`, and `seededRandom()`.
 - README: every evaluation number is generated from the saved results and checked in CI. The
   holdout retention table now includes random order and the labels, and says plainly that on the
-  holdout Jev kept less of what the tasks needed than a random ordering. It also says what's on npm
-  (0.5.0) versus `main`, and that the default `recency` scorer ignores the goal.
-
+  holdout Jev kept less of what the tasks needed than a random ordering. It also says that the
+  default `recency` scorer ignores the goal.
 - `ctxjev-claude`, `ctxjev-cli`: the inferred goal is no longer taken from text Claude Code writes
   into the conversation itself. After a `/model` and an interrupted tool call, it used to be the
   local-command notice plus "[Request interrupted by user]", with your actual request nowhere in it.
