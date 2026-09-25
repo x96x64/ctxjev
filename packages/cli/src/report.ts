@@ -21,7 +21,7 @@ function maxLength(values: string[], floor: number): number {
 // What "score" means depends on the scorer: under recency it's position, not relevance at all.
 const SCORE_LEGEND: Record<'jev' | 'local' | 'recency', string> = {
   recency: 'score: 0–1, position in the transcript (oldest 0, newest 1), not relevance: the goal isn\'t used',
-  local: 'score: 0–1, how much an entry shares your goal\'s words, ranked within this transcript (1 = most)',
+  local: 'score: 0–1, how much an entry shares your goal\'s words, ranked within this transcript, blended with recency',
   jev: 'score: 0–1, Jev\'s judgment of relevance to your goal, blended with recency',
 }
 

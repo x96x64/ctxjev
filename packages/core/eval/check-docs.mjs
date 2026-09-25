@@ -311,8 +311,17 @@ function holdoutPlugin() {
 }
 
 /** One line for the plugin READMEs and the design doc: both runs' registered measure. */
-function pluginHoldoutInline() {
-  return pluginHoldout.map((r) => `run \`${r.name}\` ${signedDiff(r.taskDiff[SET_GOAL])}`).join(', ')
+// Both digest conditions of both runs, and which way every point estimate fell: showing only the
+// better-looking condition would soften a result that points the same way in all four cells.
+function pluginHoldoutInline(lang = 'en') {
+  const estimates = pluginHoldout.flatMap((r) => [INFERRED, SET_GOAL].map((c) => r.taskDiff[c].value))
+  const direction = estimates.every((v) => v <= 0) ? { en: 'at or below zero in every one', ja: 'すべて 0 以下' } : estimates.every((v) => v >= 0) ? { en: 'at or above zero in every one', ja: 'すべて 0 以上' } : { en: 'on both sides of zero', ja: '0 の両側' }
+  const cells = pluginHoldout.map((r) =>
+    lang === 'ja'
+      ? `run \`${r.name}\` 推定した目標 ${signedDiff(r.taskDiff[INFERRED])}・指定した目標 ${signedDiff(r.taskDiff[SET_GOAL])}`
+      : `run \`${r.name}\` ${signedDiff(r.taskDiff[INFERRED])} with the inferred goal and ${signedDiff(r.taskDiff[SET_GOAL])} with the set goal`,
+  )
+  return lang === 'ja' ? `${cells.join('、')}（点推定は${direction.ja}）` : `${cells.join('; ')} (point estimates ${direction.en})`
 }
 
 function preregPluginRerun() {
@@ -489,7 +498,7 @@ function designOutcomeAndPlugin() {
         Object.entries(PLUGIN_ROWS_JA).map(([condition, label]) => [label, pct0(successRate('success')(tasks.filter((r) => r.condition === condition))), pct0(successRate('correct')(qa.filter((r) => r.condition === condition)))]),
       ),
       '',
-      `ダイジェストの効果（課題成功、dev）: ${points0(pd.value)} ${interval0(pd.interval)}。ホールドアウトでの事前登録の比較は2回完了しており（アーカイブから復元、1.3.1 節）、課題成功の差は ${pluginHoldoutInline()} でした。`,
+      `ダイジェストの効果（課題成功、dev）: ${points0(pd.value)} ${interval0(pd.interval)}。ホールドアウトでの事前登録の比較は2回完了しており（アーカイブから復元、1.3.1 節）、課題成功の差は ${pluginHoldoutInline('ja')} でした。`,
     ].join('\n'),
   )
 }

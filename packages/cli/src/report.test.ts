@@ -65,7 +65,7 @@ describe('formatReport', () => {
     expect(recency).toContain('position in the transcript')
     expect(recency).toContain('not relevance')
     expect(recency).not.toContain('more relevant')
-    expect(stripAnsi(formatReport(entries, decisions, savings, usage, 'local'))).toContain("shares your goal's words, ranked within this transcript")
+    expect(stripAnsi(formatReport(entries, decisions, savings, usage, 'local'))).toContain("shares your goal's words, ranked within this transcript, blended with recency")
     expect(stripAnsi(formatReport(entries, decisions, savings, usage, 'jev'))).toContain("Jev's judgment of relevance")
   })
 

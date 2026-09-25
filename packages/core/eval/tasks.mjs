@@ -135,9 +135,14 @@ if (args.selftest) {
       run('Read', { file_path: '/etc/passwd' }).is_error === true,
       run('Bash', { command: `cat ${JSON.stringify(checkoutFile)}` }).is_error === true,
       run('Bash', { command: `ln -s ${JSON.stringify(checkoutFile)} leak.json` }).is_error !== true && run('Read', { file_path: `/workspace/${task}/leak.json` }).is_error === true,
+      // A link to a file that doesn't exist yet, outside the copy: writing through it must not create it.
+      run('Bash', { command: `ln -s ${JSON.stringify(join(work, 'escaped.txt'))} new.txt` }).is_error !== true &&
+        run('Write', { file_path: `/workspace/${task}/new.txt`, content: 'escaped' }).is_error === true &&
+        !existsSync(join(work, 'escaped.txt')),
       run('Bash', { command: `node -e "require('net').connect({host:'1.1.1.1',port:443}).on('connect',()=>process.exit(0)).on('error',()=>process.exit(3))"` }).is_error === true,
     ]
     rmSync(join(repo, 'leak.json'), { force: true })
+    rmSync(join(repo, 'new.txt'), { force: true })
     const escapeRefused = escapes.every(Boolean)
     const solutionDir = join(tasksDir, task, 'solution')
     for (const file of fs.globSync('**/*', { cwd: solutionDir }).filter((p) => statSync(join(solutionDir, p)).isFile())) {
