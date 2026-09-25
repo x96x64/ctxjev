@@ -1,6 +1,6 @@
 export * from './types.js'
 export { scoreEntries, pruneContext, type CustomScorer, type ScoreEntriesOptions } from './prune.js'
-export { messagesToEntries, pruneMessages, type AnthropicMessage, type AnthropicContentBlock, type PruneMessagesOptions, type PruneMessagesResult } from './anthropicMessages.js'
+export { messagesToEntries, pruneMessages, type AnthropicMessage, type AnthropicContentBlock, type KeptDrops, type PruneMessagesOptions, type PruneMessagesResult } from './anthropicMessages.js'
 export { atomicWriteFile } from './atomicWrite.js'
 export { redactSecrets } from './redact.js'
 export { summarizeSavings, type SavingsReport } from './savings.js'

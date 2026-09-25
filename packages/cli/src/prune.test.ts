@@ -190,6 +190,17 @@ describe('ctxjev prune', () => {
     expect(pruned.stderr).toMatch(/~[1-9][\d,]* tokens saved/)
   }, 15_000)
 
+  // 0.6.0 printed "3 marked drop but protected" for this sample, but only the first message is
+  // protected there: the other two drops were skipped because the removal note outweighed them.
+  it('says why each drop in the Anthropic Messages sample was kept, calling only real protection "protected"', async () => {
+    const sample = join(dirname(cliPath), '..', '..', '..', 'examples', 'sample-transcripts', 'anthropic-messages.json')
+    const result = await run(['prune', sample, '--out', join(dir, 'out.json')])
+    expect(result.exitCode).toBe(0)
+    expect(result.stderr).toContain('removed 0 of 8 entries, no tokens saved')
+    expect(result.stderr).not.toContain('marked drop but protected')
+    expect(result.stderr).toContain('3 marked drop but kept: 1 protected as the first message; 2 not removed, since removing them would save no tokens once the removal note is counted')
+  }, 15_000)
+
   it('refuses to write back a Claude Code transcript', async () => {
     const file = join(dir, 's.jsonl')
     await writeFile(file, JSON.stringify({ type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: 'fix the bug please now' } }))

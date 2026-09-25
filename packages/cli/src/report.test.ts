@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { Entry, JevUsage, PruneDecision, SavingsReport } from 'ctxjev-core'
-import { formatReport } from './report.js'
+import type { Entry, JevUsage, KeptDrops, PruneDecision, SavingsReport } from 'ctxjev-core'
+import { describeKeptDrops, formatReport } from './report.js'
 
 // picocolors' TTY/color-support detection differs between environments (a plain local shell vs.
 // a CI runner vs. a real terminal) — stripping ANSI codes before asserting on substrings keeps
@@ -79,5 +79,32 @@ describe('formatReport', () => {
     const report = stripAnsi(formatReport(entries, decisions, savings, { inputTokens: 0, outputTokens: 0 }, 'local'))
     expect(report).toContain('Scored offline by keyword overlap')
     expect(report).not.toContain('Jev cost')
+  })
+})
+
+describe('describeKeptDrops', () => {
+  const none: KeptDrops = { firstMessage: [], latestTurn: [], lastMessages: [], userText: [], noNetSaving: [], belowMinSaved: [] }
+
+  it('says nothing when every drop was removed', () => {
+    expect(describeKeptDrops(none, 2)).toBeUndefined()
+  })
+
+  it.each([
+    ['firstMessage', '1 marked drop but kept: 1 protected as the first message'],
+    ['latestTurn', '1 marked drop but kept: 1 protected as part of the latest turn'],
+    ['lastMessages', '1 marked drop but kept: 1 protected in the last 2 messages'],
+    ['userText', '1 marked drop but kept: 1 protected as your own text'],
+    ['noNetSaving', '1 marked drop but kept: 1 not removed, since removing them would save no tokens once the removal note is counted'],
+    ['belowMinSaved', '1 marked drop but kept: 1 held back by --min-saved-tokens'],
+  ] as const)('names %s as its own reason', (reason, text) => {
+    expect(describeKeptDrops({ ...none, [reason]: ['x'] }, 2)).toBe(text)
+  })
+
+  it('calls only real protection "protected", and counts each reason separately', () => {
+    const text = describeKeptDrops({ ...none, firstMessage: ['a'], lastMessages: ['b', 'c'], noNetSaving: ['d', 'e'], belowMinSaved: ['f'] }, 1)!
+    expect(text).toBe(
+      '6 marked drop but kept: 1 protected as the first message; 2 protected in the last message; 2 not removed, since removing them would save no tokens once the removal note is counted; 1 held back by --min-saved-tokens',
+    )
+    expect(text.match(/protected/g)).toHaveLength(2)
   })
 })

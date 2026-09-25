@@ -124,7 +124,10 @@ the two per `PruningPolicy.recencyWeight` before `action` is decided.
   - `marker` (default `true`): add a one-line note where history was removed, so the model knows to
     re-read rather than trust what it half-remembers.
 
-  The result reports `savedTokens`, `summarized`, and `cache` (see below).
+  The result reports `savedTokens`, `summarized`, and `cache` (see below), and `keptDrops`: the
+  entries marked `drop` that weren't removed, by reason. `firstMessage`, `latestTurn`,
+  `lastMessages`, and `userText` are protected; `noNetSaving` (removing them wouldn't save any tokens
+  once the removal note is counted) and `belowMinSaved` (held back by `minSavedTokens`) are not.
 - **`parseClaudeCodeTranscript(jsonl, { countTokens? })`** / **`resolveClaudeCodeGoal(jsonl, entries)`**
   parse a real Claude Code session `.jsonl` transcript into `Entry[]` (what's still in context,
   without the text Claude Code writes into the user turn itself), and find the goal: the latest

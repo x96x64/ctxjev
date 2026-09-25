@@ -130,6 +130,27 @@ export type PruneMessagesOptions = ScoreEntriesOptions & {
   marker?: boolean
 }
 
+/**
+ * The entries the policy marked `drop` that `pruneMessages()` didn't remove, by reason (entry ids).
+ * The first four are protection: those entries are never removed while the option stands. The last
+ * two apply to the change as a whole: nothing was removed, so every unprotected drop is listed there.
+ * An entry protected for more than one reason is listed under the first that applies, in this order.
+ */
+export type KeptDrops = {
+  /** In the first message, the original task, which is never touched. */
+  firstMessage: string[]
+  /** In the latest turn (`protectLastTurn`). */
+  latestTurn: string[]
+  /** In the last `protectLast` messages. */
+  lastMessages: string[]
+  /** The user's own text (`keepUserText`). */
+  userText: string[]
+  /** Not protected, but removing the drops wouldn't save any tokens once the removal note (`marker`) is counted, so nothing was removed. */
+  noNetSaving: string[]
+  /** Not protected, but the change would have saved fewer than `minSavedTokens` (see `heldBack`), so nothing was removed. */
+  belowMinSaved: string[]
+}
+
 export type PruneMessagesResult = {
   messages: AnthropicMessage[]
   /** The policy's verdict per entry. An entry removed only to meet `targetTokens` still shows its own action here. */
@@ -150,6 +171,8 @@ export type PruneMessagesResult = {
   overBudget: boolean
   /** Set when `minSavedTokens` held the changes back: what they would have saved. */
   heldBack?: number
+  /** Why each entry marked `drop` but not in `removed` stayed. Every `drop` is in exactly one of `removed` and these lists. */
+  keptDrops: KeptDrops
 }
 
 type Replacement = { text: string; saved: number }
@@ -182,9 +205,24 @@ export async function pruneMessages(messages: AnthropicMessage[], goal: string, 
   // Every message from here on is protected: the latest turn, or at least the last protectLast.
   const turnStart = protectLastTurn ? lastTurnStart(messages) : -1
   const lastProtected = Math.min(messages.length - Math.max(1, protectLast), turnStart === -1 ? Infinity : turnStart)
-  const inProtectedMessage = (entry: MappedEntry) => entry.locations.some((l) => l.message === 0 || l.message >= lastProtected)
-  const isProtected = (entry: MappedEntry) => inProtectedMessage(entry) || (keepUserText && entry.role === 'user')
-  const prunable = mapped.filter((entry) => !isProtected(entry))
+  const protection = (entry: MappedEntry): keyof KeptDrops | undefined => {
+    if (entry.locations.some((l) => l.message === 0)) return 'firstMessage'
+    if (turnStart !== -1 && entry.locations.some((l) => l.message >= turnStart)) return 'latestTurn'
+    if (entry.locations.some((l) => l.message >= lastProtected)) return 'lastMessages'
+    if (keepUserText && entry.role === 'user') return 'userText'
+    return undefined
+  }
+  const prunable = mapped.filter((entry) => protection(entry) === undefined)
+  const isDrop = (entry: MappedEntry) => decisionById.get(entry.id)!.action === 'drop'
+  const keptDrops = (unremoved: 'noNetSaving' | 'belowMinSaved' | undefined): KeptDrops => {
+    const kept: KeptDrops = { firstMessage: [], latestTurn: [], lastMessages: [], userText: [], noNetSaving: [], belowMinSaved: [] }
+    for (const entry of mapped) {
+      if (!isDrop(entry)) continue
+      const reason = protection(entry) ?? unremoved
+      if (reason) kept[reason].push(entry.id)
+    }
+    return kept
+  }
   const tokensOf = (entry: MappedEntry) => entry.sourceTokens ?? 0
 
   const removed = new Set(prunable.filter((e) => decisionById.get(e.id)!.action === 'drop').map((e) => e.id))
@@ -225,6 +263,7 @@ export async function pruneMessages(messages: AnthropicMessage[], goal: string, 
     cache: { firstChangedMessage: null, invalidatedTokens: 0 },
     overBudget: targetTokens !== undefined && untouchedTotal > targetTokens,
     ...(heldBack !== undefined && { heldBack }),
+    keptDrops: keptDrops(heldBack !== undefined ? 'belowMinSaved' : 'noNetSaving'),
   })
   if (grossSaved === 0) return unchanged()
 
@@ -309,6 +348,8 @@ export async function pruneMessages(messages: AnthropicMessage[], goal: string, 
     savedTokens,
     cache: { firstChangedMessage, invalidatedTokens },
     overBudget: targetTokens !== undefined && remaining > targetTokens,
+    // Every unprotected drop was removed, so only protected ones are left to explain.
+    keptDrops: keptDrops(undefined),
   }
 }
 

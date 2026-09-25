@@ -1,3 +1,6 @@
+import { readFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { lastTurnStart, messagesToEntries, pruneMessages, type AnthropicContentBlock, type AnthropicMessage, type PruneMessagesOptions } from './anthropicMessages.js'
 import type { CustomScorer } from './prune.js'
@@ -165,6 +168,57 @@ describe('pruneMessages', () => {
       expect(lastTurnStart(latestTurn)).toBe(4)
       expect(lastTurnStart([{ role: 'assistant', content: 'hi' }])).toBe(-1)
       expect(lastTurnStart([{ role: 'user', content: [{ type: 'tool_result', tool_use_id: 'x', content: 'ok' }, { type: 'text', text: '  ' }] }])).toBe(-1)
+    })
+  })
+
+  // 0.6.0's CLI called every drop that wasn't removed "protected", including ones left only because
+  // the removal note outweighed them. keptDrops gives each its real reason.
+  describe('keptDrops', () => {
+    const tool = (id: string, out: string): AnthropicMessage[] => [
+      { role: 'assistant', content: [{ type: 'tool_use', id, name: 'Bash', input: { command: `cat ${id}.log` } }] },
+      { role: 'user', content: [{ type: 'tool_result', tool_use_id: id, content: out }] },
+    ]
+    const conversation: AnthropicMessage[] = [
+      { role: 'user', content: 'Fix the checkout double charge on retry.' },
+      ...tool('old', bigLog('old.log')),
+      { role: 'user', content: 'Keep retries at 3.' },
+      ...tool('mid', bigLog('mid.log')),
+      { role: 'assistant', content: 'Found it: the retry handler re-charges.' },
+      { role: 'user', content: 'Now fix it.' },
+      ...tool('new', 'patched'),
+    ]
+    const allDrop = { scorer: async (_goal: string, entries: Entry[]) => entries.map(() => 0), policy: noRecency }
+    const none = { firstMessage: [], latestTurn: [], lastMessages: [], userText: [], noNetSaving: [], belowMinSaved: [] }
+
+    it('lists drops kept in the first message, the latest turn, and the user’s own text, and nothing it removed', async () => {
+      const result = await pruneMessages(conversation, 'goal', allDrop)
+      expect(result.removed).toEqual(['tool:old', 'tool:mid', 'msg:6'])
+      expect(result.keptDrops).toEqual({ ...none, firstMessage: ['msg:0'], latestTurn: ['msg:7', 'tool:new'], userText: ['msg:3'] })
+    })
+
+    it('lists drops kept in the last protectLast messages', async () => {
+      const result = await pruneMessages(conversation, 'goal', { ...allDrop, protectLastTurn: false })
+      expect(result.keptDrops).toEqual({ ...none, firstMessage: ['msg:0'], lastMessages: ['tool:new'], userText: ['msg:3', 'msg:7'] })
+    })
+
+    it('lists unprotected drops as noNetSaving when the removal note would outweigh them, as in the Anthropic Messages sample', async () => {
+      const file = join(dirname(fileURLToPath(import.meta.url)), '../../../examples/sample-transcripts/anthropic-messages.json')
+      const { goal, messages: sample } = JSON.parse(await readFile(file, 'utf8')) as { goal: string; messages: AnthropicMessage[] }
+      const result = await pruneMessages(sample, goal)
+      expect(result.removed).toEqual([])
+      expect(result.keptDrops).toEqual({ ...none, firstMessage: ['msg:0'], noNetSaving: ['msg:1:0', 'tool:toolu_01'] })
+
+      // Without the note, the same two are worth removing.
+      const noNote = await pruneMessages(sample, goal, { marker: false })
+      expect(noNote.removed).toEqual(['msg:1:0', 'tool:toolu_01'])
+      expect(noNote.keptDrops).toEqual({ ...none, firstMessage: ['msg:0'] })
+    })
+
+    it('lists unprotected drops as belowMinSaved when minSavedTokens holds the change back', async () => {
+      const result = await pruneMessages(conversation, 'goal', { ...allDrop, minSavedTokens: 1_000_000 })
+      expect(result.heldBack).toBeGreaterThan(0)
+      expect(result.removed).toEqual([])
+      expect(result.keptDrops).toEqual({ ...none, firstMessage: ['msg:0'], latestTurn: ['msg:7', 'tool:new'], userText: ['msg:3'], belowMinSaved: ['tool:old', 'tool:mid', 'msg:6'] })
     })
   })
 
@@ -434,6 +488,11 @@ describe('pruneMessages', () => {
       expect(result.messages.slice(-protectLast)).toEqual(messages.slice(-protectLast))
       const turn = lastTurnStart(messages)
       if (protectLastTurn && turn > 0) expect(result.messages.slice(-(messages.length - turn))).toEqual(messages.slice(turn))
+      // Every drop is either removed or kept for exactly one reason.
+      const kept = Object.values(result.keptDrops).flat()
+      const drops = result.decisions.filter((d) => d.action === 'drop').map((d) => d.entryId)
+      for (const id of drops) expect(Number(result.removed.includes(id)) + kept.filter((k) => k === id).length).toBe(1)
+      expect(kept.every((id) => drops.includes(id))).toBe(true)
       if (result.removed.length === 0 && result.summarized.length === 0) expect(result.messages).toEqual(messages)
       else {
         changedRuns++

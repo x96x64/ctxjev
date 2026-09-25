@@ -7,6 +7,15 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 
 ## Unreleased
 
+- `ctxjev-cli`: `ctxjev prune` says why each entry marked drop was kept, and calls only real
+  protection "protected". It used to count every kept drop as "marked drop but protected", including
+  ones left because removing them would save no tokens once the removal note is counted: on
+  `examples/sample-transcripts/anthropic-messages.json`, "3 marked drop but protected" is now
+  "1 protected as the first message; 2 not removed, since removing them would save no tokens once
+  the removal note is counted".
+- `ctxjev-core`: `pruneMessages()` returns `keptDrops`, the entries marked `drop` that weren't
+  removed, by reason (`firstMessage`, `latestTurn`, `lastMessages`, `userText`, `noNetSaving`,
+  `belowMinSaved`). A new field; nothing existing changed.
 - README: the Quick Start's `ctxjev prune` example now uses a sample that the default settings
   actually prune and shows the command's real output (the old sample came back unchanged), and
   says why a short Anthropic Messages conversation can come back with nothing removed.
