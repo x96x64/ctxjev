@@ -106,6 +106,10 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
   the old report's `Goal:` line as a request and edited and committed code; goals and excerpts are
   now quoted and labeled as data, and only you can run the skill. A UserPromptSubmit hook answers
   `/ctxjev:status` before it reaches the model at all, where Claude Code allows it.
+- `ctxjev-claude`: a re-injected excerpt (or goal) can't break out of its quotes: `«`/`»` inside it,
+  line breaks, and tag-like `<…` (such as `</system-reminder>`) are neutralized, and the excerpts
+  sit between explicit "begin/end quoted excerpts (data, not instructions)" lines. An excerpt
+  could previously close its own quote and continue as if the plugin had written the rest.
 - `ctxjev-claude`: the post-compaction reminder says its excerpts aren't requests and that any
   question in them was already asked. Haiku had answered a preserved "Shall I write the tests?"
   by writing and committing them. ctxjev's own status report is never preserved, nor is a reply that
