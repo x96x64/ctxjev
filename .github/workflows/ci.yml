@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
 
+# Read the code, nothing else: no job here writes to the repository, packages, or releases.
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -53,9 +57,30 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: node examples/eval-tasks/verify.mjs
-      - name: tasks.mjs --selftest
+      # The Round 2 task format (real history diffs, pristine-copy checks, Japanese probes) on its
+      # fixture, and every committed session against its task format's rules.
+      - name: harness-selftest and check-sessions
+        working-directory: packages/core
+        run: |
+          node eval/harness-selftest.mjs
+          node eval/check-sessions.mjs
+      # The eval agent's commands run in a sandbox (packages/core/eval/sandbox.mjs), and --selftest
+      # fails unless it keeps the agent inside its copy of the repo and off the network. Ubuntu 24.04
+      # restricts the user namespaces the `unshare` backend needs; lift that for this job only.
+      - name: Allow user namespaces (for the unshare sandbox)
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+      - name: tasks.mjs --selftest (unshare sandbox)
         working-directory: packages/core
         run: node eval/tasks.mjs --selftest
+        env:
+          CTXJEV_SANDBOX: unshare
+      - name: tasks.mjs --selftest (docker sandbox, the default image)
+        working-directory: packages/core
+        run: |
+          docker pull node:22-bookworm
+          node eval/tasks.mjs --selftest
+        env:
+          CTXJEV_SANDBOX: docker
       # Every eval number in README.md and PREREGISTRATION.md must match the saved results.
       - name: check-docs
         working-directory: packages/core

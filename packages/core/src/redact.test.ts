@@ -46,9 +46,9 @@ describe('redactSecrets', () => {
 })
 
 describe('redactSecrets: the audit’s secret formats', () => {
-  it('covers 40 formats', () => {
-    expect(FORMATS).toHaveLength(40)
-    expect(new Set(FORMATS.map((f) => f.name)).size).toBe(40)
+  it('covers the 40 formats of the first audit, the 10 the second added, and 1 found since', () => {
+    expect(FORMATS).toHaveLength(51)
+    expect(new Set(FORMATS.map((f) => f.name)).size).toBe(51)
   })
 
   it.each(FORMATS)('masks $name', ({ text, secret }) => {

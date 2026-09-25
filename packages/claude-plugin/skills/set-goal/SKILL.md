@@ -1,6 +1,6 @@
 ---
 description: Point ctxjev's context scoring at a specific goal instead of guessing from your first request and latest message — use this when your session's focus shifts, or right before a compaction you know is coming, so the reminder afterward is aimed at what actually matters.
-allowed-tools: Bash(node:*)
+allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/dist/status.js" *)
 ---
 
 The user ran `/ctxjev:set-goal`. Don't write any file: the command itself, recorded in this

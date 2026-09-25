@@ -2,6 +2,7 @@ import { type ScoreCache } from './cache.js'
 import { chunkEntries } from './chunk.js'
 import { scoreRelevance, type JevClient, type RelevanceVerdict } from './jevClient.js'
 import { localRelevance } from './localRelevance.js'
+import { percentileRanks } from './percentile.js'
 import { combineScore, decideAction } from './policy.js'
 import { computeRecency } from './recency.js'
 import { redactSecrets } from './redact.js'
@@ -161,6 +162,13 @@ export async function scoreEntries(
  * `scoreEntries` plus applying `policy`'s thresholds to each combined score, deciding what to
  * keep, drop, or summarize. Entries are chunked into batches for the underlying fan-out
  * requests; order of the returned decisions matches the input order.
+ *
+ * The thresholds were tuned on Jev's probabilities. Keyword overlap (`'local'`) isn't on that
+ * scale — most entries share only a word or two with the goal and score near 0, so the thresholds
+ * used to drop nearly everything, relevant entries included. With `'local'`, each decision's
+ * `relevance` is therefore the entry's percentile rank of keyword overlap within this batch (0
+ * lowest, 1 highest, ties averaged), and `combinedScore` blends that with recency as usual. The
+ * thresholds then read as shares of the batch. `scoreEntries` still returns the overlap itself.
  */
 export async function pruneContext(
   entries: Entry[],
@@ -168,6 +176,10 @@ export async function pruneContext(
   policy: PruningPolicy = DEFAULT_POLICY,
   options: ScoreEntriesOptions = {},
 ): Promise<PruneDecision[]> {
-  const scored = await scoreEntries(entries, goal, policy.recencyWeight, options)
+  let scored = await scoreEntries(entries, goal, policy.recencyWeight, options)
+  if (options.scorer === 'local') {
+    const ranks = percentileRanks(scored.map((s) => s.relevance))
+    scored = scored.map((s, i) => ({ ...s, relevance: ranks[i], combinedScore: combineScore(ranks[i], s.recency, policy.recencyWeight) }))
+  }
   return scored.map((entry) => ({ ...entry, action: decideAction(entry.combinedScore, policy) }))
 }

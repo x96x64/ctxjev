@@ -50,6 +50,9 @@ ${pc.bold('Options')}
   --json                     analyze: print machine-readable JSON instead of the report.
   --out <file>               prune: write the result here instead of to stdout.
   --protect-last <n>         prune, Anthropic Messages only: never touch the last n messages. (default 2)
+  --no-protect-last-turn     prune, Anthropic Messages only: let the latest turn (the last user message
+                             with text, and every tool call after it) be pruned too; by default it
+                             never is. Use it when the only instruction is the first message.
   --target-tokens <n>        prune, Anthropic Messages only: after the drops, keep removing the
                              lowest-scoring entries until the conversation fits in n tokens.
   --summarize-excerpts       prune, Anthropic Messages only: shorten entries marked summarize to the
@@ -235,6 +238,7 @@ async function runPrune(argv: string[]) {
     'summarize-excerpts': { type: 'boolean', default: false },
     'drop-user-text': { type: 'boolean', default: false },
     'no-marker': { type: 'boolean', default: false },
+    'no-protect-last-turn': { type: 'boolean', default: false },
   })
   const { transcript, goal, policy, scorer, values } = setup
 
@@ -254,8 +258,12 @@ async function runPrune(argv: string[]) {
   const summarize = values['summarize-excerpts'] ? ('excerpt' as const) : undefined
 
   if (transcript.format !== 'anthropic-messages') {
-    const messagesOnly = ['target-tokens', 'min-saved-tokens', 'summarize-excerpts', 'drop-user-text', 'no-marker'].filter((flag) => values[flag] !== undefined && values[flag] !== false)
-    if (messagesOnly.length > 0) fail(`${messagesOnly.map((f) => `--${f}`).join(', ')} only apply to an Anthropic Messages transcript`)
+    // ctxjev's own format has no messages, so no first message, latest turn, or tail to protect:
+    // a flag that can't apply is an error, never silently ignored.
+    const messagesOnly = ['protect-last', 'no-protect-last-turn', 'target-tokens', 'min-saved-tokens', 'summarize-excerpts', 'drop-user-text', 'no-marker'].filter(
+      (flag) => values[flag] !== undefined && values[flag] !== false,
+    )
+    if (messagesOnly.length > 0) fail(`${messagesOnly.map((f) => `--${f}`).join(', ')} only ${messagesOnly.length === 1 ? 'applies' : 'apply'} to an Anthropic Messages transcript`)
 
     const { result: decisions } = await withScoreCache(setup, (options) => pruneContext(transcript.entries, goal, policy, { ...options, scorer }))
     const removed = new Set(decisions.filter((d) => d.action === 'drop').map((d) => d.entryId))
@@ -271,6 +279,7 @@ async function runPrune(argv: string[]) {
       scorer,
       policy,
       protectLast,
+      protectLastTurn: !values['no-protect-last-turn'],
       targetTokens,
       minSavedTokens,
       summarize,
@@ -301,7 +310,7 @@ function messagesSummary(total: number, result: PruneMessagesResult): string {
   const parts = [
     `removed ${result.removed.length} of ${total} entries`,
     ...(result.summarized.length > 0 ? [`shortened ${result.summarized.length}`] : []),
-    `~${result.savedTokens.toLocaleString()} tokens saved`,
+    result.savedTokens > 0 ? `~${result.savedTokens.toLocaleString()} tokens saved` : 'no tokens saved',
     ...(protectedDrops > 0 ? [`${protectedDrops} marked drop but protected`] : []),
   ]
   const cache =

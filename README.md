@@ -8,7 +8,7 @@
 By default it ranks by position alone (newest kept, the same as plain truncation), with no key and
 nothing sent; opt in to [Jev](https://typesafe.ai), TypeSafe AI's typed-decision model, or to an
 offline keyword heuristic. In Claude Code, the plugin carries the top few entries through
-compaction (with Jev when a key is set). In an agent loop you write yourself, `pruneMessages()`
+compaction (scored offline by default; Jev if you opt in). In an agent loop you write yourself, `pruneMessages()`
 removes what ranked lowest and keeps the request valid.
 
 [![npm (ctxjev-cli)](https://img.shields.io/npm/v/ctxjev-cli.svg?label=ctxjev-cli)](https://www.npmjs.com/package/ctxjev-cli)
@@ -97,10 +97,10 @@ plus your latest instruction. `/ctxjev:status` shows that goal and what the last
 including why if it skipped, failed, or fell back to offline scoring. The plugin's measured effect
 so far is within the noise; see [Does It Work?](#does-it-work).
 
-> **Privacy:** on every compaction, the plugin sends excerpts of your real session to TypeSafe AI's
-> Jev API. Common secret formats are masked to `[REDACTED]` first (best-effort, not exhaustive).
-> Its cache lives in `~/.claude/ctxjev/`, private to you, never in your project. Without
-> `TYPESAFE_API_KEY`, it scores offline by keyword overlap instead and sends nothing. See
+> **Privacy:** by default the plugin scores offline by keyword overlap and sends nothing anywhere.
+> Only with `CTXJEV_SCORER=jev` (and `TYPESAFE_API_KEY`) does it send excerpts of your session to
+> TypeSafe AI's Jev API, with common secret formats masked to `[REDACTED]` first (best-effort, not
+> exhaustive). Its cache lives in `~/.claude/ctxjev/`, private to you, never in your project. See
 > the plugin's [Privacy section](packages/claude-plugin/README.md#privacy) for exactly what's sent.
 
 **Install it (Claude Code desktop app or CLI):**
@@ -131,7 +131,9 @@ const { messages: pruned, removed } = await pruneMessages(
   'Fix a bug where checkout charges customers twice on a slow network retry.',
 )
 // `pruned` is still a valid request: tool_use/tool_result pairs are removed together, and the
-// first message and the latest turn are never touched.
+// first message and the latest turn (your last instruction and everything after it) are never
+// touched. If your loop's only instruction is the first message, pass `protectLastTurn: false`,
+// or that whole loop is the latest turn and nothing is removed.
 ```
 
 Any other history shape works through `pruneContext(entries, goal)`, which takes plain
@@ -191,14 +193,14 @@ The `entries` array above is the one shape every agent's history maps onto, rega
 `ctxjev analyze` also auto-detects a real Claude Code session `.jsonl` and infers the goal from
 your first request plus your latest instruction unless `--goal` overrides it. See
 [`examples/sample-transcripts/claude-code-session.jsonl`](examples/sample-transcripts/claude-code-session.jsonl)
-for a synthetic one. **Be careful pointing it at a real session log**: entry content is sent to the
-live Jev API, and although common secret formats are masked first, that masking can't catch
-everything.
+for a synthetic one. **Be careful pointing it at a real session log with `--scorer jev`**: entry
+content is sent to the live Jev API, and although common secret formats are masked first, that
+masking can't catch everything. The default scorer, and `--scorer local`, send nothing.
 
 ## Does It Work?
 
-The numbers below split into two groups. **Dev** (10 of the 15 sessions in
-[`examples/eval-sessions`](examples/eval-sessions)) informed 0.5.0's design — `keepUserText`, the
+The numbers below split into two groups. **Dev** (<!-- generated:session-counts -->15 of the 21 sessions: 5 written by hand and 10 recorded<!-- /generated:session-counts -->
+in [`examples/eval-sessions`](examples/eval-sessions), and the tasks they were recorded on) informed 0.5.0's design — `keepUserText`, the
 removal note, and the plugin's goal inference were all built from failures seen on it, so read
 those numbers as optimistic. **Holdout** (6 further tasks, recorded and labeled after that design
 was frozen, [preregistered](packages/core/eval/PREREGISTRATION.md) before any of them were scored)
@@ -238,7 +240,7 @@ removal note off. Alongside Jev and truncation are keyword overlap, a random ord
 themselves:
 
 <!-- generated:holdout-retention -->
-| What survives a 25% budget (ranking alone, no `keepUserText`; Jev: mean of 3 runs) | Whole session (preregistered) | Up to the fix request (exploratory) |
+| What survives a 25% budget (ranking alone, no `keepUserText`; Jev: mean of 3 runs) | Whole session (v1, preregistered) | Up to the fix request (v2, exploratory here) |
 | --- | --- | --- |
 | **Jev** | **23.6%** | 41.1% |
 | Plain truncation (newest kept) | 0.0% | 31.0% |
@@ -248,7 +250,7 @@ themselves:
 
 **On the holdout, Jev kept less of what the tasks needed than a random ordering of the same entries did** (23.6% vs. 26.5%), and less than keyword overlap (28.3%). It beat plain truncation only because truncation scores 0% on the preregistered measure by construction (see below).
 
-Preregistered measure: Jev minus plain truncation is +23.6 points, 95% CI [+9.5, +37.7]. Exploratory comparisons on the same measure: Jev minus random order is −2.9 points [−12.4, +6.4], and Jev minus keyword overlap −4.7 [−19.1, +11.7]. Up to the fix request: Jev minus plain truncation is +10.1 points [+0.7, +22.0], and Jev minus random order +7.6 [−2.4, +19.7].
+Preregistered measure: Jev minus plain truncation is +23.6 points, 95% CI [+9.5, +37.7]. Exploratory comparisons on the same measure: Jev minus random order is −2.9 points [−12.4, +6.4], and Jev minus keyword overlap −4.7 [−19.1, +11.7]. Up to the fix request (v2): Jev minus plain truncation is +10.1 points [+0.7, +22.0], and Jev minus random order +7.6 [−2.4, +19.7].
 <!-- /generated:holdout-retention -->
 
 Read the preregistered column with two things in mind, both found by an
@@ -271,9 +273,35 @@ On the dev sessions, Jev beat keyword overlap by a wide margin
 **What this changes:** the default scorer for `ctxjev-core`, `ctxjev-cli`, and `pruneMessages()` is
 now `'recency'` (plain truncation). Pass `scorer: 'jev'` / `--scorer jev` to opt in.
 [`PREREGISTRATION.md`'s Results section](packages/core/eval/PREREGISTRATION.md) has the full
-numbers and commands. The Claude Code plugin comparison didn't complete (the recording environment
-couldn't reach Jev from the hook's restricted subprocess) and is unresolved; the plugin's own
-default is unchanged pending a rerun.
+numbers and commands.
+
+### Holdout: does the Claude Code plugin's digest help?
+
+No demonstrated effect. The preregistered plugin comparison
+([`eval/plugin.mjs`](packages/core/eval/plugin.mjs) `--split holdout`: the summary of a simulated
+compaction alone, against the same summary plus the plugin's digest, decided on tasks passed) errored
+on its first attempt because the hook couldn't reach Jev from the recording sandbox. It was then run
+to completion twice on 2026-09-24, in two separate sessions on the same code, but both results sat on
+branches that were never merged until they were
+[recovered](packages/core/eval/results/README.md#recovered-from-archive-tags-2026-09-25) on
+2026-09-25. Both runs are shown; neither was chosen in advance as *the* run.
+
+<!-- generated:holdout-plugin -->
+| After a simulated compaction (holdout, Claude Haiku 4.5) | Run `d8aa0b1`: tasks passed | answers right | Run `042cf4c`: tasks passed | answers right |
+| --- | --- | --- | --- | --- |
+| Summary alone | 100% | 78% | 100% | 79% |
+| Summary + digest (goal inferred by the plugin) | 94% | 88% | 83% | 82% |
+| Summary + digest (the same goal, set with `/ctxjev:set-goal`) | 100% | 88% | 89% | 85% |
+| Digest (inferred goal) − summary alone, 95% CI | −6 [−17, 0] | +10 [+5, +14] | −17 [−39, 0] | +3 [−3, +9] |
+| Digest (set goal) − summary alone, 95% CI | 0 [0, 0] | +10 [+1, +16] | −11 [−22, 0] | +6 [−1, +15] |
+
+Run `d8aa0b1`: 6 tasks × 3 runs, and the hook scored with Jev in 18 of 18; Run `042cf4c`: 6 tasks × 3 runs, and the hook scored with Jev in 18 of 18. In both runs the two digest conditions scored against the identical goal (18 of 18, 18 of 18), so they are the same configuration measured twice (the goal supplied two ways), not two different goals. **No tasks-passed interval clears zero in either run, so by the preregistered rule the digest has no demonstrated effect on unseen tasks.** Answers right isn't the registered measure; it's shown because the two runs disagree there too.
+<!-- /generated:holdout-plugin -->
+
+**What this changes:** with no demonstrated effect from the Jev-scored digest, and Jev's ranking
+below keyword overlap on the retention measure above, the plugin now scores offline by keyword
+overlap by default and sends nothing; Jev is opt-in with `CTXJEV_SCORER=jev`. That isn't evidence
+the offline digest helps either: it hasn't been shown to.
 
 ### Dev sessions (15 sessions, optimistic — see above)
 
@@ -471,7 +499,8 @@ are in the [`ctxjev-mcp` README](packages/mcp-server/README.md).
   separately, since it depends on your summarizer.
 - **Pruning a conversation keeps it a valid request.**
   [`pruneMessages()`](packages/core/src/anthropicMessages.ts) removes a `tool_use` and its
-  `tool_result` together, never touches the first message or the latest turn, and reports how much
+  `tool_result` together, never touches the first message or the latest turn (from the last user
+  message with text of its own onward: `protectLastTurn`), and reports how much
   of a prompt cache the change invalidates. See
   [prompt caching](packages/core/README.md#with-prompt-caching).
 - **Recency is relative to the batch**, oldest 0 to newest 1, not to `Date.now()`, so a transcript

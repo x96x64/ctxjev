@@ -16,7 +16,7 @@ describe('cacheKeyFor', () => {
     expect(a).not.toBe(b)
   })
 
-  it('distinguishes a missing toolName from an empty-string toolName', () => {
+  it('treats a missing toolName and an empty-string toolName as the same key', () => {
     const a = cacheKeyFor('g', { role: 'tool' as const, toolName: undefined, content: 'x' })
     const b = cacheKeyFor('g', { role: 'tool' as const, toolName: '', content: 'x' })
     expect(a).toBe(b) // both normalize toolName to '', and that's fine — this asserts it's deliberate, not accidental

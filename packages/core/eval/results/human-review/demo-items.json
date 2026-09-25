@@ -1,0 +1,87 @@
+{
+ "source": "eval/results/outcome.json",
+ "seed": 20260925,
+ "strata": 16,
+ "items": [
+  {
+   "id": "q001",
+   "language": "en",
+   "question": "What change fixes the flaky test?",
+   "fact": "The fix: wait for stock.reserved before asserting",
+   "reply": "NOT IN CONTEXT",
+   "aiVerdict": "incorrect"
+  },
+  {
+   "id": "q002",
+   "language": "ja",
+   "question": "修正の条件としてユーザーは何を指定した?",
+   "fact": "ライブラリは追加せず、既存の toJstDate を使い、src/lib/date.js 自体は変更しない",
+   "reply": "NOT IN CONTEXT\n\n会話にはユーザーが修正の条件として何を指定したかについての情報が含まれていません。ユーザーは調査のみを依頼しており、修正条件については言及されていません。",
+   "aiVerdict": "incorrect"
+  },
+  {
+   "id": "q003",
+   "language": "ja",
+   "question": "取引先Bの CSV が文字化けする原因は?",
+   "fact": "取引先Bは Excel で作った CP932(Shift_JIS)で、UTF-8 として読むと商品名が文字化けする",
+   "reply": "取引先Bの CSV が文字化けしていた原因は、**ファイルが CP932(Shift_JIS)エンコードなのに、`readCsv.js` が常に `utf8` 固定でファイルを読んでいたから**です。\n\n具体的には：\n\n1. `readFileSync(path, 'utf8')` で CP932 のバイト列を UTF-8 として誤デコードされていた\n2. CP932 のマルチバイト文字（例：商品名の日本語）が、UTF-8 として解釈できない無効なバイト列になった\n3. Node の UTF-8 デコーダが無効なバイトを `U+FFFD`(REPLACEMENT CHARACTER)に変換した結果、ログに `\"\\ufffd\\ufffd\\ufffd\\ufffd\\ufffd{\\ufffd[\\ufffd\\ufffd\\ufffd\\ufffd\"` のような文字化けが出ていた\n\n今回の実装で、BOM がない場合に厳格な UTF-8 デコード(`{ fatal: true }`)を試して失敗したら `shift_jis` にフォールバックするようにしたため、CP932 ファイルが正しく `商品コード,商品名,価格 / AB123456,油性ボールペン 黒 0.7mm,120` と読めるようになりました。",
+   "aiVerdict": "correct"
+  },
+  {
+   "id": "q004",
+   "language": "ja",
+   "question": "管理画面の通常エクスポート以外に、BOM を付ける必要がある箇所は?",
+   "fact": "大量エクスポートのジョブ largeExport.ts にも BOM が必要",
+   "reply": "会話に基づくと、大量エクスポート（1万行以上）を非同期ジョブで処理する `src/jobs/largeExport.ts` が該当します。こちらも同じ文字化け問題が起きるため、既に `bom: true` を追加して対応済みです。",
+   "aiVerdict": "correct"
+  },
+  {
+   "id": "q005",
+   "language": "en",
+   "question": "Where does the service log email addresses and phone numbers?",
+   "fact": "formatRequestLog and formatErrorLog both log the whole request body, including email and phone",
+   "reply": "Based on the investigation, the service logs email addresses and phone numbers in two places:\n\n1. **`src/logging/requestLogger.js`** — logs the entire `req.body` for every request, which includes `email`, `phone`, and `name` fields from signup requests.\n\n2. **`src/logging/errorLogger.js`** — logs the entire `req.body` when errors occur, which also exposes `email` and `phone` in plaintext.\n\nBoth of these loggers write to the general log pipeline (stdout, 400-day retention), which is where SEC-311 found the PII in the sample logs. The fix masks these fields before logging while preserving the payload shape for on-call debugging.",
+   "aiVerdict": "correct"
+  },
+  {
+   "id": "q006",
+   "language": "en",
+   "question": "How can the failure be reproduced locally, and how often does it fail?",
+   "fact": "Reproduce with a CPU-stress loop: 4 of 20 runs fail",
+   "reply": "Based on the conversation above, the failure can be reproduced locally by running the tests under CPU stress while the async stock reservation is still racing the assertions. I demonstrated this by running:\n\n```\nfor i in $(seq 1 20); do stress-ng --cpu 4 --timeout 20s >/dev/null & npx jest src/orders/OrderService.test.ts --runInBand --silent 2>&1 | grep -E 'Tests:'; done\n```\n\nBefore the fix, this produced 4 failures out of 20 runs (20% failure rate), which matches the \"roughly one run in five\" (20%) intermittent failure rate reported in CI. After the fix, 50 consecutive stressed runs all passed.\n\nThe root cause was that `createOrder()` returns immediately after emitting the `order.created` event, but the `StockListener` handles that event asynchronously. The test was checking `stockStatus === 'reserved'` right after `createOrder()` returned, before the listener had time to update the database—a classic race condition that only manifests under load when the listener's async work is slower than the test's synchronous assertions.",
+   "aiVerdict": "correct"
+  }
+ ],
+ "key": {
+  "q001": {
+   "condition": "goal-only@0",
+   "session": "flaky-order-test.json",
+   "run": 0
+  },
+  "q002": {
+   "condition": "goal-only@0",
+   "session": "recorded-month-boundary.json",
+   "run": 1
+  },
+  "q003": {
+   "condition": "full@1",
+   "session": "recorded-csv-import-encoding.json",
+   "run": 0
+  },
+  "q004": {
+   "condition": "jev@0.25",
+   "session": "csv-mojibake.json",
+   "run": 0
+  },
+  "q005": {
+   "condition": "jev@0.25",
+   "session": "recorded-pii-logging.json",
+   "run": 1
+  },
+  "q006": {
+   "condition": "full@1",
+   "session": "flaky-order-test.json",
+   "run": 0
+  }
+ }
+}

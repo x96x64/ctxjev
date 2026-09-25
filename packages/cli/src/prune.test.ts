@@ -149,7 +149,45 @@ describe('ctxjev prune', () => {
     await writeFile(file, JSON.stringify({ goal: 'g', entries: [{ id: 'a', role: 'tool', content: 'x', timestamp: 1 }] }))
     const result = await run(['prune', file, '--offline', '--target-tokens', '10'])
     expect(result.exitCode).toBe(1)
-    expect(result.stderr).toContain('--target-tokens only apply to an Anthropic Messages transcript')
+    expect(result.stderr).toContain('--target-tokens only applies to an Anthropic Messages transcript')
+  }, 15_000)
+
+  // The second audit: --protect-last on ctxjev's own format was accepted and silently ignored.
+  it('rejects --protect-last and --no-protect-last-turn on a ctxjev-format transcript', async () => {
+    const file = join(dir, 'c.json')
+    await writeFile(file, JSON.stringify({ goal: 'g', entries: [{ id: 'a', role: 'tool', content: 'x', timestamp: 1 }] }))
+    for (const flags of [['--protect-last', '5'], ['--no-protect-last-turn']]) {
+      const result = await run(['prune', file, '--offline', ...flags])
+      expect(result.exitCode).toBe(1)
+      expect(result.stderr).toContain(`${flags[0]} only applies to an Anthropic Messages transcript`)
+    }
+  }, 15_000)
+
+  it('protects the latest turn unless --no-protect-last-turn, and never reports a non-positive saving as saved', async () => {
+    const file = join(dir, 'turn.json')
+    const tool = (id: string, out: string) => [
+      { role: 'assistant', content: [{ type: 'tool_use', id, name: 'Bash', input: { command: `cat ${id}.log` } }] },
+      { role: 'user', content: [{ type: 'tool_result', tool_use_id: id, content: out }] },
+    ]
+    const messages = [
+      { role: 'user', content: 'fix the checkout double charge on retry' },
+      { role: 'user', content: 'now check the logs' },
+      ...tool('a', 'GET /static/asset.png 200\n'.repeat(200)),
+      ...tool('b', 'GET /static/icon.png 200\n'.repeat(200)),
+      ...tool('c', 'done'),
+    ]
+    await writeFile(file, JSON.stringify(messages))
+
+    const kept = await run(['prune', file, '--target-tokens', '50'])
+    expect(kept.exitCode).toBe(0)
+    expect(JSON.parse(kept.stdout)).toEqual(messages)
+    expect(kept.stderr).toContain('no tokens saved')
+    expect(kept.stderr).not.toMatch(/~-?\d[\d,]* tokens saved/)
+
+    const pruned = await run(['prune', file, '--target-tokens', '50', '--no-protect-last-turn'])
+    expect(pruned.exitCode).toBe(0)
+    expect(JSON.parse(pruned.stdout).length).toBeLessThan(messages.length)
+    expect(pruned.stderr).toMatch(/~[1-9][\d,]* tokens saved/)
   }, 15_000)
 
   it('refuses to write back a Claude Code transcript', async () => {

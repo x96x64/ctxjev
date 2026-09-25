@@ -11,8 +11,10 @@
  * means the task's hidden acceptance tests pass. They check the constraints the user stated
  * mid-session too, which only the history knows about.
  *
- * Tool calls run for real, but only inside the temporary copy: file tools refuse paths outside it,
- * and commands get a minimal environment with no API keys and a 60-second limit.
+ * Tool calls run for real, but only inside the temporary copy: file tools refuse paths outside it
+ * (symlinks resolved), and Bash commands and the hidden tests run in a sandbox (sandbox.mjs) that
+ * sees only the copy, has no network, and gets a minimal environment with no API keys and a
+ * 60-second limit. The sandbox is checked before any agent runs; a failed check stops the run.
  *
  * Not in CI (needs ANTHROPIC_API_KEY and TYPESAFE_API_KEY, costs money). By hand:
  *
@@ -22,6 +24,7 @@
  */
 // fs.globSync through the namespace, not a named import: on Node 20 a missing named export fails
 // before lib.mjs can say which Node version the evals need.
+import { execFileSync } from 'node:child_process'
 import * as fs from 'node:fs'
 import { existsSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -30,6 +33,7 @@ import { parseArgs } from 'node:util'
 import Anthropic from '@anthropic-ai/sdk'
 import { ANSWER_MODEL, SpendLimitError, bootstrap, createLimiter, createSpend, pruneTo, rankings, rateDifference, successRate } from './lib.mjs'
 import { createAgentRunner, freshRepo, grade, tasksDir, workspaceTools } from './agent.mjs'
+import { requireSandbox } from './sandbox.mjs'
 import { inSplit, parseSplit, taskSplit } from './split.mjs'
 
 const BUDGET = 0.25
@@ -115,26 +119,47 @@ const taskNames = readdirSync(tasksDir).filter(
 )
 
 if (args.selftest) {
+  // The sandbox first: requireSandbox() throws, and the selftest fails, if any isolation check fails.
+  const sandbox = requireSandbox(console.log)
+  const checkoutFile = join(tasksDir, '../../package.json')
   let ok = true
   for (const task of taskNames) {
     const untouched = freshRepo(task)
-    const before = grade(task, untouched.repo)
+    const before = grade(task, untouched.repo, sandbox)
     rmSync(untouched.work, { recursive: true, force: true })
 
     const { work, repo } = freshRepo(task)
-    const run = workspaceTools(task, repo)
-    const results = [run('Read', { file_path: `/workspace/${task}/package.json` }), run('Glob', { pattern: 'src/**/*.js' }), run('Grep', { pattern: 'export', path: 'src' }), run('Bash', { command: `ls /workspace/${task}` }), run('Read', { file_path: '/etc/passwd' })]
-    const escapeRefused = results[4].is_error === true
+    const run = workspaceTools(task, repo, sandbox)
+    const results = [run('Read', { file_path: `/workspace/${task}/package.json` }), run('Glob', { pattern: 'src/**/*.js' }), run('Grep', { pattern: 'export', path: 'src' }), run('Bash', { command: `ls /workspace/${task}` })]
+    // Ways out of the copy an agent could try, each of which must fail.
+    const escapes = [
+      run('Read', { file_path: '/etc/passwd' }).is_error === true,
+      run('Bash', { command: `cat ${JSON.stringify(checkoutFile)}` }).is_error === true,
+      run('Bash', { command: `ln -s ${JSON.stringify(checkoutFile)} leak.json` }).is_error !== true && run('Read', { file_path: `/workspace/${task}/leak.json` }).is_error === true,
+      // A link to a file that doesn't exist yet, outside the copy: writing through it must not create it.
+      run('Bash', { command: `ln -s ${JSON.stringify(join(work, 'escaped.txt'))} new.txt` }).is_error !== true &&
+        run('Write', { file_path: `/workspace/${task}/new.txt`, content: 'escaped' }).is_error === true &&
+        !existsSync(join(work, 'escaped.txt')),
+      run('Bash', { command: `node -e "require('net').connect({host:'1.1.1.1',port:443}).on('connect',()=>process.exit(0)).on('error',()=>process.exit(3))"` }).is_error === true,
+    ]
+    rmSync(join(repo, 'leak.json'), { force: true })
+    rmSync(join(repo, 'new.txt'), { force: true })
+    // A FIFO (an agent could make one with mkfifo) must be refused, not opened: opening one would
+    // hang the harness. Made here rather than from Bash, so the check doesn't depend on the image.
+    execFileSync('mkfifo', [join(repo, 'pipe')])
+    const fifoRefused = run('Read', { file_path: `/workspace/${task}/pipe` }).is_error === true && run('Write', { file_path: `/workspace/${task}/pipe`, content: 'x' }).is_error === true
+    rmSync(join(repo, 'pipe'), { force: true })
+    const escapeRefused = escapes.every(Boolean)
     const solutionDir = join(tasksDir, task, 'solution')
     for (const file of fs.globSync('**/*', { cwd: solutionDir }).filter((p) => statSync(join(solutionDir, p)).isFile())) {
       results.push(run('Write', { file_path: `/workspace/${task}/${file}`, content: readFileSync(join(solutionDir, file), 'utf8') }))
     }
-    const after = grade(task, repo)
+    const after = grade(task, repo, sandbox)
     rmSync(work, { recursive: true, force: true })
-    const toolsOk = results.slice(0, 4).every((r) => !r.is_error) && results.slice(5).every((r) => !r.is_error)
-    const pass = !before.success && after.success && escapeRefused && toolsOk
+    const toolsOk = results.every((r) => !r.is_error)
+    const pass = !before.success && after.success && escapeRefused && toolsOk && fifoRefused
     ok &&= pass
-    console.log(`${pass ? 'ok  ' : 'FAIL'} ${task.padEnd(20)} untouched: ${before.passed}/${before.passed + before.failed} hidden tests, solution via tools: ${after.passed}/${after.passed + after.failed}, tools ok: ${toolsOk}, escape refused: ${escapeRefused}`)
+    console.log(`${pass ? 'ok  ' : 'FAIL'} ${task.padEnd(20)} untouched: ${before.passed}/${before.passed + before.failed} hidden tests, solution via tools: ${after.passed}/${after.passed + after.failed}, tools ok: ${toolsOk}, escapes refused: ${escapes.filter(Boolean).length}/${escapes.length}, fifo refused: ${fifoRefused}`)
   }
   process.exit(ok ? 0 : 1)
 }
@@ -155,7 +180,8 @@ const spend = createSpend(maxUsd)
 const limit = createLimiter(5)
 
 const agentModel = args['agent-model']
-const runAgent = createAgentRunner({ client, spend, limit, model: agentModel, maxTurns, extraParams: agentModel === ANSWER_MODEL ? {} : { output_config: { effort: 'low' } } })
+const sandbox = requireSandbox()
+const runAgent = createAgentRunner({ client, spend, limit, model: agentModel, maxTurns, sandbox, extraParams: agentModel === ANSWER_MODEL ? {} : { output_config: { effort: 'low' } } })
 
 const rows = []
 try {

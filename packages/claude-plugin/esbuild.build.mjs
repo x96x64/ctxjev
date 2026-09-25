@@ -4,9 +4,10 @@ import { readdir, rm } from 'node:fs/promises'
 
 // Claude Code installs this plugin by cloning its repo, never running an install step, so the
 // hooks can't rely on node_modules resolution for cross-package imports (e.g. `ctxjev-core`,
-// only linked here via the pnpm workspace). Bundle the two hook entry points so they carry their
-// own dependencies and need nothing but Node itself. status.js is run by the status skill;
-// statusHook.js answers /ctxjev:status before it reaches the model.
+// only linked here via the pnpm workspace). Bundle all four entry points so they carry their own
+// dependencies and need nothing but Node itself: the two compaction hooks (preCompact.js,
+// sessionStartCompact.js), status.js, run by the skills, and statusHook.js, which answers
+// /ctxjev:status before it reaches the model.
 const OUTPUT_FILES = ['preCompact.js', 'sessionStartCompact.js', 'status.js', 'statusHook.js']
 const MAX_BUNDLE_BYTES = 200_000
 

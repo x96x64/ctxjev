@@ -5,7 +5,8 @@
  * secret, so it narrows the exposure rather than eliminating it.
  *
  * Three kinds of rule, applied in this order:
- * - formats that are a secret wherever they appear (a provider's key prefix, a private key block);
+ * - formats that are a secret wherever they appear (a provider's key prefix, a private key block,
+ *   a payment card number);
  * - a secret in a known position (a URL's password, an Authorization header, `mysql -p…`);
  * - the value of anything named like a credential (`DB_PASS=…`, `"apiKey": "…"`, `パスワード：…`).
  *
@@ -19,21 +20,22 @@ const isMasked = (value: string) => value.startsWith(REDACTED.slice(0, -1))
 
 /** [pattern, replacement]: `$1` keeps a prefix that isn't secret (a host, a header name). */
 const TOKEN_PATTERNS: Array<[RegExp, string]> = [
-  [/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?(?:-----END [A-Z ]*PRIVATE KEY-----|$)/g, REDACTED],
-  [/\bsk-[A-Za-z0-9_-]{16,}/g, REDACTED], // Anthropic (sk-ant-...), OpenAI (sk-proj-...), and similar
-  [/\b(?:sk|rk)_(?:live|test)_[A-Za-z0-9]{10,}/g, REDACTED], // Stripe secret and restricted keys
-  [/\bwhsec_[A-Za-z0-9]{16,}/g, REDACTED], // Stripe webhook signing secret
-  [/\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{20,}\b/g, REDACTED],
-  [/\bgithub_pat_[A-Za-z0-9_]{20,}\b/g, REDACTED],
-  [/\bglpat-[A-Za-z0-9_-]{20,}/g, REDACTED], // GitLab
-  [/\bnpm_[A-Za-z0-9]{36}\b/g, REDACTED],
-  [/\bhf_[A-Za-z0-9]{30,}\b/g, REDACTED], // Hugging Face
-  [/\bSG\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}/g, REDACTED], // SendGrid
-  [/\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/g, REDACTED], // AWS access key ids, long-term and temporary
-  [/\bxox[abprs]-[A-Za-z0-9-]{10,}/g, REDACTED], // Slack tokens
-  [/\bAIza[0-9A-Za-z_-]{35}\b/g, REDACTED], // Google API key
-  [/\bya29\.[0-9A-Za-z_-]{20,}/g, REDACTED], // Google OAuth access token
-  [/\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g, REDACTED], // JWT
+  // PEM (RSA, EC, OpenSSH, …) and PGP (`-----BEGIN PGP PRIVATE KEY BLOCK-----`) private keys.
+  [/-----BEGIN [A-Z0-9 ]*PRIVATE KEY(?: BLOCK)?-----[\s\S]*?(?:-----END [A-Z0-9 ]*PRIVATE KEY(?: BLOCK)?-----|$)/g, REDACTED],
+  [/(?<![A-Za-z0-9])sk-[A-Za-z0-9_-]{16,}/g, REDACTED], // Anthropic (sk-ant-...), OpenAI (sk-proj-...), and similar
+  [/(?<![A-Za-z0-9])(?:sk|rk)_(?:live|test)_[A-Za-z0-9]{10,}/g, REDACTED], // Stripe secret and restricted keys
+  [/(?<![A-Za-z0-9])whsec_[A-Za-z0-9]{16,}/g, REDACTED], // Stripe webhook signing secret
+  [/(?<![A-Za-z0-9])(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{20,}\b/g, REDACTED],
+  [/(?<![A-Za-z0-9])github_pat_[A-Za-z0-9_]{20,}\b/g, REDACTED],
+  [/(?<![A-Za-z0-9])glpat-[A-Za-z0-9_-]{20,}/g, REDACTED], // GitLab
+  [/(?<![A-Za-z0-9])npm_[A-Za-z0-9]{36}\b/g, REDACTED],
+  [/(?<![A-Za-z0-9])hf_[A-Za-z0-9]{30,}\b/g, REDACTED], // Hugging Face
+  [/(?<![A-Za-z0-9])SG\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}/g, REDACTED], // SendGrid
+  [/(?<![A-Za-z0-9])(?:AKIA|ASIA)[0-9A-Z]{16}\b/g, REDACTED], // AWS access key ids, long-term and temporary
+  [/(?<![A-Za-z0-9])xox[abprs]-[A-Za-z0-9-]{10,}/g, REDACTED], // Slack tokens
+  [/(?<![A-Za-z0-9])AIza[0-9A-Za-z_-]{35}\b/g, REDACTED], // Google API key
+  [/(?<![A-Za-z0-9])ya29\.[0-9A-Za-z_-]{20,}/g, REDACTED], // Google OAuth access token
+  [/(?<![A-Za-z0-9])eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g, REDACTED], // JWT
   // Webhook URLs are their own credential: anyone holding one can post.
   [/(\bhttps:\/\/hooks\.slack\.com\/(?:services|workflows|triggers)\/)[A-Za-z0-9/_-]+/g, `$1${REDACTED}`],
   [/(\bhttps:\/\/(?:canary\.|ptb\.)?discord(?:app)?\.com\/api\/webhooks\/)[0-9]+\/[A-Za-z0-9_-]+/g, `$1${REDACTED}`],
@@ -51,6 +53,28 @@ const POSITIONAL_PATTERNS: Array<[RegExp, string]> = [
   // --password S3cret, --token abc… as separate arguments.
   [/(\s--(?:password|passwd|token|secret|api[-_]?key|client[-_]secret|auth[-_]token)[ \t]+)(?!-)[^\s'"]+/gi, `$1${REDACTED}`],
 ]
+
+// A payment card number: 13–19 digits, run together or grouped the way cards print them (4-4-4-4,
+// 4-4-4-4-3, Amex 4-6-5, Diners 4-6-4) with one kind of separator, that starts like a card brand
+// and passes the Luhn check. Both conditions together keep timestamps, ids, and phone numbers out:
+// a millisecond timestamp starts with 1, which no brand does.
+const CARD_CANDIDATE = /(?<![\d.-])(?:\d{13,19}|\d{4}([ -])\d{4}\1\d{4}\1\d{1,4}(?:\1\d{3})?|\d{4}([ -])\d{6}\2\d{4,5})(?![\d-]|\.\d)/g
+const CARD_BRAND = /^(?:4|5[1-5]|2[2-7]|3[47]|3(?:0[0-5]|[68])|35|6(?:011|5|4[4-9]|2))/
+
+function looksLikeCardNumber(match: string): boolean {
+  const digits = match.replace(/\D/g, '')
+  if (digits.length < 13 || digits.length > 19 || !CARD_BRAND.test(digits)) return false
+  let sum = 0
+  for (let i = 0; i < digits.length; i++) {
+    let d = Number(digits[digits.length - 1 - i])
+    if (i % 2 === 1) {
+      d *= 2
+      if (d > 9) d -= 9
+    }
+    sum += d
+  }
+  return sum % 10 === 0
+}
 
 // An AWS secret access key has no prefix of its own: 40 characters of base64. Only masked with
 // "aws" or "secret" shortly before it, and only with mixed case and a digit, so a 40-character git
@@ -122,6 +146,12 @@ export function redactSecrets(text: string): string {
   let out = text
   for (const [pattern, replacement] of TOKEN_PATTERNS) out = out.replace(pattern, replacement)
   for (const [pattern, replacement] of POSITIONAL_PATTERNS) out = out.replace(pattern, replacement)
+  out = out.replace(CARD_CANDIDATE, (match: string) => {
+    if (looksLikeCardNumber(match)) return REDACTED
+    // 4-4-4-4 followed by three more digits: a 19-digit card, or a 16-digit one and its CVC.
+    const sixteen = /^(\d{4}([ -])\d{4}\2\d{4}\2\d{4})(\2\d{3})$/.exec(match)
+    return sixteen && looksLikeCardNumber(sixteen[1]) ? `${REDACTED}${sixteen[3]}` : match
+  })
   out = out.replace(AWS_SECRET_CANDIDATE, (match: string, offset: number, whole: string) =>
     looksLikeAwsSecret(match) && AWS_SECRET_CONTEXT.test(whole.slice(Math.max(0, offset - 100), offset)) ? REDACTED : match,
   )

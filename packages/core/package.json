@@ -37,7 +37,7 @@
   ],
   "scripts": {
     "build": "tsc -b",
-    "test": "vitest run",
+    "test": "vitest run --exclude \"eval/fixtures/**\"",
     "typecheck": "tsc -p tsconfig.test.json",
     "eval": "node eval/run.mjs"
   },

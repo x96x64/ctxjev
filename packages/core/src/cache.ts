@@ -11,7 +11,8 @@ export type ScoreCache = {
 }
 
 // Bump whenever what Jev is asked changes, so scores cached under the old question aren't reused.
-const CACHE_KEY_VERSION = 3
+// 4: entries are named e0, e1, … in the request instead of by their ids, and tool names are masked.
+const CACHE_KEY_VERSION = 4
 
 type KeyedEntry = Pick<Entry, 'role' | 'toolName' | 'content'>
 

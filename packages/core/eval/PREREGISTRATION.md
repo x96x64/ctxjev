@@ -130,6 +130,22 @@ the README says it has no demonstrated effect.
     corrected to step 3's actual wording.
   - Every number in the Results section is now generated from `eval/results/` by
     `eval/check-docs.mjs`, which CI runs; tables whose raw output was never saved are marked.
+- 2026-09-25, recovery of the plugin comparison. The plan above is unchanged.
+  - The plugin comparison had in fact been run to completion twice (see "Plugin: two completed
+    re-runs"), but neither result had reached `main`, which still said it had never produced one.
+    Both files were recovered unchanged from the archive tags and are reported side by side; the
+    rule is applied to each, and it gives the same branch for both.
+  - Found while recovering them, and stated so it isn't mistaken for two different goals: in both
+    runs the two digest conditions (`summary+ctxjev`, the goal the plugin infers, and
+    `summary+ctxjev(task goal)`, set with `/ctxjev:set-goal`) scored against the identical goal on
+    every task and run. Since 0.5.0 the plugin infers exactly the goal `plugin.mjs` sets for the
+    second condition, so on this material the two are the same configuration measured twice.
+  - The same sessions also produced one more saved run of the secondary endpoint
+    (`results/run-holdout-fa22e81.json`) and of the dev reference (`results/run-dev-ac67ad5.json`).
+    They re-measure material already seen and confirm nothing.
+  - A second preregistration ("Round 2: long histories") was drafted in the same session and
+    paused before producing any result. It was not adopted; what it contained, what it spent, and
+    why it was paused are recorded in `docs/audits/2026-09-25-audit-2-triage-ja.md`.
 
 ## Results
 
@@ -208,7 +224,7 @@ anything; it doesn't change the decision below.
 The 25%-budget interval's lower bound is above 0 here too. Jev retained less than a random ordering (23.6% vs. 26.5%) and less than keyword overlap (28.3%).
 <!-- /generated:prereg-secondary-rerun -->
 
-#### Exploratory: retention up to the fix request (not preregistered)
+#### Exploratory: retention up to the fix request ("v2"; not preregistered)
 
 Same file, same runs. Each recorded session is cut where the fix request arrives and scored afresh
 on that history; probes stated only after the cut are left out. See "Changes after registration"
@@ -248,6 +264,44 @@ sandbox, not of the plugin or the harness, and neither is in scope to change her
 and `eval/*.mjs` are both off-limits for this task). The plugin comparison needs to be re-run in an
 environment where the hook subprocess can actually reach Jev.
 
+### Plugin: two completed re-runs (recovered 2026-09-25)
+
+After the proxy and deadline changes listed under "Changes after registration", the registered
+command (`node eval/plugin.mjs --split holdout --runs 3 --max-usd 5 --out
+eval/results/plugin-holdout.json`) was run to completion twice on 2026-09-24, from commit `2cf4eba`,
+in two separate sessions at about the same time. Each committed its output as
+`eval/results/plugin-holdout.json` on a branch that was never merged; both branches were deleted
+after being saved as tags, and the files were recovered unchanged on 2026-09-25 (provenance, tags,
+and blob hashes in [`results/README.md`](results/README.md)). This plan names one run and doesn't
+say which of two would count, so both are reported, and the rule is applied to each:
+
+<!-- generated:prereg-plugin-rerun -->
+**`plugin-holdout-d8aa0b1.json`** (6 tasks × 3 runs; hook scored with Jev in 18/18; same goal in both digest conditions 18/18):
+
+| context | tasks passed | answers right |
+| --- | --- | --- |
+| `summary` | 100% | 78% |
+| `summary+ctxjev` | 94% | 88% |
+| `summary+ctxjev(task goal)` | 100% | 88% |
+
+- `summary+ctxjev` − `summary`: tasks passed −6 [−17, 0] pp, answers right +10 [+5, +14] pp
+- `summary+ctxjev(task goal)` − `summary`: tasks passed **0 [0, 0] pp**, answers right +10 [+1, +16] pp
+
+**`plugin-holdout-042cf4c.json`** (6 tasks × 3 runs; hook scored with Jev in 18/18; same goal in both digest conditions 18/18):
+
+| context | tasks passed | answers right |
+| --- | --- | --- |
+| `summary` | 100% | 79% |
+| `summary+ctxjev` | 83% | 82% |
+| `summary+ctxjev(task goal)` | 89% | 85% |
+
+- `summary+ctxjev` − `summary`: tasks passed −17 [−39, 0] pp, answers right +3 [−3, +9] pp
+- `summary+ctxjev(task goal)` − `summary`: tasks passed **−11 [−22, 0] pp**, answers right +6 [−1, +15] pp
+<!-- /generated:prereg-plugin-rerun -->
+
+Claude API spend, as the two commits recorded it (the files keep per-row cost for the agent runs
+only): $4.23 (`d8aa0b1`) and $4.10 (`042cf4c`), each against the $5 cap.
+
 ### Decision rules applied
 
 1. **Primary (default scorer).** Rule: if Haiku's Jev − recency interval's lower bound is above 0,
@@ -269,6 +323,13 @@ environment where the hook subprocess can actually reach Jev.
    effect. **Branch: not determined.** The command didn't produce a result (see above), so neither
    branch of the rule can be applied from this run. No README change follows from this run either
    way; the plugin's status is unchanged pending a re-run.
+
+   **Applied to the two recovered re-runs (added 2026-09-25):** in both, for both digest
+   conditions, the tasks-passed interval's lower bound is not above 0 (the figures are in "Plugin:
+   two completed re-runs" above). **Branch: not satisfied, in both runs.** The plugin stays
+   available, and the README and plugin README say it has no demonstrated effect on unseen tasks.
+   The two runs' point estimates differ (see the tables above), which is itself a reminder of how
+   little six tasks can separate.
 
 ### Spend
 

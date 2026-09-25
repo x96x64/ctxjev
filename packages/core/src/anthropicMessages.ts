@@ -87,7 +87,14 @@ export type Summarizer = 'excerpt' | ((entry: Entry, text: string) => Promise<st
 
 export type PruneMessagesOptions = ScoreEntriesOptions & {
   policy?: PruningPolicy
-  /** Messages at the end that are never touched — the current turn, and any tool call still waiting on a result. Default 2. */
+  /**
+   * Never touch the latest turn: the last user message that has text of its own (an instruction,
+   * not only tool results) and everything after it, however many tool round-trips that is. Default
+   * true. In an agent loop whose only user text is the first message, that is the whole
+   * conversation, so nothing is pruned: pass `false` there, and `protectLast` alone guards the tail.
+   */
+  protectLastTurn?: boolean
+  /** Messages at the end that are never touched, whatever `protectLastTurn` says — a floor for any tool call still waiting on a result. Default 2. */
   protectLast?: number
   /**
    * Once what scored below `policy.dropBelow` is gone, keep removing the lowest-scoring unprotected
@@ -147,22 +154,34 @@ export type PruneMessagesResult = {
 
 type Replacement = { text: string; saved: number }
 
+/** The index of the last user message with text of its own, or -1: where the latest turn starts. */
+export function lastTurnStart(messages: AnthropicMessage[]): number {
+  for (let m = messages.length - 1; m >= 0; m--) {
+    const { role, content } = messages[m]
+    if (role !== 'user') continue
+    if (typeof content === 'string' ? content.trim() !== '' : content.some((b) => b.type === 'text' && typeof b.text === 'string' && b.text.trim() !== '')) return m
+  }
+  return -1
+}
+
 /**
  * Scores an Anthropic Messages conversation and removes what came back `drop`, keeping it a valid
  * request: a tool call's `tool_use` and `tool_result` are always removed together, a message left
- * empty is removed, and the first message (the original task) and the last `protectLast` messages
- * are never touched. By default `summarize` is only reported; pass `summarize` to shorten those
+ * empty is removed, and the first message (the original task), the latest turn (`protectLastTurn`),
+ * and the last `protectLast` messages are never touched. By default `summarize` is only reported; pass `summarize` to shorten those
  * entries, `targetTokens` to fit a budget, and `minSavedTokens` to skip changes too small to be worth
  * a prompt-cache rewrite. Consecutive same-role messages can result; the Messages API accepts those.
  */
 export async function pruneMessages(messages: AnthropicMessage[], goal: string, options: PruneMessagesOptions = {}): Promise<PruneMessagesResult> {
-  const { policy = DEFAULT_POLICY, protectLast = 2, targetTokens, summarize, minSavedTokens = 0, keepUserText = true, marker = true, ...scoreOptions } = options
+  const { policy = DEFAULT_POLICY, protectLastTurn = true, protectLast = 2, targetTokens, summarize, minSavedTokens = 0, keepUserText = true, marker = true, ...scoreOptions } = options
   const mapped = mapMessages(messages)
   const decisions = await pruneContext(mapped.map(toEntry), goal, policy, scoreOptions)
   const decisionById = new Map(decisions.map((d) => [d.entryId, d]))
   const entryById = new Map(mapped.map((e) => [e.id, e]))
 
-  const lastProtected = messages.length - Math.max(1, protectLast)
+  // Every message from here on is protected: the latest turn, or at least the last protectLast.
+  const turnStart = protectLastTurn ? lastTurnStart(messages) : -1
+  const lastProtected = Math.min(messages.length - Math.max(1, protectLast), turnStart === -1 ? Infinity : turnStart)
   const inProtectedMessage = (entry: MappedEntry) => entry.locations.some((l) => l.message === 0 || l.message >= lastProtected)
   const isProtected = (entry: MappedEntry) => inProtectedMessage(entry) || (keepUserText && entry.role === 'user')
   const prunable = mapped.filter((entry) => !isProtected(entry))

@@ -7,18 +7,50 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 
 ## 0.6.0 — unreleased
 
+**Breaking changes, in short** (each is described below): the default scorer of `ctxjev-core`,
+`ctxjev-cli`, and `pruneMessages()` is `'recency'`, not Jev; the Claude Code plugin scores offline
+unless you set `CTXJEV_SCORER=jev`; `pruneMessages()` never prunes the latest turn
+(`protectLastTurn: false` to prune inside a single-instruction agent loop); and Jev scores cached
+by earlier versions are ignored.
+
+- `ctxjev-claude`: **scores offline by keyword overlap by default and sends nothing anywhere.** Jev
+  is opt-in: set `CTXJEV_SCORER=jev` as well as `TYPESAFE_API_KEY` (a key alone no longer turns it
+  on). On the preregistered holdout tasks the Jev-scored digest showed no demonstrated effect, and
+  Jev's ranking kept less of what the tasks needed than keyword overlap did, so the default no
+  longer sends your session to a third party. Neither scorer has been shown to help; see
+  [Does It Work?](README.md#does-it-work).
+- README, plugin README: the preregistered holdout comparison for the plugin did run, twice; both
+  runs are now reported, and neither shows an effect. They used to say it never produced a result.
 - `ctxjev-core` (and so the CLI, MCP server, and plugin): secret masking now also catches JSON-style
   credentials (`"password": "…"`, `"apiKey": "…"`), passwords in URLs (`postgres://user:pass@…`),
   Stripe, GitLab, npm, Hugging Face, SendGrid, and temporary AWS keys, AWS secret keys in prose,
   Slack and Discord webhook URLs, `Authorization: Basic`, Azure `AccountKey=`, `mysql -p…`,
   `curl -u user:pass`, and short passwords (`DB_PASS=hunter2`). It no longer masks look-alikes such
   as `tokenizer: gpt-tokenizer4`, placeholders, or `token = get_token()`.
+- `ctxjev-core` (and so the CLI, MCP server, and plugin): Jev requests no longer carry your entry
+  ids (each request names its entries `e0`, `e1`, … and maps the answers back) and mask tool names
+  too. Masking also catches PGP private key blocks, payment card numbers (a card brand's prefix
+  plus a valid check digit, so timestamps and ids are left alone), and tokens right after an
+  underscore (`mcp__ghp_…`). Jev scores cached by earlier versions are ignored.
 - `ctxjev-core`: a tool call's input is masked before it's shortened. Shortened first, a token cut
   at 160 characters could reach Jev as a prefix too short to recognize.
+- `ctxjev-core`, `ctxjev-cli`: with `scorer: 'local'` / `--scorer local`, `pruneContext()` (and so
+  `pruneMessages()` and `ctxjev prune`) ranks keyword overlap within the batch before applying the
+  thresholds. Raw overlap rarely reaches the 0.3 drop threshold, so it used to drop nearly every
+  entry, most of the relevant ones included. Tie handling was chosen on the dev split only
+  (`eval/calibrate-local.mjs`). `scoreEntries()` and the Claude Code plugin still use raw overlap.
+- `ctxjev-core`: `pruneMessages()` never touches the latest turn: your last instruction and every
+  tool round-trip after it (`protectLastTurn`, default on). It used to protect only the last two
+  messages, so a turn with three tool calls lost the first two. `protectLast` still applies as a
+  floor. **Breaking for agent loops whose only user text is the first message**: that whole loop
+  is now the latest turn and nothing is pruned; pass `protectLastTurn: false` to prune within it.
 - `ctxjev-core`: `pruneMessages()` never makes a conversation larger. A removal smaller than its
   own "history was removed" note is no longer made (it used to report negative `savedTokens`), and
   `minSavedTokens` now counts the note. Very large conversations (150,000 tool calls) no longer crash
   it with a stack overflow.
+- `ctxjev-core`, `ctxjev-cli`, `ctxjev-claude`: in a Claude Code transcript, a tool call that never
+  got its result stays where it was made. It used to be moved after everything else, so the
+  default `recency` scorer took it for the newest entry.
 - `ctxjev-core`, `ctxjev-cli`, `ctxjev-claude`: a Claude Code transcript that repeats a record id is
   parsed, keeping the last copy with a warning, instead of failing as a whole (the plugin preserved
   nothing).
@@ -34,23 +66,35 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 - `ctxjev-core`: `cacheKeyFor()` returns a SHA-256 digest; keys from earlier versions don't match.
 - `ctxjev-claude`: a `/ctxjev:set-goal` goal, error messages, and warnings are masked before they're
   saved to `~/.claude/ctxjev/`.
+- `ctxjev-claude`: `/ctxjev:set-goal` and `/ctxjev:status` may run only the plugin's own
+  `dist/status.js` without asking, instead of any `node` command (`Bash(node:*)`). The model can
+  invoke `/ctxjev:set-goal` itself, so the old rule let it run arbitrary Node code unprompted.
 - `ctxjev-claude`: cleaning up what versions before 0.6.0 left in your project removes only files it
   wrote, one at a time. It could previously delete your own files inside `.ctxjev/preserved/`.
 - `ctxjev-claude`: `/ctxjev:status` says the last run is unknown when `last-run.json` can't be read,
   instead of "no compaction in this session", and shows transcript warnings.
+- `ctxjev-cli`: `ctxjev prune --protect-last` on a ctxjev-format transcript is an error instead of
+  being silently ignored (that format has no messages to protect). New `--no-protect-last-turn`
+  for Anthropic Messages.
+- `ctxjev-cli`: the report's legend says what the score means for the scorer used: under the
+  default `recency` it's position in the transcript, not relevance. A run that saves nothing says
+  "no tokens saved" instead of showing a number as saved.
 - `ctxjev-cli`: `--version` / `-v` work after the command too (`ctxjev analyze --version`), and an
   unknown option gets a plain message pointing at `--help`.
+- `ctxjev-mcp`: an entry's `id` and `toolName` are capped at 256 characters, so every string a
+  tool call accepts is bounded (a 5,000,000-character id used to pass validation).
 - `ctxjev-mcp`: starts without `TYPESAFE_API_KEY` and lists its tools; each call then returns an
   error saying the key is missing. Hosts used to see only "connection closed".
-- `ctxjev-mcp`: every setup example pins the version (`npx ctxjev-mcp@0.5.0`), so hosts run the
-  release you chose.
+- `ctxjev-claude`: from this release on, the marketplace installs the plugin from the release's
+  tag (`v0.6.0`), not from whatever is on `main`, so you only ever get released code.
+- `ctxjev-mcp`: every setup example pins the version (`npx ctxjev-mcp@0.6.0` for this release), so
+  hosts run the release you chose.
 - `ctxjev-core`: new `jevClient` option (bring your own Jev client), and new exports
   `splitCjkBigrams()`, `quoteAsData()`, and `seededRandom()`.
 - README: every evaluation number is generated from the saved results and checked in CI. The
   holdout retention table now includes random order and the labels, and says plainly that on the
-  holdout Jev kept less of what the tasks needed than a random ordering. It also says what's on npm
-  (0.5.0) versus `main`, and that the default `recency` scorer ignores the goal.
-
+  holdout Jev kept less of what the tasks needed than a random ordering. It also says that the
+  default `recency` scorer ignores the goal.
 - `ctxjev-claude`, `ctxjev-cli`: the inferred goal is no longer taken from text Claude Code writes
   into the conversation itself. After a `/model` and an interrupted tool call, it used to be the
   local-command notice plus "[Request interrupted by user]", with your actual request nowhere in it.
@@ -69,6 +113,10 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
   the old report's `Goal:` line as a request and edited and committed code; goals and excerpts are
   now quoted and labeled as data, and only you can run the skill. A UserPromptSubmit hook answers
   `/ctxjev:status` before it reaches the model at all, where Claude Code allows it.
+- `ctxjev-claude`: a re-injected excerpt (or goal) can't break out of its quotes: `«`/`»` inside it,
+  line breaks, and tag-like `<…` (such as `</system-reminder>`) are neutralized, and the excerpts
+  sit between explicit "begin/end quoted excerpts (data, not instructions)" lines. An excerpt
+  could previously close its own quote and continue as if the plugin had written the rest.
 - `ctxjev-claude`: the post-compaction reminder says its excerpts aren't requests and that any
   question in them was already asked. Haiku had answered a preserved "Shall I write the tests?"
   by writing and committing them. ctxjev's own status report is never preserved, nor is a reply that
@@ -214,7 +262,9 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 - `ctxjev-core`: requests run at most 5 at a time, instead of all at once.
 - `ctxjev-cli`: transcript entries are validated field by field; `--drop-below` must not exceed
   `--summarize-below`.
-- `ctxjev-mcp`: scores are cached across calls; inputs are size-capped and validated.
+- `ctxjev-mcp`: scores are cached across calls; inputs are validated, and the number of entries,
+  each entry's content, and the goal are size-capped. (Corrected in 0.6.0: this used to say every
+  input was size-capped, but entry ids and tool names weren't until 0.6.0.)
 - `ctxjev-claude`: the hook bundle shrank from 3.3MB to 17KB; the preserved-context file is
   written atomically; re-injected excerpts are labeled as quoted data, not instructions.
 

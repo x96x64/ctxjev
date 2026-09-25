@@ -1,9 +1,9 @@
 // Shared by tasks.mjs and plugin.mjs: run an agent on a task repo and grade it with the hidden tests.
 import { execFileSync, spawnSync } from 'node:child_process'
 import * as fs from 'node:fs'
-import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { closeSync, constants, cpSync, lstatSync, mkdtempSync, openSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { costOf, withCacheBreakpoint } from './lib.mjs'
 
@@ -21,47 +21,96 @@ export const TOOLS = [
   { name: 'Glob', description: 'List files matching a glob pattern.', input_schema: { type: 'object', properties: { pattern: { type: 'string' }, path: { type: 'string' } }, required: ['pattern'] } },
 ]
 
-export function workspaceTools(task, repo) {
+/**
+ * The agent's tools, against a temporary copy of the task's repo. Bash runs in `sandbox` (see
+ * sandbox.mjs), which sees only the repo and has no network. The file tools run here, in the
+ * harness, and refuse any path outside the repo, symlinks included: the agent can create a link
+ * to anywhere from Bash, so a path is checked where it really leads, not only as written, and a
+ * link that leads nowhere yet is refused (writing through it would create a file wherever it points).
+ */
+export function workspaceTools(task, repo, sandbox) {
+  if (!sandbox) throw new Error('workspaceTools needs a sandbox (see sandbox.mjs)')
   const virtualRoot = `/workspace/${task}`
   const toReal = (text) => text.split(virtualRoot).join(repo)
-  const toVirtual = (text) => text.split(repo).join(virtualRoot)
+  const toVirtual = (text) => text.split(realRepo).join(virtualRoot).split(repo).join(virtualRoot)
   const clip = (text) => (text.length > OUTPUT_LIMIT ? `${text.slice(0, OUTPUT_LIMIT)}\n... (output truncated)` : text)
   const env = { PATH: process.env.PATH, HOME: repo, LANG: 'en_US.UTF-8', GIT_CONFIG_NOSYSTEM: '1' }
+  const realRepo = realpathSync(repo)
 
+  const outside = (real, base) => {
+    const rel = relative(base, real)
+    return rel.startsWith('..') || isAbsolute(rel)
+  }
+
+  // Where a path really leads, as a real path inside the repo, or an error. A path that exists (a
+  // link included, even one that leads nowhere yet: writing through it would create its target) is
+  // resolved through every link; a new file is its nearest existing parent, resolved, plus the rest
+  // of its name. Tools then use only the returned path.
   function inRepo(path) {
-    const real = resolve(repo, toReal(path ?? '.'))
-    const rel = relative(repo, real)
-    if (rel.startsWith('..') || isAbsolute(rel)) throw new Error(`${path} is outside the repository`)
+    const target = resolve(repo, toReal(path ?? '.'))
+    if (outside(target, repo)) throw new Error(`${path} is outside the repository`)
+    let existing = target
+    const rest = []
+    while (!lstatSync(existing, { throwIfNoEntry: false }) && existing !== dirname(existing)) {
+      rest.unshift(basename(existing))
+      existing = dirname(existing)
+    }
+    let real
+    try {
+      real = join(realpathSync(existing), ...rest)
+    } catch {
+      throw new Error(`${path} is a link that leads nowhere`)
+    }
+    if (outside(real, realRepo)) throw new Error(`${path} is outside the repository`)
     return real
+  }
+
+  // Only regular files are read, edited, or overwritten: opening a FIFO the agent made with mkfifo
+  // would block the harness until something opened its other end.
+  function regularFile(real, path) {
+    const stat = lstatSync(real, { throwIfNoEntry: false })
+    if (stat && !stat.isFile()) throw new Error(`${path} is not a regular file`)
+    return real
+  }
+
+  // Writes only to a checked real path, and never through a link at its last step: if something
+  // swapped the file for a link after the check, the write fails instead of following it.
+  function writeInRepo(real, content) {
+    const fd = openSync(real, constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | (constants.O_NOFOLLOW ?? 0), 0o666)
+    try {
+      writeFileSync(fd, content)
+    } finally {
+      closeSync(fd)
+    }
   }
 
   const handlers = {
     Bash({ command }) {
-      const r = spawnSync('bash', ['-c', toReal(command)], { cwd: repo, env, encoding: 'utf8', timeout: 60_000, maxBuffer: 16 * 1024 * 1024 })
+      const r = sandbox.run(toReal(command), { repo, timeoutMs: 60_000 })
       const out = `${r.stdout ?? ''}${r.stderr ?? ''}`.trim()
       if (r.error?.code === 'ETIMEDOUT') throw new Error(`command timed out after 60s\n${out}`)
       if (r.status !== 0) throw new Error(`Exit code ${r.status}\n${out}`)
       return out || '(no output)'
     },
     Read({ file_path, offset = 1, limit = 2000 }) {
-      const lines = readFileSync(inRepo(file_path), 'utf8').split('\n')
+      const lines = readFileSync(regularFile(inRepo(file_path), file_path), 'utf8').split('\n')
       return lines.slice(offset - 1, offset - 1 + limit).map((line, i) => `${String(offset + i).padStart(6)}\t${line}`).join('\n')
     },
     Edit({ file_path, old_string, new_string, replace_all = false }) {
-      const path = inRepo(file_path)
+      const path = regularFile(inRepo(file_path), file_path)
       const text = readFileSync(path, 'utf8')
       const count = old_string === '' ? 0 : text.split(old_string).length - 1
       if (count === 0) throw new Error('old_string not found in the file')
       if (count > 1 && !replace_all) throw new Error(`old_string matches ${count} times; add context or set replace_all`)
-      writeFileSync(path, replace_all ? text.split(old_string).join(new_string) : text.replace(old_string, () => new_string))
+      writeInRepo(path, replace_all ? text.split(old_string).join(new_string) : text.replace(old_string, () => new_string))
       return `The file ${file_path} has been updated.`
     },
     Write({ file_path, content }) {
-      writeFileSync(inRepo(file_path), content)
+      writeInRepo(regularFile(inRepo(file_path), file_path), content)
       return `File written: ${file_path}`
     },
     Grep({ pattern, path, glob, output_mode = 'files_with_matches', ...flags }) {
-      const target = relative(repo, inRepo(path)) || '.'
+      const target = relative(realRepo, inRepo(path)) || '.'
       const mode = { content: ['-n'], files_with_matches: ['-l'], count: ['-c'] }[output_mode] ?? ['-l']
       const r = spawnSync('grep', ['-rE', ...mode, ...(flags['-i'] ? ['-i'] : []), ...(glob ? [`--include=${glob}`] : []), '--exclude-dir=.git', '--exclude-dir=test-hidden', '-e', pattern, target], { cwd: repo, env, encoding: 'utf8' })
       if (r.status === 2) throw new Error(r.stderr.trim())
@@ -69,8 +118,15 @@ export function workspaceTools(task, repo) {
     },
     Glob({ pattern, path }) {
       const base = inRepo(path)
-      const found = fs.globSync(pattern, { cwd: base }).filter((p) => !p.startsWith('.git/'))
-      return found.length ? found.map((p) => relative(repo, join(base, p))).join('\n') : 'No files found'
+      const within = (p) => {
+        try {
+          return !outside(realpathSync(join(base, p)), realRepo)
+        } catch {
+          return true // a dangling link: its name is all there is to list
+        }
+      }
+      const found = fs.globSync(pattern, { cwd: base }).filter((p) => !p.startsWith('.git/') && within(p))
+      return found.length ? found.map((p) => relative(realRepo, join(base, p))).join('\n') : 'No files found'
     },
   }
 
@@ -85,25 +141,39 @@ export function workspaceTools(task, repo) {
 }
 
 export function freshRepo(task) {
-  const work = mkdtempSync(join(tmpdir(), `ctxjev-eval-${task}-`))
+  const work = realpathSync(mkdtempSync(join(tmpdir(), `ctxjev-eval-${task}-`)))
   const repo = join(work, 'repo')
   execFileSync('node', [join(tasksDir, 'setup.mjs'), task, repo], { stdio: 'pipe' })
   return { work, repo }
 }
 
-export function grade(task, repo) {
+/**
+ * Runs the task's hidden acceptance tests on `repo`, in `sandbox`: they run the agent's code. A
+ * pristine copy of the task's repo, set up afresh after the agent is done and outside anything it
+ * could reach, is visible read-only at CTXJEV_PRISTINE_REPO, so a "must not change" check compares
+ * against the original rather than against the agent's own last commit.
+ */
+export function grade(task, repo, sandbox) {
+  if (!sandbox) throw new Error('grade needs a sandbox (see sandbox.mjs)')
   cpSync(join(tasksDir, task, 'hidden'), join(repo, 'test-hidden'), { recursive: true })
-  const r = spawnSync('node', ['--test', '--test-reporter=tap', 'test-hidden/*.test.js'], { cwd: repo, env: { PATH: process.env.PATH }, encoding: 'utf8', timeout: 120_000 })
-  const count = (key) => Number(new RegExp(`^# ${key} (\\d+)`, 'm').exec(r.stdout)?.[1] ?? 0)
-  const failedTests = [...r.stdout.matchAll(/^not ok \d+ - (.+)$/gm)].map((m) => m[1])
-  return { success: r.status === 0, passed: count('pass'), failed: count('fail'), failedTests }
+  const pristine = freshRepo(task)
+  try {
+    const r = sandbox.run(`node --test --test-reporter=tap 'test-hidden/*.test.js'`, { repo, readOnly: [pristine.repo], env: { CTXJEV_PRISTINE_REPO: pristine.repo }, timeoutMs: 120_000 })
+    const stdout = r.stdout ?? ''
+    const count = (key) => Number(new RegExp(`^# ${key} (\\d+)`, 'm').exec(stdout)?.[1] ?? 0)
+    const failedTests = [...stdout.matchAll(/^not ok \d+ - (.+)$/gm)].map((m) => m[1])
+    return { success: r.status === 0, passed: count('pass'), failed: count('fail'), failedTests }
+  } finally {
+    rmSync(pristine.work, { recursive: true, force: true })
+  }
 }
 
 /** An agent loop bound to one client, spend tracker, limiter, and model. */
-export function createAgentRunner({ client, spend, limit, model, maxTurns, extraParams = {} }) {
+export function createAgentRunner({ client, spend, limit, model, maxTurns, sandbox, extraParams = {} }) {
+  if (!sandbox) throw new Error('createAgentRunner needs a sandbox (see sandbox.mjs)')
   return async function runAgent(task, history, fixPrompt) {
     const { work, repo } = freshRepo(task)
-    const runTool = workspaceTools(task, repo)
+    const runTool = workspaceTools(task, repo, sandbox)
     const last = history[history.length - 1]
     const messages =
       last.role === 'user'
@@ -140,7 +210,7 @@ export function createAgentRunner({ client, spend, limit, model, maxTurns, extra
         toolCalls += uses.length
         messages.push({ role: 'user', content: uses.map((u) => ({ type: 'tool_result', tool_use_id: u.id, ...runTool(u.name, u.input) })) })
       }
-      return { ...grade(task, repo), turns, toolCalls, stoppedBy, finalText, costUsd }
+      return { ...grade(task, repo, sandbox), turns, toolCalls, stoppedBy, finalText, costUsd }
     } finally {
       rmSync(work, { recursive: true, force: true })
     }

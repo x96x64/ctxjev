@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { messagesToEntries, pruneMessages, type AnthropicContentBlock, type AnthropicMessage, type PruneMessagesOptions } from './anthropicMessages.js'
+import { lastTurnStart, messagesToEntries, pruneMessages, type AnthropicContentBlock, type AnthropicMessage, type PruneMessagesOptions } from './anthropicMessages.js'
 import type { CustomScorer } from './prune.js'
 import { seededRandom } from './random.js'
 import { estimateTokens } from './tokenEstimate.js'
+import type { Entry } from './types.js'
 
 // Every tool_result must follow its tool_use, and every tool_use outside the final message must
 // have a result — the invariants the Messages API rejects a request for breaking.
@@ -93,7 +94,12 @@ describe('pruneMessages', () => {
     expect(withNote.messages).toBe(conversation)
     expect(withNote.savedTokens).toBe(0)
 
-    const { messages, removed } = await pruneMessages(conversation, 'Fix the checkout double charge on retry', { scorer: 'local', marker: false })
+    // Scores fixed here rather than by keyword overlap: this test is about the pairing, and since
+    // 0.6.0 'local' ranks overlap within the batch (see prune.test.ts), which in a batch this small
+    // summarizes the zero-overlap entries instead of dropping them.
+    const unrelated = ['msg:1:0', 'tool:t1', 'msg:5:0', 'msg:6', 'tool:t3']
+    const scorer = async (_goal: string, entries: Entry[]) => entries.map((e) => (unrelated.includes(e.id) ? 0 : 1))
+    const { messages, removed } = await pruneMessages(conversation, 'Fix the checkout double charge on retry', { scorer, policy: noRecency, marker: false })
 
     expect(removed.sort()).toEqual(['msg:1:0', 'msg:5:0', 'tool:t1'])
     expectValidToolPairing(messages)
@@ -109,6 +115,57 @@ describe('pruneMessages', () => {
     expect(messages[0]).toBe(conversation[0])
     expect(messages.slice(-2)).toEqual(conversation.slice(-2))
     expectValidToolPairing(messages)
+  })
+
+  // The second audit: the latest instruction followed by three tool round-trips lost m1 and m2,
+  // since only the last two messages were protected.
+  describe('protectLastTurn', () => {
+    const tool = (id: string, name: string, input: unknown, out: string): AnthropicMessage[] => [
+      { role: 'assistant', content: [{ type: 'tool_use', id, name, input }] },
+      { role: 'user', content: [{ type: 'tool_result', tool_use_id: id, content: out }] },
+    ]
+    const latestTurn: AnthropicMessage[] = [
+      { role: 'user', content: 'Fix the checkout double charge on retry.' },
+      ...tool('t0', 'Grep', { pattern: 'charge' }, 'src/payments.ts: chargeCustomer() called again by retry handler'),
+      { role: 'assistant', content: 'Found it: the retry handler re-calls chargeCustomer().' },
+      { role: 'user', content: 'Keep retries at 3. Now also check the refund path, then fix both.' },
+      ...tool('m1', 'Read', { file_path: 'src/refunds.ts' }, 'refundCustomer() has no idempotency key either'),
+      ...tool('m2', 'Bash', { command: 'npm test' }, '12 passed, 2 failed: refunds.test.ts'),
+      ...tool('m3', 'Read', { file_path: 'src/retry.ts' }, 'const MAX_RETRIES = 3'),
+    ]
+    const goal = 'fix the checkout double charge on retry'
+
+    it('never touches the last user instruction or any tool round-trip after it', async () => {
+      const { messages, removed, decisions } = await pruneMessages(latestTurn, goal, { scorer: 'local' })
+      expect(decisions.filter((d) => ['tool:m1', 'tool:m2'].includes(d.entryId)).map((d) => d.action)).toEqual(['drop', 'drop'])
+      expect(removed).not.toContain('tool:m1')
+      expect(removed).not.toContain('tool:m2')
+      expect(messages.slice(-7)).toEqual(latestTurn.slice(-7))
+      expectValidToolPairing(messages)
+    })
+
+    it('still prunes before the latest turn', async () => {
+      const { removed } = await pruneMessages(latestTurn, goal, { scorer: async (_goal, entries) => entries.map(() => 0), policy: noRecency, marker: false, keepUserText: false })
+      expect(removed.sort()).toEqual(['msg:3', 'tool:t0'])
+    })
+
+    it('with protectLastTurn: false, only protectLast guards the tail, as before 0.6.0', async () => {
+      const { removed } = await pruneMessages(latestTurn, goal, { scorer: 'local', protectLastTurn: false })
+      expect(removed).toEqual(['tool:m1', 'tool:m2'])
+    })
+
+    it('protects the whole conversation when its only user text is the first message', async () => {
+      const loop: AnthropicMessage[] = [{ role: 'user', content: 'the task' }, ...tool('a', 'Bash', { command: 'ls' }, 'x'.repeat(4000)), ...tool('b', 'Bash', { command: 'ls' }, 'y')]
+      const zero = async (_goal: string, entries: Entry[]) => entries.map(() => 0)
+      expect((await pruneMessages(loop, 'goal', { scorer: zero, policy: noRecency })).removed).toEqual([])
+      expect((await pruneMessages(loop, 'goal', { scorer: zero, policy: noRecency, protectLastTurn: false })).removed).toEqual(['tool:a'])
+    })
+
+    it('lastTurnStart finds the last user message with text of its own', () => {
+      expect(lastTurnStart(latestTurn)).toBe(4)
+      expect(lastTurnStart([{ role: 'assistant', content: 'hi' }])).toBe(-1)
+      expect(lastTurnStart([{ role: 'user', content: [{ type: 'tool_result', tool_use_id: 'x', content: 'ok' }, { type: 'text', text: '  ' }] }])).toBe(-1)
+    })
   })
 
   it('keeps a tool call whose result sits inside the protected tail', async () => {
@@ -315,7 +372,9 @@ describe('pruneMessages', () => {
         huge.push({ role: 'user', content: [{ type: 'tool_result', tool_use_id: `t${i}`, content: 'ok' }] })
       }
       huge.push({ role: 'assistant', content: 'done' })
-      const result = await pruneMessages(huge, 'goal', { targetTokens: 10 })
+      // The only user text is the task, so by default this whole loop is the latest turn and
+      // nothing would be removed; this test is about removing 100,000+ entries, so it opts out.
+      const result = await pruneMessages(huge, 'goal', { targetTokens: 10, protectLastTurn: false })
       expect(result.removed.length).toBeGreaterThan(100_000)
       expect(result.cache.firstChangedMessage).toBe(1)
       expect(result.savedTokens).toBeGreaterThan(0)
@@ -352,10 +411,12 @@ describe('pruneMessages', () => {
       }
 
       const protectLast = 1 + Math.floor(random() * 3)
+      const protectLastTurn = random() < 0.5
       const options: PruneMessagesOptions = {
         scorer: async (_goal, entries) => entries.map(() => random()),
         policy: noRecency,
         protectLast,
+        protectLastTurn,
         ...(random() < 0.5 && { summarize: 'excerpt' as const }),
         ...(random() < 0.5 && { targetTokens: Math.floor(random() * 2000) }),
         ...(random() < 0.3 && { minSavedTokens: Math.floor(random() * 3000) }),
@@ -371,6 +432,8 @@ describe('pruneMessages', () => {
       expect(size(result.messages)).toBeLessThanOrEqual(size(messages))
       expect(result.messages[0]).toBe(messages[0])
       expect(result.messages.slice(-protectLast)).toEqual(messages.slice(-protectLast))
+      const turn = lastTurnStart(messages)
+      if (protectLastTurn && turn > 0) expect(result.messages.slice(-(messages.length - turn))).toEqual(messages.slice(turn))
       if (result.removed.length === 0 && result.summarized.length === 0) expect(result.messages).toEqual(messages)
       else {
         changedRuns++

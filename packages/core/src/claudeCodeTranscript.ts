@@ -103,7 +103,9 @@ export function parseClaudeCodeTranscript(jsonl: string, options: ParseClaudeCod
   const { countTokens, onWarning } = options
   const count = (text: string) => (countTokens ? { sourceTokens: countTokens(text) } : {})
   const entries: Entry[] = []
-  const pendingToolUse = new Map<string, { name: string; input: unknown; timestamp: number }>()
+  // `at`: how many entries came before this tool_use, so a call that never gets its result can be
+  // put back where it happened rather than after everything else.
+  const pendingToolUse = new Map<string, { name: string; input: unknown; timestamp: number; at: number }>()
   // A record without a usable timestamp takes the previous one's, so it keeps its place in the
   // order instead of reading as the oldest entry in the batch.
   let lastTimestamp = 0
@@ -147,7 +149,7 @@ export function parseClaudeCodeTranscript(jsonl: string, options: ParseClaudeCod
           ...count(text),
         })
       } else if (block.type === 'tool_use') {
-        pendingToolUse.set(block.id, { name: block.name, input: block.input, timestamp })
+        pendingToolUse.set(block.id, { name: block.name, input: block.input, timestamp, at: entries.length })
       } else if (block.type === 'tool_result') {
         const pending = pendingToolUse.get(block.tool_use_id)
         pendingToolUse.delete(block.tool_use_id)
@@ -165,9 +167,12 @@ export function parseClaudeCodeTranscript(jsonl: string, options: ParseClaudeCod
     }
   })
 
-  // A tool_use that never got its tool_result (the log ends mid-call) still took up context.
-  for (const [toolUseId, pending] of pendingToolUse) {
-    entries.push({
+  // A tool_use that never got its tool_result (the log ends mid-call, or the call was interrupted)
+  // still took up context. It goes back where it was made: appended last, recency (which ranks by
+  // position) would take it for the newest entry in the batch. Inserted last-first, so calls made
+  // at the same point keep their order.
+  for (const [toolUseId, pending] of [...pendingToolUse].reverse()) {
+    entries.splice(pending.at, 0, {
       id: toolUseId,
       role: 'tool',
       toolName: pending.name,

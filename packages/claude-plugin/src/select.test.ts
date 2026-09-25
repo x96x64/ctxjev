@@ -1,6 +1,6 @@
 import type { Entry, ScoredEntry } from 'ctxjev-core'
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_PRESERVE_LIMIT, preserveLimitFromEnv, rankForPreservation, selectPreserved } from './select.js'
+import { DEFAULT_PRESERVE_LIMIT, preserveLimitFromEnv, rankForPreservation, scorerFromEnv, selectPreserved } from './select.js'
 
 const entries: Entry[] = [
   { id: 'goal', role: 'user', content: 'fix the double charge', timestamp: 0 },
@@ -94,6 +94,17 @@ describe('rankForPreservation, near-duplicates', () => {
       { entryId: 'c', relevance: 0.5, recency: 0.5, combinedScore: 0.5 },
     ]
     expect(rankForPreservation(jaScored, ja, 'x', 5, Number.MIN_VALUE).map((s) => s.entryId)).toEqual(['a', 'c'])
+  })
+})
+
+describe('scorerFromEnv', () => {
+  it('opts into Jev only for CTXJEV_SCORER=jev', () => {
+    expect(scorerFromEnv('jev')).toBe('jev')
+    expect(scorerFromEnv(' JEV ')).toBe('jev')
+  })
+
+  it('scores offline for anything else, unset included', () => {
+    for (const raw of [undefined, '', 'local', 'recency', 'yes', 'true']) expect(scorerFromEnv(raw)).toBe('local')
   })
 })
 

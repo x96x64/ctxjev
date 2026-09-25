@@ -14,6 +14,26 @@ describe('entrySchema', () => {
     expect(entrySchema.safeParse({ id: '', role: 'user', content: 'x', timestamp: 0 }).success).toBe(false)
   })
 
+  // The second audit passed a 5,000,000-character id and toolName through validation.
+  it('rejects an id or a tool name over its length cap', () => {
+    const entry = { id: 'e1', role: 'tool' as const, toolName: 'grep', content: 'x', timestamp: 0 }
+    expect(entrySchema.safeParse({ ...entry, id: 'x'.repeat(256) }).success).toBe(true)
+    expect(entrySchema.safeParse({ ...entry, id: 'x'.repeat(257) }).success).toBe(false)
+    expect(entrySchema.safeParse({ ...entry, toolName: 'x'.repeat(256) }).success).toBe(true)
+    expect(entrySchema.safeParse({ ...entry, toolName: 'x'.repeat(257) }).success).toBe(false)
+    expect(entrySchema.safeParse({ ...entry, id: 'x'.repeat(5_000_000), toolName: 'x'.repeat(5_000_000) }).success).toBe(false)
+  })
+
+  it('bounds every string it accepts', () => {
+    const unbounded = Object.entries(entrySchema.shape).filter(([, field]) => {
+      const inner = field instanceof z.ZodOptional ? field.unwrap() : field
+      return inner instanceof z.ZodString && inner.maxLength === null
+    })
+    expect(unbounded.map(([name]) => name)).toEqual([])
+    const goal = scoreRelevanceInput.goal
+    expect(goal.maxLength).not.toBeNull()
+  })
+
   it('rejects content over the length cap', () => {
     const result = entrySchema.safeParse({ id: 'e1', role: 'user', content: 'x'.repeat(4001), timestamp: 0 })
     expect(result.success).toBe(false)
