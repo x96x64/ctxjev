@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI採点の人手チェック</title>
+<style>
+  :root { --bg: #f7f7f5; --card: #ffffff; --text: #1d1d1b; --muted: #5f5f5a; --line: #deded8; --accent: #2f5f9e;
+          --ok: #1f7a3f; --ok-bg: #e5f4ea; --ng: #a3302a; --ng-bg: #f9e6e4; --unsure: #6b5b16; --unsure-bg: #f6f0d6; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #1b1b1a; --card: #252523; --text: #ecece8; --muted: #a9a9a2; --line: #3a3a37; --accent: #8db4ea;
+            --ok: #7fd49c; --ok-bg: #1f3a28; --ng: #f0a39d; --ng-bg: #432522; --unsure: #e6d58a; --unsure-bg: #3a3420; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.7 system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 16px; }
+  header { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; justify-content: space-between; margin-bottom: 12px; }
+  h1 { font-size: 1.3rem; margin: 0; }
+  .muted { color: var(--muted); font-size: 0.9rem; }
+  .bar { height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; margin: 6px 0 14px; }
+  .bar > div { height: 100%; background: var(--accent); width: 0; }
+  details.help { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; margin-bottom: 14px; }
+  details.help summary { cursor: pointer; font-weight: 600; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  .field { margin-bottom: 14px; }
+  .label { font-size: 0.85rem; font-weight: 700; color: var(--muted); letter-spacing: 0.02em; }
+  .value { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .fact { border-left: 4px solid var(--accent); padding-left: 10px; }
+  .reply { background: var(--bg); border-radius: 6px; padding: 8px 10px; max-height: 40vh; overflow: auto; }
+  .ai { display: inline-block; padding: 2px 10px; border-radius: 999px; font-weight: 700; }
+  .ai.correct { background: var(--ok-bg); color: var(--ok); } .ai.incorrect { background: var(--ng-bg); color: var(--ng); }
+  .hidden-ai { color: var(--muted); font-style: italic; }
+  .buttons { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 12px; }
+  button { font: inherit; border: 2px solid var(--line); background: var(--card); color: var(--text); border-radius: 8px; padding: 8px 14px; cursor: pointer; min-height: 44px; }
+  button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  button.v-correct[aria-pressed="true"] { background: var(--ok-bg); border-color: var(--ok); color: var(--ok); font-weight: 700; }
+  button.v-incorrect[aria-pressed="true"] { background: var(--ng-bg); border-color: var(--ng); color: var(--ng); font-weight: 700; }
+  button.v-unsure[aria-pressed="true"] { background: var(--unsure-bg); border-color: var(--unsure); color: var(--unsure); font-weight: 700; }
+  textarea { width: 100%; min-height: 64px; font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px; }
+  nav { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; margin-top: 12px; }
+  .status { min-height: 1.5em; }
+  .settings { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin: 10px 0; }
+  kbd { border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; font-size: 0.85em; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>AI採点の人手チェック</h1>
+    <span id="progress" class="muted">読み込み中…</span>
+  </header>
+  <div class="bar" aria-hidden="true"><div id="bar"></div></div>
+
+  <details class="help" open>
+    <summary>使い方（初めての方へ）</summary>
+    <p>モデルが「質問」に答えた文（モデルの回答）が、<strong>正解の事実</strong>と同じ内容を述べているかを判定してください。AIの採点者と同じ基準です。</p>
+    <ul>
+      <li><strong>正しい</strong>：回答が正解の事実を、大事な中身（数値・名前・条件など）も含めて述べていて、矛盾がない。</li>
+      <li><strong>誤り</strong>：大事な中身が違う・欠けている、正解と矛盾する、または「分からない／会話にない」と答えている。</li>
+      <li><strong>判断できない</strong>：質問や正解の事実そのものがあいまいで、どちらとも言えない。</li>
+    </ul>
+    <p>判定はボタンを押した瞬間に保存されます。メモは任意です。キーボードでは <kbd>1</kbd> 正しい、<kbd>2</kbd> 誤り、<kbd>3</kbd> 判断できない、<kbd>←</kbd><kbd>→</kbd> 前後へ移動できます（メモ欄に入力中は無効）。</p>
+  </details>
+
+  <div class="settings">
+    <label><input type="checkbox" id="hideAi"> AIの判定を、自分の判定を入れるまで隠す（先入観を避けたいとき）</label>
+    <label>確認者の名前（任意）：<input type="text" id="reviewer" size="16"></label>
+  </div>
+
+  <section class="card" aria-live="polite">
+    <div class="muted" id="position"></div>
+    <div class="field"><div class="label">質問</div><div class="value" id="question"></div></div>
+    <div class="field"><div class="label">正解の事実（期待される答え）</div><div class="value fact" id="fact"></div></div>
+    <div class="field"><div class="label">モデルの回答</div><div class="value reply" id="reply"></div></div>
+    <div class="field"><div class="label">AIの判定</div><div id="ai"></div></div>
+    <div class="label">あなたの判定</div>
+    <div class="buttons" role="group" aria-label="あなたの判定">
+      <button class="v-correct" data-verdict="correct" aria-pressed="false">正しい</button>
+      <button class="v-incorrect" data-verdict="incorrect" aria-pressed="false">誤り</button>
+      <button class="v-unsure" data-verdict="unsure" aria-pressed="false">判断できない</button>
+    </div>
+    <label class="label" for="note">メモ（任意）</label>
+    <textarea id="note" placeholder="気になった点があれば"></textarea>
+    <nav>
+      <button id="prev">← 前へ</button>
+      <button id="nextOpen">未判定の次の項目へ</button>
+      <button id="next">次へ →</button>
+    </nav>
+  </section>
+
+  <p class="status muted" id="status"></p>
+  <div class="settings">
+    <button id="export">判定をJSONで書き出す（ダウンロード）</button>
+    <span class="muted" id="savedTo"></span>
+  </div>
+</main>
+<script>
+(() => {
+  const token = location.hash.slice(1)
+  const $ = (id) => document.getElementById(id)
+  const LABEL = { correct: '正しい', incorrect: '誤り', unsure: '判断できない' }
+  let items = []
+  let reviews = {}
+  let reviewer = ''
+  let index = 0
+  let storageKey = 'ctxjev-review'
+  const safeGet = (k) => { try { return localStorage.getItem(k) } catch { return null } }
+  const safeSet = (k, v) => { try { localStorage.setItem(k, v) } catch {} }
+
+  async function api(path, body) {
+    const res = await fetch(path, { method: body ? 'POST' : 'GET', headers: { 'x-review-token': token, ...(body && { 'content-type': 'application/json' }) }, body: body && JSON.stringify(body) })
+    if (!res.ok) throw new Error(`${res.status} ${await res.text()}`)
+    return res.json()
+  }
+
+  function render() {
+    const item = items[index]
+    const done = items.filter((it) => reviews[it.id]?.verdict).length
+    $('progress').textContent = `${done} / ${items.length} 件 判定済み`
+    $('bar').style.width = `${items.length ? (done / items.length) * 100 : 0}%`
+    if (!item) return
+    $('position').textContent = `${index + 1} 件目 / 全 ${items.length} 件（ID: ${item.id}）`
+    $('question').textContent = item.question
+    $('fact').textContent = item.fact
+    $('reply').textContent = item.reply
+    const mine = reviews[item.id]?.verdict
+    const hide = $('hideAi').checked && !mine
+    $('ai').innerHTML = ''
+    const span = document.createElement('span')
+    if (hide) { span.className = 'hidden-ai'; span.textContent = '（あなたの判定を入れると表示されます）' }
+    else { span.className = `ai ${item.aiVerdict}`; span.textContent = LABEL[item.aiVerdict] }
+    $('ai').append(span)
+    for (const b of document.querySelectorAll('[data-verdict]')) b.setAttribute('aria-pressed', String(b.dataset.verdict === mine))
+    $('note').value = reviews[item.id]?.note ?? ''
+    $('prev').disabled = index === 0
+    $('next').disabled = index === items.length - 1
+  }
+
+  let saveTimer
+  async function save() {
+    safeSet(storageKey, JSON.stringify({ reviewer, reviews }))
+    try {
+      const r = await api('/api/review', { reviewer, reviews })
+      $('status').textContent = `保存しました（${new Date(r.savedAt).toLocaleTimeString('ja-JP')}）`
+    } catch (err) {
+      $('status').textContent = `サーバーに保存できませんでした（ブラウザ内には保存済み）。コマンドの画面が開いたままか確認してください：${err.message}`
+    }
+  }
+  const saveSoon = () => { clearTimeout(saveTimer); saveTimer = setTimeout(save, 400) }
+
+  function choose(verdict) {
+    const item = items[index]
+    reviews[item.id] = { ...(reviews[item.id] ?? {}), verdict, note: $('note').value, at: new Date().toISOString() }
+    render()
+    save()
+  }
+  const go = (i) => { index = Math.max(0, Math.min(items.length - 1, i)); render(); window.scrollTo({ top: 0 }) }
+
+  for (const b of document.querySelectorAll('[data-verdict]')) b.addEventListener('click', () => choose(b.dataset.verdict))
+  $('prev').addEventListener('click', () => go(index - 1))
+  $('next').addEventListener('click', () => go(index + 1))
+  $('nextOpen').addEventListener('click', () => {
+    const after = items.findIndex((it, i) => i > index && !reviews[it.id]?.verdict)
+    const any = after === -1 ? items.findIndex((it) => !reviews[it.id]?.verdict) : after
+    if (any === -1) $('status').textContent = 'すべて判定済みです。書き出しボタンでJSONを保存できます。'
+    else go(any)
+  })
+  $('note').addEventListener('input', () => {
+    const item = items[index]
+    reviews[item.id] = { ...(reviews[item.id] ?? {}), note: $('note').value, at: new Date().toISOString() }
+    saveSoon()
+  })
+  $('hideAi').addEventListener('change', () => { safeSet('ctxjev-review-hide-ai', $('hideAi').checked ? '1' : '0'); render() })
+  $('reviewer').addEventListener('input', () => { reviewer = $('reviewer').value; saveSoon() })
+  document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return
+    if (e.key === '1') choose('correct')
+    else if (e.key === '2') choose('incorrect')
+    else if (e.key === '3') choose('unsure')
+    else if (e.key === 'ArrowLeft') go(index - 1)
+    else if (e.key === 'ArrowRight') go(index + 1)
+  })
+  $('export').addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify({ reviewer, exportedAt: new Date().toISOString(), reviews }, null, 1)], { type: 'application/json' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `ai-grader-review-${new Date().toISOString().slice(0, 10)}.json`
+    a.click()
+    URL.revokeObjectURL(a.href)
+  })
+
+  api('/api/items').then((data) => {
+    items = data.items
+    storageKey = `ctxjev-review:${data.review.items ?? ''}`
+    const local = JSON.parse(safeGet(storageKey) ?? 'null')
+    // The server's file is the record; the browser's copy only fills in what never reached it.
+    reviews = { ...(local?.reviews ?? {}), ...(data.review.reviews ?? {}) }
+    reviewer = data.review.reviewer || local?.reviewer || ''
+    $('reviewer').value = reviewer
+    $('hideAi').checked = safeGet('ctxjev-review-hide-ai') === '1'
+    $('savedTo').textContent = data.demo ? '（お試し用：判定は demo フォルダに保存され、リポジトリには残りません）' : ''
+    const firstOpen = items.findIndex((it) => !reviews[it.id]?.verdict)
+    go(firstOpen === -1 ? 0 : firstOpen)
+  }).catch((err) => { $('progress').textContent = `読み込めませんでした：${err.message}（コマンドが表示したアドレスで開いてください）` })
+})()
+</script>
+</body>
+</html>
