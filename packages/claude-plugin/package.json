@@ -1,6 +1,6 @@
 {
   "name": "ctxjev-claude",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "private": true,
   "description": "Claude Code plugin: preserves Jev-scored context through Claude Code's own compaction.",
   "license": "MIT",

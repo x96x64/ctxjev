@@ -4,7 +4,7 @@
     "ctxjev": {
       "type": "stdio",
       "command": "npx",
-      "args": ["ctxjev-mcp@0.6.0"],
+      "args": ["ctxjev-mcp@0.6.1"],
       "env": {
         "TYPESAFE_API_KEY": "${TYPESAFE_API_KEY}"
       }

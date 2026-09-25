@@ -440,7 +440,7 @@ node packages/cli/dist/index.js analyze examples/sample-transcripts/checkout-bug
 ```
 
 The Claude Code plugin isn't on npm: the marketplace installs it from this repository, at the tag of
-the latest release (`v0.6.0`), so plugin users get released code only.
+the latest release (`v0.6.1`), so plugin users get released code only.
 
 ## Packages
 
@@ -449,9 +449,9 @@ that engine gets used.
 
 | Package | What it is | Status |
 | --- | --- | --- |
-| [`ctxjev-core`](packages/core) ([npm](https://www.npmjs.com/package/ctxjev-core)) | The engine: `scoreEntries()`/`pruneContext()`/`pruneMessages()`, plus the Claude Code transcript parser, secret masking, and the offline scorers. Everything else wraps this. | ✅ published (npm: 0.6.0) |
-| [`ctxjev-cli`](packages/cli) ([npm](https://www.npmjs.com/package/ctxjev-cli)) | `ctxjev analyze` (a report) and `ctxjev prune` (the transcript with drops removed). | ✅ published (npm: 0.6.0) |
-| [`ctxjev-mcp`](packages/mcp-server) ([npm](https://www.npmjs.com/package/ctxjev-mcp)) | MCP server exposing `score_relevance`/`prune_history` as tools. | ✅ published (npm: 0.6.0) |
+| [`ctxjev-core`](packages/core) ([npm](https://www.npmjs.com/package/ctxjev-core)) | The engine: `scoreEntries()`/`pruneContext()`/`pruneMessages()`, plus the Claude Code transcript parser, secret masking, and the offline scorers. Everything else wraps this. | ✅ published (npm: 0.6.1) |
+| [`ctxjev-cli`](packages/cli) ([npm](https://www.npmjs.com/package/ctxjev-cli)) | `ctxjev analyze` (a report) and `ctxjev prune` (the transcript with drops removed). | ✅ published (npm: 0.6.1) |
+| [`ctxjev-mcp`](packages/mcp-server) ([npm](https://www.npmjs.com/package/ctxjev-mcp)) | MCP server exposing `score_relevance`/`prune_history` as tools. | ✅ published (npm: 0.6.1) |
 | [`ctxjev-claude`](packages/claude-plugin) | Claude Code plugin: scores at `PreCompact`, re-injects a digest at `SessionStart`, plus `/ctxjev:set-goal` and `/ctxjev:status` (answered by a `UserPromptSubmit` hook without a model turn). | ✅ working (not on npm; installed from the release tag) |
 
 ## Using It from an MCP Host
