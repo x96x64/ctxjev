@@ -59,7 +59,48 @@ describe('preCompact.js (dist)', () => {
     expect(result.stderr).toBe('')
   }, 10_000)
 
-  it('without TYPESAFE_API_KEY, scores offline, sends nothing, and says so in last-run.json', async () => {
+  it('scores offline by default and sends nothing, even with TYPESAFE_API_KEY set', async () => {
+    const transcriptPath = join(cwd, 'transcript.jsonl')
+    await writeFile(
+      transcriptPath,
+      [
+        { type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: 'fix the checkout double charge on retry' } },
+        { type: 'assistant', uuid: 'a1', timestamp: '2026-01-01T00:00:01.000Z', message: { role: 'assistant', content: [{ type: 'tool_use', id: 'c1', name: 'Grep', input: { pattern: 'charge' } }] } },
+        { type: 'user', uuid: 'u2', timestamp: '2026-01-01T00:00:02.000Z', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'c1', content: 'chargeCustomer() is called again by the retry handler' }] } },
+      ]
+        .map((r) => JSON.stringify(r))
+        .join('\n'),
+      'utf8',
+    )
+
+    // Jev is a local server that would record any request: with a key but no CTXJEV_SCORER=jev,
+    // nothing may arrive.
+    const received: string[] = []
+    const jev = createServer((req, res) => {
+      received.push(`${req.method} ${req.url}`)
+      res.statusCode = 500
+      res.end()
+    })
+    await new Promise<void>((resolve) => jev.listen(0, '127.0.0.1', resolve))
+    try {
+      const result = await run(JSON.stringify({ cwd, transcript_path: transcriptPath, session_id: 'sess-1' }), {
+        TYPESAFE_API_KEY: 'not-a-real-key',
+        TYPESAFE_BASE_URL: `http://127.0.0.1:${(jev.address() as AddressInfo).port}`,
+      })
+      expect(result.exitCode).toBe(0)
+      expect(result.stderr).toBe('')
+      expect(received).toEqual([])
+
+      const lastRun = JSON.parse(await readFile(sessionFile('sess-1', 'last-run.json'), 'utf8'))
+      expect(lastRun).toMatchObject({ outcome: 'preserved', scorer: 'local', preserved: 1 })
+      expect(lastRun.note).toBeUndefined()
+    } finally {
+      jev.closeAllConnections()
+      jev.close()
+    }
+  }, 10_000)
+
+  it('with CTXJEV_SCORER=jev but no TYPESAFE_API_KEY, scores offline, sends nothing, and says why in last-run.json', async () => {
     const transcriptPath = join(cwd, 'transcript.jsonl')
     await writeFile(
       transcriptPath,
@@ -74,12 +115,13 @@ describe('preCompact.js (dist)', () => {
       'utf8',
     )
 
-    const result = await run(JSON.stringify({ cwd, transcript_path: transcriptPath, session_id: 'sess-1' }), { TYPESAFE_API_KEY: undefined })
+    const result = await run(JSON.stringify({ cwd, transcript_path: transcriptPath, session_id: 'sess-1' }), { TYPESAFE_API_KEY: undefined, CTXJEV_SCORER: 'jev' })
     expect(result.exitCode).toBe(0)
     expect(result.stderr).toBe('')
 
     const lastRun = JSON.parse(await readFile(sessionFile('sess-1', 'last-run.json'), 'utf8'))
     expect(lastRun).toMatchObject({ outcome: 'preserved', scorer: 'local', goalSource: 'inferred', preserved: 1, sessionId: 'sess-1' })
+    expect(lastRun.note).toContain('CTXJEV_SCORER=jev')
     expect(lastRun.note).toContain('TYPESAFE_API_KEY')
 
     const preserved = JSON.parse(await readFile(sessionFile('sess-1', 'preserved.json'), 'utf8'))
@@ -157,7 +199,7 @@ describe('preCompact.js (dist)', () => {
     await expect(readFile(sessionFile('sess-1', 'preserved.json'), 'utf8')).rejects.toThrow()
   }, 10_000)
 
-  it('falls back to offline scoring when Jev misses the deadline, and says why', async () => {
+  it('with CTXJEV_SCORER=jev, falls back to offline scoring when Jev misses the deadline, and says why', async () => {
     const transcriptPath = join(cwd, 'transcript.jsonl')
     await writeFile(
       transcriptPath,
@@ -180,6 +222,7 @@ describe('preCompact.js (dist)', () => {
       const result = await run(JSON.stringify({ cwd, transcript_path: transcriptPath, session_id: 'sess-1' }), {
         TYPESAFE_API_KEY: 'not-a-real-key',
         TYPESAFE_BASE_URL: `http://127.0.0.1:${(jev.address() as AddressInfo).port}`,
+        CTXJEV_SCORER: 'jev',
         CTXJEV_JEV_TIMEOUT_MS: '500',
       })
       expect(result.exitCode).toBe(0)

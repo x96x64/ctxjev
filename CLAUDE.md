@@ -81,10 +81,12 @@ cd packages/core && node eval/plugin.mjs --runs 2 --max-usd 4.5 --out eval/resul
 
 `TYPESAFE_API_KEY` (from `console.typesafe.ai/settings/keys`) must be set for anything that
 actually calls Jev — `scoreRelevance()`/`pruneContext()`, the CLI's `analyze` command, the MCP
-server's two tools, and `packages/claude-plugin`'s `PreCompact` hook. It's kept in `.env.local` at
+server's two tools, and `packages/claude-plugin`'s `PreCompact` hook when `CTXJEV_SCORER=jev` (the
+plugin scores offline by default since 0.6.0). It's kept in `.env.local` at
 the repo root (gitignored, never commit it) — `source .env.local` before running anything live.
-Without a key, `scorer: 'local'` (`localRelevance.ts`, keyword overlap) scores offline; the plugin
-falls back to it automatically and the CLI exposes it as `--offline`.
+Without a key, `scorer: 'local'` (`localRelevance.ts`, keyword overlap) scores offline; it is the
+plugin's default (and its fallback when Jev is opted into but unavailable), and the CLI exposes it
+as `--scorer local` / `--offline`.
 `--help`/`--version` and the pure-logic test files don't need it; every test file whose name ends
 in `.live.test.ts` (in `core`, `mcp-server`, and `claude-plugin` — `cli` has none) is skipped
 automatically when the key is absent rather than failing. CI only sets the key for the publish

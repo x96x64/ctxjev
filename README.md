@@ -8,7 +8,7 @@
 By default it ranks by position alone (newest kept, the same as plain truncation), with no key and
 nothing sent; opt in to [Jev](https://typesafe.ai), TypeSafe AI's typed-decision model, or to an
 offline keyword heuristic. In Claude Code, the plugin carries the top few entries through
-compaction (with Jev when a key is set). In an agent loop you write yourself, `pruneMessages()`
+compaction (scored offline by default; Jev if you opt in). In an agent loop you write yourself, `pruneMessages()`
 removes what ranked lowest and keeps the request valid.
 
 [![npm (ctxjev-cli)](https://img.shields.io/npm/v/ctxjev-cli.svg?label=ctxjev-cli)](https://www.npmjs.com/package/ctxjev-cli)
@@ -97,10 +97,10 @@ plus your latest instruction. `/ctxjev:status` shows that goal and what the last
 including why if it skipped, failed, or fell back to offline scoring. The plugin's measured effect
 so far is within the noise; see [Does It Work?](#does-it-work).
 
-> **Privacy:** on every compaction, the plugin sends excerpts of your real session to TypeSafe AI's
-> Jev API. Common secret formats are masked to `[REDACTED]` first (best-effort, not exhaustive).
-> Its cache lives in `~/.claude/ctxjev/`, private to you, never in your project. Without
-> `TYPESAFE_API_KEY`, it scores offline by keyword overlap instead and sends nothing. See
+> **Privacy:** by default the plugin scores offline by keyword overlap and sends nothing anywhere.
+> Only with `CTXJEV_SCORER=jev` (and `TYPESAFE_API_KEY`) does it send excerpts of your session to
+> TypeSafe AI's Jev API, with common secret formats masked to `[REDACTED]` first (best-effort, not
+> exhaustive). Its cache lives in `~/.claude/ctxjev/`, private to you, never in your project. See
 > the plugin's [Privacy section](packages/claude-plugin/README.md#privacy) for exactly what's sent.
 
 **Install it (Claude Code desktop app or CLI):**
@@ -295,6 +295,11 @@ branches that were never merged until they were
 
 Run `d8aa0b1`: 6 tasks × 3 runs, and the hook scored with Jev in 18 of 18; Run `042cf4c`: 6 tasks × 3 runs, and the hook scored with Jev in 18 of 18. In both runs the two digest conditions scored against the identical goal (18 of 18, 18 of 18), so they are the same configuration measured twice (the goal supplied two ways), not two different goals. **No tasks-passed interval clears zero in either run, so by the preregistered rule the digest has no demonstrated effect on unseen tasks.** Answers right isn't the registered measure; it's shown because the two runs disagree there too.
 <!-- /generated:holdout-plugin -->
+
+**What this changes:** with no demonstrated effect from the Jev-scored digest, and Jev's ranking
+below keyword overlap on the retention measure above, the plugin now scores offline by keyword
+overlap by default and sends nothing; Jev is opt-in with `CTXJEV_SCORER=jev`. That isn't evidence
+the offline digest helps either: it hasn't been shown to.
 
 ### Dev sessions (15 sessions, optimistic — see above)
 

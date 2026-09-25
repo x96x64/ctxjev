@@ -112,7 +112,9 @@ const NETWORK_ENV = /^(?:https?_proxy|no_proxy|all_proxy|NODE_EXTRA_CA_CERTS|NOD
 
 function runHook(script, input, stateDir) {
   const network = Object.fromEntries(Object.entries(process.env).filter(([key]) => NETWORK_ENV.test(key)))
-  const env = { PATH: process.env.PATH, TYPESAFE_API_KEY: process.env.TYPESAFE_API_KEY, CTXJEV_STATE_DIR: stateDir, ...network }
+  // CTXJEV_SCORER=jev: since 0.6.0 the plugin scores offline unless asked, and every condition here
+  // measures the Jev-scored digest the saved results were made with.
+  const env = { PATH: process.env.PATH, TYPESAFE_API_KEY: process.env.TYPESAFE_API_KEY, CTXJEV_SCORER: 'jev', CTXJEV_STATE_DIR: stateDir, ...network }
   const r = spawnSync('node', [join(pluginDist, script)], { input: JSON.stringify(input), encoding: 'utf8', env, timeout: 30_000 })
   if (r.status !== 0) throw new Error(`${script} exited ${r.status}: ${r.stderr}`)
   return r.stdout.trim()

@@ -4,14 +4,14 @@
     "name": "x96x64",
     "url": "https://github.com/x96x64"
   },
-  "description": "ctxjev — keeps what matters through Claude Code's own compaction, scored by Jev, no configuration required to start.",
+  "description": "ctxjev — keeps what matters through Claude Code's own compaction. Scores offline by default and sends nothing; no configuration required to start.",
   "version": "0.6.0",
   "plugins": [
     {
       "name": "ctxjev",
       "source": "./packages/claude-plugin",
       "displayName": "ctxjev",
-      "description": "Scores your session's context with Jev right before Claude Code compacts it, then hands the highest-scoring entries back as a reminder the instant compaction finishes — so the detail that mattered most doesn't have to survive being summarized to still be there. Works automatically; /ctxjev:set-goal aims it at something specific, /ctxjev:status shows what's cached.",
+      "description": "Scores your session's context right before Claude Code compacts it (offline by keyword overlap by default; Jev if you opt in), then hands the highest-scoring entries back as a reminder the instant compaction finishes — so the detail that mattered most doesn't have to survive being summarized to still be there. Works automatically; /ctxjev:set-goal aims it at something specific, /ctxjev:status shows what's cached.",
       "keywords": ["context", "pruning", "jev", "tokens", "compaction"],
       "category": "tools",
       "repository": "https://github.com/x96x64/ctxjev",

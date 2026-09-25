@@ -8,10 +8,11 @@ export const DEFAULT_PRESERVE_LIMIT = 5
 export type Scorer = 'jev' | 'local'
 
 /**
- * Scores every entry against `goal` and returns the top `limit` by combined score — with Jev by
- * default (the one call here that needs the live API), or offline with `scorer: 'local'`.
+ * Scores every entry against `goal` and returns the top `limit` by combined score — offline by
+ * keyword overlap by default, or with Jev (the one call here that needs the live API) with
+ * `scorer: 'jev'`.
  */
-export async function selectPreserved(entries: Entry[], goal: string, limit = DEFAULT_PRESERVE_LIMIT, scorer: Scorer = 'jev'): Promise<SelectedEntry[]> {
+export async function selectPreserved(entries: Entry[], goal: string, limit = DEFAULT_PRESERVE_LIMIT, scorer: Scorer = 'local'): Promise<SelectedEntry[]> {
   if (entries.length === 0) return []
 
   const scored = await scoreEntries(entries, goal, undefined, { scorer })
@@ -79,6 +80,17 @@ function jaccard(a: Set<string>, b: Set<string>): number {
 function restatesGoal(content: string, goal: string): boolean {
   const text = content.trim()
   return goal.includes(text) || (text.includes(goal.trim()) && !isSubstantiveMessage(text.replace(goal.trim(), '')))
+}
+
+/**
+ * `CTXJEV_SCORER=jev` opts into Jev; anything else, unset included, scores offline. Offline is the
+ * default because on the preregistered holdout sessions Jev's ranking kept less of what a task
+ * needed than keyword overlap (and than a random order), the digest scored by Jev showed no
+ * demonstrated effect there (packages/core/eval/PREREGISTRATION.md), and offline nothing leaves the
+ * machine.
+ */
+export function scorerFromEnv(raw: string | undefined): Scorer {
+  return raw?.trim().toLowerCase() === 'jev' ? 'jev' : 'local'
 }
 
 /** CTXJEV_PRESERVE_LIMIT, if it's a whole number from 1 to 50; otherwise the default. */

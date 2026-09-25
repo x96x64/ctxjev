@@ -7,6 +7,14 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 
 ## 0.6.0 — unreleased
 
+- `ctxjev-claude`: **scores offline by keyword overlap by default and sends nothing anywhere.** Jev
+  is opt-in: set `CTXJEV_SCORER=jev` as well as `TYPESAFE_API_KEY` (a key alone no longer turns it
+  on). On the preregistered holdout tasks the Jev-scored digest showed no demonstrated effect, and
+  Jev's ranking kept less of what the tasks needed than keyword overlap did, so the default no
+  longer sends your session to a third party. Neither scorer has been shown to help; see
+  [Does It Work?](README.md#does-it-work).
+- README, plugin README: the preregistered holdout comparison for the plugin did run, twice; both
+  runs are now reported, and neither shows an effect. They used to say it never produced a result.
 - `ctxjev-core` (and so the CLI, MCP server, and plugin): secret masking now also catches JSON-style
   credentials (`"password": "…"`, `"apiKey": "…"`), passwords in URLs (`postgres://user:pass@…`),
   Stripe, GitLab, npm, Hugging Face, SendGrid, and temporary AWS keys, AWS secret keys in prose,
