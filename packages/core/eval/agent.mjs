@@ -65,6 +65,14 @@ export function workspaceTools(task, repo, sandbox) {
     return real
   }
 
+  // Only regular files are read, edited, or overwritten: opening a FIFO the agent made with mkfifo
+  // would block the harness until something opened its other end.
+  function regularFile(real, path) {
+    const stat = lstatSync(real, { throwIfNoEntry: false })
+    if (stat && !stat.isFile()) throw new Error(`${path} is not a regular file`)
+    return real
+  }
+
   // Writes only to a checked real path, and never through a link at its last step: if something
   // swapped the file for a link after the check, the write fails instead of following it.
   function writeInRepo(real, content) {
@@ -85,11 +93,11 @@ export function workspaceTools(task, repo, sandbox) {
       return out || '(no output)'
     },
     Read({ file_path, offset = 1, limit = 2000 }) {
-      const lines = readFileSync(inRepo(file_path), 'utf8').split('\n')
+      const lines = readFileSync(regularFile(inRepo(file_path), file_path), 'utf8').split('\n')
       return lines.slice(offset - 1, offset - 1 + limit).map((line, i) => `${String(offset + i).padStart(6)}\t${line}`).join('\n')
     },
     Edit({ file_path, old_string, new_string, replace_all = false }) {
-      const path = inRepo(file_path)
+      const path = regularFile(inRepo(file_path), file_path)
       const text = readFileSync(path, 'utf8')
       const count = old_string === '' ? 0 : text.split(old_string).length - 1
       if (count === 0) throw new Error('old_string not found in the file')
@@ -98,7 +106,7 @@ export function workspaceTools(task, repo, sandbox) {
       return `The file ${file_path} has been updated.`
     },
     Write({ file_path, content }) {
-      writeInRepo(inRepo(file_path), content)
+      writeInRepo(regularFile(inRepo(file_path), file_path), content)
       return `File written: ${file_path}`
     },
     Grep({ pattern, path, glob, output_mode = 'files_with_matches', ...flags }) {

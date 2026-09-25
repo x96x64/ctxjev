@@ -24,6 +24,7 @@
  */
 // fs.globSync through the namespace, not a named import: on Node 20 a missing named export fails
 // before lib.mjs can say which Node version the evals need.
+import { execFileSync } from 'node:child_process'
 import * as fs from 'node:fs'
 import { existsSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -143,6 +144,11 @@ if (args.selftest) {
     ]
     rmSync(join(repo, 'leak.json'), { force: true })
     rmSync(join(repo, 'new.txt'), { force: true })
+    // A FIFO (an agent could make one with mkfifo) must be refused, not opened: opening one would
+    // hang the harness. Made here rather than from Bash, so the check doesn't depend on the image.
+    execFileSync('mkfifo', [join(repo, 'pipe')])
+    const fifoRefused = run('Read', { file_path: `/workspace/${task}/pipe` }).is_error === true && run('Write', { file_path: `/workspace/${task}/pipe`, content: 'x' }).is_error === true
+    rmSync(join(repo, 'pipe'), { force: true })
     const escapeRefused = escapes.every(Boolean)
     const solutionDir = join(tasksDir, task, 'solution')
     for (const file of fs.globSync('**/*', { cwd: solutionDir }).filter((p) => statSync(join(solutionDir, p)).isFile())) {
@@ -151,9 +157,9 @@ if (args.selftest) {
     const after = grade(task, repo, sandbox)
     rmSync(work, { recursive: true, force: true })
     const toolsOk = results.every((r) => !r.is_error)
-    const pass = !before.success && after.success && escapeRefused && toolsOk
+    const pass = !before.success && after.success && escapeRefused && toolsOk && fifoRefused
     ok &&= pass
-    console.log(`${pass ? 'ok  ' : 'FAIL'} ${task.padEnd(20)} untouched: ${before.passed}/${before.passed + before.failed} hidden tests, solution via tools: ${after.passed}/${after.passed + after.failed}, tools ok: ${toolsOk}, escapes refused: ${escapes.filter(Boolean).length}/${escapes.length}`)
+    console.log(`${pass ? 'ok  ' : 'FAIL'} ${task.padEnd(20)} untouched: ${before.passed}/${before.passed + before.failed} hidden tests, solution via tools: ${after.passed}/${after.passed + after.failed}, tools ok: ${toolsOk}, escapes refused: ${escapes.filter(Boolean).length}/${escapes.length}, fifo refused: ${fifoRefused}`)
   }
   process.exit(ok ? 0 : 1)
 }
