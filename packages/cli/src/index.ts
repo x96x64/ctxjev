@@ -13,11 +13,10 @@ import {
   pruneMessages,
   summarizeSavings,
   type JevUsage,
-  type PruneMessagesResult,
   type PruningPolicy,
   type ScoreCache,
 } from 'ctxjev-core'
-import { describeKeptDrops, formatReport } from './report.js'
+import { formatMessagesOutcome, formatReport, jevCostLine, type PruneOutcome } from './report.js'
 import { DEFAULT_CACHE_PATH, loadFileScoreCache } from './scoreCache.js'
 import { parseTranscript, type TranscriptFile } from './transcript.js'
 import { describePolicyOrderingError, parseThreshold } from './validation.js'
@@ -35,33 +34,34 @@ ${pc.bold('Try it right now')}
   ctxjev analyze checkout-bug.json
 
 ${pc.bold('Usage')}
-  ctxjev analyze <transcript> [--goal "<current task>"] [options]   Report what would be kept, dropped, or summarized.
+  ctxjev analyze <transcript> [--goal "<current task>"] [options]   Report each entry's verdict and what prune would remove.
   ctxjev prune <transcript> [--goal "<current task>"] [options]     Write the transcript back out with drops removed.
 
-${pc.bold('Options')}
+${pc.bold('Options')}  (analyze takes prune's options too, and reports what prune would do with them)
   --goal <text>              Overrides the transcript's own goal (or the inferred one), if any.
-  --drop-below <0-1>         Relevance floor below which an entry is dropped.      (default ${DEFAULT_POLICY.dropBelow})
-  --summarize-below <0-1>    Relevance floor below which an entry is summarized.   (default ${DEFAULT_POLICY.summarizeBelow})
+  --drop-below <0-1>         Score below which an entry is marked drop.            (default ${DEFAULT_POLICY.dropBelow})
+  --summarize-below <0-1>    Score below which an entry is marked summarize.       (default ${DEFAULT_POLICY.summarizeBelow})
   --scorer <name>            recency (default: by position alone, offline, plain truncation),
                              local (keyword overlap, offline), or jev (sends entry content to Jev;
                              see console.typesafe.ai). Pass --scorer jev to opt in.
   --offline                  Same as --scorer local.
   --no-cache                 Don't read or write the score cache (${DEFAULT_CACHE_PATH}).
-  --json                     analyze: print machine-readable JSON instead of the report.
+  --json                     analyze: print machine-readable JSON instead of the report (with what
+                             prune would do, for an Anthropic Messages transcript).
   --out <file>               prune: write the result here instead of to stdout.
-  --protect-last <n>         prune, Anthropic Messages only: never touch the last n messages. (default 2)
-  --no-protect-last-turn     prune, Anthropic Messages only: let the latest turn (the last user message
+  --protect-last <n>         Anthropic Messages only: never touch the last n messages. (default 2)
+  --no-protect-last-turn     Anthropic Messages only: let the latest turn (the last user message
                              with text, and every tool call after it) be pruned too; by default it
                              never is. Use it when the only instruction is the first message.
-  --target-tokens <n>        prune, Anthropic Messages only: after the drops, keep removing the
+  --target-tokens <n>        Anthropic Messages only: after the drops, keep removing the
                              lowest-scoring entries until the conversation fits in n tokens.
-  --summarize-excerpts       prune, Anthropic Messages only: shorten entries marked summarize to the
+  --summarize-excerpts       Anthropic Messages only: shorten entries marked summarize to the
                              head and tail of their text instead of leaving them as they are.
-  --min-saved-tokens <n>     prune, Anthropic Messages only: change nothing unless it saves at least
+  --min-saved-tokens <n>     Anthropic Messages only: change nothing unless it saves at least
                              n tokens (any change invalidates a prompt cache from that point on).
-  --drop-user-text           prune, Anthropic Messages only: let what the user wrote be removed too
+  --drop-user-text           Anthropic Messages only: let what the user wrote be removed too
                              (by default it's kept: it's where constraints and changes of plan live).
-  --no-marker                prune, Anthropic Messages only: don't add the one-line note saying where
+  --no-marker                Anthropic Messages only: don't add the one-line note saying where
                              history was removed.
   --help, -h                 Show this help (before or after the command).
   --version, -v              Print the installed version (before or after the command).
@@ -215,37 +215,26 @@ async function withScoreCache<T>(setup: Setup, score: (options: { cache?: ScoreC
   }
 }
 
-async function runAnalyze(argv: string[]) {
-  const setup = await setUp('analyze', argv, { json: { type: 'boolean', default: false } })
-  const { transcript, goal, policy, scorer } = setup
+// The settings that only an Anthropic Messages conversation has (messages to protect, a removal
+// note to add). analyze takes them too, so it reports exactly what prune would do with them.
+const MESSAGES_FLAGS = {
+  'protect-last': { type: 'string' },
+  'target-tokens': { type: 'string' },
+  'min-saved-tokens': { type: 'string' },
+  'summarize-excerpts': { type: 'boolean', default: false },
+  'drop-user-text': { type: 'boolean', default: false },
+  'no-marker': { type: 'boolean', default: false },
+  'no-protect-last-turn': { type: 'boolean', default: false },
+} as const
 
-  const { result: decisions, usage } = await withScoreCache(setup, (options) => pruneContext(transcript.entries, goal, policy, { ...options, scorer }))
-  const savings = summarizeSavings(transcript.entries, decisions)
-
-  if (setup.values.json) {
-    console.log(JSON.stringify({ decisions, savings, usage, scorer }, null, 2))
-    return
-  }
-  console.log(formatReport(transcript.entries, decisions, savings, usage, scorer))
+/** ctxjev's own format and a Claude Code transcript have no messages: a flag that can't apply is an error, never silently ignored. */
+function rejectMessagesFlags(values: Setup['values']): void {
+  const given = Object.keys(MESSAGES_FLAGS).filter((flag) => values[flag] !== undefined && values[flag] !== false)
+  if (given.length > 0) fail(`${given.map((f) => `--${f}`).join(', ')} only ${given.length === 1 ? 'applies' : 'apply'} to an Anthropic Messages transcript`)
 }
 
-async function runPrune(argv: string[]) {
-  const setup = await setUp('prune', argv, {
-    out: { type: 'string' },
-    'protect-last': { type: 'string' },
-    'target-tokens': { type: 'string' },
-    'min-saved-tokens': { type: 'string' },
-    'summarize-excerpts': { type: 'boolean', default: false },
-    'drop-user-text': { type: 'boolean', default: false },
-    'no-marker': { type: 'boolean', default: false },
-    'no-protect-last-turn': { type: 'boolean', default: false },
-  })
-  const { transcript, goal, policy, scorer, values } = setup
-
-  if (transcript.format === 'claude-code') {
-    fail("prune can't write back a Claude Code transcript — Claude Code doesn't load an edited one. Use `ctxjev analyze`, or the ctxjev Claude Code plugin.")
-  }
-
+/** prune's Messages settings from the flags, validated the same way for both commands. */
+function messagesSettings(values: Setup['values']) {
   const wholeNumber = (flag: string, min: number): number | undefined => {
     if (values[flag] === undefined) return undefined
     const n = Number(values[flag])
@@ -253,42 +242,73 @@ async function runPrune(argv: string[]) {
     return n
   }
   const protectLast = wholeNumber('protect-last', 1) ?? 2
-  const targetTokens = wholeNumber('target-tokens', 0)
-  const minSavedTokens = wholeNumber('min-saved-tokens', 0)
-  const summarize = values['summarize-excerpts'] ? ('excerpt' as const) : undefined
+  return {
+    protectLast,
+    options: {
+      protectLast,
+      protectLastTurn: !values['no-protect-last-turn'],
+      targetTokens: wholeNumber('target-tokens', 0),
+      minSavedTokens: wholeNumber('min-saved-tokens', 0),
+      summarize: values['summarize-excerpts'] ? ('excerpt' as const) : undefined,
+      keepUserText: !values['drop-user-text'],
+      marker: !values['no-marker'],
+    },
+  }
+}
+
+async function runAnalyze(argv: string[]) {
+  const setup = await setUp('analyze', argv, { json: { type: 'boolean', default: false }, ...MESSAGES_FLAGS })
+  const { transcript, goal, policy, scorer } = setup
 
   if (transcript.format !== 'anthropic-messages') {
-    // ctxjev's own format has no messages, so no first message, latest turn, or tail to protect:
-    // a flag that can't apply is an error, never silently ignored.
-    const messagesOnly = ['protect-last', 'no-protect-last-turn', 'target-tokens', 'min-saved-tokens', 'summarize-excerpts', 'drop-user-text', 'no-marker'].filter(
-      (flag) => values[flag] !== undefined && values[flag] !== false,
-    )
-    if (messagesOnly.length > 0) fail(`${messagesOnly.map((f) => `--${f}`).join(', ')} only ${messagesOnly.length === 1 ? 'applies' : 'apply'} to an Anthropic Messages transcript`)
+    rejectMessagesFlags(setup.values)
+    const { result: decisions, usage } = await withScoreCache(setup, (options) => pruneContext(transcript.entries, goal, policy, { ...options, scorer }))
+    const savings = summarizeSavings(transcript.entries, decisions)
+    if (setup.values.json) {
+      console.log(JSON.stringify({ decisions, savings, usage, scorer }, null, 2))
+      return
+    }
+    const outcome: PruneOutcome = transcript.format === 'claude-code' ? { format: 'claude-code' } : { format: 'entries' }
+    console.log(formatReport(transcript.entries, decisions, savings, usage, scorer, outcome))
+    return
+  }
 
-    const { result: decisions } = await withScoreCache(setup, (options) => pruneContext(transcript.entries, goal, policy, { ...options, scorer }))
+  // Scored once, by the same pruneMessages() call prune makes, so the report's numbers are prune's.
+  const { protectLast, options: settings } = messagesSettings(setup.values)
+  const { result, usage } = await withScoreCache(setup, (options) => pruneMessages(transcript.messages, goal, { ...options, scorer, policy, ...settings }))
+  const savings = summarizeSavings(transcript.entries, result.decisions)
+  if (setup.values.json) {
+    const { messages: _messages, decisions, ...prune } = result
+    console.log(JSON.stringify({ decisions, savings, prune, usage, scorer }, null, 2))
+    return
+  }
+  console.log(formatReport(transcript.entries, result.decisions, savings, usage, scorer, { format: 'anthropic-messages', result, protectLast }))
+}
+
+async function runPrune(argv: string[]) {
+  const setup = await setUp('prune', argv, { out: { type: 'string' }, ...MESSAGES_FLAGS })
+  const { transcript, goal, policy, scorer, values } = setup
+
+  if (transcript.format === 'claude-code') {
+    fail("prune can't write back a Claude Code transcript — Claude Code doesn't load an edited one. Use `ctxjev analyze`, or the ctxjev Claude Code plugin.")
+  }
+
+  if (transcript.format !== 'anthropic-messages') {
+    rejectMessagesFlags(values)
+    const { result: decisions, usage } = await withScoreCache(setup, (options) => pruneContext(transcript.entries, goal, policy, { ...options, scorer }))
     const removed = new Set(decisions.filter((d) => d.action === 'drop').map((d) => d.entryId))
     await writeOutput({ goal, entries: transcript.entries.filter((e) => !removed.has(e.id)) }, values.out as string | undefined)
     const savedTokens = transcript.entries.filter((e) => removed.has(e.id)).reduce((sum, e) => sum + (e.sourceTokens ?? estimateTokens(e.content)), 0)
     console.error(pc.dim(`removed ${removed.size} of ${transcript.entries.length} entries, ~${savedTokens.toLocaleString()} tokens${offlineNote(scorer)}`))
+    if (scorer === 'jev') console.error(pc.dim(jevCostLine(usage)))
     return
   }
 
-  const { result } = await withScoreCache(setup, (options) =>
-    pruneMessages(transcript.messages, goal, {
-      ...options,
-      scorer,
-      policy,
-      protectLast,
-      protectLastTurn: !values['no-protect-last-turn'],
-      targetTokens,
-      minSavedTokens,
-      summarize,
-      keepUserText: !values['drop-user-text'],
-      marker: !values['no-marker'],
-    }),
-  )
+  const { protectLast, options: settings } = messagesSettings(values)
+  const { result, usage } = await withScoreCache(setup, (options) => pruneMessages(transcript.messages, goal, { ...options, scorer, policy, ...settings }))
   await writeOutput(transcript.wrapped ? { goal, messages: result.messages } : result.messages, values.out as string | undefined)
-  console.error(messagesSummary(transcript.entries.length, result, protectLast))
+  console.error(pc.dim(formatMessagesOutcome(transcript.entries.length, result, protectLast, 'did')))
+  if (scorer === 'jev') console.error(pc.dim(jevCostLine(usage)))
 }
 
 async function writeOutput(output: unknown, out: string | undefined): Promise<void> {
@@ -299,25 +319,6 @@ async function writeOutput(output: unknown, out: string | undefined): Promise<vo
 
 function offlineNote(scorer: Scorer): string {
   return scorer === 'local' ? ' · scored offline by keyword overlap' : scorer === 'recency' ? ' · scored by position alone' : ''
-}
-
-function messagesSummary(total: number, result: PruneMessagesResult, protectLast: number): string {
-  const kept = describeKeptDrops(result.keptDrops, protectLast)
-  const keptLine = kept ? `\n${kept}` : ''
-  if (result.heldBack !== undefined) {
-    return pc.dim(`left unchanged: pruning would save only ~${result.heldBack.toLocaleString()} tokens, under --min-saved-tokens${keptLine}`)
-  }
-  const parts = [
-    `removed ${result.removed.length} of ${total} entries`,
-    ...(result.summarized.length > 0 ? [`shortened ${result.summarized.length}`] : []),
-    result.savedTokens > 0 ? `~${result.savedTokens.toLocaleString()} tokens saved` : 'no tokens saved',
-  ]
-  const cache =
-    result.cache.firstChangedMessage === null
-      ? ''
-      : `\nprompt cache: rewritten from message ${result.cache.firstChangedMessage} on (~${result.cache.invalidatedTokens.toLocaleString()} tokens on the next request)`
-  const budget = result.overBudget ? `\n${pc.yellow('⚠')} still over --target-tokens: what's left is protected` : ''
-  return pc.dim(`${parts.join(', ')}${keptLine}${cache}`) + budget
 }
 
 async function main() {

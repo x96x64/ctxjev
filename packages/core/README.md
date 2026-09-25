@@ -151,7 +151,9 @@ the two per `PruningPolicy.recencyWeight` before `action` is decided.
   })
   ```
 - **`redactSecrets(text)`** is the secret masking every Jev request already goes through.
-- `summarizeSavings()` reports `droppedTokens` (saved once removed) separately from
+- `summarizeSavings()` counts the verdicts: `droppedTokens` (in entries marked `drop`: saved once
+  they're all removed, which is what ctxjev-format pruning does; for an Anthropic Messages
+  conversation, `pruneMessages()`' `savedTokens` is what's actually saved) separately from
   `summarizableTokens` (entries marked `summarize`). Jev doesn't generate text, so how much of the
   latter is saved depends on what you do with those entries: `pruneMessages`' `summarize` option
   can cut them to an excerpt or hand them to your own summarizer. Both counts use each entry's

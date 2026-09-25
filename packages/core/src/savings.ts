@@ -1,13 +1,23 @@
 import { estimateTokens } from './tokenEstimate.js'
 import type { Entry, PruneDecision } from './types.js'
 
+/**
+ * The policy's verdicts, counted and sized. These are what the decisions say, not what happened:
+ * nothing is removed or shortened here.
+ */
 export type SavingsReport = {
   totalEntries: number
   keptEntries: number
+  /** Entries marked `drop`. */
   droppedEntries: number
+  /** Entries marked `summarize`: worth shortening, not shortened. */
   summarizedEntries: number
   totalTokens: number
-  /** Tokens in dropped entries — actually saved once they're removed. */
+  /**
+   * Tokens in entries marked `drop`: what removing every one of them saves. For an Anthropic
+   * Messages conversation, `pruneMessages()` keeps some of them (see its `keptDrops`) and adds a
+   * removal note, so its `savedTokens` is what's actually saved there.
+   */
   droppedTokens: number
   /**
    * Tokens in entries marked `summarize`. ctxjev can't summarize (Jev doesn't generate text), so

@@ -35,7 +35,8 @@ for summarizing, whatever they say.
 
 ## Usage
 
-`ctxjev analyze` reports what would be kept, dropped, or summarized. `ctxjev prune` writes a
+`ctxjev analyze` reports each entry's verdict (keep, summarize, or drop) and what `ctxjev prune`
+would actually remove with the same settings. `ctxjev prune` writes a
 ctxjev-format or Anthropic Messages transcript back out with the drops removed, to stdout or
 `--out <file>`; for Anthropic Messages it keeps every `tool_use`/`tool_result` pair intact, and
 never touches the first message, the latest turn (your last instruction and everything after it),
@@ -50,6 +51,7 @@ Against the sample transcript in the ctxjev repo, the default ranks by position:
 
 ```console
 $ ctxjev analyze checkout-bug.json
+score: 0–1, position in the transcript (oldest 0, newest 1), not relevance: the goal isn't used · keep = leave as-is, summarize = worth shortening, drop = worth removing
 
   e1  bash       drop       score 0.00  ran: npm test -- checkout.test.ts — 12 passed, 0 failed
   e2  read       drop       score 0.17  read package.json — saw the dependency list and script names
@@ -59,8 +61,8 @@ $ ctxjev analyze checkout-bug.json
   e6  assistant  keep       score 0.83  Found it: the retry path doesn't check for an in-flight or …
   e7  bash       keep       score 1.00  ran: ls public/audio — unrelated, was checking something el…
 
-3 kept, 2 summarized, 2 dropped (of 7 entries)
-~27 / 154 tokens saved by dropping (18%), plus ~45 in entries marked summarize (savings there depend on your summarizer)
+3 keep, 2 summarize, 2 drop (of 7 entries)
+prune would remove the 2 entries marked drop, ~27 / 154 tokens (18%); the 2 entries marked summarize (~45 tokens) stay as they are unless you shorten them yourself
 Scored by position alone (newest kept, like plain truncation) — no Jev call, nothing sent.
 ```
 
@@ -68,21 +70,22 @@ and with `--scorer jev`:
 
 ```console
 $ ctxjev analyze checkout-bug.json --scorer jev
+score: 0–1, Jev's judgment of relevance to your goal, blended with recency · keep = leave as-is, summarize = worth shortening, drop = worth removing
 
   e1  bash       summarize  score 0.52  ran: npm test -- checkout.test.ts — 12 passed, 0 failed
   e2  read       drop       score 0.29  read package.json — saw the dependency list and script names
-  e3  grep       keep       score 0.85  grep "charge" in src/payments.ts — found chargeCustomer() c…
-  e4  bash       drop       score 0.14  ran: git log --oneline -5 — recent commits about unrelated …
-  e5  read       keep       score 0.89  read src/payments.ts — the retry handler re-calls chargeCus…
+  e3  grep       keep       score 0.84  grep "charge" in src/payments.ts — found chargeCustomer() c…
+  e4  bash       drop       score 0.13  ran: git log --oneline -5 — recent commits about unrelated …
+  e5  read       keep       score 0.88  read src/payments.ts — the retry handler re-calls chargeCus…
   e6  assistant  keep       score 0.90  Found it: the retry path doesn't check for an in-flight or …
   e7  bash       drop       score 0.15  ran: ls public/audio — unrelated, was checking something el…
 
-3 kept, 1 summarized, 3 dropped (of 7 entries)
-~44 / 154 tokens saved by dropping (29%), plus ~16 in entries marked summarize (savings there depend on your summarizer)
+3 keep, 1 summarize, 3 drop (of 7 entries)
+prune would remove the 3 entries marked drop, ~44 / 154 tokens (29%); the 1 entry marked summarize (~16 tokens) stays as it is unless you shorten it yourself
 Jev cost: 1,290 input tokens, 123 output tokens (free) — ~$0.000054
 ```
 
-Both are real output, captured 2026-09-24. Jev is probabilistic, so its numbers vary slightly
+Both are real output, captured 2026-09-25. Jev is probabilistic, so its numbers vary slightly
 between runs, and the cost line is computed from what Jev's API actually reported, not estimated.
 
 ## Options
@@ -90,20 +93,20 @@ between runs, and the cost line is computed from what Jev's API actually reporte
 | Flag | What it does |
 | --- | --- |
 | `--goal <text>` | Overrides the transcript's own goal (or the inferred one), if any. |
-| `--drop-below <0-1>` | Relevance floor below which an entry is dropped (default `0.3`). |
-| `--summarize-below <0-1>` | Relevance floor below which an entry is summarized (default `0.6`). |
-| `--json` | Prints machine-readable JSON (`{ decisions, savings, usage, scorer }`) instead of the report. |
+| `--drop-below <0-1>` | Score below which an entry is marked drop (default `0.3`). |
+| `--summarize-below <0-1>` | Score below which an entry is marked summarize (default `0.6`). |
+| `--json` | `analyze`: prints machine-readable JSON (`{ decisions, savings, usage, scorer }`, plus `prune`, what `prune` would do, for an Anthropic Messages transcript) instead of the report. `savings` counts the verdicts; `prune.savedTokens` is what `prune` would actually save. |
 | `--no-cache` | Doesn't read or write the score cache (`~/.cache/ctxjev/score-cache.json`). |
 | `--scorer <name>` | `recency` (default: position alone, plain truncation), `local` (keyword overlap), or `jev` (opt in; needs `TYPESAFE_API_KEY`). Only `jev` sends anything. |
 | `--offline` | Same as `--scorer local`. |
 | `--out <file>` | `prune`: writes the result here instead of to stdout. |
-| `--protect-last <n>` | `prune`, Anthropic Messages only: never touches the last n messages (default 2). An error on any other format, which has no messages to protect. |
-| `--no-protect-last-turn` | `prune`, Anthropic Messages only: lets the latest turn (the last user message with text, and every tool call after it) be pruned too. By default it never is; use this when the only instruction is the first message. |
-| `--target-tokens <n>` | `prune`, Anthropic Messages only: after the drops, keeps removing the lowest-scoring entries until the conversation fits in n tokens. |
-| `--summarize-excerpts` | `prune`, Anthropic Messages only: shortens entries marked summarize to the head and tail of their text, instead of leaving them as they are. |
-| `--drop-user-text` | `prune`, Anthropic Messages only: lets what the user wrote be removed too. By default it's kept, because that's where constraints and changes of plan live. |
-| `--no-marker` | `prune`, Anthropic Messages only: leaves out the one-line note that says where history was removed. |
-| `--min-saved-tokens <n>` | `prune`, Anthropic Messages only: changes nothing unless it saves at least n tokens. The summary line shows where a prompt cache would start over. |
+| `--protect-last <n>` | Anthropic Messages only (`analyze` and `prune`): never touches the last n messages (default 2). An error on any other format, which has no messages to protect. |
+| `--no-protect-last-turn` | Anthropic Messages only (`analyze` and `prune`): lets the latest turn (the last user message with text, and every tool call after it) be pruned too. By default it never is; use this when the only instruction is the first message. |
+| `--target-tokens <n>` | Anthropic Messages only (`analyze` and `prune`): after the drops, keeps removing the lowest-scoring entries until the conversation fits in n tokens. |
+| `--summarize-excerpts` | Anthropic Messages only (`analyze` and `prune`): shortens entries marked summarize to the head and tail of their text, instead of leaving them as they are. |
+| `--drop-user-text` | Anthropic Messages only (`analyze` and `prune`): lets what the user wrote be removed too. By default it's kept, because that's where constraints and changes of plan live. |
+| `--no-marker` | Anthropic Messages only (`analyze` and `prune`): leaves out the one-line note that says where history was removed. |
+| `--min-saved-tokens <n>` | Anthropic Messages only (`analyze` and `prune`): changes nothing unless it saves at least n tokens. The summary line shows where a prompt cache would start over. |
 | `--help` / `--version` | Work without `TYPESAFE_API_KEY` set, before or after the command (`ctxjev prune --help`). |
 
 ## Transcript Formats

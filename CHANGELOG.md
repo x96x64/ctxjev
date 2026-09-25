@@ -7,6 +7,28 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 
 ## Unreleased
 
+- `ctxjev-cli`: `ctxjev analyze` on an Anthropic Messages conversation reports what `ctxjev prune`
+  would actually remove with the same settings (protection, the removal note, `--min-saved-tokens`),
+  instead of counting every entry marked drop as saved. On
+  `examples/sample-transcripts/anthropic-messages.json` it said "~46 / 156 tokens saved by dropping
+  (29%)" while `prune` removes nothing there; it now says "prune would remove 0 of 8 entries, no tokens
+  saved" and gives the same reasons `prune` does. `analyze` accepts `prune`'s Anthropic Messages
+  options for this, and `analyze --json` adds `prune` (what `pruneMessages()` returned, without the
+  messages); `savings` is unchanged and still counts the verdicts.
+- `ctxjev-cli`: `analyze` counts verdicts as verdicts ("3 keep, 2 summarize, 2 drop", not "3 kept,
+  2 summarized, 2 dropped"), and the legend says summarize means worth shortening: nothing is shortened
+  unless you pass `--summarize-excerpts`. For ctxjev's own format it says `prune` would remove the
+  entries marked drop; for a Claude Code transcript, that nothing is removed, since `prune` can't write
+  one back (it used to report "tokens saved by dropping").
+- `ctxjev-cli`: `prune --target-tokens` no longer says "what's left is protected" when nothing was
+  removed and unprotected entries are still there.
+- `ctxjev-cli`: `prune --scorer jev` prints the same Jev cost line as `analyze`; it used to spend
+  without saying how much.
+- `ctxjev-cli`, `ctxjev-core`, `ctxjev-mcp`: `--drop-below`/`--summarize-below` (and `dropBelow`/
+  `summarizeBelow`) are described as what they are, thresholds on the score shown (relevance blended
+  with recency) below which an entry is marked drop or summarize, not a relevance floor below which
+  it's dropped. The docs for `relevance`, `SavingsReport`, and `overBudget` likewise say what those
+  numbers are.
 - `ctxjev-cli`: `ctxjev prune` says why each entry marked drop was kept, and calls only real
   protection "protected". It used to count every kept drop as "marked drop but protected", including
   ones left because removing them would save no tokens once the removal note is counted: on
@@ -19,6 +41,19 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 - README: the Quick Start's `ctxjev prune` example now uses a sample that the default settings
   actually prune and shows the command's real output (the old sample came back unchanged), and
   says why a short Anthropic Messages conversation can come back with nothing removed.
+
+**Known issues** (not fixed yet; each number below errs on the low side or on a different scale,
+never claims a saving that doesn't happen):
+
+- Every token count is an estimate (`gpt-tokenizer`), not Claude's own tokenizer, which is why
+  they're shown with `~`.
+- `pruneMessages()`' `savedTokens` (and so `prune`'s "tokens saved" and `analyze`'s "would remove")
+  counts text and tool calls only. An image removed with an entry, such as a screenshot in a tool
+  result, isn't counted, so the real saving can be larger than reported. Counting it needs the
+  image's size, which ctxjev doesn't read yet.
+- The Claude Code plugin scores `local` with raw keyword overlap, while `ctxjev analyze --scorer
+  local` ranks the overlap within the transcript, so the "score" in `/ctxjev:status` and the
+  post-compaction digest isn't on the same scale as the CLI's for the same entries.
 
 ## 0.6.0 — 2026-09-25
 

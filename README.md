@@ -140,6 +140,7 @@ With no options, `ctxjev analyze` uses the default scorer, `recency`: position a
 
 ```console
 $ ctxjev analyze examples/sample-transcripts/checkout-bug.json
+score: 0–1, position in the transcript (oldest 0, newest 1), not relevance: the goal isn't used · keep = leave as-is, summarize = worth shortening, drop = worth removing
 
   e1  bash       drop       score 0.00  ran: npm test -- checkout.test.ts — 12 passed, 0 failed
   e2  read       drop       score 0.17  read package.json — saw the dependency list and script names
@@ -149,8 +150,8 @@ $ ctxjev analyze examples/sample-transcripts/checkout-bug.json
   e6  assistant  keep       score 0.83  Found it: the retry path doesn't check for an in-flight or …
   e7  bash       keep       score 1.00  ran: ls public/audio — unrelated, was checking something el…
 
-3 kept, 2 summarized, 2 dropped (of 7 entries)
-~27 / 154 tokens saved by dropping (18%), plus ~45 in entries marked summarize (savings there depend on your summarizer)
+3 keep, 2 summarize, 2 drop (of 7 entries)
+prune would remove the 2 entries marked drop, ~27 / 154 tokens (18%); the 2 entries marked summarize (~45 tokens) stay as they are unless you shorten them yourself
 Scored by position alone (newest kept, like plain truncation) — no Jev call, nothing sent.
 ```
 
@@ -164,21 +165,22 @@ user wrote.) The same sample with Jev:
 
 ```console
 $ ctxjev analyze examples/sample-transcripts/checkout-bug.json --scorer jev
+score: 0–1, Jev's judgment of relevance to your goal, blended with recency · keep = leave as-is, summarize = worth shortening, drop = worth removing
 
   e1  bash       summarize  score 0.52  ran: npm test -- checkout.test.ts — 12 passed, 0 failed
   e2  read       drop       score 0.29  read package.json — saw the dependency list and script names
   e3  grep       keep       score 0.85  grep "charge" in src/payments.ts — found chargeCustomer() c…
   e4  bash       drop       score 0.14  ran: git log --oneline -5 — recent commits about unrelated …
   e5  read       keep       score 0.89  read src/payments.ts — the retry handler re-calls chargeCus…
-  e6  assistant  keep       score 0.90  Found it: the retry path doesn't check for an in-flight or …
+  e6  assistant  keep       score 0.89  Found it: the retry path doesn't check for an in-flight or …
   e7  bash       drop       score 0.15  ran: ls public/audio — unrelated, was checking something el…
 
-3 kept, 1 summarized, 3 dropped (of 7 entries)
-~44 / 154 tokens saved by dropping (29%), plus ~16 in entries marked summarize (savings there depend on your summarizer)
+3 keep, 1 summarize, 3 drop (of 7 entries)
+prune would remove the 3 entries marked drop, ~44 / 154 tokens (29%); the 1 entry marked summarize (~16 tokens) stays as it is unless you shorten it yourself
 Jev cost: 1,290 input tokens, 123 output tokens (free) — ~$0.000054
 ```
 
-Both are real output against the sample transcript in this repo, captured 2026-09-24. Jev is
+Both are real output against the sample transcript in this repo, captured 2026-09-25. Jev is
 probabilistic, so its numbers vary between runs, and its cost line is computed from the usage Jev's
 API reported for that request, not estimated. "Score" is the ranking's relevance blended with each
 entry's recency within the batch, described further in [Design Notes](#design-notes). Only dropped
