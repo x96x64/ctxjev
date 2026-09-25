@@ -28,28 +28,41 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
   `IDENTIFIED BY '…'`, credential constructors such as `NetworkCredential("user", "…")` and
   `auth=('user', '…')`, `.netrc` and `.pgpass` lines, an OAuth `?code=`, a base64-encoded PEM
   private key (a kubeconfig's `client-key-data`), and Vault's older `s.` tokens.
-- `ctxjev-core`: a `Cookie:` or `Set-Cookie:` header has each session or credential cookie masked
-  (`sessionid`, `PHPSESSID`, `…_session_id`, `auth…`, `…token`, `remember…`, WordPress's and
-  Drupal's login cookies), and every other cookie left readable; it used to mask whichever cookie
-  came first, analytics included. The same goes for a header written as data (`"Cookie": "…"`,
-  `{'Cookie': '…'}`) and `document.cookie = "…"`. `AUTH_COOKIE=…` and `SESSION_COOKIE=…` are
-  still masked, but a name that ends in `cookie` without saying what it holds (`COOKIE=…`,
-  `document_cookie=…`) no longer is.
-- `ctxjev-core`: the password in `mysql … -p…` and `curl … -u user:…` is masked however long the
-  command is, and `curl -uuser:…` with no space too. A `&&`, `||`, `|`, `;`, or line break ends the
-  command, so `docker login ghcr.io && docker run -p 8080:80` leaves the port alone.
+- `ctxjev-core`: a `Cookie:` or `Set-Cookie:` header masks each cookie that could hold a login:
+  one named like a session or a credential (`sessionid`, `PHPSESSID`, `…_session_id`, `auth…`,
+  `…token`, `remember…`, WordPress's and Drupal's login cookies), and any other whose value looks
+  like a token, unless it's a known analytics, consent, or preference cookie (`_ga`, `theme`,
+  `lang`, …) or a `Set-Cookie` attribute. It used to mask whichever cookie came first, analytics
+  included, and leave the rest. The same holds for a header written as data in any common syntax
+  (`"Cookie": "…"`, `{'Cookie': '…'}`, `'Cookie' => '…'`, `Cookie := "…"`, escaped JSON, several on
+  one line) and for `document.cookie = "…"`. `AUTH_COOKIE=…` and `SESSION_COOKIE=…` are masked
+  like any credential; `COOKIE=…` and other names ending in `cookie` when the value is one token.
+- `ctxjev-core`: the password in a command is masked however long the command is, quoted or not:
+  `mysql … -p…`, `curl … -u user:…` (and `-uuser:…`, `--user=…`), `sshpass -p`, `redis-cli -a`,
+  `docker login -p`, `az login -p`, `sqlcmd -P`. The command ends at a line break
+  (not a `\` continuation) or a `&&`, `||`, `|`, or `;` outside quotes, so `docker login ghcr.io &&
+  docker run -p 8080:80` leaves the port alone, while `-H "Accept: a; q=0.9"` and `-p'Xy7;kPq9'`
+  don't end it.
 - `ctxjev-core`: also masks a URL password with no user name (`redis://:…@host`), a Kubernetes env
-  var over two lines (`- name: DB_PASSWORD` then `value: …`), an AWS SigV4 `Signature=`, and a
-  `.netrc` `default` entry's password.
-- `ctxjev-core`: a credential given as a separate argument (`--token abc123`, `--api-key
-  12345678901234`) is masked however short or numeric, as before; a short word after a token-named
-  flag (`--auth basic`) isn't.
-- `ctxjev-core`: `password=password` and `password=self.password` (code passing a variable on)
-  aren't masked, and neither are these, which the first version of this change masked: a word
-  after `Authorization:` that isn't a scheme or a token ("missing credentials"), a token-named XML
-  element holding a word (`<Token>Identifier</Token>`), `?key=` holding a path, `STORAGE_KEY =
-  "todos-v1"` (a storage key's value must be 20 characters or more), colon-separated numbers or
-  grep output read as a `.pgpass` line, and "password" in prose or a string read as SQL or `.netrc`.
+  var over two lines (`- name: DB_PASSWORD` then `value: …`), an AWS SigV4 `Signature=`, a `.netrc`
+  `default` entry's password, and an `Authorization` header written as data
+  (`{"Authorization": "Basic …"}`, `'Authorization' => '…'`).
+- `ctxjev-core`: a credential given as a separate argument after any flag named like one
+  (`--token abcdef`, `--api-key 12345678901234`, `--client-secret …`) is masked however short or
+  numeric; 0.6.1 knew only a few flag names. An authentication scheme's name after one (`--auth basic`)
+  isn't.
+- `ctxjev-core`: fewer false alarms. Not masked any more: `password=password` and
+  `password=self.password` (code passing a variable on); after `Authorization:`, a value under 16
+  characters with no digit, symbol, or inner capital and no known scheme before it ("Authorization:
+  missing credentials"); code that reads a cookie (`= req.headers.cookie`). Of the rules new in
+  this release, these are left alone on purpose: a Kubernetes env var named like a token whose
+  value is a plain word (`value: disabled`), a token-named XML element holding one capitalized word
+  (`<Token>Identifier</Token>`), `?key=` holding a path or a file name, a storage key under 20
+  characters (`STORAGE_KEY = "todos-v1"`), a `.pgpass`-shaped line whose port is under 1000 or
+  whose host is a relative path (grep output, `12:30:45:123:4567`), and "password" followed by a
+  quoted phrase in prose (`the password "is too short"`). Prose that happens to have a `.netrc`
+  entry's shape ("machine learning login flow" and then a line starting "password") is still
+  masked.
 - `ctxjev-core`: `redactSecrets()` takes time in proportion to its input on long runs of one
   pattern. 100,000 characters of `a.a.a…` took 24 seconds; 200,000 of any of the audit's shapes
   now take well under a second.
@@ -61,8 +74,9 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 - `ctxjev-claude`: on macOS and Linux, the state directories (`~/.claude/ctxjev`, `sessions/`, and
   each session's) are made private to the user (0700) even when they already existed with looser
   permissions, and the plugin refuses to keep excerpts in one that belongs to another user, or to
-  read or delete anything there: a file planted in such a directory is never re-injected, and
-  `/ctxjev:status` says why nothing was kept. (Running Claude Code as root on a `~/.claude` that
+  read or delete anything there, or to read from one that others can write to until it has made it
+  private again: a file planted in such a directory is never re-injected, and `/ctxjev:status` says
+  why nothing was kept. (Running Claude Code as root on a `~/.claude` that
   another user owns, such as a bind mount in a container, therefore keeps nothing.) Windows has no
   such owner and mode bits, so none of this applies there.
 

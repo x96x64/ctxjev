@@ -243,3 +243,123 @@ describe('redactSecrets: the independent review of the masking change', () => {
     expect(redactSecrets(text)).toBe(text)
   })
 })
+
+// The second independent review, of the first fix: a command was cut at a `;` or `|` inside quotes,
+// the cut points were reused after an earlier command's password had been masked (moving the text),
+// and more ways to write a cookie header. Everything here was masked by 0.6.1.
+describe('redactSecrets: the second review of the masking change', () => {
+  const pw = 'S3cr3tPw9xQ'
+  const leaks: Array<[string, string, string]> = [
+    ['curl with a quoted header holding ";"', `curl -H "Content-Type: application/json; charset=utf-8" -u admin:${pw} https://api.example.com`, pw],
+    ['curl with a quoted Cookie header', `curl -H 'Cookie: a=1; b=2' -u admin:${pw} https://x`, pw],
+    ['curl --user after a quoted ";"', `curl -H "Accept: text/html;q=0.9" --user admin:${pw} https://x`, pw],
+    ['curl -d with ";" before -u', `curl -s https://x -d 'a=1;b=2' -u admin:${pw}`, pw],
+    ['mysql -e with ";" before -p', `mysql -u root -e "USE app; SELECT * FROM users;" -p${pw}`, pw],
+    ['mysql -e "SHOW TABLES;" -uroot -p', `mysql -h db -e "SHOW TABLES;" -uroot -p${pw}`, pw],
+    ['a quoted mysql password with ";"', "mysql -u root -p'Xy7;kPq9' db", 'kPq9'],
+    ['a quoted mysql password with "|"', "mysql -u root -p'Xy7|kPq9' db", 'kPq9'],
+    ['a quoted mysql password with "&&"', 'mysql -u root -p"Xy7&&kPq9" db', 'kPq9'],
+    ['a quoted curl user:password with ";"', "curl -u 'admin:Xy7;kPq9' https://x", 'kPq9'],
+    ['a quoted sshpass password with ";"', "sshpass -p 'Xy7;kPq9' ssh u@h", 'kPq9'],
+    ['a quoted redis-cli password with ";"', "redis-cli -a 'Xy7;kPq9' ping", 'kPq9'],
+    ['a quoted docker login password with "|"', "docker login -u me -p 'Xy7|kPq9' registry", 'kPq9'],
+    ['curl after mysql on the next line', 'mysql -u root -pMyDbPassw0rd2024xyz db\ncurl -u admin:CurlPassw0rd99 https://x', 'CurlPassw0rd99'],
+    ['curl after mysql and "; "', 'mysql -u root -pMyDbPassw0rd2024xyz db; curl -u admin:CurlPassw0rd99 https://x', 'CurlPassw0rd99'],
+    ['curl after a short mysql password', 'mysql -u root -pabc db\ncurl -u admin:CurlPassw0rd99\necho done', 'sw0rd99'],
+    ['sshpass after mysqldump', 'mysqldump -u root -pP4ssw0rdThatIsLong db > x.sql\nsshpass -p Sshp4ssw0rd ssh u@h', 'Sshp4ssw0rd'],
+    ['redis-cli after mysql', 'mysql -u root -pP4ssw0rdThatIsLong db\nredis-cli -a R3disPassw0rd ping', 'R3disPassw0rd'],
+    ['sshpass after a long curl password', 'curl -u admin:CurlPassw0rd99LongLongLong https://x\nsshpass -p Sshp4ssw0rd ssh u@h', '4ssw0rd'],
+    ['a continued mysql command with CRLF', `mysql \\\r\n  -u admin \\\r\n  -p${pw} db`, pw],
+    ["PHP's => header", "'headers' => ['Cookie' => 'sessionid=Zq8Xw7Vu6Ts5Rq4Pab']", 'Zq8Xw7Vu6Ts5Rq4Pab'],
+    ["Ruby's => header", '{"Cookie" => "sessionid=Zq8Xw7Vu6Ts5Rq4Pab"}', 'Zq8Xw7Vu6Ts5Rq4Pab'],
+    ["Perl's => header", `$ua->default_header('Cookie' => "sessionid=Zq8Xw7Vu6Ts5Rq4Pab")`, 'Zq8Xw7Vu6Ts5Rq4Pab'],
+    ["Go's :=", 'Cookie := "sessionid=Zq8Xw7Vu6Ts5Rq4Pab"', 'Zq8Xw7Vu6Ts5Rq4Pab'],
+    ['a second cookie header in minified JSON', '{"cookie":"theme=dark","set-cookie":"sessionid=Zq8Xw7Vu6Ts5Rq4Pab; Path=/"}', 'Zq8Xw7Vu6Ts5Rq4Pab'],
+    ['a second Cookie object on the line', '[{"Cookie": "_ga=GA1.2"}, {"Cookie": "sessionid=Zq8Xw7Vu6Ts5Rq4Pab"}]', 'Zq8Xw7Vu6Ts5Rq4Pab'],
+    ['document.cookie with a template literal', 'document.cookie = `sid=Zq8Xw7Vu6Ts5Rq4Pab`', 'Zq8Xw7Vu6Ts5Rq4Pab'],
+    ['a cookie value after an escaped quote', '"Cookie": "a=b\\"c; sessionid=Zq8Xw7Vu6Ts5Rq4Pab"', 'Zq8Xw7Vu6Ts5Rq4Pab'],
+    ['a quoted cookie value', 'Cookie: sessionid="Zq8Xw7Vu6Ts5Rq4Pab"', 'Zq8Xw7Vu6Ts5Rq4Pab'],
+    ['a quoted Set-Cookie value', 'Set-Cookie: sessionid="Zq8Xw7Vu6Ts5Rq4Pab"; Path=/', 'Zq8Xw7Vu6Ts5Rq4Pab'],
+    ['Authorization with the Bot scheme', 'Authorization: Bot abcdefghijklmnop', 'abcdefghijklmnop'],
+    ['Authorization with no scheme', 'Authorization: abcdefghijklmnop', 'abcdefghijklmnop'],
+    ['a short --token', 'app --token abcdef', 'abcdef'],
+    ['a short --client-secret', 'app --client-secret abcdefg', 'abcdefg'],
+    ['an XML ApiKey of letters', '<ApiKey>abcdefghijklmnop</ApiKey>', 'abcdefghijklmnop'],
+    ['an XML clientSecret of letters', '<clientSecret>mysecretvalue</clientSecret>', 'mysecretvalue'],
+    ['a .NET ApiKey of letters', '<add key="ApiKey" value="abcdefghij"/>', 'abcdefghij'],
+    ['an XML secret with spaces', '<secret>correct horse battery</secret>', 'correct horse battery'],
+    ['a SAS signature with a slash', 'https://acct.blob.core.windows.net/c/b?sv=2024&sig=AbCd/EfGh+IjKlMn0pQr=', 'AbCd/EfGh+IjKlMn0pQr='],
+    ['a key with a version suffix', 'https://api.example.com/v1?key=abcd1234efgh5678.v2', 'abcd1234efgh5678'],
+    ['a session id with a dot', 'https://app.example.com/?sessionid=abc123def.xyz', 'abc123def'],
+    ['a numeric pgpass password', 'db:5432:app:app:12345678', '12345678'],
+    ['a pgpass socket directory', '/var/run/postgresql:5432:app:app:Hk3tR8pLq2Zx', 'Hk3tR8pLq2Zx'],
+    ['a .netrc password before a comment', 'machine api.example.com login svc password Hk3tR8pLq2Zx # prod', 'Hk3tR8pLq2Zx'],
+    ['SQL PASSWORD with spaces', "CREATE ROLE app WITH LOGIN PASSWORD 'correct horse battery staple';", 'correct horse battery staple'],
+  ]
+  it.each(leaks)('masks: %s', (_name, text, secret) => {
+    const masked = redactSecrets(text)
+    expect(masked).not.toContain(secret)
+    expect(redactSecrets(masked)).toBe(masked)
+  })
+
+  it('leaves a later command\'s port mapping alone after masking earlier passwords', () => {
+    const masked = redactSecrets('mysql -pa\nmysql -pb\nmysql -pc\ndocker login ghcr.io && docker run -p 8080:80 img')
+    expect(masked).toBe('mysql -p[REDACTED]\nmysql -p[REDACTED]\nmysql -p[REDACTED]\ndocker login ghcr.io && docker run -p 8080:80 img')
+  })
+
+  const harmless = [
+    'env:\n  - name: AUTH\n    value: disabled',
+    'env:\n  - name: SESSION_COOKIE\n    value: sessionid',
+    'REDIS_URL=redis://:@cache:6379',
+    'httpie --auth basic https://x',
+  ]
+  it.each(harmless)('leaves alone: %s', (text) => {
+    expect(redactSecrets(text)).toBe(text)
+  })
+})
+
+// Gaps the second review found in every version so far: an Authorization header written as data.
+describe('redactSecrets: an Authorization header written as data', () => {
+  const cases: Array<[string, string]> = [
+    ['{"Authorization": "Basic dXNlcjpwYXNzd29yZA=="}', 'dXNlcjpwYXNzd29yZA=='],
+    ["headers={'Authorization': 'Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b'}", '9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b'],
+    ["'Authorization' => 'Bearer abcdefghijklmnopqrstuvwx'", 'abcdefghijklmnopqrstuvwx'],
+  ]
+  it.each(cases)('masks %s', (text, secret) => {
+    const masked = redactSecrets(text)
+    expect(masked).not.toContain(secret)
+    expect(redactSecrets(masked)).toBe(masked)
+  })
+})
+
+describe('redactSecrets: the second review — cookie names that don\'t say what they hold', () => {
+  const cases: Array<[string, string]> = [
+    ['COOKIE=Zq8Xw7Vu6Ts5Rq4Pab', 'Zq8Xw7Vu6Ts5Rq4Pab'],
+    ['MY_COOKIE=Zq8Xw7Vu6Ts5Rq4Pab', 'Zq8Xw7Vu6Ts5Rq4Pab'],
+    ['COOKIE_VALUE=Zq8Xw7Vu6Ts5Rq4Pab', 'Zq8Xw7Vu6Ts5Rq4Pab'],
+    ['Cookie: Zq8Xw7Vu6Ts5Rq4Pab', 'Zq8Xw7Vu6Ts5Rq4Pab'],
+    ['"Cookie": "Zq8Xw7Vu6Ts5Rq4Pab"', 'Zq8Xw7Vu6Ts5Rq4Pab'],
+    ['Cookie: user=Zq8Xw7Vu6Ts5Rq4Pab', 'Zq8Xw7Vu6Ts5Rq4Pab'],
+    ['Cookie: _ga=GA1.1.445478328.1727164800; id=Zq8Xw7Vu6Ts5Rq4Pab', 'Zq8Xw7Vu6Ts5Rq4Pab'],
+    ['cookie=sessionid%3DZq8Xw7Vu6Ts5Rq4Pab', 'Zq8Xw7Vu6Ts5Rq4Pab'],
+    ['curl -u admin:Xy7;kPq9 https://x', 'kPq9'],
+    ['machine h\n# prod\nlogin u\npassword Hk3tR8pLq2Zx', 'Hk3tR8pLq2Zx'],
+    ['machine h login u password Hk3tR8pLq2Zx port 22', 'Hk3tR8pLq2Zx'],
+    ['machine h login u password "Hk3t R8pLq2Zx"', 'R8pLq2Zx'],
+  ]
+  it.each(cases)('masks %s', (text, secret) => {
+    const masked = redactSecrets(text)
+    expect(masked).not.toContain(secret)
+    expect(redactSecrets(masked)).toBe(masked)
+  })
+
+  const harmless = [
+    'Set-Cookie: sessionid=[REDACTED]; Path=/; Domain=subdomain.example.com; Expires=Wed, 21 Oct 2026 07:28:00 GMT',
+    'const cookie = req.headers.cookie',
+    'COOKIE_NAME=sessionid',
+    '10.0.0.1:5432:postgres:postgres:*',
+  ]
+  it.each(harmless)('leaves alone: %s', (text) => {
+    expect(redactSecrets(text)).toBe(text)
+  })
+})

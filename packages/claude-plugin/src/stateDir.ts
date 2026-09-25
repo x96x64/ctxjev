@@ -67,14 +67,17 @@ async function checkOwnDir(path: string) {
 
 /**
  * Why the session's state can't be trusted, if it can't: a directory on the way to it (the state
- * root, `sessions/`, the session's own) that isn't a directory or belongs to another user. What's
+ * root, `sessions/`, the session's own) that isn't a directory, belongs to another user, or others
+ * can write to. What's
  * read from there is re-injected into the conversation, so a file another user could have planted
  * is never read. One that doesn't exist yet is fine: there's nothing to read.
  */
 export async function sessionDirProblem(cwd: string, sessionId: string | undefined): Promise<string | undefined> {
   for (const path of [stateRoot(), join(stateRoot(), 'sessions'), sessionDir(cwd, sessionId)]) {
     try {
-      await checkOwnDir(path)
+      const info = await checkOwnDir(path)
+      // The user's own directory, but one others can write to: anyone could have put a file there.
+      if (info && (info.mode & 0o022) !== 0) return `${path} is writable by other users, so ctxjev won't read transcript excerpts from it`
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code === 'ENOENT') return undefined
       return err instanceof Error ? err.message : String(err)
