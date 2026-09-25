@@ -3,6 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { subprocessEnv } from '../../../test-support/subprocessEnv.js'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 // The shipped dist/statusHook.js, run the way Claude Code runs a UserPromptSubmit hook.
@@ -22,7 +23,7 @@ afterEach(async () => {
 
 function run(stdin: string): Promise<{ exitCode: number | null; stdout: string }> {
   return new Promise((resolve, reject) => {
-    const child = spawn('node', [distPath], { env: { ...process.env, CTXJEV_STATE_DIR: state }, stdio: ['pipe', 'pipe', 'pipe'] })
+    const child = spawn('node', [distPath], { env: subprocessEnv({ CTXJEV_STATE_DIR: state }), stdio: ['pipe', 'pipe', 'pipe'] })
     let stdout = ''
     child.stdout.on('data', (d) => (stdout += d))
     child.on('error', reject)

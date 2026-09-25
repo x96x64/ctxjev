@@ -1,4 +1,4 @@
-import { copyFile, mkdir, mkdtemp, rm } from 'node:fs/promises'
+import { copyFile, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -49,6 +49,15 @@ describe('statusReport', () => {
     expect(report).toContain('preserved (2 entries), scored with offline keyword overlap')
     expect(report).toContain('Note: TYPESAFE_API_KEY is not set')
     expect(report.indexOf('higher')).toBeLessThan(report.indexOf('lower'))
+  })
+
+  // The audit: a corrupt last-run.json read as "no compaction in this session", which isn't what happened.
+  it('says the last run is unknown when last-run.json is unreadable, rather than claiming there was none', async () => {
+    await mkdir(join(root, 'state', 'sessions', 'sess-1'), { recursive: true })
+    await writeFile(join(root, 'state', 'sessions', 'sess-1', 'last-run.json'), '{"at": "2026-01-01T0')
+    const report = await statusReport(cwd, 'sess-1')
+    expect(report).not.toContain('no compaction in this session')
+    expect(report).toContain("Last run: unknown — last-run.json isn't valid JSON")
   })
 
   it("says so when it can't find the session's transcript", async () => {

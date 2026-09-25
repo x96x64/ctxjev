@@ -21,10 +21,13 @@ Long-running agent loops, such as coding agents, browser agents, or anything wit
 tool-call history, accumulate context faster than it stays useful. Most of that history isn't hard
 to judge: *"is this old tool result still relevant to the current task?"* is exactly the kind of
 fast, cheap, structured decision [Jev](https://typesafe.ai) (TypeSafe AI's typed-decision model) is
-built for. It returns typed judgments (a yes/no probability, a choice, a score) in about 100ms
-instead of writing a sentence about it.
+built for. It returns typed judgments (a yes/no probability, a choice, a score) instead of writing
+a sentence about it.
 
-`ctxjev-core` asks Jev that question continuously, and decides what to keep, drop, or summarize.
+`ctxjev-core` can ask Jev that question about every entry, and decides what to keep, drop, or
+summarize. Whether Jev's answers beat simpler rankings is an open question, and so far the evidence
+says they don't on unseen tasks; see [the main README](../../README.md#does-it-work). The default
+is plain truncation.
 It never asks Jev to see images, do arithmetic, or generate text. Token counting happens in code,
 and the keep/drop/summarize decision is a plain threshold applied to Jev's typed output.
 
@@ -43,15 +46,24 @@ which needs `TYPESAFE_API_KEY` (get one at
 [console.typesafe.ai/settings/keys](https://console.typesafe.ai/settings/keys), no waitlist), or
 `{ scorer: 'local' }` for offline keyword overlap instead.
 
+**What the default does:** with `'recency'`, the goal isn't used at all. Every entry's relevance is
+its position in the batch (oldest 0, newest 1), so with the default thresholds (`dropBelow` 0.3,
+`summarizeBelow` 0.6) `pruneContext()` drops roughly the oldest 30% of entries and marks the next
+30% for summarizing, whatever they say, including the first request. `pruneMessages()` never
+touches the first message, the latest turn, or (by default) anything the user wrote; `pruneContext()`
+has no such protection, so exclude what must stay before calling it.
+
 With `scorer: 'jev'`, entry content and the goal are sent to TypeSafe AI's Jev API. Every request
 passes through `redactSecrets()` first, masking common secret formats to `[REDACTED]` (best-effort, not
 exhaustive). It's exported too, if you want to apply the same masking elsewhere.
 
 ## How It Works
 
-Every entry becomes its own question, and every question in a batch is evaluated **in parallel
-against one shared state**, so Jev's cost barely grows with the number of questions: scoring 50
-tool-call entries costs about the same as scoring one.
+With `scorer: 'jev'`, every entry becomes its own question, and the questions for up to 50 entries
+are evaluated **in parallel against one shared state**, as a single request. What Jev bills is input
+tokens, and those still grow with the entries in the request, since each entry's excerpt is part of
+the state; at Jev's published price that stays small, and every request's actual usage is reported
+through `onUsage`.
 
 ```ts
 import { pruneContext } from 'ctxjev-core'
@@ -59,6 +71,8 @@ import { pruneContext } from 'ctxjev-core'
 const decisions = await pruneContext(
   entries, // your agent's tool-call / message history
   'Fix a bug where checkout charges customers twice on a slow network retry.',
+  undefined, // the default policy
+  { scorer: 'jev' }, // without this, the default 'recency' ranks by position
 )
 ```
 

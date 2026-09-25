@@ -20,7 +20,10 @@
  *   node eval/tasks.mjs --report eval/results/tasks.json
  *   node eval/tasks.mjs --selftest   (no API calls: solution applied through the tools passes, untouched fails)
  */
-import { existsSync, globSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
+// fs.globSync through the namespace, not a named import: on Node 20 a missing named export fails
+// before lib.mjs can say which Node version the evals need.
+import * as fs from 'node:fs'
+import { existsSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
@@ -123,7 +126,7 @@ if (args.selftest) {
     const results = [run('Read', { file_path: `/workspace/${task}/package.json` }), run('Glob', { pattern: 'src/**/*.js' }), run('Grep', { pattern: 'export', path: 'src' }), run('Bash', { command: `ls /workspace/${task}` }), run('Read', { file_path: '/etc/passwd' })]
     const escapeRefused = results[4].is_error === true
     const solutionDir = join(tasksDir, task, 'solution')
-    for (const file of globSync('**/*', { cwd: solutionDir }).filter((p) => statSync(join(solutionDir, p)).isFile())) {
+    for (const file of fs.globSync('**/*', { cwd: solutionDir }).filter((p) => statSync(join(solutionDir, p)).isFile())) {
       results.push(run('Write', { file_path: `/workspace/${task}/${file}`, content: readFileSync(join(solutionDir, file), 'utf8') }))
     }
     const after = grade(task, repo)

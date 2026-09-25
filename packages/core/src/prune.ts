@@ -1,6 +1,6 @@
 import { type ScoreCache } from './cache.js'
 import { chunkEntries } from './chunk.js'
-import { scoreRelevance, type RelevanceVerdict } from './jevClient.js'
+import { scoreRelevance, type JevClient, type RelevanceVerdict } from './jevClient.js'
 import { localRelevance } from './localRelevance.js'
 import { combineScore, decideAction } from './policy.js'
 import { computeRecency } from './recency.js'
@@ -21,15 +21,23 @@ export type ScoreEntriesOptions = {
   onUsage?: (usage: JevUsage) => void
   /** Checked before, and populated after, each Jev request — see `ScoreCache`. Jev only. */
   cache?: ScoreCache
+  /** The client Jev requests go through. Jev only; defaults to one reading TYPESAFE_API_KEY. */
+  jevClient?: JevClient
   /**
    * `'recency'` (default) ranks by position alone, newest 1 to oldest 0: plain truncation. On the
    * [preregistered holdout comparison](https://github.com/x96x64/ctxjev/blob/main/packages/core/eval/PREREGISTRATION.md),
    * `'jev'` tied it on task success, so it's opt-in rather than the default; pass `scorer: 'jev'`
    * to ask Jev instead, or `'local'` for offline keyword overlap. A function is used as-is (see
    * `CustomScorer`). Only `'jev'` reads or writes `cache` and calls `onUsage`.
+   *
+   * With `'recency'` the goal isn't used at all: relevance is position, so `DEFAULT_POLICY`'s
+   * thresholds drop roughly the oldest 30% of entries and summarize the next 30%, whatever they say.
    */
   scorer?: 'jev' | 'local' | 'recency' | CustomScorer
 }
+
+/** The scorers `scorer` names, the default first. */
+export const BUILT_IN_SCORERS = ['recency', 'local', 'jev'] as const
 
 // A large transcript can chunk into hundreds of requests; firing all of them at once relies
 // entirely on the SDK's own retry/backoff to survive the resulting rate-limit thundering herd.
@@ -59,7 +67,7 @@ export async function mapWithConcurrencyLimit<T, R>(items: T[], limit: number, f
 async function scoreWithJev(entries: Entry[], goal: string, options: ScoreEntriesOptions): Promise<RelevanceVerdict[]> {
   const latest = latestEntries(entries, LATEST_CONTEXT_SIZE)
   const chunkResults = await mapWithConcurrencyLimit(chunkEntries(entries), MAX_CONCURRENT_CHUNK_REQUESTS, async (chunk) => {
-    const { verdicts, usage } = await scoreRelevance(goal, chunk, options.cache, latest)
+    const { verdicts, usage } = await scoreRelevance(goal, chunk, options.cache, latest, options.jevClient)
     options.onUsage?.(usage)
     return verdicts
   })
@@ -108,6 +116,12 @@ export async function scoreEntries(
   recencyWeight: number = DEFAULT_POLICY.recencyWeight,
   options: ScoreEntriesOptions = {},
 ): Promise<ScoredEntry[]> {
+  const { scorer } = options
+  // Types stop a TypeScript caller's typo; a JavaScript one ('Jev') would otherwise get recency in silence.
+  if (scorer !== undefined && typeof scorer !== 'function' && !(BUILT_IN_SCORERS as readonly string[]).includes(scorer)) {
+    throw new Error(`unknown scorer ${JSON.stringify(scorer)} — expected ${BUILT_IN_SCORERS.map((s) => `'${s}'`).join(', ')}, or a function`)
+  }
+
   const seenIds = new Set<string>()
   for (const entry of entries) {
     if (seenIds.has(entry.id)) {
@@ -116,7 +130,6 @@ export async function scoreEntries(
     seenIds.add(entry.id)
   }
 
-  const { scorer } = options
   const verdicts =
     scorer === 'local'
       ? scoreLocally(entries, goal)

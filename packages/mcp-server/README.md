@@ -27,16 +27,22 @@ config shape differs.
 
 ## Setup
 
+Every example below pins the version (`ctxjev-mcp@0.5.0`, the latest on npm), so your host runs the
+release you chose rather than whatever npm has at the time; change the pin to upgrade.
+
 Get a key at [console.typesafe.ai/settings/keys](https://console.typesafe.ai/settings/keys) (no
-waitlist) first.
+waitlist) first. Without one the server still starts and lists its two tools, but every call
+returns an error saying `TYPESAFE_API_KEY` isn't set.
 
 **Claude Code:**
 
 ```bash
-claude mcp add ctxjev --env TYPESAFE_API_KEY=... -- npx ctxjev-mcp
+claude mcp add ctxjev --env TYPESAFE_API_KEY=... -- npx ctxjev-mcp@0.5.0
 ```
 
-The ctxjev repo also carries a project-level `.mcp.json`, but that scope needs an approval step
+The ctxjev repo also carries a project-level `.mcp.json`, which runs the server from
+`packages/mcp-server/dist/` and so needs `pnpm install && pnpm build` in the clone first. That scope
+also needs an approval step
 that didn't surface in the UI when tested (Claude Code v2.1.278): `claude mcp list` silently omits
 the server. `claude mcp add` at local scope, as above, works immediately. If both exist, `claude
 mcp list` warns that the server is defined in two scopes; that concerns OAuth token storage, which
@@ -45,11 +51,11 @@ a local stdio server doesn't use, so it's safe to ignore (or `claude mcp remove 
 **Codex CLI** (verified against `codex-cli` v0.155.1):
 
 ```bash
-codex mcp add ctxjev --env TYPESAFE_API_KEY=... -- npx ctxjev-mcp
+codex mcp add ctxjev --env TYPESAFE_API_KEY=... -- npx ctxjev-mcp@0.5.0
 ```
 
 Or through the [Agent Plugins](https://agent-plugins.org) bundle in the ctxjev repo
-(`.agents/plugins/marketplace.json`), which registers the same `npx ctxjev-mcp` command:
+(`.agents/plugins/marketplace.json`), which registers the same `npx ctxjev-mcp@0.5.0` command:
 
 ```bash
 codex plugin marketplace add x96x64/ctxjev
@@ -65,7 +71,7 @@ codex plugin add ctxjev@ctxjev-plugins
     "ctxjev": {
       "type": "stdio",
       "command": "npx",
-      "args": ["ctxjev-mcp"],
+      "args": ["ctxjev-mcp@0.5.0"],
       "env": { "TYPESAFE_API_KEY": "..." }
     }
   }

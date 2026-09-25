@@ -1,0 +1,21 @@
+# Weekly update PRs for npm dependencies (the pnpm workspace) and for the GitHub Actions the
+# workflows pin by commit SHA (Dependabot updates the SHA and its version comment together).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      dev-dependencies:
+        dependency-type: development
+    ignore:
+      # vitest 5 needs Node >= 22.12, and CI still tests the Node 20 line that engines promises.
+      - dependency-name: vitest
+        versions: ['>=5']
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5

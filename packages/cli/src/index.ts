@@ -60,8 +60,8 @@ ${pc.bold('Options')}
                              (by default it's kept: it's where constraints and changes of plan live).
   --no-marker                prune, Anthropic Messages only: don't add the one-line note saying where
                              history was removed.
-  --help                     Show this help.
-  --version                  Print the installed version.
+  --help, -h                 Show this help (before or after the command).
+  --version, -v              Print the installed version (before or after the command).
 
 Jev scores are cached by goal, entry content, and the latest activity (not by transcript or entry
 id), so re-running the same analysis costs nothing the second time.
@@ -97,24 +97,48 @@ type Setup = {
   values: Record<string, string | boolean | undefined>
 }
 
-async function setUp(argv: string[], extraOptions: Record<string, { type: 'string' | 'boolean'; default?: string | boolean }>): Promise<Setup> {
-  const { positionals, values } = parseArgs({
-    args: argv,
-    allowPositionals: true,
-    options: {
-      goal: { type: 'string' },
-      'drop-below': { type: 'string' },
-      'summarize-below': { type: 'string' },
-      'no-cache': { type: 'boolean', default: false },
-      offline: { type: 'boolean', default: false },
-      scorer: { type: 'string' },
-      help: { type: 'boolean', short: 'h', default: false },
-      ...extraOptions,
-    },
-  })
+/** Node's parseArgs error, minus its advice about positionals starting with "-", plus where to look. */
+function describeArgsError(command: string, err: unknown): string {
+  const message = err instanceof Error ? err.message : String(err)
+  const unknown = /Unknown option '([^']+)'/.exec(message)
+  if (unknown) return `unknown option '${unknown[1]}' for \`ctxjev ${command}\` — see \`ctxjev --help\``
+  return `${message.replace(/\. To specify a positional argument[\s\S]*$/, '')} — see \`ctxjev --help\``
+}
+
+function parseOrFail<T>(command: string, parse: () => T): T {
+  try {
+    return parse()
+  } catch (err) {
+    fail(describeArgsError(command, err))
+  }
+}
+
+async function setUp(command: string, argv: string[], extraOptions: Record<string, { type: 'string' | 'boolean'; default?: string | boolean }>): Promise<Setup> {
+  const { positionals, values } = parseOrFail(command, () =>
+    parseArgs({
+      args: argv,
+      allowPositionals: true,
+      options: {
+        goal: { type: 'string' },
+        'drop-below': { type: 'string' },
+        'summarize-below': { type: 'string' },
+        'no-cache': { type: 'boolean', default: false },
+        offline: { type: 'boolean', default: false },
+        scorer: { type: 'string' },
+        help: { type: 'boolean', short: 'h', default: false },
+        version: { type: 'boolean', short: 'v', default: false },
+        ...extraOptions,
+      },
+    }),
+  )
 
   if (values.help) {
     console.log(HELP)
+    process.exit(0)
+  }
+  // After the command too (`ctxjev analyze --version`), as the README says.
+  if (values.version) {
+    console.log(VERSION)
     process.exit(0)
   }
 
@@ -160,6 +184,7 @@ async function setUp(argv: string[], extraOptions: Record<string, { type: 'strin
   if (problems.length > 0) failAll(problems)
 
   const transcript = parseTranscript(raw!)
+  if (transcript.format === 'claude-code') for (const warning of transcript.warnings) console.error(`${pc.yellow('⚠')} ${warning}`)
   const goal = (values.goal as string | undefined) ?? transcript.goal
   if (!goal) fail('no goal — pass --goal or set "goal" in the transcript file')
 
@@ -188,7 +213,7 @@ async function withScoreCache<T>(setup: Setup, score: (options: { cache?: ScoreC
 }
 
 async function runAnalyze(argv: string[]) {
-  const setup = await setUp(argv, { json: { type: 'boolean', default: false } })
+  const setup = await setUp('analyze', argv, { json: { type: 'boolean', default: false } })
   const { transcript, goal, policy, scorer } = setup
 
   const { result: decisions, usage } = await withScoreCache(setup, (options) => pruneContext(transcript.entries, goal, policy, { ...options, scorer }))
@@ -202,7 +227,7 @@ async function runAnalyze(argv: string[]) {
 }
 
 async function runPrune(argv: string[]) {
-  const setup = await setUp(argv, {
+  const setup = await setUp('prune', argv, {
     out: { type: 'string' },
     'protect-last': { type: 'string' },
     'target-tokens': { type: 'string' },

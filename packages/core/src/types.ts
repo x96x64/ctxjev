@@ -41,6 +41,12 @@ export type PruningPolicy = {
   recencyWeight: number
 }
 
+/**
+ * Tuned on Jev's probabilities (see the Design Notes in the README). Under the default `'recency'`
+ * scorer, where every entry's relevance is its position, it drops roughly the oldest 30% of a batch
+ * and summarizes the next 30%; under `'local'` keyword overlap, scores rarely reach 0.3, so most of a
+ * batch drops.
+ */
 export const DEFAULT_POLICY: PruningPolicy = {
   dropBelow: 0.3,
   summarizeBelow: 0.6,

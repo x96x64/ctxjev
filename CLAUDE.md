@@ -71,6 +71,10 @@ cd packages/core && node eval/tasks.mjs --runs 2 --max-usd 4 --out eval/results/
                                 # `--run-offset N --merge` to add runs to saved results, and
                                 # `--split dev|holdout|all` (outcome/plugin/run.mjs take it too)
 node examples/eval-tasks/verify.mjs  # every task: template fails the hidden tests, solution passes
+cd packages/core && node eval/check-docs.mjs [--write]
+                                # README/PREREGISTRATION.md eval numbers vs. eval/results/ (CI runs
+                                # it); never type an eval number into a doc, --write generates it.
+                                # The evals need Node 22 (.nvmrc); the packages, Node 20+
 cd packages/core && node eval/plugin.mjs --runs 2 --max-usd 4.5 --out eval/results/plugin.json
                                 # the Claude Code plugin's hooks after a simulated compaction
 ```
@@ -118,7 +122,9 @@ that was never part of what the parent session's compaction actually operates on
 ## Releasing
 
 - Versions are lockstep across all four packages and the three plugin manifests (see
-  CHANGELOG.md); `publish.yml` refuses to publish if they disagree.
+  CHANGELOG.md); `publish.yml` refuses to publish if they disagree, or if any `ctxjev-mcp@<version>`
+  pin in the MCP setup examples doesn't name the release (`node scripts/check-versions.mjs
+  --update-pins` moves them). The full release policy is in CONTRIBUTING.md.
 - Batch changes into a release instead of publishing after every fix. A docs-only change waits for
   the next release unless npm is showing something wrong or misleading.
 - Before publishing, run the live suite with `TYPESAFE_API_KEY` set (`pnpm test` picks up every

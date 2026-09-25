@@ -66,6 +66,21 @@ describe('parseTranscript', () => {
     expect(() => parseTranscript('not json at all\nstill not json')).toThrow(/could not parse/)
   })
 
+  it('reports where a broken JSON file breaks, instead of guessing it is a .jsonl', () => {
+    expect(() => parseTranscript('{"goal": "x", "entries": [{"id": "a", "role": "tool"')).toThrow(/could not parse.*not valid JSON.*ends before the JSON does/s)
+    expect(() => parseTranscript('{\n  "goal": "x",\n  "entries": [,]\n}')).toThrow(/line 3, column 15/)
+  })
+
+  it('parses a Claude Code transcript with a repeated uuid, keeping the last and warning', () => {
+    const jsonl = [
+      JSON.stringify({ type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: 'fix the bug in checkout' } }),
+      JSON.stringify({ type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:01.000Z', message: { role: 'user', content: 'fix the bug in checkout, please' } }),
+    ].join('\n')
+    const parsed = parseTranscript(jsonl)
+    expect(parsed.entries.map((e) => e.id)).toEqual(['u1'])
+    expect(parsed.format === 'claude-code' && parsed.warnings).toEqual([expect.stringContaining('"u1"')])
+  })
+
   it('detects a bare Anthropic Messages array and infers the goal from it', () => {
     const raw = JSON.stringify([
       { role: 'user', content: 'Checkout charges customers twice on a slow retry, please fix' },

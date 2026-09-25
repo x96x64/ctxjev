@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { subprocessEnv } from '../../../test-support/subprocessEnv.js'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 // Exercises the actual shipped artifact (dist/sessionStartCompact.js) — see preCompact.test.ts
@@ -11,7 +12,7 @@ const distPath = join(dirname(fileURLToPath(import.meta.url)), '..', 'dist', 'se
 
 function run(stdin: string): Promise<{ exitCode: number | null; stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
-    const child = spawn('node', [distPath], { env: { ...process.env, CTXJEV_STATE_DIR: state }, stdio: ['pipe', 'pipe', 'pipe'] })
+    const child = spawn('node', [distPath], { env: subprocessEnv({ CTXJEV_STATE_DIR: state }), stdio: ['pipe', 'pipe', 'pipe'] })
     let stdout = ''
     let stderr = ''
     child.stdout.on('data', (d) => (stdout += d))

@@ -39,6 +39,14 @@ describe('scoreEntries', () => {
     expect(onUsage).not.toHaveBeenCalled()
   })
 
+  // A JavaScript caller's typo ('Jev', 'keyword') used to fall through to the recency default in silence.
+  it('rejects a scorer name it does not know, instead of silently ranking by recency', async () => {
+    const entries: Entry[] = [{ id: 'a', role: 'user', content: 'x', timestamp: 1 }]
+    for (const scorer of ['Jev', 'keywords', '']) {
+      await expect(scoreEntries(entries, 'goal', 0, { scorer: scorer as never })).rejects.toThrow(`unknown scorer ${JSON.stringify(scorer)}`)
+    }
+  })
+
   describe('with a custom scorer', () => {
     const many: Entry[] = Array.from({ length: 120 }, (_, i) => ({ id: `e${i}`, role: 'tool', content: `entry ${i}`, timestamp: i }))
 

@@ -1,6 +1,7 @@
 // Shared by tasks.mjs and plugin.mjs: run an agent on a task repo and grade it with the hidden tests.
 import { execFileSync, spawnSync } from 'node:child_process'
-import { cpSync, globSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import * as fs from 'node:fs'
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -68,7 +69,7 @@ export function workspaceTools(task, repo) {
     },
     Glob({ pattern, path }) {
       const base = inRepo(path)
-      const found = globSync(pattern, { cwd: base }).filter((p) => !p.startsWith('.git/'))
+      const found = fs.globSync(pattern, { cwd: base }).filter((p) => !p.startsWith('.git/'))
       return found.length ? found.map((p) => relative(repo, join(base, p))).join('\n') : 'No files found'
     },
   }

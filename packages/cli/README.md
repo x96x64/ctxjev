@@ -26,6 +26,13 @@ sends nothing, and tied Jev on a [preregistered holdout comparison](../core/eval
 offline. To opt in to Jev instead: `export TYPESAFE_API_KEY=...`
 (console.typesafe.ai/settings/keys, no waitlist) and pass `--scorer jev`.
 
+Versions before 0.6.0 (0.5.0 is the latest on npm as of 2026-09-24) score with Jev by default,
+so they need the key unless you pass `--offline`, and have no `--scorer`.
+
+With the default `recency`, the goal isn't used: an entry's score is its position (oldest 0,
+newest 1), so the default thresholds drop roughly the oldest 30% of entries and mark the next 30%
+for summarizing, whatever they say.
+
 ## Usage
 
 `ctxjev analyze` reports what would be kept, dropped, or summarized. `ctxjev prune` writes a
@@ -38,23 +45,44 @@ never touches the first message or the last `--protect-last` messages (default 2
 ctxjev analyze transcript.jsonl --goal "Fix the checkout double-charge bug."
 ```
 
+Against the sample transcript in the ctxjev repo, the default ranks by position:
+
 ```console
-  e1  bash       summarize  score 0.48  ran: npm test -- checkout.test.ts — 12 passed, 0 failed
-  e2  read       summarize  score 0.26  read package.json — saw the dependency list and script names
-  e3  grep       keep       score 0.89  grep "charge" in src/payments.ts — found chargeCustomer() c…
-  e4  bash       drop       score 0.14  ran: git log --oneline -5 — recent commits about unrelated …
-  e5  read       keep       score 0.93  read src/payments.ts — the retry handler re-calls chargeCus…
-  e6  assistant  keep       score 0.94  Found it: the retry path doesn't check for an in-flight or …
-  e7  bash       drop       score 0.14  ran: ls public/audio — unrelated, was checking something el…
+$ ctxjev analyze checkout-bug.json
+
+  e1  bash       drop       score 0.00  ran: npm test -- checkout.test.ts — 12 passed, 0 failed
+  e2  read       drop       score 0.17  read package.json — saw the dependency list and script names
+  e3  grep       summarize  score 0.33  grep "charge" in src/payments.ts — found chargeCustomer() c…
+  e4  bash       summarize  score 0.50  ran: git log --oneline -5 — recent commits about unrelated …
+  e5  read       keep       score 0.67  read src/payments.ts — the retry handler re-calls chargeCus…
+  e6  assistant  keep       score 0.83  Found it: the retry path doesn't check for an in-flight or …
+  e7  bash       keep       score 1.00  ran: ls public/audio — unrelated, was checking something el…
 
 3 kept, 2 summarized, 2 dropped (of 7 entries)
-~33 / 154 tokens saved by dropping (21%), plus ~27 in entries marked summarize (savings there depend on your summarizer)
-Jev cost: 859 input tokens, 123 output tokens (free) — ~$0.000036
+~27 / 154 tokens saved by dropping (18%), plus ~45 in entries marked summarize (savings there depend on your summarizer)
+Scored by position alone (newest kept, like plain truncation) — no Jev call, nothing sent.
 ```
 
-This is real output against a sample transcript. Jev is probabilistic, so exact numbers vary
-slightly between runs, and the cost line is computed from what Jev's API actually reported, not
-estimated.
+and with `--scorer jev`:
+
+```console
+$ ctxjev analyze checkout-bug.json --scorer jev
+
+  e1  bash       summarize  score 0.52  ran: npm test -- checkout.test.ts — 12 passed, 0 failed
+  e2  read       drop       score 0.29  read package.json — saw the dependency list and script names
+  e3  grep       keep       score 0.85  grep "charge" in src/payments.ts — found chargeCustomer() c…
+  e4  bash       drop       score 0.14  ran: git log --oneline -5 — recent commits about unrelated …
+  e5  read       keep       score 0.89  read src/payments.ts — the retry handler re-calls chargeCus…
+  e6  assistant  keep       score 0.90  Found it: the retry path doesn't check for an in-flight or …
+  e7  bash       drop       score 0.15  ran: ls public/audio — unrelated, was checking something el…
+
+3 kept, 1 summarized, 3 dropped (of 7 entries)
+~44 / 154 tokens saved by dropping (29%), plus ~16 in entries marked summarize (savings there depend on your summarizer)
+Jev cost: 1,290 input tokens, 123 output tokens (free) — ~$0.000054
+```
+
+Both are real output, captured 2026-09-24. Jev is probabilistic, so its numbers vary slightly
+between runs, and the cost line is computed from what Jev's API actually reported, not estimated.
 
 ## Options
 

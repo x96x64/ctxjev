@@ -102,9 +102,10 @@ export type PruneMessagesOptions = ScoreEntriesOptions & {
    */
   summarize?: Summarizer
   /**
-   * Leave the conversation untouched unless this saves at least this many tokens. Any change
-   * invalidates a prompt cache from the first changed message on (see `cache` in the result), so a
-   * small saving can cost more than it saves. Default 0.
+   * Leave the conversation untouched unless this saves at least this many tokens, after the removal
+   * note's own tokens (see `marker`). Any change invalidates a prompt cache from the first changed
+   * message on (see `cache` in the result), so a small saving can cost more than it saves. Default 0.
+   * Independently of this, a change that wouldn't save anything once the note is added is never made.
    */
   minSavedTokens?: number
   /**
@@ -130,7 +131,7 @@ export type PruneMessagesResult = {
   removed: string[]
   /** Ids of the entries shortened by `summarize`. */
   summarized: string[]
-  /** Estimated tokens removed from the conversation. */
+  /** Estimated tokens removed from the conversation, net of the removal note. Never negative. */
   savedTokens: number
   /**
    * The effect on a prompt cache: every message from `firstChangedMessage` (an index into the
@@ -195,19 +196,18 @@ export async function pruneMessages(messages: AnthropicMessage[], goal: string, 
   }
 
   const removedEntries = mapped.filter((e) => removed.has(e.id))
-  const savedTokens = removedEntries.reduce((sum, e) => sum + tokensOf(e), 0) + [...replacements.values()].reduce((sum, r) => sum + r.saved, 0)
-  if (savedTokens === 0 || savedTokens < minSavedTokens) {
-    return {
-      messages,
-      decisions,
-      removed: [],
-      summarized: [],
-      savedTokens: 0,
-      cache: { firstChangedMessage: null, invalidatedTokens: 0 },
-      overBudget: targetTokens !== undefined && untouchedTotal > targetTokens,
-      ...(savedTokens > 0 && { heldBack: savedTokens }),
-    }
-  }
+  const grossSaved = removedEntries.reduce((sum, e) => sum + tokensOf(e), 0) + [...replacements.values()].reduce((sum, r) => sum + r.saved, 0)
+  const unchanged = (heldBack?: number): PruneMessagesResult => ({
+    messages,
+    decisions,
+    removed: [],
+    summarized: [],
+    savedTokens: 0,
+    cache: { firstChangedMessage: null, invalidatedTokens: 0 },
+    overBudget: targetTokens !== undefined && untouchedTotal > targetTokens,
+    ...(heldBack !== undefined && { heldBack }),
+  })
+  if (grossSaved === 0) return unchanged()
 
   const removedBlocks = new Set<string>()
   const removedMessages = new Set<number>()
@@ -253,29 +253,41 @@ export async function pruneMessages(messages: AnthropicMessage[], goal: string, 
     else originalIndex.pop()
   })
 
-  const changedAt = [...removedEntries.flatMap((e) => e.locations), ...[...replacements.keys()].map((id) => entryById.get(id)!.at!)].map((l) => l.message)
-  const firstChangedMessage = Math.min(...changedAt)
-  let markerTokens = 0
+  // A loop, not Math.min(...): spreading every removed entry's locations as arguments overflows the
+  // stack on a large enough conversation (150,000 tool calls did).
+  let firstChangedMessage = Infinity
+  for (const entry of removedEntries) for (const l of entry.locations) if (l.message < firstChangedMessage) firstChangedMessage = l.message
+  for (const id of replacements.keys()) firstChangedMessage = Math.min(firstChangedMessage, entryById.get(id)!.at!.message)
+
+  // The note costs tokens too, so it counts against what the change saves: a change whose note
+  // outweighs it would make the conversation larger, and is skipped like one under minSavedTokens.
+  let note: { index: number; text: string; tokens: number } | undefined
   if (marker && removedEntries.length > 0) {
     const k = pruned.findIndex((m, i) => m.role === 'user' && originalIndex[i] >= firstChangedMessage && originalIndex[i] > 0 && originalIndex[i] < lastProtected)
     if (k >= 0) {
       const removedTokens = removedEntries.reduce((sum, e) => sum + tokensOf(e), 0)
-      const note = `[ctxjev: ${removedEntries.length} earlier entries (~${removedTokens.toLocaleString('en-US')} tokens) were removed from this conversation to save space. Re-read files or re-run commands rather than relying on what they said.]`
-      const target = pruned[k]
-      const blocks = typeof target.content === 'string' ? [{ type: 'text' as const, text: target.content }] : target.content
-      pruned[k] = { ...target, content: [...blocks, { type: 'text', text: note }] }
-      markerTokens = estimateTokens(note)
+      const text = `[ctxjev: ${removedEntries.length} earlier entries (~${removedTokens.toLocaleString('en-US')} tokens) were removed from this conversation to save space. Re-read files or re-run commands rather than relying on what they said.]`
+      note = { index: k, text, tokens: estimateTokens(text) }
     }
   }
+  const savedTokens = grossSaved - (note?.tokens ?? 0)
+  if (savedTokens <= 0) return unchanged()
+  if (savedTokens < minSavedTokens) return unchanged(savedTokens)
+
+  if (note) {
+    const target = pruned[note.index]
+    const blocks = typeof target.content === 'string' ? [{ type: 'text' as const, text: target.content }] : target.content
+    pruned[note.index] = { ...target, content: [...blocks, { type: 'text', text: note.text }] }
+  }
   const invalidatedTokens =
-    mapped.filter((e) => !removed.has(e.id) && e.locations.some((l) => l.message >= firstChangedMessage)).reduce((sum, e) => sum + sizeOf(e), 0) + markerTokens
+    mapped.filter((e) => !removed.has(e.id) && e.locations.some((l) => l.message >= firstChangedMessage)).reduce((sum, e) => sum + sizeOf(e), 0) + (note?.tokens ?? 0)
 
   return {
     messages: pruned,
     decisions,
     removed: removedEntries.map((e) => e.id),
     summarized: [...replacements.keys()],
-    savedTokens: savedTokens - markerTokens,
+    savedTokens,
     cache: { firstChangedMessage, invalidatedTokens },
     overBudget: targetTokens !== undefined && remaining > targetTokens,
   }

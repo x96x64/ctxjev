@@ -33,8 +33,10 @@ request plus your latest instruction.
 **What it's shown so far:** in the [plugin eval](../../README.md#does-it-work), against a simulated
 compaction summary that already keeps every user instruction, the digest added +5 points [0, +15]:
 within the noise. How much it helps depends on how much Claude Code's real compaction drops, which
-that eval can't measure. A comparison on unseen tasks is
-[preregistered](../../packages/core/eval/PREREGISTRATION.md) but hasn't run yet.
+that eval can't measure. The [preregistered](../../packages/core/eval/PREREGISTRATION.md)
+comparison on unseen tasks ran on 2026-09-24, but its plugin part didn't produce a result (the
+hook couldn't reach Jev from the recording sandbox), so the plugin still has no result on unseen
+tasks.
 
 ## How It Works
 

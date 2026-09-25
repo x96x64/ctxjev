@@ -95,10 +95,12 @@ export type ParseClaudeCodeTranscriptOptions = {
    * import so the Claude Code plugin, which never shows token counts, doesn't bundle a tokenizer.
    */
   countTokens?: (text: string) => number
+  /** Told about anything odd in the log that was worked around rather than failed on. */
+  onWarning?: (message: string) => void
 }
 
 export function parseClaudeCodeTranscript(jsonl: string, options: ParseClaudeCodeTranscriptOptions = {}): Entry[] {
-  const { countTokens } = options
+  const { countTokens, onWarning } = options
   const count = (text: string) => (countTokens ? { sourceTokens: countTokens(text) } : {})
   const entries: Entry[] = []
   const pendingToolUse = new Map<string, { name: string; input: unknown; timestamp: number }>()
@@ -175,7 +177,23 @@ export function parseClaudeCodeTranscript(jsonl: string, options: ParseClaudeCod
     })
   }
 
-  return entries
+  return keepLastById(entries, onWarning)
+}
+
+/**
+ * One entry per id, the last one, where it appears. Entry ids come from the log (a record's uuid, a
+ * tool_use_id), and a record written twice would otherwise make scoreEntries() reject the whole
+ * transcript as having duplicate ids — for the plugin, preserving nothing at all.
+ */
+function keepLastById(entries: Entry[], onWarning?: (message: string) => void): Entry[] {
+  const lastIndex = new Map<string, number>()
+  entries.forEach((entry, i) => lastIndex.set(entry.id, i))
+  if (lastIndex.size === entries.length) return entries
+  const repeated = [...new Set(entries.filter((entry, i) => lastIndex.get(entry.id) !== i).map((entry) => `"${entry.id}"`))]
+  onWarning?.(
+    `${entries.length - lastIndex.size} transcript record(s) repeat an earlier id (${repeated.slice(0, 3).join(', ')}${repeated.length > 3 ? ', …' : ''}); kept the last of each`,
+  )
+  return entries.filter((entry, i) => lastIndex.get(entry.id) === i)
 }
 
 /** When the session this transcript belongs to started — the first record carrying a timestamp. */

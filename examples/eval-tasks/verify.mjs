@@ -8,6 +8,12 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+// `node --test <glob>` expands the glob itself only from Node 21 on; see .nvmrc.
+if (Number(process.versions.node.split('.')[0]) < 22) {
+  console.error(`verify.mjs needs Node 22 or later (see .nvmrc); this is Node ${process.versions.node}.`)
+  process.exit(1)
+}
+
 const root = dirname(fileURLToPath(import.meta.url))
 const tasks = readdirSync(root).filter((d) => statSync(join(root, d)).isDirectory())
 

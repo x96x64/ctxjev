@@ -201,6 +201,35 @@ describe('parseClaudeCodeTranscript', () => {
     expect(counted.sourceTokens).toBeGreaterThan(10_000)
   })
 
+  // The audit found one repeated uuid made scoreEntries() reject the whole transcript ("duplicate
+  // entry id"), so the plugin preserved nothing. A record written twice should cost one entry, not the run.
+  it('keeps the last of records that repeat a uuid, and says so', () => {
+    const jsonl = [
+      record({ type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: 'fix the bug in checkout' } }),
+      record({ type: 'assistant', uuid: 'a1', timestamp: '2026-01-01T00:00:01.000Z', message: { role: 'assistant', content: [{ type: 'text', text: 'looking' }] } }),
+      record({ type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:02.000Z', message: { role: 'user', content: 'fix the bug in checkout, edited' } }),
+    ].join('\n')
+    const warnings: string[] = []
+    const entries = parseClaudeCodeTranscript(jsonl, { onWarning: (w) => warnings.push(w) })
+    expect(entries.map((e) => [e.id, e.content])).toEqual([
+      ['a1:text:0', 'looking'],
+      ['u1', 'fix the bug in checkout, edited'],
+    ])
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0]).toContain('"u1"')
+  })
+
+  it('keeps the last tool_result when one tool_use_id gets two', () => {
+    const jsonl = [
+      record({ type: 'assistant', uuid: 'a1', message: { role: 'assistant', content: [{ type: 'tool_use', id: 'c1', name: 'Bash', input: { command: 'npm test' } }] } }),
+      record({ type: 'user', uuid: 'u1', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'c1', content: '1 failed' }] } }),
+      record({ type: 'user', uuid: 'u2', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'c1', content: 'all passed' }] } }),
+    ].join('\n')
+    const entries = parseClaudeCodeTranscript(jsonl)
+    expect(entries.filter((e) => e.id === 'c1')).toHaveLength(1)
+    expect(entries.find((e) => e.id === 'c1')?.content).toContain('all passed')
+  })
+
   it('truncates long content to a short excerpt', () => {
     const longText = 'x'.repeat(1000)
     const jsonl = record({ type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: longText } })

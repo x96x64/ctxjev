@@ -2,7 +2,7 @@
 import { readFile, readdir } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { parseClaudeCodeTranscript, resolveClaudeCodeGoal, truncate } from 'ctxjev-core'
+import { parseClaudeCodeTranscript, quoteAsData as quote, resolveClaudeCodeGoal, truncate } from 'ctxjev-core'
 import { readLastRun } from './lastRun.js'
 import { readPreservedContext } from './preserve.js'
 import { sessionKey } from './stateDir.js'
@@ -35,15 +35,16 @@ export async function statusReport(cwd: string, sessionId: string | undefined, t
     lines.push("Next compaction scores against: unknown — couldn't find this session's transcript.")
   }
 
-  const lastRun = await readLastRun(cwd, sessionId)
+  const { run: lastRun, problem } = await readLastRun(cwd, sessionId)
   if (!lastRun) {
-    lines.push('Last run: no compaction in this session since the plugin was installed.')
+    lines.push(problem ? `Last run: unknown — ${problem}.` : 'Last run: no compaction in this session since the plugin was installed.')
     return lines.join('\n')
   }
   const scorer = lastRun.scorer === 'local' ? 'offline keyword overlap' : lastRun.scorer === 'jev' ? 'Jev' : undefined
   lines.push(`Last run: ${lastRun.at}, ${lastRun.outcome}${lastRun.preserved ? ` (${lastRun.preserved} entries)` : ''}${scorer ? `, scored with ${scorer}` : ''}`)
   if (lastRun.reason) lines.push(`  Reason: ${lastRun.reason}`)
   if (lastRun.note) lines.push(`  Note: ${lastRun.note}`)
+  for (const warning of lastRun.warnings ?? []) lines.push(`  Warning: ${warning}`)
   if (lastRun.goal) lines.push(`  Scored against: ${quote(truncate(lastRun.goal, 200))}`)
 
   const preserved = await readPreservedContext(cwd, sessionId)
@@ -55,8 +56,6 @@ export async function statusReport(cwd: string, sessionId: string | undefined, t
   }
   return lines.join('\n')
 }
-
-const quote = (text: string) => `«${text.replace(/\s+/g, ' ').trim()}»`
 
 // Claude Code keeps each session's log at <config dir>/projects/<project>/<session id>.jsonl.
 async function findTranscript(sessionId: string): Promise<string | undefined> {
