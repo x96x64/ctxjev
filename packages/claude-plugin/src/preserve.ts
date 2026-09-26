@@ -42,9 +42,15 @@ export async function readPreservedContext(cwd: string, sessionId: string | unde
   return { ...data, goal: redactSecrets(data.goal), entries: entries.map((e) => ({ ...e, content: redactSecrets(e.content) })) }
 }
 
+/** Why readPreservedContext() would refuse to read the snapshot, if it would (for the status report). */
+export async function preservedContextProblem(cwd: string, sessionId: string | undefined): Promise<string | undefined> {
+  return (await sessionDirProblem(cwd, sessionId)) ?? (await stateFileProblem(join(sessionDir(cwd, sessionId), FILE)))
+}
+
 /** Called before any of preCompact's early returns, so an earlier compaction's snapshot is never re-injected as current. */
 export async function clearPreservedContext(cwd: string, sessionId: string | undefined): Promise<void> {
-  // Nothing is read from another user's directory, so there's nothing to clear, and nothing of theirs is deleted.
-  if (await sessionDirProblem(cwd, sessionId)) return
+  // Nothing is deleted from a directory another user owns; from the user's own, even one others
+  // could write to, the stale snapshot is removed, so it can't come back once the directory is private.
+  if (await sessionDirProblem(cwd, sessionId, { forDelete: true })) return
   await rm(join(sessionDir(cwd, sessionId), FILE), { force: true })
 }

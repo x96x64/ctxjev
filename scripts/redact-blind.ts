@@ -11,7 +11,7 @@
  * holdout half prints rates only: it's measured once, at the end, and not looked at to tune.
  */
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -24,13 +24,22 @@ const show = args.includes('--show')
 if (show && half === 'holdout') throw new Error('--show lists lines; the holdout half is measured for rates only')
 const ref = args.slice(1).find((a) => a !== '--show')
 
-let modulePath = new URL('../packages/core/src/redact.ts', import.meta.url).href
-if (ref) {
-  const file = join(mkdtempSync(join(tmpdir(), 'ctxjev-redact-')), 'redact.ts')
-  writeFileSync(file, execFileSync('git', ['show', `${ref}:packages/core/src/redact.ts`], { encoding: 'utf8' }))
-  modulePath = pathToFileURL(file).href
+// redact.ts and the file it imports (redactLegacy.ts, from 0.7.0), copied to a temporary directory
+// from the working tree or a commit, with the import pointed at the .ts file so Node can load it.
+const FILES = ['redact.ts', 'redactLegacy.ts']
+const dir = mkdtempSync(join(tmpdir(), 'ctxjev-redact-'))
+for (const name of FILES) {
+  let source: string
+  try {
+    source = ref
+      ? execFileSync('git', ['show', `${ref}:packages/core/src/${name}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+      : readFileSync(new URL(`../packages/core/src/${name}`, import.meta.url), 'utf8')
+  } catch {
+    continue // not in this commit (redactLegacy.ts is new in 0.7.0)
+  }
+  writeFileSync(join(dir, name), source.replace(/from '\.\/redactLegacy\.js'/g, "from './redactLegacy.ts'"))
 }
-const { redactSecrets } = (await import(modulePath)) as { redactSecrets: (text: string) => string }
+const { redactSecrets } = (await import(pathToFileURL(join(dir, 'redact.ts')).href)) as { redactSecrets: (text: string) => string }
 
 const items: Item[] = loadBlindHalf(half)
 

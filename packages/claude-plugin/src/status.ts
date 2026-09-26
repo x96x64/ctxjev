@@ -4,7 +4,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { parseClaudeCodeTranscript, quoteAsData, redactSecrets, resolveClaudeCodeGoal, truncate } from 'ctxjev-core'
 import { readLastRun } from './lastRun.js'
-import { readPreservedContext } from './preserve.js'
+import { preservedContextProblem, readPreservedContext } from './preserve.js'
 import { sessionKey } from './stateDir.js'
 import { STATUS_MARKER } from './statusMarker.js'
 
@@ -55,6 +55,8 @@ export async function statusReport(cwd: string, sessionId: string | undefined, t
   if (lastRun.goal) lines.push(`  Scored against: ${quoteCut(lastRun.goal, 200)}`)
 
   const preserved = await readPreservedContext(cwd, sessionId)
+  const refused = preserved ? undefined : await preservedContextProblem(cwd, sessionId)
+  if (refused) lines.push(`Preserved: not read — ${refused}.`)
   if (preserved && preserved.entries.length > 0) {
     lines.push('Preserved (highest score first):')
     for (const e of [...preserved.entries].sort((a, b) => b.combinedScore - a.combinedScore)) {

@@ -453,3 +453,93 @@ describe('redactSecrets: the third review, found by its fuzzers', () => {
     expect(redactSecrets(masked)).toBe(masked)
   })
 })
+
+// The fourth independent review: leaks of what 0.6.1 masked, a quadratic rule, and outputs that
+// changed when masked again. 0.6.1's rules now run first (redactLegacy.ts), and masking repeats
+// until nothing changes.
+describe('redactSecrets: the fourth review of the masking change', () => {
+  const leaks: Array<[string, string, string]> = [
+    ['a Jetty session id', 'Cookie: JSESSIONID=node01e2jb8d3u5y0x1ro8pvfqg3rn0.node0', 'node01e2jb8d3u5y0x1ro8pvfqg3rn0'],
+    ['a Flask session cookie', 'Set-Cookie: session=eyJfZnJlc2giOmZhbHNlfQ.ZQ8xYw.Tj3kM9wQ1_xYz0AbCdEfGhIjKlM; HttpOnly; Path=/', 'Tj3kM9wQ1_xYz0AbCdEfGhIjKlM'],
+    ['a session id that looks like a placeholder', 'Cookie: sessionid=$ecret9Zq', '$ecret9Zq'],
+    ['two authorization= on a line', 'authorization=a1b2c3d4e5f6 authorization=Zx4Cv6Bn8Mk2', 'Zx4Cv6Bn8Mk2'],
+    ['two Authorization headers, the second with no space', 'Authorization: a1b2c3d4e5f6 Authorization:Zx4Cv6Bn8Mk2', 'Zx4Cv6Bn8Mk2'],
+    ['a flag after an Authorization label', 'Error: no Authorization: use --api-key S3cretKey99 instead', 'S3cretKey99'],
+    ['a password with the command name in it', "mysql -u root -p'mysql' db", "'mysql'"],
+    ['a password with @mysql in it', 'mysql -uroot -p"root@mysql"', 'root@'],
+    ['a dotted password with mysql in it', 'mysql -u root -pMy.mysql.pw db', 'mysql.pw'],
+    ['a curl password with curl in it', "curl -u 'svc:p@ss-curl-2024' https://x", 'p@ss'],
+    ['an unterminated quote', 'curl -u "admin:S3cret https://x', 'S3cret'],
+    ['a label after a cookie', 'Cookie: sid=1; DB_PASSWORD: hunter22', 'hunter22'],
+    ['an API key header after a cookie', 'Cookie: sid=1; X-Api-Key: S3cretKey99', 'S3cretKey99'],
+    ['a --password after a cookie', 'Cookie: sid=1; --password Pa55word99', 'Pa55word99'],
+    ['a flag value that looks like a placeholder', 'tool --password %Pa55word', '%Pa55word'],
+    ['a flag value starting with $', 'tool --token $ecret9Zq', '$ecret9Zq'],
+    ['a flag value before " :"', 'tool --token abcdef :x', 'abcdef'],
+    ['PASSWORD= inside a quoted value', 'x:password="a PASSWORD="S3cret99"', 'S3cret99'],
+    ['deeply nested labels', 'a:b:c:d:e:f:g:h:i:"x PASSWORD=secret1"', 'secret1'],
+    ['a query after a secret', 'secret=Qw7Er9Ty3Ui5?key=PASSWORD ', 'Qw7Er9Ty3Ui5'],
+  ]
+  it.each(leaks)('masks: %s', (_name, text, secret) => {
+    const masked = redactSecrets(text)
+    expect(masked).not.toContain(secret)
+    expect(redactSecrets(masked)).toBe(masked)
+  })
+
+  it.each(['?key=password:/', 'password := hunter22', 'authorization=a1b2c3d4e5f6 authorization=Zx4Cv6Bn8Mk2'])('is the same when masked again: %s', (text) => {
+    const masked = redactSecrets(text)
+    expect(redactSecrets(masked)).toBe(masked)
+  })
+
+  it('takes linear time on joined Authorization labels', () => {
+    const scale = Number(process.env.CTXJEV_TIME_LIMIT_SCALE ?? 1)
+    for (const unit of ['Authorization=', 'Proxy-Authorization=']) {
+      const text = unit.repeat(Math.ceil(300_000 / unit.length)) + ': '
+      const start = performance.now()
+      redactSecrets(text)
+      expect(performance.now() - start).toBeLessThan(2000 * scale)
+    }
+  })
+})
+
+describe('redactSecrets: a cookie token followed by prose', () => {
+  it.each([
+    ['Cookie: dGhpcyBpcyBhIHNlc3Npb24gdG9rZW4= and more text', 'dGhpcyBpcyBhIHNlc3Npb24gdG9rZW4'],
+    ['Cookie: TOKEN123abcdef was rejected', 'TOKEN123abcdef'],
+  ])('masks %s', (text, secret) => {
+    const masked = redactSecrets(text)
+    expect(masked).not.toContain(secret)
+    expect(redactSecrets(masked)).toBe(masked)
+  })
+})
+
+describe('redactSecrets: 0.6.1\'s rules, run first (redactLegacy.ts)', () => {
+  const scale = Number(process.env.CTXJEV_TIME_LIMIT_SCALE ?? 1)
+  it.each([
+    ['curl -u followed by a run of "="', 'curl -u' + '='.repeat(300_000)],
+    ['mysql mentioned over and over with no -p', 'mysql '.repeat(50_000)],
+    ['curl mentioned over and over on one line', 'curl -H x '.repeat(30_000) + '-u admin:S3cretPw9xQ'],
+  ])('takes linear time: %s', (_name, text) => {
+    const start = performance.now()
+    redactSecrets(text)
+    expect(performance.now() - start).toBeLessThan(2000 * scale)
+  })
+
+  it('masks what 0.6.1 masked, 0.6.1\'s own cases included', () => {
+    expect(redactSecrets('mysql -u root -pS3cretPw9xQ db')).not.toContain('S3cretPw9xQ')
+    expect(redactSecrets('curl -u admin:S3cretPw9xQ https://x')).not.toContain('S3cretPw9xQ')
+    expect(redactSecrets('Authorization: Bot abcdefghijklmnop')).not.toContain('abcdefghijklmnop')
+    expect(redactSecrets('tool --token $ecret9Zq')).not.toContain('$ecret9Zq')
+  })
+
+  it.each([
+    ['--password <password>   password for the database user', '--password <password>   password for the database user'],
+    ['password=password', 'password=password'],
+  ])('leaves alone what it decides differently from 0.6.1: %s', (text, expected) => {
+    expect(redactSecrets(text)).toBe(expected)
+  })
+
+  it('doesn\'t take a header\'s name for the value of a Japanese label', () => {
+    expect(redactSecrets('パスワード: Set-Cookie: sid=Qw7Er9Ty3Ui5; Path=/')).not.toContain('Qw7Er9Ty3Ui5')
+  })
+})

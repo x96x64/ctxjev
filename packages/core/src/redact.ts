@@ -19,6 +19,7 @@
  * Callers mask before cutting text short, never after (see entryText.ts): a cut can leave half a
  * token that no longer matches any rule here.
  */
+import { redactLegacy } from './redactLegacy.js'
 const REDACTED = '[REDACTED]'
 
 // A value that's already masked, possibly cut at its closing bracket by a value pattern below.
@@ -128,7 +129,13 @@ function maskCookies(cookies: string): string {
 
 // A value never takes a parenthesis, angle bracket, or comma (`(Cookie: sessionid=…)` in prose).
 const COOKIE_PAIR = /^([ \t]*)([^\s=;"'\\(),<>]{1,128})=(\\?["']?)((?:[^\s;"'\\(),<>]|\\\S){0,4096})/
-const COOKIE_WORD = /^([ \t]*)((?:[^\s;"'\\(),<>]|\\\S){8,4096})/
+// A part with no name is one word, and never a label (`DB_PASSWORD:`, `accessToken =`) or a flag
+// (`--password`): those, after a cookie, are left to the rules for them.
+const COOKIE_WORD = /^([ \t]*)(?!-)((?:[^\s;"'\\(),<>]|\\\S){8,4096})(?<!:)(?![ \t]*[:=])(?=\s|$)/
+
+// What follows a masked value, less the rest of the value if the pattern's length limit cut it
+// short (a value of more than 4,096 characters is masked whole, in one pass).
+const afterValue = (rest: string) => rest.slice(/^(?:[^\s;"'\\(),<>]|\\\S)*/.exec(rest)![0].length)
 
 function maskCookie(part: string): string {
   const pair = COOKIE_PAIR.exec(part)
@@ -138,9 +145,13 @@ function maskCookie(part: string): string {
     // One named like a session or a credential is masked whatever it holds; any other when it looks
     // like a token (`uid=a8f3k2m9x1`), not a word (`cookie_consent=necessary`).
     const named = SESSION_COOKIE.test(name) || credentialKind(name) !== undefined
-    if (PLAIN_COOKIE.test(name) || isMasked(value) || PLACEHOLDER.test(value) || CODE_REFERENCE.test(value)) return part
-    if (!named && (value.length < 8 || !looksLikeToken(value))) return part
-    return `${space}${name}=${quote}${REDACTED}${part.slice(whole.length)}`
+    if (PLAIN_COOKIE.test(name) || isMasked(value)) return part
+    // A name with a random part (letters and digits, 8 or more: `Qw7Er9Ty3Ui5=…`, `SSESS4f2a…`) may
+    // be a token glued to what follows rather than a name, so the whole pair is masked.
+    if (name.length >= 8 && /[0-9]/.test(name) && /[A-Za-z]/.test(name)) return `${space}${REDACTED}${afterValue(part.slice(whole.length))}`
+    // A session's value is masked whatever it looks like (Jetty's `node0….node0` reads like code).
+    if (!named && (value.length < 8 || !looksLikeToken(value) || PLACEHOLDER.test(value) || CODE_REFERENCE.test(value))) return part
+    return `${space}${name}=${quote}${REDACTED}${afterValue(part.slice(whole.length))}`
   }
   // No name, or nothing after `=` (a base64 token's padding: `dGhpc…=`).
   const word = COOKIE_WORD.exec(part)
@@ -164,6 +175,14 @@ const NETRC_HINT = /(?:^|\s)(?:machine[ \t]+\S{1,253}|default)[ \t\r\n]+(?:login
 const NETRC_COMMENT_LINE = /^[ \t]*#[^\n]*\n/gm
 const NETRC_PASSWORD = /(^[ \t]*(?:(?:machine|login|account)[ \t]+\S+[ \t]+|default[ \t]+)*password[ \t]+)("[^"\n]{1,256}"|\S+)(?=[ \t\r]*$|[ \t]+(?:machine|login|account|macdef|default|port)[ \t]|[ \t]+#)/gm
 
+// Cookie / Set-Cookie headers and document.cookie, bare or quoted (`"Cookie": "…"`, `{'Cookie':
+// '…'}`, `=>`, escaped JSON), each value passed to maskCookies. A quoted value ends at its closing
+// quote; a bare one at a double quote (except one opening a cookie's value, `sessionid="…"`), a
+// backtick, or the next Cookie header on the line.
+const COOKIE_RULE: Rule = [/(\b(?:Set-)?Cookie(?:\\?["'`])?[ \t]*(?:=>|:=|[:=])[ \t]*)(?:\\"((?:[^"\\\r\n]|\\[^"\r\n]){1,8192})\\"|"((?:[^"\\\r\n]|\\.){1,8192})"|'((?:[^'\\\r\n]|\\.){1,8192})'|`([^`\r\n]{1,8192})`|((?:(?!\b(?:Set-)?Cookie(?:\\?["'`])?[ \t]*(?:=>|:=|[:=]))(?:[^\r\n"`=]|="[^"\r\n]{0,4096}"|=)){1,8192}))/gi,
+  (_match, head: string, escaped?: string, dq?: string, sq?: string, bq?: string, bare?: string) =>
+    escaped !== undefined ? `${head}\\"${maskCookies(escaped)}\\"` : dq !== undefined ? `${head}"${maskCookies(dq)}"` : sq !== undefined ? `${head}'${maskCookies(sq)}'` : bq !== undefined ? `${head}\`${maskCookies(bq)}\`` : head + maskCookies(bare ?? '')]
+
 const POSITIONAL_PATTERNS: Rule[] = [
   // scheme://user:password@host — the password may itself contain "@", so it runs to the last one.
   [/\b([a-z][a-z0-9+.-]{0,31}:\/\/[^\s:/?#@"'<>]{0,256}:)[^\s/?#"'<>]{1,1024}(@)/gi, `$1${REDACTED}$2`],
@@ -173,8 +192,10 @@ const POSITIONAL_PATTERNS: Rule[] = [
   // A known scheme's credentials are masked whatever they look like (`Basic dXNlcjpwYXNz` is all
   // letters); after any other word only what looks like a token, so "Authorization: missing
   // credentials" stays as it is. The value is taken whole, and never the name of another header
-  // (`authorization=a1b… Authorization: b1b…`), which would hide that header from the next match.
-  [/(\b(?:Proxy-)?Authorization(?:\\?["'])?[ \t]*(?:=>|:=|[:=])[ \t]*(?:\\?["'])?)(?:([A-Za-z][A-Za-z0-9-]{1,30})([ \t]+))?(?=([A-Za-z0-9._~+/=-]{8,}))\4(?!:\s)/gi, (match: string, head: string, scheme: string | undefined, space: string, value: string) =>
+  // (`authorization=a1b… Authorization: b1b…`), which would hide that header from the next match,
+  // or a flag (`use --api-key …`). It's at most 4,096 characters: unbounded, a run of joined labels
+  // (`Authorization=Authorization=…`) was read to its end from every label, in quadratic time.
+  [/(\b(?:Proxy-)?Authorization(?:\\?["'])?[ \t]*(?:=>|:=|[:=])[ \t]*(?:\\?["'])?)(?:([A-Za-z][A-Za-z0-9-]{1,30})([ \t]+))?(?!-)(?=([A-Za-z0-9._~+/=-]{8,4096}))\4(?!:\s)/gi, (match: string, head: string, scheme: string | undefined, space: string, value: string) =>
     {
       // With no word before it, the value may be the scheme itself, its credentials already masked.
       if (scheme === undefined) return looksLikeToken(value) && !AUTH_SCHEMES.test(value) ? `${head}${REDACTED}` : match
@@ -188,13 +209,7 @@ const POSITIONAL_PATTERNS: Rule[] = [
   [/(\bSignature=)[0-9a-f]{64}\b/g, `$1${REDACTED}`],
   [/\b(Bearer\s+)[A-Za-z0-9._~+/=-]{16,}/gi, `$1${REDACTED}`],
   // Before the flag rule, so `--token "Cookie": "…"` can't take the header's name for a value.
-  // Cookie / Set-Cookie headers and document.cookie, bare or quoted (`"Cookie": "…"`, `{'Cookie':
-  // '…'}`, `=>`, escaped JSON), each value passed to maskCookies. A quoted value ends at its closing
-  // quote; a bare one at a double quote (except one opening a cookie's value, `sessionid="…"`), a
-  // backtick, or the next Cookie header on the line.
-  [/(\b(?:Set-)?Cookie(?:\\?["'`])?[ \t]*(?:=>|:=|[:=])[ \t]*)(?:\\"((?:[^"\\\r\n]|\\[^"\r\n]){1,8192})\\"|"((?:[^"\\\r\n]|\\.){1,8192})"|'((?:[^'\\\r\n]|\\.){1,8192})'|`([^`\r\n]{1,8192})`|((?:(?!\b(?:Set-)?Cookie(?:\\?["'`])?[ \t]*(?:=>|:=|[:=]))(?:[^\r\n"`=]|="[^"\r\n]{0,4096}"|=)){1,8192}))/gi,
-    (_match, head: string, escaped?: string, dq?: string, sq?: string, bq?: string, bare?: string) =>
-      escaped !== undefined ? `${head}\\"${maskCookies(escaped)}\\"` : dq !== undefined ? `${head}"${maskCookies(dq)}"` : sq !== undefined ? `${head}'${maskCookies(sq)}'` : bq !== undefined ? `${head}\`${maskCookies(bq)}\`` : head + maskCookies(bare ?? '')],
+  COOKIE_RULE,
   // --password S3cret, --token abc…, --db-password …, --client-secret …: a separate argument after a
   // flag named like a credential (the same words as an assignment's name; `--token-file x` isn't one).
   [/(\s--([A-Za-z][A-Za-z0-9_-]{0,63})[ \t]+)(["']?)(?!-)([^\s'"]+)\3(?![ \t]*:)/g, (match, head: string, flag: string, quote: string, value: string) => {
@@ -380,7 +395,7 @@ const AUTH_SCHEMES = /^(?:Basic|Bearer|Bot|Digest|Token|SSWS|OAuth|Negotiate|NTL
 const QUOTED = `(["'])(?<q>[^\\n]{1,256}?)\\1`
 const COMMAND_ARGUMENTS: Array<[RegExp, RegExp, boolean]> = [
   [/\bmysql(?:dump|admin|import|sh)?\b/g, new RegExp(`\\s-p(?:${QUOTED}|(?<v>[^\\s'"]+))`, 'd'), false],
-  [/\bcurl\b/g, /\s(?:-u[ \t=]*|--user[ \t=]+)(?:(["'])[^\s:'"]{0,256}:(?<q>[^\n]{1,256}?)\1|(?:[^\s:'"-][^\s:'"]{0,255})?:(?<v>[^\s'"]+))/d, false],
+  [/\bcurl\b/g, /\s(?:-u[ \t=]*|--user[ \t=]+)(?:(["'])[^\s:'"]{0,256}:(?<q>[^\n]{1,256}?)\1|(?:[^\s:'"=-][^\s:'"]{0,255})?:(?<v>[^\s'"]+))/d, false],
   [/\bsshpass\b/g, new RegExp(`\\s-p[ \\t]*(?:${QUOTED}|(?<v>(?!-)[^\\s'"]+))`, 'd'), true],
   [/\bredis-cli\b/g, new RegExp(`\\s-a[ \\t]*(?:${QUOTED}|(?<v>(?!-)[^\\s'"]+))`, 'd'), true],
   [/\bdocker[ \t]+login\b/g, new RegExp(`\\s-p[ \\t]*(?:${QUOTED}|(?<v>(?!-)[^\\s'"]+))`, 'd'), true],
@@ -475,7 +490,25 @@ function maskAssignments(text: string): string {
   return out + text.slice(copied)
 }
 
+/**
+ * Masks what 0.6.1 masked (redactLegacy.ts), then what these rules mask, and repeats until nothing
+ * changes (at most a few passes; one is almost always enough), so masking twice is the same as once.
+ * Running 0.6.1's rules first means a gap in a rule rewritten here can't let through a secret 0.6.1
+ * caught; it also keeps 0.6.1's false alarms (see the CHANGELOG).
+ */
 export function redactSecrets(text: string): string {
+  let out = text
+  for (let pass = 0; pass < MAX_PASSES; pass++) {
+    const next = redactCurrent(redactLegacy(out))
+    if (next === out) break
+    out = next
+  }
+  return out
+}
+
+const MAX_PASSES = 4
+
+function redactCurrent(text: string): string {
   let out = text
   for (const rule of TOKEN_PATTERNS) out = applyRule(out, rule)
   // Before the positional rules, so a flag's rule can't take the command's name for its value

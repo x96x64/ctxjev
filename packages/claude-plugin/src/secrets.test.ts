@@ -222,14 +222,34 @@ describe('secrets on the plugin’s paths (dist)', () => {
     expect(digest.stdout).not.toContain('PLANTED')
   }, 20_000)
 
-  it.skipIf(process.platform === 'win32')('reads no state file that is a symlink', async () => {
+  it.skipIf(process.platform === 'win32')('reads no state file that is a symlink, and the status report says why', async () => {
     const dir = join(state, 'sessions', 'sess-1')
     await mkdir(dir, { recursive: true, mode: 0o700 })
     const elsewhere = join(cwd, 'elsewhere.json')
     const planted = { goal: 'g', scoredAt: '2026-01-01T00:00:00.000Z', scorer: 'local', entries: [{ entryId: 'x', relevance: 1, recency: 1, combinedScore: 0.99, content: 'PLANTED THROUGH A LINK' }] }
     await writeFile(elsewhere, JSON.stringify(planted), 'utf8')
     await symlink(elsewhere, join(dir, 'preserved.json'))
+    await writeFile(join(dir, 'last-run.json'), JSON.stringify({ at: '2026-01-01T00:00:00.000Z', outcome: 'preserved', preserved: 1, goal: 'g' }), 'utf8')
     const digest = await runHook('sessionStartCompact.js', JSON.stringify({ cwd, session_id: 'sess-1' }))
     expect(digest.stdout).not.toContain('PLANTED')
+    // The fourth review: last-run.json was fine, so the report said "preserved (1 entries)" and
+    // showed nothing, with no reason.
+    const status = await runHook('statusHook.js', JSON.stringify({ prompt: '/ctxjev:status', cwd, session_id: 'sess-1' }))
+    expect(status.stdout).not.toContain('PLANTED')
+    expect(status.stdout).toMatch(/Preserved: not read — .*isn't a regular file/)
+  }, 20_000)
+
+  // The fourth review: in the user's own directory that others could write to, PreCompact didn't
+  // clear the previous snapshot (it refused to touch such a directory), then made the directory
+  // private, and the stale snapshot was re-injected as the current one.
+  it.skipIf(process.platform === 'win32')('clears the previous snapshot even when others could write to the directory', async () => {
+    const dir = join(state, 'sessions', 'sess-1')
+    await mkdir(dir, { recursive: true })
+    const stale = { goal: 'g', scoredAt: '2026-01-01T00:00:00.000Z', scorer: 'local', entries: [{ entryId: 'x', relevance: 1, recency: 1, combinedScore: 0.99, content: 'STALE FROM AN EARLIER COMPACTION' }] }
+    await writeFile(join(dir, 'preserved.json'), JSON.stringify(stale), 'utf8')
+    await chmod(dir, 0o777)
+    await runHook('preCompact.js', JSON.stringify({ cwd, session_id: 'sess-1' }))
+    const digest = await runHook('sessionStartCompact.js', JSON.stringify({ cwd, session_id: 'sess-1' }))
+    expect(digest.stdout).not.toContain('STALE')
   }, 20_000)
 })

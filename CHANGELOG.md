@@ -53,21 +53,25 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
   (`--token abcdef`, `--api-key 12345678901234`, `--api_key …`, `--client-secret …`) is masked
   however short or numeric; 0.6.1 knew only a few flag names. An authentication scheme's name after one (`--auth basic`)
   isn't.
-- `ctxjev-core`: fewer false alarms. Not masked any more: `password=password` and
-  `password=self.password` (code passing a variable on); after `Authorization:`, a value under 16
-  characters with no digit, symbol, or inner capital and no known scheme before it ("Authorization:
-  missing credentials"); code that reads a cookie (`= req.headers.cookie`). Of the rules new in
-  this release, these are left alone on purpose: a Kubernetes env var named like a token whose
-  value is a plain word (`value: disabled`), a token-named XML element holding one capitalized word
+- `ctxjev-core`: nothing 0.6.1 masked is let through: `redactSecrets()` applies 0.6.1's rules
+  first and this release's to what's left, and repeats until nothing changes, so masking twice
+  gives the same result as once. Four of 0.6.1's decisions change, each a false alarm that could
+  also hide a secret from the rules after it: a cookie list under a name ending in "cookie"
+  (`Cookie: sessionid=…; theme=dark`) goes to the cookie rule above instead of having its first
+  cookie masked; a value that's the same name again or a reference ending in it
+  (`password=password`, `password=self.password`, `cookie = req.headers.cookie`) isn't masked; a
+  `--password`/`--token` value in angle brackets (`--password <password>`, a usage line) isn't; and
+  after a Japanese label (`パスワード:`), a header's name (`Set-Cookie:`) isn't taken for the value.
+  An assignment's name is read up to 128 characters. Of the rules new in this release, these are
+  left alone on purpose: a Kubernetes env var named like a token whose value is a plain word
+  (`value: disabled`), a token-named XML element holding one capitalized word
   (`<Token>Identifier</Token>`), `?key=` holding a path or a file name, a storage key under 20
   characters (`STORAGE_KEY = "todos-v1"`), a `.pgpass`-shaped line whose port is under 1000 or
   whose host is a relative path (grep output, `12:30:45:123:4567`), and "password" followed by a
-  quoted phrase in prose (`the password "is too short"`). Prose that happens to have a `.netrc`
-  entry's shape ("machine learning login flow" and then a line starting "password") is still
-  masked.
+  quoted phrase in prose (`the password "is too short"`).
 - `ctxjev-core`: `redactSecrets()` takes time in proportion to its input on long runs of one
-  pattern. 100,000 characters of `a.a.a…` took 24 seconds; 200,000 of any of the audit's shapes
-  now take well under a second.
+  pattern. 100,000 characters of `a.a.a…` took 24 seconds, and other shapes (`curl -u====…`) grew
+  the same way; a million characters of any shape tried now take about a second or less.
 - `ctxjev-claude`: the digest re-injected after compaction and the `/ctxjev:status` report are
   masked as they're read, not only when the snapshot was written, and before anything is cut short,
   so a snapshot or last-run record an earlier version wrote with the weaker masking doesn't bring a
