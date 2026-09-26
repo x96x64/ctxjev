@@ -151,7 +151,16 @@ function nameWords(name: string): string[] {
     .filter(Boolean)
 }
 
+const kindCache = new Map<string, CredentialKind | undefined>()
 function credentialKind(name: string): CredentialKind | undefined {
+  if (kindCache.has(name)) return kindCache.get(name)
+  const kind = classifyName(name)
+  if (kindCache.size >= 4096) kindCache.clear()
+  kindCache.set(name, kind)
+  return kind
+}
+
+function classifyName(name: string): CredentialKind | undefined {
   const words = nameWords(name)
   while (words.length > 1 && TRAILING_WORDS.has(words[words.length - 1])) words.pop()
   const last = words[words.length - 1]
@@ -182,7 +191,9 @@ function isMaskableValue(value: string, kind: CredentialKind, bare: boolean, nex
 export function redactLegacy(text: string): string {
   let out = text
   for (const [pattern, replacement] of TOKEN_PATTERNS) out = out.replace(pattern, replacement)
-  for (const [pattern, replacement] of POSITIONAL_PATTERNS.slice(0, 3)) out = out.replace(pattern, replacement as string)
+  // Each rule below is skipped when the text lacks what it needs to match (`://` for a URL, "aws" or
+  // "secret" before an AWS key): the same result, one pass over the text fewer.
+  for (const [pattern, replacement] of POSITIONAL_PATTERNS.slice(0, 3)) if (pattern !== POSITIONAL_PATTERNS[0][0] || out.includes('://')) out = out.replace(pattern, replacement as string)
   out = maskAfterCommand(out, MYSQL, MYSQL_ARGUMENT, (m) => `${m[1]}${m[2]}${REDACTED}${m[2]}`)
   out = maskAfterCommand(out, CURL, CURL_ARGUMENT, (m) => `${m[1]}${REDACTED}`)
   for (const [pattern, replacement] of POSITIONAL_PATTERNS.slice(3)) out = typeof replacement === 'string' ? out.replace(pattern, replacement) : out.replace(pattern, replacement)
@@ -191,7 +202,7 @@ export function redactLegacy(text: string): string {
     const sixteen = /^(\d{4}([ -])\d{4}\2\d{4}\2\d{4})(\2\d{3})$/.exec(match)
     return sixteen && looksLikeCardNumber(sixteen[1]) ? `${REDACTED}${sixteen[3]}` : match
   })
-  out = out.replace(AWS_SECRET_CANDIDATE, (match: string, offset: number, whole: string) =>
+  if (AWS_SECRET_CONTEXT.test(out)) out = out.replace(AWS_SECRET_CANDIDATE, (match: string, offset: number, whole: string) =>
     looksLikeAwsSecret(match) && AWS_SECRET_CONTEXT.test(whole.slice(Math.max(0, offset - 100), offset)) ? REDACTED : match,
   )
   out = out.replace(ASSIGNMENT, (match: string, quote: string, name: string, sep: string, escaped: string | undefined, dq: string | undefined, sq: string | undefined, bq: string | undefined, bare: string | undefined, offset: number, whole: string) => {
