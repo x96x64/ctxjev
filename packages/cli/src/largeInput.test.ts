@@ -33,17 +33,22 @@ afterEach(async () => {
 })
 
 describe('ctxjev analyze on a 5,000,000-character entry', () => {
+  // `/` with line breaks, and symbols with a combining accent, are one pre-token of mixed kinds:
+  // the first fix left them whole, and 1,000,000 characters of `/\n` didn't finish in 150 seconds,
+  // while 200,000 of `!!` plus an accent ended with "Maximum call stack size exceeded".
   it.each([
     ['x', 'x'],
     ['█', '█'],
-  ])('of %s finishes in under 30 seconds', async (_name, char) => {
+    ['/ and a line break', '/\n'],
+    ['!! and a combining accent', '!!\u0301'],
+  ])('of %s finishes in under 30 seconds', async (_name, unit) => {
     const file = join(dir, 'big.json')
     await writeFile(
       file,
       JSON.stringify({
         goal: 'find the separator line',
         entries: [
-          { id: 'big', role: 'tool', toolName: 'bash', content: char.repeat(5_000_000), timestamp: 1 },
+          { id: 'big', role: 'tool', toolName: 'bash', content: unit.repeat(5_000_000 / unit.length + 1).slice(0, 5_000_000), timestamp: 1 },
           { id: 'small', role: 'assistant', content: 'done', timestamp: 2 },
         ],
       }),

@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { findExplicitGoal, findOriginalTask, inferGoalFromEntries, parseClaudeCodeTranscript, resolveClaudeCodeGoal, transcriptStartTime } from './claudeCodeTranscript.js'
+import { validateEntries } from './validate.js'
 import { estimateTokens } from './tokenEstimate.js'
 
 function record(obj: unknown): string {
@@ -115,6 +116,20 @@ describe('parseClaudeCodeTranscript', () => {
     for (const e of entries) expect(typeof e.id).toBe('string')
     expect(resolveClaudeCodeGoal(jsonl, entries)?.goal).toBe('fix the bug')
     expect(transcriptStartTime(jsonl)).toBe(Date.parse('2026-01-01T00:00:00.000Z'))
+  })
+
+  // An empty uuid or tool id: 0.6.1 kept the record, and the entry checks added since refuse an
+  // empty id, which would fail the whole transcript. The record gets its line's id; a tool block
+  // with an empty id is skipped like one with none.
+  it('gives a record with an empty uuid its line id, and skips a tool block with an empty id', () => {
+    const jsonl = [
+      record({ type: 'user', uuid: '', message: { role: 'user', content: 'fix the bug' } }),
+      record({ type: 'assistant', uuid: 'a1', message: { role: 'assistant', content: [{ type: 'tool_use', id: '', name: 'Bash', input: {} }, { type: 'tool_use', id: 'c1', name: 'Bash', input: { command: 'ls' } }] } }),
+      record({ type: 'user', uuid: 'u2', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: '', content: 'x' }, { type: 'tool_result', tool_use_id: 'c1', content: 'src' }] } }),
+    ].join('\n')
+    const entries = parseClaudeCodeTranscript(jsonl)
+    expect(entries.map((e) => e.id)).toEqual(['line-0', 'c1'])
+    expect(() => validateEntries(entries)).not.toThrow()
   })
 
   it('extracts a text block from array-shaped user content (e.g. a message with an attachment)', () => {

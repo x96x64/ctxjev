@@ -21,6 +21,12 @@ describe('estimateTokens: time on long runs', () => {
     ['─ × 100,000', '─'.repeat(100_000)],
     ['😀 × 50,000', '😀'.repeat(50_000)],
     ['varied kana, 100,000 with no punctuation', variedKana],
+    // One pre-token of mixed kinds (the review of the first fix): 200,000 characters of `/\n` took
+    // 20.7 seconds, and `!!` plus a combining accent 1.8 seconds at 48,000.
+    ['/\\n × 100,000', '/\n'.repeat(100_000)],
+    ['//\\n × 100,000 (empty comment lines)', '//\n'.repeat(100_000)],
+    ['!! and a combining accent × 66,667', '!!\u0301'.repeat(66_667)],
+    ['e and a combining accent × 100,000', 'e\u0301'.repeat(100_000)],
   ]
   it.each(runs)('%s in under 1 second', (_name, text) => {
     const start = performance.now()
@@ -31,16 +37,16 @@ describe('estimateTokens: time on long runs', () => {
 
   // 5,000,000 `█` also overflowed the regular expression engine's stack in the first version of the
   // fix, which matched a whole run at once.
-  it.each(['x', '█', '😀'])('5,000,000 characters of %s in under 5 seconds', (char) => {
+  it.each(['x', '█', '😀', '/\n', '!!\u0301'])('5,000,000 characters of %s in under 5 seconds', (unit) => {
     const start = performance.now()
-    expect(estimateTokens(char.repeat(5_000_000))).toBeGreaterThan(0)
+    expect(estimateTokens(unit.repeat(5_000_000 / unit.length + 1).slice(0, 5_000_000))).toBeGreaterThan(0)
     expect(performance.now() - start).toBeLessThan(5000)
   })
 })
 
 describe('estimateTokens: counts', () => {
   it('is exactly encode() for text with no run longer than 128 of one kind', () => {
-    for (const text of ['', 'hello world', 'ran: npm test -- checkout.test.ts — 12 passed, 0 failed', `${'='.repeat(128)}\n${'x'.repeat(128)}`, 'パスワード：hunter2 です', '😀'.repeat(64)]) {
+    for (const text of ['', 'hello world', 'ran: npm test -- checkout.test.ts — 12 passed, 0 failed', `${'='.repeat(128)}\n${'x'.repeat(128)}`, 'パスワード：hunter2 です', '😀'.repeat(64), '/\n'.repeat(64), '!!\u0301'.repeat(42), `// ${'-'.repeat(100)}\n//\n// ${'='.repeat(100)}`]) {
       expect(estimateTokens(text)).toBe(encode(text).length)
     }
   })
@@ -49,6 +55,18 @@ describe('estimateTokens: counts', () => {
     for (const text of ['x'.repeat(20_000), '█'.repeat(5_000), `log line\n${'='.repeat(10_000)}\nend`, 'ab'.repeat(10_000)]) {
       const exact = encode(text).length
       expect(Math.abs(estimateTokens(text) - exact)).toBeLessThanOrEqual(Math.max(2, exact * 0.02))
+    }
+  })
+})
+
+describe('estimateTokens: special tokens', () => {
+  // encode() throws on text that spells a special token unless told otherwise, and a conversation
+  // about language models can quote one.
+  it('counts text that spells a special token as the text it is', () => {
+    for (const special of ['<|endoftext|>', '<|im_start|>', '<|im_end|>', '<|fim_prefix|>', '<|endofprompt|>']) {
+      const text = `the model stops at ${special} here`
+      expect(estimateTokens(text)).toBe(encode(text, { disallowedSpecial: new Set() }).length)
+      expect(estimateTokens(text)).toBeGreaterThan(estimateTokens('the model stops at here'))
     }
   })
 })

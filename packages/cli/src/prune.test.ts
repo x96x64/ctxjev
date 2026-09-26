@@ -283,6 +283,22 @@ describe('prune on ctxjev’s own format: protection and the rest of the file', 
     expect(claudeCode.exitCode).toBe(1)
     expect(claudeCode.stderr).toContain('--protect-last only applies to')
   }, 15_000)
+
+  // The review of this change: 0.6.1 read a Claude Code record with an empty uuid or tool id, and
+  // the new entry checks refused the whole transcript over it ("entries[0].id must be a non-empty
+  // string", about a file that has no entries).
+  it('reads a Claude Code transcript with an empty uuid or tool id, as 0.6.1 did', async () => {
+    const original = await readFile(sample('claude-code-session.jsonl'), 'utf8')
+    for (const [from, to] of [['"uuid":"u1"', '"uuid":""'], ['"call2"', '""']]) {
+      expect(original).toContain(from)
+      const file = join(dir, 'empty-id.jsonl')
+      await writeFile(file, original.replaceAll(from, to))
+      const result = await run(['analyze', file, '--offline'])
+      expect(result.stderr, to).not.toContain('must be a non-empty string')
+      expect(result.exitCode, to).toBe(0)
+      expect(result.stdout, to).toContain('entries)')
+    }
+  }, 30_000)
 })
 
 describe('--scorer', () => {

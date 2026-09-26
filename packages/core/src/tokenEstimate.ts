@@ -5,20 +5,28 @@ import { encode } from 'gpt-tokenizer'
  * (see the "Jev constraints" section of the root CLAUDE.md).
  *
  * `encode()` merges byte pairs within one pre-token at a cost that grows with the square of its
- * length, and a run of letters, of symbols, or of whitespace with nothing to break it is one
- * pre-token however long it is: 100,000 `█` took 82 seconds, and a 5,000,000-character entry
- * didn't finish. So a run longer than MAX_RUN characters is counted in pieces of MAX_RUN (each
- * distinct piece encoded once), and everything around it exactly as before. It's an estimate:
- * each cut can move the count by a token or so, on text that's rare in practice (a separator line
+ * length, and a pre-token has no length limit: a run of letters, of symbols (combining marks
+ * included), or of whitespace is one pre-token however long it is, and so is a symbol followed by
+ * any run of `/` and line breaks (`/\n/\n…`). 100,000 `█` took 82 seconds, a 5,000,000-character
+ * entry didn't finish, and 200,000 characters of `!!` plus a combining accent overflowed the stack.
+ * So a run of more than MAX_RUN of one of those kinds is counted in pieces of MAX_RUN (each
+ * distinct piece encoded once), which leaves no pre-token longer than about twice MAX_RUN; text
+ * with no such run counts exactly as `encode()` does. It's an estimate: each cut can move the
+ * count by a token or so where it cuts, on text that's rare in practice (a separator line
  * hundreds of characters long, a minified blob, Japanese with no punctuation for a page).
  */
 const MAX_RUN = 128
-// Matched at most 8,192 characters at a time (a longer run is several matches in a row): a single
-// match over millions of symbols overflowed the regular expression engine's stack.
+// The kinds a pre-token of o200k_base (gpt-tokenizer's default encoding) is a run of: letters and
+// marks, anything but letters, digits, and whitespace (marks included), whitespace, and `/` with
+// line breaks. Matched at most 8,192 characters at a time (a longer run is several matches in a
+// row): a single match over millions of symbols overflowed the regular expression engine's stack.
 const LONG_RUN = new RegExp(
-  [`[\\p{L}\\p{M}]`, `[^\\s\\p{L}\\p{M}\\p{N}]`, `\\s`].map((kind) => `${kind}{${MAX_RUN + 1},8192}`).join('|'),
+  [`[\\p{L}\\p{M}]`, `[^\\s\\p{L}\\p{N}]`, `\\s`, `[\\r\\n/]`].map((kind) => `${kind}{${MAX_RUN + 1},8192}`).join('|'),
   'gu',
 )
+// Text that spells a special token (`<|endoftext|>`, which a conversation about language models
+// can quote) is counted as the text it is; encode() refuses it by default.
+const AS_TEXT = { disallowedSpecial: new Set<string>() }
 
 // Pieces of a long run repeat (a separator line, a padded field), so each is encoded once.
 const pieceCache = new Map<string, number>()
@@ -27,7 +35,7 @@ const PIECE_CACHE_LIMIT = 4096
 function countPiece(piece: string): number {
   let tokens = pieceCache.get(piece)
   if (tokens === undefined) {
-    tokens = encode(piece).length
+    tokens = encode(piece, AS_TEXT).length
     if (pieceCache.size >= PIECE_CACHE_LIMIT) pieceCache.clear()
     pieceCache.set(piece, tokens)
   }
@@ -51,9 +59,9 @@ export function estimateTokens(text: string): number {
   let tokens = 0
   let last = 0
   for (const match of text.matchAll(LONG_RUN)) {
-    if (match.index > last) tokens += encode(text.slice(last, match.index)).length
+    if (match.index > last) tokens += encode(text.slice(last, match.index), AS_TEXT).length
     tokens += countRun(match[0])
     last = match.index + match[0].length
   }
-  return tokens + (last === 0 ? encode(text).length : last < text.length ? encode(text.slice(last)).length : 0)
+  return tokens + (last === 0 ? encode(text, AS_TEXT).length : last < text.length ? encode(text.slice(last), AS_TEXT).length : 0)
 }

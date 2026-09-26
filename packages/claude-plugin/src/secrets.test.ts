@@ -269,6 +269,10 @@ describe('secrets on the plugin’s paths (dist)', () => {
       { type: 'user', uuid: 'm1', message: { role: 'user', content: [{ type: 'text', text: 123 }] } },
       { type: 'assistant', uuid: 'm2', message: { role: 'assistant', content: [{ type: 'text', text: null }, { type: 'text' }, { type: 'tool_use', id: 5, name: 7, input: 'x' }] } },
       { type: 'user', uuid: 7, message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: {}, content: 5 }] } },
+      // An empty uuid or tool id, which 0.6.1 read and the entry checks refuse.
+      { type: 'user', uuid: '', message: { role: 'user', content: 'checkout database connection still failing' } },
+      { type: 'assistant', uuid: 'm3', message: { role: 'assistant', content: [{ type: 'tool_use', id: '', name: 'Bash', input: {} }] } },
+      { type: 'user', uuid: 'm4', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: '', content: 'x' }] } },
     ]
     const tail = await writeTranscript()
     await writeFile(transcriptPath, records.map((r) => JSON.stringify(r)).join('\n') + '\n' + (await readFile(tail, 'utf8')), 'utf8')
