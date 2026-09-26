@@ -455,6 +455,27 @@ describe('pruneMessages', () => {
       expect(wrong).toEqual([])
     })
 
+    // The budget leaves room for the note as it removes entries. It used to stop as soon as what
+    // was left fit without the note, then report overBudget with entries it could still remove.
+    it('reports overBudget only when nothing more could be removed', async () => {
+      const sample = JSON.parse(await readFile(join(dirname(fileURLToPath(import.meta.url)), '../../../examples/sample-transcripts/anthropic-messages.json'), 'utf8'))
+      const messages: AnthropicMessage[] = Array.isArray(sample) ? sample : sample.messages
+      const whole = size(messages)
+      const stoppedEarly: number[] = []
+      let over = 0
+      for (const protectLastTurn of [true, false]) {
+        const all = await pruneMessages(messages, 'goal', { targetTokens: 0, protectLastTurn, protectLast: 1 })
+        for (let target = 0; target <= whole + 5; target++) {
+          const result = await pruneMessages(messages, 'goal', { targetTokens: target, protectLastTurn, protectLast: 1 })
+          if (!result.overBudget) continue
+          over++
+          if ([...result.removed].sort().join() !== [...all.removed].sort().join()) stoppedEarly.push(target)
+        }
+      }
+      expect(over).toBeGreaterThan(0)
+      expect(stoppedEarly).toEqual([])
+    })
+
     it('across randomized conversations, scores, and targets', async () => {
       const random = seededRandom(807)
       const wrong: string[] = []

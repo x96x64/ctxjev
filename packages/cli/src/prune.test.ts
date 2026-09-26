@@ -250,6 +250,24 @@ describe('prune on ctxjev’s own format: protection and the rest of the file', 
     expect(result.stderr).toContain('⚠ removed the first user entry (j1)')
   }, 15_000)
 
+  // The review of this change: removing analyze's warning, or its --json prune, left every test passing.
+  it('analyze says what prune would do: the same warning, and prune in --json', async () => {
+    const flags = ['--no-protect-first', '--protect-last', '0']
+    const report = await run(['analyze', sample('invoice-date-ja.json'), ...flags])
+    expect(report.exitCode).toBe(0)
+    expect(report.stdout).toContain('⚠ would remove the first user entry (j1)')
+    const pruned = await run(['prune', sample('invoice-date-ja.json'), ...flags])
+    const kept = JSON.parse(pruned.stdout).entries.map((e: { id: string }) => e.id)
+    const json = JSON.parse((await run(['analyze', sample('invoice-date-ja.json'), '--json', ...flags])).stdout)
+    expect(json.prune.firstUserEntryRemoved).toBe('j1')
+    expect(json.prune.removed).toContain('j1')
+    for (const id of json.prune.removed) expect(kept).not.toContain(id)
+    expect(json.prune.keptDrops).toEqual({ firstUserEntry: [], lastEntries: [] })
+    const protectedByDefault = JSON.parse((await run(['analyze', sample('invoice-date-ja.json'), '--json'])).stdout)
+    expect(protectedByDefault.prune.removed).not.toContain('j1')
+    expect(protectedByDefault.prune.firstUserEntryRemoved).toBeUndefined()
+  }, 30_000)
+
   it('writes back every other field of the file as it was', async () => {
     const result = await run(['prune', sample('checkout-bug.json')])
     const original = JSON.parse(await readFile(sample('checkout-bug.json'), 'utf8'))

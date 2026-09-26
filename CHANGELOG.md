@@ -105,11 +105,15 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
   container, therefore keeps nothing.) Windows has no POSIX owner and mode bits, so the ownership
   and permission checks don't apply there; the symlink and hard-link refusals do.
 - `ctxjev-core`, `ctxjev-cli`: token counting no longer slows to a halt on a long run of one
-  character or of unpunctuated text. 100,000 `█` took 82 seconds and `ctxjev analyze` on a
-  5,000,000-character entry didn't finish in two minutes; both now take well under a second. A run
-  longer than 128 characters is counted in pieces, which can move its count by about a token per
-  piece; every other text counts exactly as before (on every sample and eval session in this repo,
-  one string of 6,078 changed, by one token).
+  character, of unpunctuated text, or of symbols, slashes, and line breaks. 100,000 `█` took 82
+  seconds, `ctxjev analyze` on a 5,000,000-character entry didn't finish in two minutes, and
+  200,000 characters of `/` and line breaks took 20; all now take well under a second or a few
+  seconds. A run longer than 128 characters is counted in pieces, which can move its count by
+  about a token per piece; every other text counts exactly as before (on every sample and eval
+  session in this repo, one string of 6,078 changed, by one token).
+- `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`: text that spells a special token, such as
+  `<|endoftext|>` quoted in a conversation about language models, is counted as the text it is;
+  every token count failed on it with "Disallowed special token found".
 - `ctxjev-cli`: `ctxjev prune` on ctxjev's own format keeps the first user entry (usually the
   original request) and the last two entries by default, as it already did for an Anthropic
   Messages conversation's first message and tail; under the default `recency` scorer the first
@@ -128,9 +132,20 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
   raw error or a wrong number. A string `sourceTokens` (`"100"`) printed `NaN%`, a text block with
   no `text` died with "Cannot read properties of undefined", and a tool call with no `id` or a
   `tool_result` with no `tool_use_id` failed the same way; `pruneContext()`, `scoreEntries()`,
-  `summarizeSavings()`, `messagesToEntries()`, and `pruneMessages()` now check what they read
-  (including that the goal is a string), as do a policy's thresholds and weight and
-  `pruneMessages()`' numeric options.
+  `summarizeSavings()`, `messagesToEntries()`, `pruneMessages()`, `pruneEntries()`, and
+  `rankLocalRelevance()` now check what they read (including that the goal is a string), as do a
+  policy's thresholds and weight and `pruneMessages()`' numeric options. **Input 0.6.1 accepted and
+  this release refuses:** an entry with an empty or missing `id`, a `role` other than `user`,
+  `assistant`, or `tool`, a non-string `toolName`, a `timestamp` that isn't a finite number, or a
+  negative `sourceTokens`; a policy threshold or weight outside 0-1, or `dropBelow` above
+  `summarizeBelow`; in an Anthropic Messages conversation, a block with no string `type`, a
+  `tool_use` without a string `id` and `name`, a `tool_result` without a string `tool_use_id` or
+  with `content` that isn't a string or an array of blocks, and a text block (in a `tool_result`
+  too) without a string `text`; a goal that isn't a string, even with the recency scorer, which
+  ignores it. A Claude Code transcript's records are read as before: one that lacks what it needs,
+  or has an empty id, is skipped instead.
+- `ctxjev-core`: `validateEntries(entries)` and `validateMessages(messages)` run those checks on
+  their own, so a caller can check input before scoring it. New exports.
 - `ctxjev-core`: timestamps too far apart to subtract (±1e308) are ranked by order for recency
   instead of turning every score into NaN (the CLI stopped with "decideAction received a NaN score";
   the MCP server returned `recency: null`).

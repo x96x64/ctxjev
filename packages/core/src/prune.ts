@@ -6,7 +6,7 @@ import { percentileRanks } from './percentile.js'
 import { combineScore, decideAction } from './policy.js'
 import { computeRecency } from './recency.js'
 import { redactSecrets } from './redact.js'
-import { validateEntries, validateGoal, validatePolicy, validateRecencyWeight } from './validate.js'
+import { validateEntries, validateGoal, validatePolicy, validateRecencyWeight, validateScoredEntries } from './validate.js'
 import { DEFAULT_POLICY, type Entry, type JevUsage, type PruneDecision, type PruningPolicy, type ScoredEntry } from './types.js'
 
 /**
@@ -193,6 +193,8 @@ export async function pruneContext(
  * thresholds; the Claude Code plugin ranks its digest by it, so "score 0.8" means the same in both.
  */
 export function rankLocalRelevance(scored: ScoredEntry[], recencyWeight: number = DEFAULT_POLICY.recencyWeight): ScoredEntry[] {
+  validateScoredEntries(scored)
+  validateRecencyWeight(recencyWeight)
   const ranks = percentileRanks(scored.map((s) => s.relevance))
   return scored.map((s, i) => ({ ...s, relevance: ranks[i], combinedScore: combineScore(ranks[i], s.recency, recencyWeight) }))
 }

@@ -55,6 +55,10 @@ const STRINGS = {
   [`█ × ${HUGE / 2}`]: '█'.repeat(HUGE / 2),
   [`a.a.a × ${HUGE}`]: 'a.'.repeat(HUGE / 2),
   [`"k": "v" × ${HUGE}`]: '"k": "'.repeat(HUGE / 6),
+  // One tokenizer pre-token of mixed kinds, and a spelled special token (encode() refuses one).
+  [`/ and line breaks × ${HUGE}`]: '/\n'.repeat(HUGE / 2),
+  [`!! and an accent × ${HUGE}`]: '!!\u0301'.repeat(HUGE / 3),
+  'a special token': 'the model stops at <|endoftext|> here',
   'a secret after a label': 'Error: DB_PASSWORD=hunter22',
 }
 const NUMBERS = { 0: 0, '-1': -1, '1.5': 1.5, NaN: Number.NaN, Infinity: Number.POSITIVE_INFINITY, '-Infinity': Number.NEGATIVE_INFINITY, '1e308': 1e308, '-1e308': -1e308, 'MAX_SAFE+1': Number.MAX_SAFE_INTEGER + 1 }

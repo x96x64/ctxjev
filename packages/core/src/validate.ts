@@ -1,5 +1,5 @@
 import type { AnthropicMessage } from './anthropicMessages.js'
-import type { Entry, EntryRole, PruningPolicy } from './types.js'
+import type { Entry, EntryRole, PruneAction, PruneDecision, PruningPolicy, ScoredEntry } from './types.js'
 
 /**
  * Checks on what callers pass in, so a malformed input fails with a message naming the field
@@ -29,6 +29,39 @@ export function validateEntries(entries: unknown, where = 'entries'): asserts en
   entries.forEach((entry, i) => validateEntry(entry, `${where}[${i}]`))
 }
 
+/** Ids must be unique: a decision, a removal, or a protection is by id. */
+export function validateUniqueIds(entries: Entry[]): void {
+  const seen = new Set<string>()
+  for (const entry of entries) {
+    if (seen.has(entry.id)) throw new Error(`duplicate entry id "${entry.id}" — every entry must have a unique id`)
+    seen.add(entry.id)
+  }
+}
+
+const unitInterval = (value: unknown) => typeof value === 'number' && value >= 0 && value <= 1
+
+export function validateScoredEntries(scored: unknown, where = 'scored'): asserts scored is ScoredEntry[] {
+  if (!Array.isArray(scored)) throw new Error(`${where} must be an array`)
+  scored.forEach((s, i) => {
+    if (!isObject(s)) throw new Error(`${where}[${i}] must be an object`)
+    if (typeof s.entryId !== 'string') throw new Error(`${where}[${i}].entryId must be a string`)
+    for (const key of ['relevance', 'recency'] as const) {
+      if (!unitInterval(s[key])) throw new Error(`${where}[${i}].${key} must be a number from 0 to 1, got ${String(s[key])}`)
+    }
+  })
+}
+
+const ACTIONS: PruneAction[] = ['keep', 'drop', 'summarize']
+
+export function validateDecisions(decisions: unknown): asserts decisions is PruneDecision[] {
+  if (!Array.isArray(decisions)) throw new Error('decisions must be an array')
+  decisions.forEach((d, i) => {
+    if (!isObject(d)) throw new Error(`decisions[${i}] must be an object`)
+    if (typeof d.entryId !== 'string') throw new Error(`decisions[${i}].entryId must be a string`)
+    if (!ACTIONS.includes(d.action as PruneAction)) throw new Error(`decisions[${i}].action must be one of ${ACTIONS.join(', ')}`)
+  })
+}
+
 export function validateGoal(goal: unknown): asserts goal is string {
   if (typeof goal !== 'string') throw new Error(`goal must be a string, got ${goal === null ? 'null' : typeof goal}`)
 }
@@ -45,7 +78,7 @@ export function validatePolicy(policy: PruningPolicy): void {
 }
 
 export function validateRecencyWeight(recencyWeight: unknown): void {
-  if (typeof recencyWeight !== 'number' || !(recencyWeight >= 0 && recencyWeight <= 1)) throw new Error(`recencyWeight must be a number from 0 to 1, got ${String(recencyWeight)}`)
+  if (!unitInterval(recencyWeight)) throw new Error(`recencyWeight must be a number from 0 to 1, got ${String(recencyWeight)}`)
 }
 
 /** A block in a message or in a tool_result's content: what ctxjev reads from it must be there. */

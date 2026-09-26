@@ -1,5 +1,6 @@
 import { estimateTokens } from './tokenEstimate.js'
 import type { Entry, PruneDecision } from './types.js'
+import { validateDecisions, validateEntries, validateUniqueIds } from './validate.js'
 
 export type PruneEntriesOptions = {
   /**
@@ -36,7 +37,12 @@ export type PruneEntriesResult = {
  * tail. `decisions` must correspond to `entries` one to one.
  */
 export function pruneEntries(entries: Entry[], decisions: PruneDecision[], options: PruneEntriesOptions = {}): PruneEntriesResult {
+  validateEntries(entries)
+  validateUniqueIds(entries)
+  validateDecisions(decisions)
+  if (typeof options !== 'object' || options === null) throw new Error('options must be an object')
   const { protectFirstUserEntry = true, protectLast = 2 } = options
+  if (typeof protectFirstUserEntry !== 'boolean') throw new Error(`protectFirstUserEntry must be true or false, got ${String(protectFirstUserEntry)}`)
   if (typeof protectLast !== 'number' || !Number.isFinite(protectLast) || protectLast < 0) throw new Error(`protectLast must be a number of at least 0, got ${String(protectLast)}`)
   const decisionById = new Map(decisions.map((d) => [d.entryId, d]))
   const firstUser = entries.find((e) => e.role === 'user')

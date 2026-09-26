@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { messagesToEntries, pruneMessages, type AnthropicMessage } from './anthropicMessages.js'
-import { pruneContext, scoreEntries } from './prune.js'
+import { pruneContext, rankLocalRelevance, scoreEntries } from './prune.js'
+import { pruneEntries } from './pruneEntries.js'
 import { computeRecency } from './recency.js'
 import { summarizeSavings } from './savings.js'
-import type { Entry } from './types.js'
+import type { Entry, PruneDecision, ScoredEntry } from './types.js'
 
 // The third audit (4.1-4, checks 14-16): a string sourceTokens printed "NaN%", a text block with no
 // text died with a raw TypeError, and timestamps of ±1e308 turned every recency into NaN.
@@ -96,5 +97,78 @@ describe('the goal is checked', () => {
   it.each([undefined, null, 7, {}, []])('%j', async (goal) => {
     await expectPlainError(() => pruneContext([entry()], goal as unknown as string, undefined, { scorer: 'local' }), /goal must be a string/)
     await expectPlainError(() => pruneMessages([{ role: 'user', content: 'x' }], goal as unknown as string), /goal must be a string/)
+  })
+})
+
+// The review of this change: each check below could be removed with every test still passing.
+describe('options are checked', () => {
+  const messages: AnthropicMessage[] = [{ role: 'user', content: 'the task' }, { role: 'assistant', content: 'done' }]
+  it.each([
+    [{ targetTokens: Number.NaN }, /targetTokens must be a number of at least 0, got NaN/],
+    [{ targetTokens: -1 }, /targetTokens must be a number of at least 0/],
+    [{ targetTokens: '10' }, /targetTokens must be a number of at least 0/],
+    [{ protectLast: Number.NaN }, /protectLast must be a number of at least 0/],
+    [{ protectLast: -1 }, /protectLast must be a number of at least 0/],
+    [{ minSavedTokens: Number.NaN }, /minSavedTokens must be a number of at least 0/],
+    [{ minSavedTokens: '5' }, /minSavedTokens must be a number of at least 0/],
+    [{ summarize: 'yes' }, /summarize must be 'excerpt' or a function/],
+  ])('pruneMessages %j', async (options, message) => {
+    await expectPlainError(() => pruneMessages(messages, 'goal', options as never), message)
+  })
+
+  it.each([Number.NaN, -0.1, 2, '0.5'])('scoreEntries with recencyWeight %j', async (recencyWeight) => {
+    await expectPlainError(() => scoreEntries([entry()], 'goal', recencyWeight as number), /recencyWeight must be a number from 0 to 1/)
+  })
+})
+
+// The review of this change: pruneEntries() and rankLocalRelevance() are new exports, and read
+// what they were given without checking it.
+describe('pruneEntries checks what it reads', () => {
+  const entries = [entry({ id: 'u', role: 'user' }), entry({ id: 'x' }), entry({ id: 'y' })]
+  const decide = (es: Entry[], action: PruneDecision['action'] = 'drop'): PruneDecision[] => es.map((e) => ({ entryId: e.id, relevance: 0, recency: 0, combinedScore: 0, action }))
+  it.each([
+    ['entries that aren\'t an array', () => pruneEntries(null as unknown as Entry[], []), /entries must be an array/],
+    ['an entry that isn\'t an object', () => pruneEntries([null as unknown as Entry], []), /entries\[0\] must be an object/],
+    ['an entry with no content', () => pruneEntries([entry({ content: null })], decide([entry()])), /entries\[0\]\.content must be a string/],
+    ['a string sourceTokens', () => pruneEntries([entry({ sourceTokens: '100' })], decide([entry()])), /entries\[0\]\.sourceTokens must be a non-negative number/],
+    ['decisions that aren\'t an array', () => pruneEntries(entries, null as unknown as PruneDecision[]), /decisions must be an array/],
+    ['a decision that isn\'t an object', () => pruneEntries(entries, [null as unknown as PruneDecision]), /decisions\[0\] must be an object/],
+    ['a decision with an unknown action', () => pruneEntries(entries, decide(entries, 'delete' as PruneDecision['action'])), /decisions\[0\]\.action must be one of keep, drop, summarize/],
+    ['options that aren\'t an object', () => pruneEntries(entries, decide(entries), null as never), /options must be an object/],
+    ['protectFirstUserEntry that isn\'t a boolean', () => pruneEntries(entries, decide(entries), { protectFirstUserEntry: 'no' as never }), /protectFirstUserEntry must be true or false/],
+    ['protectLast NaN', () => pruneEntries(entries, decide(entries), { protectLast: Number.NaN }), /protectLast must be a number of at least 0/],
+    ['protectLast -1', () => pruneEntries(entries, decide(entries), { protectLast: -1 }), /protectLast must be a number of at least 0/],
+    ['protectLast as a string', () => pruneEntries(entries, decide(entries), { protectLast: '2' as never }), /protectLast must be a number of at least 0/],
+  ])('%s', async (_name, run, message) => {
+    await expectPlainError(run, message)
+  })
+
+  // With a repeated id, the protected last entry went out with its namesake while keptDrops said it stayed.
+  it('refuses a repeated entry id', async () => {
+    const repeated = [entry({ id: 'u', role: 'user' }), entry({ id: 'x' }), entry({ id: 'y' }), entry({ id: 'x', content: 'LAST (protected)' })]
+    await expectPlainError(() => pruneEntries(repeated, decide(repeated), { protectLast: 1 }), /duplicate entry id "x"/)
+  })
+})
+
+describe('rankLocalRelevance checks what it reads', () => {
+  const scored: ScoredEntry[] = [
+    { entryId: 'a', relevance: 0.2, recency: 0, combinedScore: 0 },
+    { entryId: 'b', relevance: 0.6, recency: 1, combinedScore: 0 },
+  ]
+  it.each([Number.NaN, 5, -1, '0.5'])('recencyWeight %j', async (recencyWeight) => {
+    await expectPlainError(() => rankLocalRelevance(scored, recencyWeight as number), /recencyWeight must be a number from 0 to 1/)
+  })
+
+  it.each([
+    ['scored entries that aren\'t an array', null, /scored must be an array/],
+    ['a scored entry that isn\'t an object', [null], /scored\[0\] must be an object/],
+    ['a relevance outside 0-1', [{ entryId: 'a', relevance: Number.NaN, recency: 0, combinedScore: 0 }], /scored\[0\]\.relevance must be a number from 0 to 1/],
+    ['a recency outside 0-1', [{ entryId: 'a', relevance: 0.5, recency: 7, combinedScore: 0 }], /scored\[0\]\.recency must be a number from 0 to 1/],
+  ])('%s', async (_name, value, message) => {
+    await expectPlainError(() => rankLocalRelevance(value as ScoredEntry[]), message)
+  })
+
+  it('ranks what it was given', () => {
+    for (const s of rankLocalRelevance(scored, 0.5)) expect(s.combinedScore >= 0 && s.combinedScore <= 1).toBe(true)
   })
 })
