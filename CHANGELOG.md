@@ -45,6 +45,11 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
   `az login -p`, and `sqlcmd -P` too, up to the end of the command (a line break that isn't a `\`
   continuation, or a `&&`, `||`, `|`, or `;` outside quotes), so `docker login ghcr.io && docker
   run -p 8080:80` leaves the port alone.
+- `ctxjev-core`: masks a credential set by name in code, which 0.6.1 let through:
+  `os.environ["OPENAI_API_KEY"] = "…"`, `$_ENV['DB_PASSWORD'] = '…'`, `app.config["SECRET_KEY"] =
+  "…"`, `headers["Authorization"] = "Token …"` (the scheme stays), WordPress's `define('DB_PASSWORD',
+  '…')`, `os.Setenv("API_TOKEN", "…")`, `System.setProperty("…Password", "…")`, and an argument list
+  such as `["--password", "…"]`.
 - `ctxjev-core`: also masks a URL password with no user name (`redis://:…@host`), a Kubernetes env
   var over two lines (`- name: DB_PASSWORD` then `value: …`), an AWS SigV4 `Signature=`, a `.netrc`
   `default` entry's password, and an `Authorization` header written as data

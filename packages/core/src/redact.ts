@@ -142,6 +142,21 @@ const COOKIE_WORD = /^([ \t]*)(?!-)((?:[^\s;"'\\(),<>]|\\\S){8,4096})(?<!:)(?![ 
 // short (a value of more than 4,096 characters is masked whole, in one pass).
 const afterValue = (rest: string) => rest.slice(/^(?:[^\s;"'\\(),<>]|\\\S)*/.exec(rest)![0].length)
 
+/**
+ * The value in one of the named-value rules above, masked if the name is a credential's. An
+ * Authorization header set this way keeps its scheme (`"Token …"` becomes `"Token [REDACTED]"`); a
+ * cookie string keeps its plain cookies (see maskCookies).
+ */
+function maskNamedValue(match: string, head: string, _q: string, name: string, quote: string, value: string): string {
+  if (/^(?:proxy-)?authorization$/i.test(name)) {
+    const [, scheme = '', credentials] = /^([A-Za-z][A-Za-z0-9-]{0,30}[ \t]+)?(.*)$/.exec(value)!
+    return credentials.length === 0 || isMasked(credentials) ? match : `${head}${quote}${scheme}${REDACTED}${quote}`
+  }
+  const kind = credentialKind(name)
+  if (!kind || !isMaskableValue(value, kind, false, undefined, name)) return match
+  return `${head}${quote}${kind === 'cookie' ? maskCookies(value) : REDACTED}${quote}`
+}
+
 function maskCookie(part: string): string {
   const pair = COOKIE_PAIR.exec(part)
   // A value that starts with `=` is a base64 token's padding (`Zq8…Pab==`), not a name and a value.
@@ -177,7 +192,10 @@ function maskCookie(part: string): string {
 // `login`); a pattern that skipped them itself was ambiguous about trailing whitespace, and took
 // exponential time on a block of comment lines.
 const NETRC_HINT = /(?:^|\s)(?:machine[ \t]+\S{1,253}|default)[ \t\r\n]+(?:login|account|password)[ \t]+\S/
-const NETRC_COMMENT_LINE = /^[ \t]*#[^\n]*\n/gm
+// A line start is found by looking behind for `\n`, not with the m flag: `^` also matches after
+// `\r`, U+2028, and U+2029, and from each of those `[^\n]*` read on to the next `\n` (400,000
+// characters of `#\r` took 34 seconds).
+const NETRC_COMMENT_LINE = /(?<![^\n])[ \t]*#[^\n]*\n/g
 const NETRC_PASSWORD = /(^[ \t]*(?:(?:machine|login|account)[ \t]+\S+[ \t]+|default[ \t]+)*password[ \t]+)("[^"\n]{1,256}"|\S+)(?=[ \t\r]*$|[ \t]+(?:machine|login|account|macdef|default|port)[ \t]|[ \t]+#)/gm
 
 // Cookie / Set-Cookie headers and document.cookie, bare or quoted (`"Cookie": "…"`, `{'Cookie':
@@ -210,6 +228,13 @@ const POSITIONAL_PATTERNS: Rule[] = [
       if (scheme.length >= 8 && looksLikeToken(scheme)) return `${head}${REDACTED}${space}${value}`
       return looksLikeToken(value) ? `${head}${scheme}${space}${REDACTED}` : match
     }],
+  // A credential set by name in code, whose name is a quoted string rather than an assignment's:
+  // `os.environ["DB_PASSWORD"] = "…"`, `$_ENV['X'] = '…'`, `app.config["SECRET_KEY"] = "…"`; a call
+  // or tuple with the name and the value, `define('DB_PASSWORD', '…')`, `os.Setenv("API_TOKEN", "…")`,
+  // `System.setProperty("…Password", "…")`; and an argument list, `["--password", "…"]`.
+  [/(\[\s*(["'])([A-Za-z_][A-Za-z0-9_.-]{0,127})\2\s*\]\s*=\s*)(["'`])([^"'`\n]{1,1024})\4/g, maskNamedValue],
+  [/(\(\s*(["'])([A-Za-z_][A-Za-z0-9_.-]{0,127})\2\s*,\s*)(["'`])([^"'`\n]{1,1024})\4/g, maskNamedValue],
+  [/((["'])--([A-Za-z][A-Za-z0-9_-]{0,63})\2\s*,\s*)(["'`])([^"'`\n]{1,1024})\4/g, maskNamedValue],
   // An AWS Signature Version 4 signature (in an Authorization header, after its credential scope).
   [/(\bSignature=)[0-9a-f]{64}\b/g, `$1${REDACTED}`],
   [/\b(Bearer\s+)[A-Za-z0-9._~+/=-]{16,}/gi, `$1${REDACTED}`],

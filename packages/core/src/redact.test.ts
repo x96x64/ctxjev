@@ -643,3 +643,57 @@ describe('redactSecrets: formats named in the CHANGELOG', () => {
     expect(redactSecrets(text)).not.toContain(secret)
   })
 })
+
+// The seventh independent review.
+describe('redactSecrets: the seventh review of the masking change', () => {
+  const scale = Number(process.env.CTXJEV_TIME_LIMIT_SCALE ?? 1)
+  // `^` with the m flag also matches after `\r`, U+2028, and U+2029, and the .netrc comment-line
+  // pattern read on to the next `\n` from each: 400,000 characters took 34 seconds.
+  it.each([
+    ['comment lines ending in \\r after "default"', 'default ' + '#\r'.repeat(150_000)],
+    ['comment lines ending in U+2028 after "machine"', 'machine ' + '# '.repeat(150_000)],
+    ['comment lines ending in U+2029 after "default"', 'default ' + '# '.repeat(150_000)],
+    ['a \\r-only script with "default" in it', ('# default settings\r' + 'x=1\r').repeat(15_000)],
+  ])('takes linear time: %s', (_name, text) => {
+    const start = performance.now()
+    redactSecrets(text)
+    expect(performance.now() - start).toBeLessThan(2000 * scale)
+  })
+
+  it('still reads a .netrc entry across a comment line', () => {
+    expect(redactSecrets('machine h\n# prod\nlogin u\npassword Hk3tR8pLq2Zx')).not.toContain('Hk3tR8pLq2Zx')
+  })
+
+  const t = 'Zq8vX2mPzR8vXw1yT4bNc7Lp'
+  it.each([
+    ['os.environ[…] =', `os.environ["OPENAI_API_KEY"] = "${t}"`],
+    ['os.environ[…] = with a password', `os.environ["DB_PASSWORD"] = "${t}"`],
+    ['process.env[…] =', `process.env["GITHUB_TOKEN"] = "${t}"`],
+    ['ENV[…] =', `ENV["STRIPE_SECRET"] = "${t}"`],
+    ['$_ENV[…] =', `$_ENV['DB_PASSWORD'] = '${t}';`],
+    ['app.config[…] =', `app.config["SECRET_KEY"] = "${t}"`],
+    ["data['password'] =", `data['password'] = '${t}'`],
+    ['headers["Authorization"] = "Token …"', `headers["Authorization"] = "Token ${t}"`],
+    ["req.headers['authorization'] = 'Basic …'", `req.headers['authorization'] = 'Basic ${t}'`],
+    ["WordPress define('DB_PASSWORD', …)", `define('DB_PASSWORD', '${t}');`],
+    ["WordPress define('AUTH_KEY', …)", `define('AUTH_KEY', '${t}');`],
+    ['os.Setenv', `os.Setenv("API_TOKEN", "${t}")`],
+    ['monkeypatch.setenv', `monkeypatch.setenv("DB_PASSWORD", "${t}")`],
+    ['System.setProperty', `System.setProperty("javax.net.ssl.keyStorePassword", "${t}")`],
+    ['an argument list', `["--password", "${t}"]`],
+    ['an argument list, token', `subprocess.run(["tool", "--api-token", "${t}"])`],
+  ])('masks %s', (_name, text) => {
+    const masked = redactSecrets(text)
+    expect(masked).not.toContain(t)
+    expect(redactSecrets(masked)).toBe(masked)
+  })
+
+  it.each([
+    'os.environ["HOME"] = "/home/me"',
+    "define('WP_DEBUG', true);",
+    'os.Setenv("PATH", "/usr/bin")',
+    '["--verbose", "--output", "out.json"]',
+  ])('leaves alone: %s', (text) => {
+    expect(redactSecrets(text)).toBe(text)
+  })
+})

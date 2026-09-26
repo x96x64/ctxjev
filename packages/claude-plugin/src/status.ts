@@ -13,7 +13,17 @@ import { STATUS_MARKER } from './statusMarker.js'
 const quote = (text: string) => quoteAsData(redactSecrets(text))
 // Masked before it's cut, never after: a cut can leave half a token no rule recognizes.
 const quoteCut = (text: string, length: number) => quoteAsData(truncate(redactSecrets(text), length))
-const mask = (text: string) => redactSecrets(String(text))
+// A value read from a state file may be anything; one that isn't a string is shown as JSON, and
+// nothing about it can end the report with an error.
+const asText = (value: unknown): string => {
+  if (typeof value === 'string') return value
+  try {
+    return JSON.stringify(value) ?? String(value)
+  } catch {
+    return '(unreadable)'
+  }
+}
+const mask = (value: unknown) => redactSecrets(asText(value))
 
 /**
  * `/ctxjev:status`: what the last PreCompact run in this session did, the goal the next one will
