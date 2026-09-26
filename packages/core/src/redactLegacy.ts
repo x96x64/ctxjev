@@ -8,13 +8,15 @@
  * time growing with the square of the input:
  * - an assignment's name is at most 128 characters and taken whole (a long dotted run `a.a.a…`
  *   took 24 seconds for 100,000 characters);
- * - a URL's user name and password are at most 256 and 1,024 characters;
+ * - a URL's scheme is at most 32 characters (from every word boundary in `a.a.a…`, 0.6.1 read the
+ *   run to its end looking for `://`);
  * - `mysql … -p…` and `curl … -u user:…` are found by a scan that visits each position once,
  *   instead of a pattern retried from every mention of the command to the end of its line, and
- *   curl's user name doesn't start with `=` and is at most 256 characters (`curl -u====…` took
- *   quadratic time).
- * Only the first of these can change a result: a name longer than 128 characters isn't read as a
- * credential's name. Four decisions differ from 0.6.1's, all listed in the CHANGELOG:
+ *   curl's user name doesn't start with `=` (`curl -u====…` took quadratic time).
+ * Each of the three bounds can change a result, on text no one writes: a name over 128 characters
+ * isn't read as a credential's, a URL scheme over 32 characters isn't read as one, and a curl user
+ * name starting with `=` isn't read as one (the newer rules in redact.ts still mask
+ * `curl -u ==:…`). Four decisions differ from 0.6.1's, all listed in the CHANGELOG:
  * - a list of cookies (`sessionid=…; theme=dark`) under a name whose last word is "cookie" is left
  *   to the cookie rule in redact.ts, which masks every cookie that could hold a login. 0.6.1 masked
  *   the list's first cookie only, and that mask hid the rest of the list (`Cookie: sessionid="…"`
@@ -23,9 +25,9 @@
  *   `password=self.password`, `cookie = req.headers.cookie`), is code passing a variable on;
  * - a `--password`/`--token`/… value in angle brackets (`--password <password>`) is a usage line's
  *   placeholder;
- * - after a Japanese label, a header's name (`パスワード: Set-Cookie: sid=…`, or text ending in
- *   `Cookie:` or `Authorization:`) isn't the value: 0.6.1 masked `Set-Cookie:`, and with it the
- *   header the cookie rule needs.
+ * - after a Japanese label, a Cookie, Set-Cookie, or Authorization header's name (`パスワード:
+ *   Set-Cookie: sid=…`) isn't the value: 0.6.1 masked `Set-Cookie:`, and with it the header the
+ *   cookie rule needs.
  */
 const REDACTED = '[REDACTED]'
 
@@ -52,7 +54,7 @@ const TOKEN_PATTERNS: Array<[RegExp, string]> = [
 ]
 
 const POSITIONAL_PATTERNS: Array<[RegExp, string | ((match: string, ...groups: string[]) => string)]> = [
-  [/\b([a-z][a-z0-9+.-]{0,31}:\/\/[^\s:/?#@"'<>]{1,256}:)[^\s/?#"'<>]{0,1024}(@)/gi, `$1${REDACTED}$2`],
+  [/\b([a-z][a-z0-9+.-]{0,31}:\/\/[^\s:/?#@"'<>]+:)[^\s/?#"'<>]*(@)/gi, `$1${REDACTED}$2`],
   [/(\b(?:Proxy-)?Authorization[ \t]*[:=][ \t]*["']?(?:(?:Bearer|Basic|Token|Digest|Bot)[ \t]+)?)[A-Za-z0-9._~+/=-]{8,}/gi, `$1${REDACTED}`],
   [/\b(Bearer\s+)[A-Za-z0-9._~+/=-]{16,}/gi, `$1${REDACTED}`],
   // A value in angle brackets is a usage line's placeholder (`--password <password>`), not a value.
@@ -101,9 +103,9 @@ function maskAfterCommand(text: string, command: RegExp, argument: RegExp, repla
 const MYSQL = /\bmysql(?:dump|admin|import|sh)?\b/g
 const MYSQL_ARGUMENT = /(\s-p)(["']?)(?!\s)[^\s'"]+\2/g
 const CURL = /\bcurl\b/g
-// The user name doesn't start with `=` and is at most 256 characters: 0.6.1's `[ \t=]+` and user name
-// could split a run of `=` any way at all, which took time growing with the square of its length.
-const CURL_ARGUMENT = /(\s(?:-u|--user)[ \t=]+["']?(?!=)[^\s:'"]{1,256}:)[^\s'"]+/g
+// The user name doesn't start with `=`: 0.6.1's `[ \t=]+` and user name could split a run of `=` any
+// way at all, which took time growing with the square of its length.
+const CURL_ARGUMENT = /(\s(?:-u|--user)[ \t=]+["']?(?!=)[^\s:'"]+:)[^\s'"]+/g
 
 const CARD_CANDIDATE = /(?<![\d.-])(?:\d{13,19}|\d{4}([ -])\d{4}\1\d{4}\1\d{1,4}(?:\1\d{3})?|\d{4}([ -])\d{6}\2\d{4,5})(?![\d-]|\.\d)/g
 const CARD_BRAND = /^(?:4|5[1-5]|2[2-7]|3[47]|3(?:0[0-5]|[68])|35|6(?:011|5|4[4-9]|2))/
@@ -214,6 +216,6 @@ export function redactLegacy(text: string): string {
     return `${quote}${name}${quote}${sep}${masked}`
   })
   // A header's name (`パスワード: Set-Cookie: sid=…`) isn't the value: masking it would hide the header.
-  out = out.replace(JA_ASSIGNMENT, (match, name, sep, quote, value) => (/^\d+$/.test(value) || isMasked(value) || /(?:^[A-Za-z][A-Za-z0-9-]*|(?:Set-)?Cookie|(?:Proxy-)?Authorization):$/i.test(value) ? match : `${name}${sep}${quote}${REDACTED}`))
+  out = out.replace(JA_ASSIGNMENT, (match, name, sep, quote, value) => (/^\d+$/.test(value) || isMasked(value) || /(?:(?:Set-)?Cookie|(?:Proxy-)?Authorization):$/i.test(value) ? match : `${name}${sep}${quote}${REDACTED}`))
   return out
 }

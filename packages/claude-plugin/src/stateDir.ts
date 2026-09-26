@@ -88,7 +88,8 @@ export async function sessionDirProblem(cwd: string, sessionId: string | undefin
 }
 
 /**
- * Why a state file can't be trusted, if it can't: a symlink or anything but a regular file, or (on
+ * Why a state file can't be trusted, if it can't: a symlink or anything but a regular file, a file
+ * with another hard link, or (on
  * macOS and Linux) one another user owns. A session directory others could write to before the
  * plugin made it private may still hold a file one of them put there. One that doesn't exist is
  * fine: there's nothing to read.
@@ -101,6 +102,8 @@ export async function stateFileProblem(path: string): Promise<string | undefined
     return (err as NodeJS.ErrnoException).code === 'ENOENT' ? undefined : `couldn't check ${path} (${(err as NodeJS.ErrnoException).code ?? String(err)})`
   }
   if (!info.isFile()) return `${path} isn't a regular file, so ctxjev won't read it`
+  // The plugin writes by rename, so its files have one link; another is a hard link someone made.
+  if (info.nlink > 1) return `${path} has other hard links, so ctxjev won't read it`
   const uid = process.getuid?.()
   if (process.platform !== 'win32' && uid !== undefined && info.uid !== uid) return `${path} belongs to another user (uid ${info.uid}), so ctxjev won't read it`
   return undefined

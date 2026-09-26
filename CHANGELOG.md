@@ -54,15 +54,19 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
   however short or numeric; 0.6.1 knew only a few flag names. An authentication scheme's name after one (`--auth basic`)
   isn't.
 - `ctxjev-core`: nothing 0.6.1 masked is let through: `redactSecrets()` applies 0.6.1's rules
-  first and this release's to what's left, and repeats until nothing changes, so masking twice
-  gives the same result as once. Four of 0.6.1's decisions change, each a false alarm that could
+  first and this release's to what's left, and repeats until nothing changes (up to four times),
+  so masking twice gives the same result as once. The exception is text that glues card numbers
+  and keys together with nothing between them: each one masked can make the next recognizable, and
+  a chain of more than a few is masked further each time. Four of 0.6.1's decisions change, each a false alarm that could
   also hide a secret from the rules after it: a cookie list under a name ending in "cookie"
   (`Cookie: sessionid=…; theme=dark`) goes to the cookie rule above instead of having its first
   cookie masked; a value that's the same name again or a reference ending in it
   (`password=password`, `password=self.password`, `cookie = req.headers.cookie`) isn't masked; a
   `--password`/`--token` value in angle brackets (`--password <password>`, a usage line) isn't; and
-  after a Japanese label (`パスワード:`), a header's name (`Set-Cookie:`) isn't taken for the value.
-  An assignment's name is read up to 128 characters. Of the rules new in this release, these are
+  after a Japanese label (`パスワード:`), a Cookie, Set-Cookie, or Authorization header's name
+  isn't taken for the value. To keep masking linear in time, an assignment's name is read up to 128
+  characters and a URL's scheme up to 32, and a `curl -u` user name starting with `=` isn't read as
+  one by 0.6.1's rule (this release's still masks `curl -u "=admin:…"`). Of the rules new in this release, these are
   left alone on purpose: a Kubernetes env var named like a token whose value is a plain word
   (`value: disabled`), a token-named XML element holding one capitalized word
   (`<Token>Identifier</Token>`), `?key=` holding a path or a file name, a storage key under 20
@@ -81,10 +85,13 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
   each session's) are made private to the user (0700) even when they already existed with looser
   permissions, and the plugin refuses to keep excerpts in one that belongs to another user, or to
   read or delete anything there, or to read from one that others can write to until it has made it
-  private again, or to read a state file that's a symlink or belongs to another user: a file
-  planted in such a directory is never re-injected, and `/ctxjev:status` says why nothing was kept. (Running Claude Code as root on a `~/.claude` that
-  another user owns, such as a bind mount in a container, therefore keeps nothing.) Windows has no
-  such owner and mode bits, so none of this applies there.
+  private again, or to read a state file that's a symlink, has another hard link, or belongs to
+  another user: a file planted in such a directory is never re-injected, and `/ctxjev:status` says
+  why nothing was kept. The previous snapshot is cleared from the user's own directory even while
+  others could write to it, so a stale one can't come back once the directory is private again.
+  (Running Claude Code as root on a `~/.claude` that another user owns, such as a bind mount in a
+  container, therefore keeps nothing.) Windows has no POSIX owner and mode bits, so the ownership
+  and permission checks don't apply there; the symlink and hard-link refusals do.
 
 ## 0.6.1 — 2026-09-25
 

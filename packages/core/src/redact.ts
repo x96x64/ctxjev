@@ -33,26 +33,34 @@ const applyRule = (text: string, [pattern, replacement, needs]: Rule) =>
   needs !== undefined && !text.includes(needs) ? text : typeof replacement === 'string' ? text.replace(pattern, replacement) : text.replace(pattern, replacement)
 
 /** [pattern, replacement]: `$1` keeps a prefix that isn't secret (a host, a header name). */
-// 0.6.1's formats (OpenAI/Anthropic `sk-`, Stripe, GitHub, npm, SendGrid, Google, JWT, Slack and
-// Discord webhooks, `Bearer`) aren't repeated here: redactLegacy.ts masks them before these run.
 const TOKEN_PATTERNS: Rule[] = [
   // PEM (RSA, EC, OpenSSH, …) and PGP (`-----BEGIN PGP PRIVATE KEY BLOCK-----`) private keys.
   [/-----BEGIN [A-Z0-9 ]{0,40}PRIVATE KEY(?: BLOCK)?-----[\s\S]*?(?:-----END [A-Z0-9 ]{0,40}PRIVATE KEY(?: BLOCK)?-----|$)/g, REDACTED],
   // A PEM private key that was base64-encoded again (a Kubernetes secret, a kubeconfig's
   // client-key-data): "-----BEGIN " and then "PRIVATE KEY" at any of its three alignments.
   [/LS0tLS1CRUdJTi[A-Za-z0-9+/]{0,60}?(?:UFJJVkFURSBLRV|SSVZBVEUgS0VZ|UklWQVRFIEtFW)[A-Za-z0-9+/=]*/g, REDACTED],
+  [/(?<![A-Za-z0-9])sk-[A-Za-z0-9_-]{16,}/g, REDACTED], // Anthropic (sk-ant-...), OpenAI (sk-proj-...), and similar
+  [/(?<![A-Za-z0-9])(?:sk|rk)_(?:live|test)_[A-Za-z0-9]{10,}/g, REDACTED], // Stripe secret and restricted keys
+  [/(?<![A-Za-z0-9])whsec_[A-Za-z0-9]{16,}/g, REDACTED], // Stripe webhook signing secret
+  [/(?<![A-Za-z0-9])(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{20,}\b/g, REDACTED],
+  [/(?<![A-Za-z0-9])github_pat_[A-Za-z0-9_]{20,}\b/g, REDACTED],
   // GitLab: personal, deploy, pipeline-trigger, runner, CI-build, OAuth-app, feed, and agent tokens.
   [/(?<![A-Za-z0-9])(?:glpat|gldt|glptt|glrt|glcbt|gloas|glsoat|glft|glimt|glagent)-[A-Za-z0-9_-]{20,}/g, REDACTED],
   [/(?<![A-Za-z0-9])GR1348941[A-Za-z0-9_-]{20,}/g, REDACTED], // GitLab runner registration token
+  [/(?<![A-Za-z0-9])npm_[A-Za-z0-9]{36}\b/g, REDACTED],
   [/(?<![A-Za-z0-9])pypi-[A-Za-z0-9_-]{50,}/g, REDACTED], // PyPI API token
   [/(?<![A-Za-z0-9])(?:hf|api_org)_[A-Za-z0-9]{30,}\b/g, REDACTED], // Hugging Face
+  [/(?<![A-Za-z0-9])SG\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}/g, REDACTED], // SendGrid
   [/(?<![A-Za-z0-9-])key-[0-9A-Za-z]{32}(?![0-9A-Za-z])/g, REDACTED], // Mailgun private API key
   [/(?<![A-Za-z0-9])[0-9a-f]{32}-us[0-9]{1,2}(?![0-9A-Za-z])/g, REDACTED, '-us'], // Mailchimp API key
   [/(?<![A-Za-z0-9])SK[0-9a-fA-F]{32}(?![0-9A-Za-z])/g, REDACTED], // Twilio API key SID
   [/(?<![A-Za-z0-9])(?:AKIA|ASIA|ABIA|ACCA)[0-9A-Z]{16}\b/g, REDACTED], // AWS access key ids, long-term and temporary
   [/(?<![A-Za-z0-9])xox[abeoprs]-[A-Za-z0-9-]{10,}/g, REDACTED], // Slack tokens
   [/(?<![A-Za-z0-9])xapp-[0-9]-[A-Za-z0-9-]{10,}/g, REDACTED], // Slack app-level token
+  [/(?<![A-Za-z0-9])AIza[0-9A-Za-z_-]{35}\b/g, REDACTED], // Google API key
+  [/(?<![A-Za-z0-9])ya29\.[0-9A-Za-z_-]{20,}/g, REDACTED], // Google OAuth access token
   [/(?<![A-Za-z0-9])GOCSPX-[A-Za-z0-9_-]{20,}/g, REDACTED], // Google OAuth client secret
+  [/(?<![A-Za-z0-9])eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g, REDACTED], // JWT
   [/(?<![A-Za-z0-9])sk\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g, REDACTED], // Mapbox secret token
   [/(?<![A-Za-z0-9])hv[sbr]\.[A-Za-z0-9_-]{24,}/g, REDACTED], // HashiCorp Vault service, batch, and recovery tokens
   [/(?<![A-Za-z0-9.])s\.(?=[A-Za-z0-9]{0,23}[0-9])[A-Za-z0-9]{24}(?![A-Za-z0-9])/g, REDACTED], // Vault's older service token format
@@ -85,6 +93,8 @@ const TOKEN_PATTERNS: Rule[] = [
   [/(?<![0-9:])[0-9]{8,10}:[A-Za-z0-9_-]{35}(?![A-Za-z0-9_-])/g, REDACTED],
   [/(?<![A-Za-z0-9_.-])(?=[A-Za-z0-9_-]{0,27}[0-9])[MNO][A-Za-z0-9_-]{23,27}\.[A-Za-z0-9_-]{6,7}\.[A-Za-z0-9_-]{27,40}(?![A-Za-z0-9_.-])/g, REDACTED],
   // Webhook URLs are their own credential: anyone holding one can post.
+  [/(\bhttps:\/\/hooks\.slack\.com\/(?:services|workflows|triggers)\/)[A-Za-z0-9/_-]+/g, `$1${REDACTED}`],
+  [/(\bhttps:\/\/(?:canary\.|ptb\.)?discord(?:app)?\.com\/api\/webhooks\/)[0-9]+\/[A-Za-z0-9_-]+/g, `$1${REDACTED}`],
   [/(\bhttps:\/\/[A-Za-z0-9-]{1,63}\.webhook\.office\.com\/webhookb2\/)[^\s"'<>]+/g, `$1${REDACTED}`],
   [/(\bhttps:\/\/hooks\.zapier\.com\/hooks\/catch\/)[0-9]+\/[A-Za-z0-9]+/g, `$1${REDACTED}`],
 ]
@@ -199,11 +209,14 @@ const POSITIONAL_PATTERNS: Rule[] = [
     }],
   // An AWS Signature Version 4 signature (in an Authorization header, after its credential scope).
   [/(\bSignature=)[0-9a-f]{64}\b/g, `$1${REDACTED}`],
+  [/\b(Bearer\s+)[A-Za-z0-9._~+/=-]{16,}/gi, `$1${REDACTED}`],
   // Before the flag rule, so `--token "Cookie": "…"` can't take the header's name for a value.
   COOKIE_RULE,
   // --password S3cret, --token abc…, --db-password …, --client-secret …: a separate argument after a
   // flag named like a credential (the same words as an assignment's name; `--token-file x` isn't one).
-  [/(\s--([A-Za-z][A-Za-z0-9_-]{0,63})[ \t]+)(["']?)(?!-)([^\s'"]+)\3(?![ \t]*:)/g, (match, head: string, flag: string, quote: string, value: string) => {
+  // The value is taken whole (so `--db-password hunter22 :x` can't give back its last character),
+  // and a quoted value is never a JSON key (`--token "password": "…"`).
+  [/(\s--([A-Za-z][A-Za-z0-9_-]{0,63})[ \t]+)(["']?)(?!-)(?=([^\s'"]+))\4\3(?!(?<=["'])[ \t]*:)/g, (match, head: string, flag: string, quote: string, value: string) => {
     const kind = credentialKind(flag)
     if (kind === 'cookie') return `${head}${quote}${maskCookies(value)}${quote}`
     return kind && isMaskableFlagValue(value, kind) ? `${head}${quote}${REDACTED}${quote}` : match
@@ -241,8 +254,34 @@ const POSITIONAL_PATTERNS: Rule[] = [
     ((QUERY_SECRET_NAMES.test(name) && !(/^key$/i.test(name) && /\/|\.[A-Za-z]{2,5}$/.test(value))) || (QUERY_LONG_SECRET_NAMES.test(name) && value.length >= 16)) && !/^\d+$/.test(value) && !isMasked(value) && !PLACEHOLDER.test(value) ? `${head}${REDACTED}` : match],
 ]
 
-// Payment card numbers and AWS secret access keys are 0.6.1's rules, unchanged: redactLegacy.ts
-// applies them before these rules run.
+// A payment card number: 13–19 digits, run together or grouped the way cards print them (4-4-4-4,
+// 4-4-4-4-3, Amex 4-6-5, Diners 4-6-4) with one kind of separator, that starts like a card brand
+// and passes the Luhn check. Both conditions together keep timestamps, ids, and phone numbers out:
+// a millisecond timestamp starts with 1, which no brand does.
+const CARD_CANDIDATE = /(?<![\d.-])(?:\d{13,19}|\d{4}([ -])\d{4}\1\d{4}\1\d{1,4}(?:\1\d{3})?|\d{4}([ -])\d{6}\2\d{4,5})(?![\d-]|\.\d)/g
+const CARD_BRAND = /^(?:4|5[1-5]|2[2-7]|3[47]|3(?:0[0-5]|[68])|35|6(?:011|5|4[4-9]|2))/
+
+function looksLikeCardNumber(match: string): boolean {
+  const digits = match.replace(/\D/g, '')
+  if (digits.length < 13 || digits.length > 19 || !CARD_BRAND.test(digits)) return false
+  let sum = 0
+  for (let i = 0; i < digits.length; i++) {
+    let d = Number(digits[digits.length - 1 - i])
+    if (i % 2 === 1) {
+      d *= 2
+      if (d > 9) d -= 9
+    }
+    sum += d
+  }
+  return sum % 10 === 0
+}
+
+// An AWS secret access key has no prefix of its own: 40 characters of base64. Only masked with
+// "aws" or "secret" shortly before it, and only with mixed case and a digit, so a 40-character git
+// commit hash (lowercase hex) never matches.
+const AWS_SECRET_CANDIDATE = /(?<![A-Za-z0-9/+=])[A-Za-z0-9/+]{40}(?![A-Za-z0-9/+=])/g
+const AWS_SECRET_CONTEXT = /aws|secret/i
+const looksLikeAwsSecret = (value: string) => /[A-Z]/.test(value) && /[a-z]/.test(value) && /[0-9]/.test(value)
 
 // NAME=value, NAME: value, "name": "value", name => 'value', … The name is kept (it's useful
 // context — "the API key was set") and only the value is masked. Whether NAME is a credential is
@@ -491,6 +530,16 @@ function redactCurrent(text: string): string {
   out = maskCommandArguments(out)
   for (const rule of POSITIONAL_PATTERNS) out = applyRule(out, rule)
   if (/\b(?:machine|default)\b/.test(out) && NETRC_HINT.test(out.replace(NETRC_COMMENT_LINE, ''))) out = out.replace(NETRC_PASSWORD, (match, head: string, value: string) => (isMasked(value) ? match : `${head}${REDACTED}`))
+  out = out.replace(CARD_CANDIDATE, (match: string) => {
+    if (looksLikeCardNumber(match)) return REDACTED
+    // 4-4-4-4 followed by three more digits: a 19-digit card, or a 16-digit one and its CVC.
+    const sixteen = /^(\d{4}([ -])\d{4}\2\d{4}\2\d{4})(\2\d{3})$/.exec(match)
+    return sixteen && looksLikeCardNumber(sixteen[1]) ? `${REDACTED}${sixteen[3]}` : match
+  })
+  // Skipped when "aws" and "secret" appear nowhere: the rule needs one of them before the key.
+  if (AWS_SECRET_CONTEXT.test(out)) out = out.replace(AWS_SECRET_CANDIDATE, (match: string, offset: number, whole: string) =>
+    looksLikeAwsSecret(match) && AWS_SECRET_CONTEXT.test(whole.slice(Math.max(0, offset - 100), offset)) ? REDACTED : match,
+  )
   out = maskAssignments(out)
   out = out.replace(JA_ASSIGNMENT, (match, name, sep, quote, value) =>
     /^\d+$/.test(value) || isMasked(value) ? match : `${name}${sep}${quote}${REDACTED}`,

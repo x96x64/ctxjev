@@ -543,3 +543,32 @@ describe('redactSecrets: 0.6.1\'s rules, run first (redactLegacy.ts)', () => {
     expect(redactSecrets('パスワード: Set-Cookie: sid=Qw7Er9Ty3Ui5; Path=/')).not.toContain('Qw7Er9Ty3Ui5')
   })
 })
+
+// The fifth independent review, of the legacy-first design.
+describe('redactSecrets: the fifth review of the masking change', () => {
+  it.each([
+    ['a URL password over 1,024 characters (0.6.1 masked it)', `https://user:${'p'.repeat(1100)}@host/x`, 'p'.repeat(40)],
+    ['a URL user name over 256 characters (0.6.1 masked the password)', `https://${'u'.repeat(300)}:hunter22secret@host/x`, 'hunter22secret'],
+    ['a curl user name over 256 characters (0.6.1 masked the password)', `curl -u ${'u'.repeat(300)}:hunter22secret https://x`, 'hunter22secret'],
+    ['a flag value before " :"', 'deploy --db-password hunter22 :x', 'hunter22'],
+    ['a flag value before " :", named like a cookie', 'x --session-cookie sid=abc123XYZ :z', 'abc123XYZ'],
+    ['a flag value before " :", its last character', 'deploy --db-password hunter22 :x', '2 :x'],
+    ['a Japanese label and a password ending in ":"', 'パスワード: Hunter22:', 'Hunter22'],
+    ['a Bearer token after a card number, after a query', '?sig=@4111111111111111Bearer svj1kRt8RSiETjP8wheD', 'svj1kRt8RSiETjP8wheD'],
+    ['a token on the line after a card number in a cookie', 'Cookie: =4111111111111111Bearer\nZk3fQ2mPzR8vXw1yT4bN', 'Zk3fQ2mPzR8vXw1yT4bN'],
+  ])('masks: %s', (_name, text, secret) => {
+    const masked = redactSecrets(text)
+    expect(masked).not.toContain(secret)
+    expect(redactSecrets(masked)).toBe(masked)
+  })
+
+  // Card numbers and keys glued together with nothing between them: each mask can make the next one
+  // recognizable, one step per pass. Four passes cover a few; longer chains are a known limit.
+  it('is the same when masked again with a few card numbers and keys glued together', () => {
+    const link = (i: number) => `4111111111111111${j('AIza', `SyD00${i}kQ9vX2mPzR8vXw1yT4bN5cL6dFgH-`)}`
+    const text = [0, 1, 2, 3].map(link).join('') + '4111111111111111'
+    const masked = redactSecrets(text)
+    expect(masked).not.toContain('4111111111111111')
+    expect(redactSecrets(masked)).toBe(masked)
+  })
+})
