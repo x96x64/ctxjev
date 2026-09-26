@@ -5,6 +5,101 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 (`.claude-plugin/marketplace.json`, `packages/claude-plugin/.claude-plugin/plugin.json`,
 `plugins/ctxjev/plugin.json`). A bump in one is a bump in all, even when only one changed.
 
+## Unreleased
+
+- `ctxjev-core`: secret masking no longer misses a credential that follows a label which isn't
+  one. `Error: DB_PASSWORD=hunter22`, `env: API_KEY=…`, `out: password: …`, and
+  `https://…?access_token=…` all went through unmasked, on every path: sent to Jev with
+  `--scorer jev` or `CTXJEV_SCORER=jev`, and in the Claude Code plugin's default offline mode,
+  written to `preserved.json` and re-injected after compaction. Found by the third independent audit.
+- `ctxjev-core`: masks URL query parameters that carry a credential under a name of their own
+  (`?sig=`, `?signature=`, `X-Amz-Signature=`, `?key=`, `?sessionid=`, `?jwt=`), and a token used
+  as a URL's user name, such as a Sentry DSN's key or `https://<token>@github.com`.
+- `ctxjev-core`: masks more token formats: HashiCorp Vault, DigitalOcean, Linear, Twilio API key
+  SIDs, Mailgun, Mailchimp, Shopify, PyPI, Telegram and Discord bot tokens, Google OAuth client
+  secrets, Slack app tokens, more GitLab token types, Docker Hub, Postman, New Relic, Atlassian,
+  Databricks, Sentry auth tokens, Doppler, Terraform Cloud, Square, and several AI and hosting
+  providers' keys; `sshpass -p`, `redis-cli -a`, `docker login -p`, `az login -p`, and `sqlcmd -P`
+  passwords; and Teams and Zapier webhook URLs.
+- `ctxjev-core`: masks more places a credential sits, found by measuring against lines written
+  without sight of the masking code (see `packages/core/test/blind-redact/`): an `Authorization`
+  header with any scheme (`SSWS`, `OAuth`, …), a `--password`/`--token`/`--db-password`/… argument,
+  an XML element or .NET `<add key=… value=…>` named like a credential, SQL `PASSWORD '…'` and
+  `IDENTIFIED BY '…'`, credential constructors such as `NetworkCredential("user", "…")` and
+  `auth=('user', '…')`, `.netrc` and `.pgpass` lines, an OAuth `?code=`, a base64-encoded PEM
+  private key (a kubeconfig's `client-key-data`), and Vault's older `s.` tokens.
+- `ctxjev-core`: a cookie string masks each cookie that could hold a login: one named like a session
+  or a credential (`sessionid`, `PHPSESSID`, `…_session_id`, `auth…`, `…token`, `remember…`,
+  WordPress's and Drupal's login cookies) whatever its value, and any other whose value looks like
+  a token (8 characters or more with a digit, a symbol, or a capital inside it, or 16 letters or
+  more), except known
+  analytics, consent, and preference cookies (`_ga`, `theme`, `lang`, `…consent…`) and
+  `Set-Cookie` attributes, which stay readable. 0.6.1 masked whichever cookie came first, analytics
+  included, and left the rest. A cookie string is read wherever it's written: a `Cookie:` or
+  `Set-Cookie:` header, bare or as data in any common syntax (`"Cookie": "…"`, `{'Cookie': '…'}`,
+  `'Cookie' => '…'`, `Cookie := "…"`, escaped JSON, several on one line), `document.cookie = "…"`,
+  and a variable or flag named like a cookie (`MY_COOKIE=…`, `rawCookie = "…"`, `--cookie …`).
+- `ctxjev-core`: command passwords: `mysql … -p…` and `curl … -u user:…` (and `-uuser:…`,
+  `--user=…`) are masked quoted or not, with a `;` or `|` in the password or anywhere before it on
+  the line, however long the command is; `sshpass -p`, `redis-cli -a`, `docker login -p`,
+  `az login -p`, and `sqlcmd -P` too, up to the end of the command (a line break that isn't a `\`
+  continuation, or a `&&`, `||`, `|`, or `;` outside quotes), so `docker login ghcr.io && docker
+  run -p 8080:80` leaves the port alone.
+- `ctxjev-core`: masks a credential set by name in code, which 0.6.1 let through:
+  `os.environ["OPENAI_API_KEY"] = "…"`, `$_ENV['DB_PASSWORD'] = '…'`, `app.config["SECRET_KEY"] =
+  "…"`, `headers["Authorization"] = "Token …"` (the scheme stays), WordPress's `define('DB_PASSWORD',
+  '…')`, `os.Setenv("API_TOKEN", "…")`, `System.setProperty("…Password", "…")`, and an argument list
+  such as `["--password", "…"]`.
+- `ctxjev-core`: also masks a URL password with no user name (`redis://:…@host`), a Kubernetes env
+  var over two lines (`- name: DB_PASSWORD` then `value: …`), an AWS SigV4 `Signature=`, a `.netrc`
+  `default` entry's password, and an `Authorization` header written as data
+  (`{"Authorization": "Basic …"}`, `'Authorization' => '…'`).
+- `ctxjev-core`: a credential given as a separate argument after any flag named like one
+  (`--token abcdef`, `--api-key 12345678901234`, `--api_key …`, `--client-secret …`) is masked
+  however short or numeric; 0.6.1 knew only a few flag names. An authentication scheme's name after one (`--auth basic`)
+  isn't.
+- `ctxjev-core`: nothing 0.6.1 masked is let through: `redactSecrets()` applies 0.6.1's rules
+  first and this release's to what's left, and repeats until nothing changes (up to four times),
+  so masking twice gives the same result as once. The exception is text that glues card numbers
+  and keys together with nothing between them: each one masked can make the next recognizable, and
+  a chain of more than a few is masked further each time. Four of 0.6.1's decisions change, each a false alarm that could
+  also hide a secret from the rules after it: a cookie list under a name ending in "cookie"
+  (`Cookie: sessionid=…; theme=dark`) goes to the cookie rule above instead of having its first
+  cookie masked; a value that's the same name again or a reference ending in it
+  (`password=password`, `password=self.password`, `cookie = req.headers.cookie`) isn't masked; a
+  `--password`/`--token` value in angle brackets (`--password <password>`, a usage line) isn't; and
+  after a Japanese label (`パスワード:`), a Cookie, Set-Cookie, or Authorization header's name
+  isn't taken for the value. To keep masking linear in time, an assignment's name is read up to 128
+  characters and a URL's scheme up to 32, and a `curl -u` user name starting with `=` isn't read as
+  one by 0.6.1's rule (this release's still masks `curl -u "=admin:…"`). Of the rules new in this release, these are
+  left alone on purpose: a Kubernetes env var named like a token whose value is a plain word
+  (`value: disabled`), a token-named XML element holding one capitalized word
+  (`<Token>Identifier</Token>`), `?key=` holding a path or a file name, a storage key under 20
+  characters (`STORAGE_KEY = "todos-v1"`), a `.pgpass`-shaped line whose port is under 1000 or
+  whose host is a relative path (grep output, `12:30:45:123:4567`), and "password" followed by a
+  quoted phrase in prose (`the password "is too short"`).
+- `ctxjev-core`: `redactSecrets()` takes time in proportion to its input on long runs of one
+  pattern. 100,000 characters of `a.a.a…` took 24 seconds, and other shapes grew the same way
+  (`curl -u====…`, and `-eyJ-eyJ…` in the JWT rule: 200,000 characters took over a minute); a
+  million characters of any shape tried now take about a second or less. Ordinary text takes
+  several times as long to mask as in 0.6.1, since 0.6.1's rules and this release's both run.
+- `ctxjev-claude`: the digest re-injected after compaction and the `/ctxjev:status` report are
+  masked as they're read, not only when the snapshot was written, and before anything is cut short,
+  so a snapshot or last-run record an earlier version wrote with the weaker masking doesn't bring a
+  secret back. A malformed entry in `preserved.json`
+  is skipped instead of logging a `toFixed` error.
+- `ctxjev-claude`: on macOS and Linux, the state directories (`~/.claude/ctxjev`, `sessions/`, and
+  each session's) are made private to the user (0700) even when they already existed with looser
+  permissions, and the plugin refuses to keep excerpts in one that belongs to another user, or to
+  read or delete anything there, or to read from one that others can write to until it has made it
+  private again, or to read a state file that's a symlink, has another hard link, or belongs to
+  another user: a file planted in such a directory is never re-injected, and `/ctxjev:status` says
+  why nothing was kept. The previous snapshot is cleared from the user's own directory even while
+  others could write to it, so a stale one can't come back once the directory is private again.
+  (Running Claude Code as root on a `~/.claude` that another user owns, such as a bind mount in a
+  container, therefore keeps nothing.) Windows has no POSIX owner and mode bits, so the ownership
+  and permission checks don't apply there; the symlink and hard-link refusals do.
+
 ## 0.6.1 — 2026-09-25
 
 - `ctxjev-cli`: `ctxjev analyze` on an Anthropic Messages conversation reports what `ctxjev prune`

@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { atomicWriteFile, redactSecrets } from 'ctxjev-core'
 import type { Scorer } from './select.js'
-import { ensureSessionDir, sessionDir } from './stateDir.js'
+import { ensureSessionDir, sessionDir, sessionDirProblem, stateFileProblem } from './stateDir.js'
 
 /**
  * What the most recent PreCompact run in a session did and why. A hook's failures are invisible by
@@ -39,9 +39,13 @@ export async function writeLastRun(cwd: string, run: LastRun): Promise<void> {
  * when the file exists but can't be used (which must not read as "no compaction").
  */
 export async function readLastRun(cwd: string, sessionId: string | undefined): Promise<{ run?: LastRun; problem?: string }> {
+  // A state directory another user owns is refused on write too, so "no compaction" would be wrong.
+  const path = join(sessionDir(cwd, sessionId), FILE)
+  const problem = (await sessionDirProblem(cwd, sessionId)) ?? (await stateFileProblem(path))
+  if (problem) return { problem }
   let raw: string
   try {
-    raw = await readFile(join(sessionDir(cwd, sessionId), FILE), 'utf8')
+    raw = await readFile(path, 'utf8')
   } catch (err) {
     const code = (err as NodeJS.ErrnoException).code
     return code === 'ENOENT' ? {} : { problem: `couldn't read ${FILE} (${code ?? String(err)})` }

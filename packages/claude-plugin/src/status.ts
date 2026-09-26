@@ -2,11 +2,28 @@
 import { readFile, readdir } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { parseClaudeCodeTranscript, quoteAsData as quote, resolveClaudeCodeGoal, truncate } from 'ctxjev-core'
+import { parseClaudeCodeTranscript, quoteAsData, redactSecrets, resolveClaudeCodeGoal, truncate } from 'ctxjev-core'
 import { readLastRun } from './lastRun.js'
-import { readPreservedContext } from './preserve.js'
+import { preservedContextProblem, readPreservedContext } from './preserve.js'
 import { sessionKey } from './stateDir.js'
 import { STATUS_MARKER } from './statusMarker.js'
+
+// Masked here too, whatever it came from: a goal read from the transcript never went through the
+// masking the state files did, and a file an earlier version wrote went through weaker masking.
+const quote = (text: string) => quoteAsData(redactSecrets(text))
+// Masked before it's cut, never after: a cut can leave half a token no rule recognizes.
+const quoteCut = (text: string, length: number) => quoteAsData(truncate(redactSecrets(text), length))
+// A value read from a state file may be anything; one that isn't a string is shown as JSON, and
+// nothing about it can end the report with an error.
+const asText = (value: unknown): string => {
+  if (typeof value === 'string') return value
+  try {
+    return JSON.stringify(value) ?? String(value)
+  } catch {
+    return '(unreadable)'
+  }
+}
+const mask = (value: unknown) => redactSecrets(asText(value))
 
 /**
  * `/ctxjev:status`: what the last PreCompact run in this session did, the goal the next one will
@@ -15,7 +32,7 @@ import { STATUS_MARKER } from './statusMarker.js'
  *
  * Goals and excerpts are quoted and labeled because the report lands in the model's context: in a
  * manual test, Claude Haiku read an unquoted `Goal: fix computeTotal` line as a request and edited
- * the code.
+ * the code. Everything shown is masked too (see `quote` and `mask`).
  */
 export async function statusReport(cwd: string, sessionId: string | undefined, transcriptPath?: string): Promise<string> {
   const lines = [
@@ -38,20 +55,24 @@ export async function statusReport(cwd: string, sessionId: string | undefined, t
   const { run: lastRun, problem } = await readLastRun(cwd, sessionId)
   if (!lastRun) {
     lines.push(problem ? `Last run: unknown — ${problem}.` : 'Last run: no compaction in this session since the plugin was installed.')
+    const refused = problem ? undefined : await preservedContextProblem(cwd, sessionId)
+    if (refused) lines.push(`Preserved: not read — ${refused}.`)
     return lines.join('\n')
   }
   const scorer = lastRun.scorer === 'local' ? 'offline keyword overlap' : lastRun.scorer === 'jev' ? 'Jev' : undefined
-  lines.push(`Last run: ${lastRun.at}, ${lastRun.outcome}${lastRun.preserved ? ` (${lastRun.preserved} entries)` : ''}${scorer ? `, scored with ${scorer}` : ''}`)
-  if (lastRun.reason) lines.push(`  Reason: ${lastRun.reason}`)
-  if (lastRun.note) lines.push(`  Note: ${lastRun.note}`)
-  for (const warning of lastRun.warnings ?? []) lines.push(`  Warning: ${warning}`)
-  if (lastRun.goal) lines.push(`  Scored against: ${quote(truncate(lastRun.goal, 200))}`)
+  lines.push(`Last run: ${mask(lastRun.at)}, ${mask(lastRun.outcome)}${lastRun.preserved ? ` (${Number(lastRun.preserved)} entries)` : ''}${scorer ? `, scored with ${scorer}` : ''}`)
+  if (lastRun.reason) lines.push(`  Reason: ${mask(lastRun.reason)}`)
+  if (lastRun.note) lines.push(`  Note: ${mask(lastRun.note)}`)
+  for (const warning of Array.isArray(lastRun.warnings) ? lastRun.warnings : []) lines.push(`  Warning: ${mask(warning)}`)
+  if (typeof lastRun.goal === 'string' && lastRun.goal) lines.push(`  Scored against: ${quoteCut(lastRun.goal, 200)}`)
 
   const preserved = await readPreservedContext(cwd, sessionId)
+  const refused = preserved ? undefined : await preservedContextProblem(cwd, sessionId)
+  if (refused) lines.push(`Preserved: not read — ${refused}.`)
   if (preserved && preserved.entries.length > 0) {
     lines.push('Preserved (highest score first):')
     for (const e of [...preserved.entries].sort((a, b) => b.combinedScore - a.combinedScore)) {
-      lines.push(`  ${e.combinedScore.toFixed(2)}  ${quote(truncate(e.content, 120))}`)
+      lines.push(`  ${e.combinedScore.toFixed(2)}  ${quoteCut(e.content, 120)}`)
     }
   }
   return lines.join('\n')
