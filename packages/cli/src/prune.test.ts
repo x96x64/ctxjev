@@ -46,7 +46,7 @@ describe('ctxjev prune', () => {
       }),
     )
 
-    // Two entries are both "the last two", which prune protects by default since 0.6.2.
+    // Two entries are both "the last two", which prune protects by default since 0.7.0.
     const result = await run(['prune', file, '--offline', '--protect-last', '0'])
     expect(result.exitCode).toBe(0)
     expect(JSON.parse(result.stdout).entries.map((e: { id: string }) => e.id)).toEqual(['a'])
@@ -154,7 +154,7 @@ describe('ctxjev prune', () => {
   }, 15_000)
 
   // The second audit: --protect-last on ctxjev's own format was accepted and silently ignored.
-  // --protect-last applies to ctxjev's own format too since 0.6.2 (the last n entries); every flag
+  // --protect-last applies to ctxjev's own format too since 0.7.0 (the last n entries); every flag
   // that only a Messages conversation has is still refused there.
   it('rejects every Anthropic-Messages-only flag on a ctxjev-format transcript, and accepts --protect-last', async () => {
     const file = join(dir, 'c.json')
@@ -297,7 +297,7 @@ describe('--scorer', () => {
   it('recency keeps the newest, whatever it says, with no key', async () => {
     const file = join(dir, 't.json')
     await writeFile(file, entries)
-    // Two entries are both "the last two", which prune protects by default since 0.6.2.
+    // Two entries are both "the last two", which prune protects by default since 0.7.0.
     const result = await run(['prune', file, '--scorer', 'recency', '--protect-last', '0'])
     expect(result.exitCode).toBe(0)
     expect(JSON.parse(result.stdout).entries.map((e: { id: string }) => e.id)).toEqual(['b'])
