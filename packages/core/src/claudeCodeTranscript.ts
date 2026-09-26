@@ -29,8 +29,14 @@ type TranscriptRecord = {
   message?: { role: string; content: string | unknown[] }
 }
 
+// Claude Code doesn't write a block missing a field it needs, but the log is read, not trusted: one
+// is skipped instead of failing the whole parse (and, in the plugin, preserving nothing).
 function asKnownBlock(raw: unknown): KnownContentBlock | undefined {
   if (typeof raw !== 'object' || raw === null || !('type' in raw)) return undefined
+  const block = raw as Record<string, unknown>
+  if (block.type === 'text' && typeof block.text !== 'string') return undefined
+  if (block.type === 'tool_use' && (typeof block.id !== 'string' || typeof block.name !== 'string')) return undefined
+  if (block.type === 'tool_result' && typeof block.tool_use_id !== 'string') return undefined
   return raw as KnownContentBlock
 }
 
@@ -83,8 +89,8 @@ function userText(text: string): string {
   return text.replace(PASTED_CONTENT_TAG, '').trim()
 }
 
-function toTimestampMs(timestamp: string | undefined): number {
-  if (!timestamp) return 0
+function toTimestampMs(timestamp: unknown): number {
+  if (typeof timestamp !== 'string' || !timestamp) return 0
   const parsed = Date.parse(timestamp)
   return Number.isNaN(parsed) ? 0 : parsed
 }
@@ -121,7 +127,7 @@ export function parseClaudeCodeTranscript(jsonl: string, options: ParseClaudeCod
 
     const timestamp = toTimestampMs(record.timestamp) || lastTimestamp
     lastTimestamp = timestamp
-    const recordId = record.uuid ?? `line-${line}`
+    const recordId = typeof record.uuid === 'string' ? record.uuid : `line-${line}`
     const content = record.message?.content
 
     if (record.type === 'user' && typeof content === 'string') {

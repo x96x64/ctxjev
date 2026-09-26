@@ -697,3 +697,68 @@ describe('redactSecrets: the seventh review of the masking change', () => {
     expect(redactSecrets(text)).toBe(text)
   })
 })
+
+// The eighth independent review.
+describe('redactSecrets: the eighth review of the masking change', () => {
+  const t = 'Zq8vX2mPzR8vXw1yT4bNc7Lp'
+  // The Authorization branch of the named-value rules split the value with a `.` pattern, which
+  // doesn't match `\r`, U+2028, or U+2029, and threw on a value holding one. In the Claude Code
+  // plugin, that one line preserved nothing at every compaction while it was in the window.
+  it.each([
+    ['\\r', '\r'],
+    ['U+2028', ' '],
+    ['U+2029', ' '],
+  ])('masks an Authorization value set by name with %s inside it', (_name, c) => {
+    for (const text of [
+      `headers["Authorization"] = "Token ${t}${c}${t}"`,
+      `req.setHeader('Authorization', 'Bearer ${t}${c}x')`,
+      `["--authorization", "${t}${c}"]`,
+      `h["Proxy-Authorization"] = "${c}"`,
+      `h["Authorization"] = "${c}${t}"`,
+    ]) {
+      const masked = redactSecrets(text)
+      expect(masked).not.toContain(t)
+      expect(redactSecrets(masked)).toBe(masked)
+    }
+  })
+
+  // Every case the tests name, with each line terminator and a few other characters no rule
+  // expects put at every position: masking never throws, whatever the text.
+  it('never throws, whatever character lands inside a credential', () => {
+    const lines = [
+      ...FORMATS.map((f) => f.text),
+      ...AUDIT3_FORMATS.map((f) => f.text),
+      ...AUDIT3_LINES.map((f) => f.text),
+      ...HARMLESS,
+      `os.environ["OPENAI_API_KEY"] = "${t}"`,
+      `define('DB_PASSWORD', '${t}');`,
+      `["--password", "${t}"]`,
+      `headers["Authorization"] = "Token ${t}"`,
+      `{"Authorization": "Basic ${t}"}`,
+      `Cookie: sessionid=${t}; theme=dark`,
+      `document.cookie = "sid=${t}"`,
+      `mysql -u root -p'${t}' db`,
+      `curl -u admin:${t} https://x`,
+      `sshpass -p ${t} ssh host`,
+      `machine h login u password ${t}`,
+      `db:5432:app:user:${t}`,
+      `- name: DB_PASSWORD\n  value: ${t}`,
+      `<add key="ApiKey" value="${t}"/>`,
+      `IDENTIFIED BY '${t}'`,
+      `パスワード: ${t}`,
+    ]
+    const odd = ['\r', '\n', '\r\n', ' ', ' ', '\0', '\t', '\\', '"', "'", '\uD800', '😀']
+    let calls = 0
+    for (const line of lines) {
+      const step = Math.max(1, Math.floor(line.length / 40))
+      for (let at = 0; at <= line.length; at += step) {
+        for (const c of odd) {
+          const text = line.slice(0, at) + c + line.slice(at)
+          expect(() => redactSecrets(text), JSON.stringify(text)).not.toThrow()
+          calls++
+        }
+      }
+    }
+    expect(calls).toBeGreaterThan(10_000)
+  }, 60_000)
+})

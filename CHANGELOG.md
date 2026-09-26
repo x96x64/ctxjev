@@ -87,7 +87,12 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
   masked as they're read, not only when the snapshot was written, and before anything is cut short,
   so a snapshot or last-run record an earlier version wrote with the weaker masking doesn't bring a
   secret back. A malformed entry in `preserved.json`
-  is skipped instead of logging a `toFixed` error.
+  is skipped instead of logging a `toFixed` error, and `/ctxjev:status` reports a malformed
+  `last-run.json` instead of printing nothing.
+- `ctxjev-core`, `ctxjev-claude`: a block in a Claude Code transcript that lacks a field it needs (a
+  text block whose `text` isn't a string, a tool call without a string `id`) is skipped instead of
+  failing the whole parse. In the plugin, one such line made every compaction while it was in the
+  window preserve nothing, and `/ctxjev:status` print nothing. Claude Code doesn't write one itself.
 - `ctxjev-claude`: on macOS and Linux, the state directories (`~/.claude/ctxjev`, `sessions/`, and
   each session's) are made private to the user (0700) even when they already existed with looser
   permissions, and the plugin refuses to keep excerpts in one that belongs to another user, or to

@@ -149,7 +149,7 @@ const afterValue = (rest: string) => rest.slice(/^(?:[^\s;"'\\(),<>]|\\\S)*/.exe
  */
 function maskNamedValue(match: string, head: string, _q: string, name: string, quote: string, value: string): string {
   if (/^(?:proxy-)?authorization$/i.test(name)) {
-    const [, scheme = '', credentials] = /^([A-Za-z][A-Za-z0-9-]{0,30}[ \t]+)?(.*)$/.exec(value)!
+    const [, scheme = '', credentials] = /^([A-Za-z][A-Za-z0-9-]{0,30}[ \t]+)?([\s\S]*)$/.exec(value)!
     return credentials.length === 0 || isMasked(credentials) ? match : `${head}${quote}${scheme}${REDACTED}${quote}`
   }
   const kind = credentialKind(name)

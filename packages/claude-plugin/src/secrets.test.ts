@@ -246,6 +246,40 @@ describe('secrets on the plugin’s paths (dist)', () => {
     expect(status.stdout).toContain('Last run:')
   }, 20_000)
 
+  // The eighth review: `preserved` went through Number(), which throws on an object whose
+  // toString and valueOf aren't functions, and the report printed nothing.
+  it('reports a last-run.json whose fields all have the wrong type', async () => {
+    const dir = join(state, 'sessions', 'sess-1')
+    await mkdir(dir, { recursive: true, mode: 0o700 })
+    for (const preserved of [{ toString: 1 }, { valueOf: 1, toString: 1 }, 'five', [3]]) {
+      const run = { at: 'x', outcome: 'preserved', preserved, scorer: { toString: 1 }, reason: { toString: 1 }, note: [{ valueOf: 1 }], warnings: 'w', goal: 5 }
+      await writeFile(join(dir, 'last-run.json'), JSON.stringify(run), 'utf8')
+      const status = await runHook('statusHook.js', JSON.stringify({ prompt: '/ctxjev:status', cwd, session_id: 'sess-1' }))
+      const report: string = JSON.parse(status.stdout || '{}').reason ?? status.stderr
+      expect(report).toContain('Last run: x, preserved\n')
+      expect(report).not.toContain('NaN')
+    }
+  }, 60_000)
+
+  // The eighth review: a transcript text block whose `text` isn't a string failed the PreCompact
+  // run (outcome "error", nothing preserved) and the status report.
+  it('skips a malformed transcript block instead of failing the hooks', async () => {
+    const transcriptPath = join(cwd, 'malformed.jsonl')
+    const records = [
+      { type: 'user', uuid: 'm1', message: { role: 'user', content: [{ type: 'text', text: 123 }] } },
+      { type: 'assistant', uuid: 'm2', message: { role: 'assistant', content: [{ type: 'text', text: null }, { type: 'text' }, { type: 'tool_use', id: 5, name: 7, input: 'x' }] } },
+      { type: 'user', uuid: 7, message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: {}, content: 5 }] } },
+    ]
+    const tail = await writeTranscript()
+    await writeFile(transcriptPath, records.map((r) => JSON.stringify(r)).join('\n') + '\n' + (await readFile(tail, 'utf8')), 'utf8')
+    const pre = await runHook('preCompact.js', JSON.stringify({ cwd, transcript_path: transcriptPath, session_id: 'sess-1' }))
+    const lastRun = JSON.parse(await readFile(join(state, 'sessions', 'sess-1', 'last-run.json'), 'utf8'))
+    expect(lastRun.outcome, pre.stderr).toBe('preserved')
+    const status = await runHook('statusHook.js', JSON.stringify({ prompt: '/ctxjev:status', cwd, session_id: 'sess-1', transcript_path: transcriptPath }))
+    expect(status.stdout, status.stderr).toContain('checkout database connection')
+    expect(status.stdout).toContain('Last run:')
+  }, 20_000)
+
   it.skipIf(process.platform === 'win32')('reads no state file with another hard link, and says why with no last run', async () => {
     const dir = join(state, 'sessions', 'sess-1')
     await mkdir(dir, { recursive: true, mode: 0o700 })

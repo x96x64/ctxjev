@@ -60,7 +60,7 @@ export async function statusReport(cwd: string, sessionId: string | undefined, t
     return lines.join('\n')
   }
   const scorer = lastRun.scorer === 'local' ? 'offline keyword overlap' : lastRun.scorer === 'jev' ? 'Jev' : undefined
-  lines.push(`Last run: ${mask(lastRun.at)}, ${mask(lastRun.outcome)}${lastRun.preserved ? ` (${Number(lastRun.preserved)} entries)` : ''}${scorer ? `, scored with ${scorer}` : ''}`)
+  lines.push(`Last run: ${mask(lastRun.at)}, ${mask(lastRun.outcome)}${typeof lastRun.preserved === 'number' && lastRun.preserved ? ` (${lastRun.preserved} entries)` : ''}${scorer ? `, scored with ${scorer}` : ''}`)
   if (lastRun.reason) lines.push(`  Reason: ${mask(lastRun.reason)}`)
   if (lastRun.note) lines.push(`  Note: ${mask(lastRun.note)}`)
   for (const warning of Array.isArray(lastRun.warnings) ? lastRun.warnings : []) lines.push(`  Warning: ${mask(warning)}`)
