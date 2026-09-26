@@ -11,6 +11,19 @@ const ROLES: EntryRole[] = ['user', 'assistant', 'tool']
 
 const isObject = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)
 
+/** A value as text for an error message; an object with no prototype can't be turned into one. */
+export function shown(value: unknown): string {
+  try {
+    return String(value)
+  } catch {
+    return Object.prototype.toString.call(value)
+  }
+}
+
+export function validateOptions(options: unknown): void {
+  if (!isObject(options)) throw new Error(`options must be an object, got ${options === null ? 'null' : Array.isArray(options) ? 'an array' : typeof options}`)
+}
+
 export function validateEntry(entry: unknown, where: string): asserts entry is Entry {
   if (!isObject(entry)) throw new Error(`${where} must be an object`)
   const { id, role, toolName, content, timestamp, sourceTokens } = entry
@@ -46,7 +59,7 @@ export function validateScoredEntries(scored: unknown, where = 'scored'): assert
     if (!isObject(s)) throw new Error(`${where}[${i}] must be an object`)
     if (typeof s.entryId !== 'string') throw new Error(`${where}[${i}].entryId must be a string`)
     for (const key of ['relevance', 'recency'] as const) {
-      if (!unitInterval(s[key])) throw new Error(`${where}[${i}].${key} must be a number from 0 to 1, got ${String(s[key])}`)
+      if (!unitInterval(s[key])) throw new Error(`${where}[${i}].${key} must be a number from 0 to 1, got ${shown(s[key])}`)
     }
   })
 }
@@ -70,7 +83,7 @@ export function validatePolicy(policy: PruningPolicy): void {
   if (!isObject(policy)) throw new Error('policy must be an object with dropBelow, summarizeBelow, and recencyWeight')
   for (const key of ['dropBelow', 'summarizeBelow', 'recencyWeight'] as const) {
     const value: unknown = policy[key]
-    if (typeof value !== 'number' || !(value >= 0 && value <= 1)) throw new Error(`policy.${key} must be a number from 0 to 1, got ${String(value)}`)
+    if (typeof value !== 'number' || !(value >= 0 && value <= 1)) throw new Error(`policy.${key} must be a number from 0 to 1, got ${shown(value)}`)
   }
   if (policy.dropBelow > policy.summarizeBelow) {
     throw new Error(`policy.dropBelow (${policy.dropBelow}) must not be greater than summarizeBelow (${policy.summarizeBelow})`)
@@ -78,7 +91,7 @@ export function validatePolicy(policy: PruningPolicy): void {
 }
 
 export function validateRecencyWeight(recencyWeight: unknown): void {
-  if (!unitInterval(recencyWeight)) throw new Error(`recencyWeight must be a number from 0 to 1, got ${String(recencyWeight)}`)
+  if (!unitInterval(recencyWeight)) throw new Error(`recencyWeight must be a number from 0 to 1, got ${shown(recencyWeight)}`)
 }
 
 /** A block in a message or in a tool_result's content: what ctxjev reads from it must be there. */

@@ -3,7 +3,7 @@ import { MAX_CONCURRENT_CHUNK_REQUESTS, mapWithConcurrencyLimit, pruneContext, t
 import { redactSecrets } from './redact.js'
 import { estimateTokens } from './tokenEstimate.js'
 import { DEFAULT_POLICY, type Entry, type PruneDecision, type PruningPolicy } from './types.js'
-import { validateGoal, validateMessages } from './validate.js'
+import { shown, validateGoal, validateMessages, validateOptions } from './validate.js'
 
 /**
  * The Anthropic Messages API's conversation shape, loosely typed: only the blocks ctxjev reads are
@@ -207,15 +207,16 @@ export function lastTurnStart(messages: AnthropicMessage[]): number {
  * a prompt-cache rewrite. Consecutive same-role messages can result; the Messages API accepts those.
  */
 export async function pruneMessages(messages: AnthropicMessage[], goal: string, options: PruneMessagesOptions = {}): Promise<PruneMessagesResult> {
+  validateOptions(options)
   const { policy = DEFAULT_POLICY, protectLastTurn = true, protectLast = 2, targetTokens, summarize, minSavedTokens = 0, keepUserText = true, marker = true, ...scoreOptions } = options
   const count = (name: string, value: unknown, min: number) => {
-    if (typeof value !== 'number' || !Number.isFinite(value) || value < min) throw new Error(`${name} must be a number of at least ${min}, got ${String(value)}`)
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < min) throw new Error(`${name} must be a number of at least ${min}, got ${shown(value)}`)
   }
   validateGoal(goal)
   count('protectLast', protectLast, 0)
   count('minSavedTokens', minSavedTokens, 0)
   if (targetTokens !== undefined) count('targetTokens', targetTokens, 0)
-  if (summarize !== undefined && summarize !== 'excerpt' && typeof summarize !== 'function') throw new Error(`summarize must be 'excerpt' or a function, got ${String(summarize)}`)
+  if (summarize !== undefined && summarize !== 'excerpt' && typeof summarize !== 'function') throw new Error(`summarize must be 'excerpt' or a function, got ${shown(summarize)}`)
   const mapped = mapMessages(messages)
   const decisions = await pruneContext(mapped.map(toEntry), goal, policy, scoreOptions)
   const decisionById = new Map(decisions.map((d) => [d.entryId, d]))

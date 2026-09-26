@@ -172,3 +172,25 @@ describe('rankLocalRelevance checks what it reads', () => {
     for (const s of rankLocalRelevance(scored, 0.5)) expect(s.combinedScore >= 0 && s.combinedScore <= 1).toBe(true)
   })
 })
+
+// The review of this change: a null options object, or a value that can't be turned into text
+// (an object with no prototype) in the message about it, gave a raw TypeError (as in 0.6.1).
+describe('options and values that can\'t be printed', () => {
+  const noPrototype = Object.create(null) as unknown
+  const messages: AnthropicMessage[] = [{ role: 'user', content: 'the task' }, { role: 'assistant', content: 'done' }]
+  it('null options', async () => {
+    await expectPlainError(() => pruneContext([entry()], 'goal', undefined, null as never), /options must be an object/)
+    await expectPlainError(() => scoreEntries([entry()], 'goal', undefined, null as never), /options must be an object/)
+    await expectPlainError(() => pruneMessages(messages, 'goal', null as never), /options must be an object/)
+    await expectPlainError(() => summarizeSavings([entry()], null as never), /decisions must be an array/)
+  })
+
+  it('a value with no prototype', async () => {
+    await expectPlainError(() => pruneMessages(messages, 'goal', { targetTokens: noPrototype as number }), /targetTokens must be a number of at least 0, got \[object Object\]/)
+    await expectPlainError(() => pruneMessages(messages, 'goal', { summarize: noPrototype as never }), /summarize must be 'excerpt' or a function/)
+    await expectPlainError(() => pruneContext([entry()], 'goal', { dropBelow: noPrototype as number, summarizeBelow: 0.5, recencyWeight: 0.1 }), /policy\.dropBelow must be a number from 0 to 1/)
+    await expectPlainError(() => scoreEntries([entry()], 'goal', noPrototype as number), /recencyWeight must be a number from 0 to 1/)
+    await expectPlainError(() => pruneEntries([entry()], [{ entryId: 'a', relevance: 0, recency: 0, combinedScore: 0, action: 'keep' }], { protectLast: noPrototype as number }), /protectLast must be a number of at least 0/)
+    await expectPlainError(() => pruneContext([entry(), entry({ id: 'b' })], 'goal', undefined, { scorer: async () => [noPrototype as number, 0.5] }), /custom scorer returned \[object Object\] for entry "a"/)
+  })
+})

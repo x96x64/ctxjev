@@ -128,6 +128,8 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 - `ctxjev-core`, `ctxjev-cli`: `overBudget` (and `prune --target-tokens`' "still over" warning)
   counts the one-line removal note, and the budget leaves room for it. The result could be over the
   target with `overBudget` false (the audit found 38 of 807 targets; this repo's sample showed 119).
+  The room is kept even when no user message is left to carry the note, which can remove one entry
+  more than strictly needed.
 - `ctxjev-core`, `ctxjev-cli`: malformed input fails with a message naming the field instead of a
   raw error or a wrong number. A string `sourceTokens` (`"100"`) printed `NaN%`, a text block with
   no `text` died with "Cannot read properties of undefined", and a tool call with no `id` or a

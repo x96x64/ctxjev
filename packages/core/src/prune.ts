@@ -6,7 +6,7 @@ import { percentileRanks } from './percentile.js'
 import { combineScore, decideAction } from './policy.js'
 import { computeRecency } from './recency.js'
 import { redactSecrets } from './redact.js'
-import { validateEntries, validateGoal, validatePolicy, validateRecencyWeight, validateScoredEntries } from './validate.js'
+import { shown, validateEntries, validateGoal, validateOptions, validatePolicy, validateRecencyWeight, validateScoredEntries } from './validate.js'
 import { DEFAULT_POLICY, type Entry, type JevUsage, type PruneDecision, type PruningPolicy, type ScoredEntry } from './types.js'
 
 /**
@@ -83,12 +83,12 @@ async function scoreWithCustom(entries: Entry[], goal: string, scorer: CustomSco
   const chunkResults = await mapWithConcurrencyLimit(chunkEntries(entries), MAX_CONCURRENT_CHUNK_REQUESTS, async (chunk) => {
     const scores: unknown = await scorer(safeGoal, chunk.map(redact), { latest })
     if (!Array.isArray(scores) || scores.length !== chunk.length) {
-      throw new Error(`custom scorer returned ${Array.isArray(scores) ? `${scores.length} scores` : String(scores)} for ${chunk.length} entries`)
+      throw new Error(`custom scorer returned ${Array.isArray(scores) ? `${scores.length} scores` : shown(scores)} for ${chunk.length} entries`)
     }
     return chunk.map((entry, i) => {
       const relevance: unknown = scores[i]
       if (typeof relevance !== 'number' || !Number.isFinite(relevance) || relevance < 0 || relevance > 1) {
-        throw new Error(`custom scorer returned ${String(relevance)} for entry "${entry.id}" — expected a number from 0 to 1`)
+        throw new Error(`custom scorer returned ${shown(relevance)} for entry "${entry.id}" — expected a number from 0 to 1`)
       }
       return { entryId: entry.id, relevance }
     })
@@ -121,6 +121,7 @@ export async function scoreEntries(
   validateEntries(entries)
   validateGoal(goal)
   validateRecencyWeight(recencyWeight)
+  validateOptions(options)
   const { scorer } = options
   // Types stop a TypeScript caller's typo; a JavaScript one ('Jev') would otherwise get recency in silence.
   if (scorer !== undefined && typeof scorer !== 'function' && !(BUILT_IN_SCORERS as readonly string[]).includes(scorer)) {

@@ -1,6 +1,6 @@
 import { estimateTokens } from './tokenEstimate.js'
 import type { Entry, PruneDecision } from './types.js'
-import { validateDecisions, validateEntries, validateUniqueIds } from './validate.js'
+import { shown, validateDecisions, validateEntries, validateOptions, validateUniqueIds } from './validate.js'
 
 export type PruneEntriesOptions = {
   /**
@@ -40,10 +40,10 @@ export function pruneEntries(entries: Entry[], decisions: PruneDecision[], optio
   validateEntries(entries)
   validateUniqueIds(entries)
   validateDecisions(decisions)
-  if (typeof options !== 'object' || options === null) throw new Error('options must be an object')
+  validateOptions(options)
   const { protectFirstUserEntry = true, protectLast = 2 } = options
-  if (typeof protectFirstUserEntry !== 'boolean') throw new Error(`protectFirstUserEntry must be true or false, got ${String(protectFirstUserEntry)}`)
-  if (typeof protectLast !== 'number' || !Number.isFinite(protectLast) || protectLast < 0) throw new Error(`protectLast must be a number of at least 0, got ${String(protectLast)}`)
+  if (typeof protectFirstUserEntry !== 'boolean') throw new Error(`protectFirstUserEntry must be true or false, got ${shown(protectFirstUserEntry)}`)
+  if (typeof protectLast !== 'number' || !Number.isFinite(protectLast) || protectLast < 0) throw new Error(`protectLast must be a number of at least 0, got ${shown(protectLast)}`)
   const decisionById = new Map(decisions.map((d) => [d.entryId, d]))
   const firstUser = entries.find((e) => e.role === 'user')
   const tailStart = entries.length - Math.max(0, Math.floor(protectLast))
