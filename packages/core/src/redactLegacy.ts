@@ -10,6 +10,8 @@
  *   took 24 seconds for 100,000 characters);
  * - a URL's scheme is at most 32 characters (from every word boundary in `a.a.a…`, 0.6.1 read the
  *   run to its end looking for `://`);
+ * - a JWT is found by looking at each run of base64url characters once (maskJwts), with the same
+ *   matches as 0.6.1's pattern;
  * - `mysql … -p…` and `curl … -u user:…` are found by a scan that visits each position once,
  *   instead of a pattern retried from every mention of the command to the end of its line, and
  *   curl's user name doesn't start with `=` (`curl -u====…` took quadratic time).
@@ -48,7 +50,10 @@ const TOKEN_PATTERNS: Array<[RegExp, string]> = [
   [/(?<![A-Za-z0-9])xox[abprs]-[A-Za-z0-9-]{10,}/g, REDACTED],
   [/(?<![A-Za-z0-9])AIza[0-9A-Za-z_-]{35}\b/g, REDACTED],
   [/(?<![A-Za-z0-9])ya29\.[0-9A-Za-z_-]{20,}/g, REDACTED],
-  [/(?<![A-Za-z0-9])eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g, REDACTED],
+]
+
+// Applied after the JWT rule (maskJwts), in 0.6.1's order.
+const TOKEN_PATTERNS_AFTER_JWT: Array<[RegExp, string]> = [
   [/(\bhttps:\/\/hooks\.slack\.com\/(?:services|workflows|triggers)\/)[A-Za-z0-9/_-]+/g, `$1${REDACTED}`],
   [/(\bhttps:\/\/(?:canary\.|ptb\.)?discord(?:app)?\.com\/api\/webhooks\/)[0-9]+\/[A-Za-z0-9_-]+/g, `$1${REDACTED}`],
 ]
@@ -96,6 +101,41 @@ function maskAfterCommand(text: string, command: RegExp, argument: RegExp, repla
     } else {
       pos = c.index + 1
     }
+  }
+  return out + text.slice(copied)
+}
+
+/**
+ * 0.6.1's JWT rule, `(?<![A-Za-z0-9])eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}`,
+ * with the same matches in linear time. As a pattern it restarted at every "eyJ" after `-` or `_`
+ * and read to the end of the run each time (200,000 characters of `-eyJ` took 47 seconds). Since
+ * none of its three parts can hold a `.`, each part is a whole run of base64url characters: a JWT is
+ * three runs joined by single dots, the last two of 8 or more, starting at the first run's leftmost
+ * "eyJ" that isn't preceded by a letter or digit and has 8 or more characters after it. Each run is
+ * looked at once.
+ */
+export function maskJwts(text: string): string {
+  if (!text.includes('eyJ')) return text
+  const runs = [...text.matchAll(/[A-Za-z0-9_-]+/g)].map((m) => [m.index, m.index + m[0].length])
+  let out = ''
+  let copied = 0
+  for (let i = 0; i + 2 < runs.length; i++) {
+    const [s1, e1] = runs[i]
+    const [s2, e2] = runs[i + 1]
+    const [s3, e3] = runs[i + 2]
+    if (s2 !== e1 + 1 || text[e1] !== '.' || s3 !== e2 + 1 || text[e2] !== '.' || e2 - s2 < 8 || e3 - s3 < 8) continue
+    const first = text.slice(s1, e1)
+    let at = -1
+    for (let k = first.indexOf('eyJ'); k !== -1 && k + 11 <= first.length; k = first.indexOf('eyJ', k + 1)) {
+      if (k === 0 || !/[A-Za-z0-9]/.test(first[k - 1])) {
+        at = s1 + k
+        break
+      }
+    }
+    if (at < 0) continue
+    out += text.slice(copied, at) + REDACTED
+    copied = e3
+    i += 2
   }
   return out + text.slice(copied)
 }
@@ -182,7 +222,7 @@ const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&
 function isMaskableValue(value: string, kind: CredentialKind, bare: boolean, next: string | undefined, name: string): boolean {
   if (value.length === 0 || isMasked(value) || PLACEHOLDER.test(value) || REFERENCE.test(value)) return false
   if (bare && (next === '(' || next === '[')) return false
-  if (bare && new RegExp(`^(?:[A-Za-z_][A-Za-z0-9_]*\\.)*${escapeRegExp(name)}$`, 'i').test(value)) return false
+  if (bare && new RegExp(`^(?:[A-Za-z_][A-Za-z0-9_]*\\.)*${escapeRegExp(name)}$`).test(value)) return false
   if (value.includes('=') && nameWords(name).at(-1) === 'cookie') return false
   if (kind === 'password') return true
   if (/^\d+$/.test(value)) return false
@@ -193,6 +233,8 @@ function isMaskableValue(value: string, kind: CredentialKind, bare: boolean, nex
 export function redactLegacy(text: string): string {
   let out = text
   for (const [pattern, replacement] of TOKEN_PATTERNS) out = out.replace(pattern, replacement)
+  out = maskJwts(out)
+  for (const [pattern, replacement] of TOKEN_PATTERNS_AFTER_JWT) out = out.replace(pattern, replacement)
   // Each rule below is skipped when the text lacks what it needs to match (`://` for a URL, "aws" or
   // "secret" before an AWS key): the same result, one pass over the text fewer.
   for (const [pattern, replacement] of POSITIONAL_PATTERNS.slice(0, 3)) if (pattern !== POSITIONAL_PATTERNS[0][0] || out.includes('://')) out = out.replace(pattern, replacement as string)
@@ -216,6 +258,6 @@ export function redactLegacy(text: string): string {
     return `${quote}${name}${quote}${sep}${masked}`
   })
   // A header's name (`パスワード: Set-Cookie: sid=…`) isn't the value: masking it would hide the header.
-  out = out.replace(JA_ASSIGNMENT, (match, name, sep, quote, value) => (/^\d+$/.test(value) || isMasked(value) || /(?:(?:Set-)?Cookie|(?:Proxy-)?Authorization):$/i.test(value) ? match : `${name}${sep}${quote}${REDACTED}`))
+  out = out.replace(JA_ASSIGNMENT, (match, name, sep, quote, value) => (/^\d+$/.test(value) || isMasked(value) || /^(?:(?:Set-)?Cookie|(?:Proxy-)?Authorization):$/i.test(value) ? match : `${name}${sep}${quote}${REDACTED}`))
   return out
 }

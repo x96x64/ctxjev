@@ -74,8 +74,10 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
   whose host is a relative path (grep output, `12:30:45:123:4567`), and "password" followed by a
   quoted phrase in prose (`the password "is too short"`).
 - `ctxjev-core`: `redactSecrets()` takes time in proportion to its input on long runs of one
-  pattern. 100,000 characters of `a.a.a…` took 24 seconds, and other shapes (`curl -u====…`) grew
-  the same way; a million characters of any shape tried now take about a second or less.
+  pattern. 100,000 characters of `a.a.a…` took 24 seconds, and other shapes grew the same way
+  (`curl -u====…`, and `-eyJ-eyJ…` in the JWT rule: 200,000 characters took over a minute); a
+  million characters of any shape tried now take about a second or less. Ordinary text takes
+  several times as long to mask as in 0.6.1, since 0.6.1's rules and this release's both run.
 - `ctxjev-claude`: the digest re-injected after compaction and the `/ctxjev:status` report are
   masked as they're read, not only when the snapshot was written, and before anything is cut short,
   so a snapshot or last-run record an earlier version wrote with the weaker masking doesn't bring a

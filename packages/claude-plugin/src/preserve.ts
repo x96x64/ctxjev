@@ -52,5 +52,7 @@ export async function clearPreservedContext(cwd: string, sessionId: string | und
   // Nothing is deleted from a directory another user owns; from the user's own, even one others
   // could write to, the stale snapshot is removed, so it can't come back once the directory is private.
   if (await sessionDirProblem(cwd, sessionId, { forDelete: true })) return
-  await rm(join(sessionDir(cwd, sessionId), FILE), { force: true })
+  // Something that isn't a file where the snapshot goes (a directory) can't be removed this way;
+  // it's never read either (stateFileProblem), so PreCompact carries on and records its run.
+  await rm(join(sessionDir(cwd, sessionId), FILE), { force: true }).catch(() => {})
 }

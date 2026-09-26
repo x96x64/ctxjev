@@ -19,7 +19,7 @@
  * Callers mask before cutting text short, never after (see entryText.ts): a cut can leave half a
  * token that no longer matches any rule here.
  */
-import { redactLegacy } from './redactLegacy.js'
+import { maskJwts, redactLegacy } from './redactLegacy.js'
 const REDACTED = '[REDACTED]'
 
 // A value that's already masked, possibly cut at its closing bracket by a value pattern below.
@@ -60,7 +60,10 @@ const TOKEN_PATTERNS: Rule[] = [
   [/(?<![A-Za-z0-9])AIza[0-9A-Za-z_-]{35}\b/g, REDACTED], // Google API key
   [/(?<![A-Za-z0-9])ya29\.[0-9A-Za-z_-]{20,}/g, REDACTED], // Google OAuth access token
   [/(?<![A-Za-z0-9])GOCSPX-[A-Za-z0-9_-]{20,}/g, REDACTED], // Google OAuth client secret
-  [/(?<![A-Za-z0-9])eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g, REDACTED], // JWT
+]
+
+// Applied after JWTs (maskJwts in redactLegacy.ts, linear), in this order.
+const TOKEN_PATTERNS_AFTER_JWT: Rule[] = [
   [/(?<![A-Za-z0-9])sk\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g, REDACTED], // Mapbox secret token
   [/(?<![A-Za-z0-9])hv[sbr]\.[A-Za-z0-9_-]{24,}/g, REDACTED], // HashiCorp Vault service, batch, and recovery tokens
   [/(?<![A-Za-z0-9.])s\.(?=[A-Za-z0-9]{0,23}[0-9])[A-Za-z0-9]{24}(?![A-Za-z0-9])/g, REDACTED], // Vault's older service token format
@@ -365,7 +368,7 @@ function isMaskableValue(value: string, kind: CredentialKind, bare: boolean, nex
   if (value.length === 0 || isMasked(value) || PLACEHOLDER.test(value) || REFERENCE.test(value)) return false
   if (bare && (next === '(' || next === '[')) return false
   // Code passing a variable on: `password=password`, `token=self.token`.
-  if (bare && name !== undefined && new RegExp(`^(?:[A-Za-z_][A-Za-z0-9_]*\\.)*${escapeRegExp(name)}$`, 'i').test(value)) return false
+  if (bare && name !== undefined && new RegExp(`^(?:[A-Za-z_][A-Za-z0-9_]*\\.)*${escapeRegExp(name)}$`).test(value)) return false
   if (kind === 'password') return true
   if (kind === 'longToken') return value.length >= 20 && !/\s/.test(value)
   if (kind === 'cookie') return maskCookies(value) !== value
@@ -525,6 +528,8 @@ const MAX_PASSES = 4
 function redactCurrent(text: string): string {
   let out = text
   for (const rule of TOKEN_PATTERNS) out = applyRule(out, rule)
+  out = maskJwts(out)
+  for (const rule of TOKEN_PATTERNS_AFTER_JWT) out = applyRule(out, rule)
   // Before the positional rules, so a flag's rule can't take the command's name for its value
   // (`--token curl -u admin:…`).
   out = maskCommandArguments(out)

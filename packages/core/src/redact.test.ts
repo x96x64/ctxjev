@@ -533,7 +533,8 @@ describe('redactSecrets: 0.6.1\'s rules, run first (redactLegacy.ts)', () => {
   })
 
   it.each([
-    ['--password <password>   password for the database user', '--password <password>   password for the database user'],
+    // With a word before it, so 0.6.1's rule (which wants whitespace before `--`) would mask it.
+    ['psql --password <password>   password for the database user', 'psql --password <password>   password for the database user'],
     ['password=password', 'password=password'],
   ])('leaves alone what it decides differently from 0.6.1: %s', (text, expected) => {
     expect(redactSecrets(text)).toBe(expected)
@@ -570,5 +571,75 @@ describe('redactSecrets: the fifth review of the masking change', () => {
     const masked = redactSecrets(text)
     expect(masked).not.toContain('4111111111111111')
     expect(redactSecrets(masked)).toBe(masked)
+  })
+})
+
+// The sixth independent review.
+describe('redactSecrets: the sixth review of the masking change', () => {
+  const scale = Number(process.env.CTXJEV_TIME_LIMIT_SCALE ?? 1)
+  it.each([
+    ['a Japanese-label value that only ends in a header name', 'パスワード:hunter22;Cookie:', 'hunter22'],
+    ['the same after an sshpass password', 'sshpass -p pw,パスワード: S3cretPw;Set-Cookie:', 'S3cretPw'],
+    ['the same after a curl password', 'curl -u :pw,パスワード: S3cretPw;Set-Cookie: sid=abc', 'S3cretPw'],
+    ['the same after a query signature', 'https://h/cb?sig=abcdefghパスワード: S3cretPw;Authorization:', 'S3cretPw'],
+    ['the same after a flag', 'deploy --db-password xパスワード: S3cretPw;Cookie:', 'S3cretPw'],
+    ['a same-name value in another case', 'password=Password', 'Password'],
+  ])('masks: %s', (_name, text, secret) => {
+    const masked = redactSecrets(text)
+    expect(masked).not.toContain(secret)
+    expect(redactSecrets(masked)).toBe(masked)
+  })
+
+  it('masks a JWT as 0.6.1 did, including one glued after "-" or "_"', () => {
+    const jwt = j('eyJ', 'hbGciOiJIUzI1NiJ9', '.', 'eyJzdWIiOiIxMjM0NTY3ODkwIn0', '.', 'dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U')
+    for (const text of [jwt, `token-${jwt}`, `gsk_${jwt}`, `a-eyJ-${jwt}`, `Authorization: ${jwt}`]) expect(redactSecrets(text)).not.toContain('dozjgNryP4J3jVmNHl0w5N')
+    expect(redactSecrets(`${'eyJabcdefgh'}.x.y`)).toBe('eyJabcdefgh.x.y')
+  })
+
+  // 0.6.1's JWT rule restarted at every "eyJ" after "-" or "_" and read to the end of the run:
+  // 200,000 characters of "-eyJ" took 47 seconds. The URL rule's scheme was unbounded in 0.6.1 too.
+  it.each([
+    ['-eyJ repeated', '-eyJ'.repeat(75_000)],
+    ['x-eyJ0-x-eyJ1-… repeated', Array.from({ length: 30_000 }, (_, i) => `x-eyJ${i}-`).join('')],
+    ['_eyJ repeated', '_eyJ'.repeat(75_000)],
+    ['a. repeated before ://', 'a.'.repeat(150_000) + '://'],
+  ])('takes linear time: %s', (_name, text) => {
+    const start = performance.now()
+    redactSecrets(text)
+    expect(performance.now() - start).toBeLessThan(2000 * scale)
+  })
+})
+
+// Formats the CHANGELOG lists that had no test of their own (the sixth review). Built at run time,
+// so no provider-shaped string sits in the repository.
+describe('redactSecrets: formats named in the CHANGELOG', () => {
+  const hex = (n: number) => '0123456789abcdef'.repeat(Math.ceil(n / 16)).slice(0, n)
+  const up = (n: number) => 'A1B2C3D4E5F6G7H8J9K0L1M2N3P4Q5R6'.repeat(3).slice(0, n)
+  const cases: Array<[string, string]> = [
+    ['Mailchimp', j(hex(32), '-us', '14')],
+    ['Postman', j('PMAK', '-', hex(24), '-', hex(34))],
+    ['New Relic', j('NR', 'AK', '-', up(27))],
+    ['Databricks', j('dapi', hex(32))],
+    ['Square', j('sq0', 'atp', '-', B62.slice(0, 22))],
+    ['Terraform Cloud', j(B62.slice(0, 14), '.atlas', 'v1.', B62, B62.slice(0, 22))],
+    ['Atlassian', j('ATATT', '3', B62)],
+    ['Docker Hub', j('dckr', '_pat_', B62.slice(0, 24))],
+    ['Sentry auth token', j('sntry', 'u_', B62, B62.slice(0, 4))],
+    ['Slack app token', j('xapp', '-1-', B62.slice(0, 20))],
+    ['Google OAuth client secret', j('GOCSPX', '-', B62.slice(0, 24))],
+    ['GitLab deploy token', j('gldt', '-', B62.slice(0, 20))],
+  ]
+  it.each(cases)('masks a %s key', (_name, key) => {
+    const masked = redactSecrets(`value: ${key} end`)
+    expect(masked).not.toContain(key.slice(-12))
+  })
+
+  it.each([
+    ['a Teams webhook', `https://contoso.webhook.office.com/webhookb2/${B62}@${B62}/IncomingWebhook/${B62}`, B62],
+    ['a Zapier webhook', `https://hooks.zapier.com/hooks/catch/123456/${B62.slice(0, 10)}`, B62.slice(0, 10)],
+    ['an X-Amz-Signature', `https://bucket.s3.amazonaws.com/k?X-Amz-Credential=x&X-Amz-Signature=${hex(64)}`, hex(64)],
+    ['a ?jwt= parameter', `https://app.example.com/cb?jwt=${B62}`, B62],
+  ])('masks %s', (_name, text, secret) => {
+    expect(redactSecrets(text)).not.toContain(secret)
   })
 })
