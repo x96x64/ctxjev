@@ -67,6 +67,26 @@ describe('preserve cache', () => {
     expect(sessionKey(undefined, '/some/other/project')).not.toBe(sessionKey(undefined, cwd))
   })
 
+  // The sixth review: nothing tested that a malformed entry is skipped rather than breaking the
+  // digest (0.6.1 logged a `toFixed` error for one).
+  it('skips malformed entries and keeps the rest', async () => {
+    await writePreservedContext(cwd, 's1', sample)
+    const path = join(state, 'sessions', 's1', 'preserved.json')
+    const data = JSON.parse(await readFile(path, 'utf8'))
+    data.entries.push({ entryId: 'b', combinedScore: 'high', content: 'no number' }, { entryId: 'c', combinedScore: 0.5 }, null, 'text')
+    await writeFile(path, JSON.stringify(data), 'utf8')
+    const read = await readPreservedContext(cwd, 's1')
+    expect(read?.entries.map((e) => e.entryId)).toEqual(['a'])
+  })
+
+  // The sixth review: with a directory where the snapshot goes, rm threw on every PreCompact, which
+  // then never recorded its run or made the session directory private again.
+  it('clears without throwing when something other than a file is where the snapshot goes', async () => {
+    await mkdir(join(state, 'sessions', 's1', 'preserved.json'), { recursive: true })
+    await expect(clearPreservedContext(cwd, 's1')).resolves.toBeUndefined()
+    expect(await readPreservedContext(cwd, 's1')).toBeUndefined()
+  })
+
   it('keeps only the 50 most recent sessions', async () => {
     for (let i = 0; i < 55; i++) await writePreservedContext(cwd, `s${i}`, sample)
     expect((await readdir(join(state, 'sessions'))).length).toBe(50)

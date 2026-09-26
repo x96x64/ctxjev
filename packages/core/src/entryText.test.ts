@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { j } from '../test/redactCases.js'
+import { AUDIT3_LINES, j } from '../test/redactCases.js'
+import { messagesToEntries } from './anthropicMessages.js'
+import { parseClaudeCodeTranscript } from './claudeCodeTranscript.js'
 import { toolEntryContent, toolExcerpt, truncate } from './entryText.js'
 import { seededRandom } from './random.js'
 
@@ -58,5 +60,33 @@ describe('cutting text short never splits a character', () => {
         expect(cut.length).toBeLessThanOrEqual(max)
       }
     }
+  })
+})
+
+// The third audit found its lines unmasked whichever format they came in: every parser builds its
+// excerpts through entryText.ts, so each is checked here through its own entry point.
+describe('excerpts from each transcript format: the third audit\'s lines', () => {
+  const text = AUDIT3_LINES.map((l) => `out: ${l.text}`).join('\n')
+
+  it('Anthropic Messages (messagesToEntries), text and tool results', () => {
+    const entries = messagesToEntries([
+      { role: 'user', content: text },
+      { role: 'assistant', content: [{ type: 'tool_use', id: 't1', name: 'Bash', input: { command: text } }] },
+      { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't1', content: text }] },
+    ])
+    const all = JSON.stringify(entries)
+    for (const { secret } of AUDIT3_LINES) expect(all).not.toContain(secret)
+  })
+
+  it('Claude Code (parseClaudeCodeTranscript), text and tool results', () => {
+    const jsonl = [
+      { type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: text } },
+      { type: 'assistant', uuid: 'a1', timestamp: '2026-01-01T00:00:01.000Z', message: { role: 'assistant', content: [{ type: 'tool_use', id: 'c1', name: 'Bash', input: { command: text } }] } },
+      { type: 'user', uuid: 'u2', timestamp: '2026-01-01T00:00:02.000Z', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'c1', content: text }] } },
+    ]
+      .map((r) => JSON.stringify(r))
+      .join('\n')
+    const all = JSON.stringify(parseClaudeCodeTranscript(jsonl))
+    for (const { secret } of AUDIT3_LINES) expect(all).not.toContain(secret)
   })
 })

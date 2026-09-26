@@ -108,3 +108,34 @@ export const HARMLESS = [
   'call +1 415 555 0100 after 5pm',
   'version 4.2.4242424242424242',
 ]
+
+/**
+ * The third audit (docs/audits/2026-09-25-audit-3-ja.md, section 4.6 and improvement 1). Its seven
+ * example lines are copied exactly; each also comes back with ctxjev's own excerpt prefix `out: `,
+ * which the audit found made things worse. The formats it named as missing follow, as fakes built
+ * at runtime like the ones above.
+ */
+export const AUDIT3_LINES: Array<{ text: string; secret: string }> = [
+  { text: 'DB_PASSWORD=hunter22', secret: 'hunter22' },
+  { text: 'Error: DB_PASSWORD=hunter22', secret: 'hunter22' },
+  { text: 'env: API_KEY=abcd1234efgh5678', secret: 'abcd1234efgh5678' },
+  { text: 'error: password: hunter22', secret: 'hunter22' },
+  { text: 'warning: token=abcd1234efgh5678', secret: 'abcd1234efgh5678' },
+  { text: 'https://x.example.com/cb?access_token=abcd1234efgh5678', secret: 'abcd1234efgh5678' },
+  { text: 'url=https://h/p?token=abcd1234efgh5678', secret: 'abcd1234efgh5678' },
+]
+
+const HEX64 = '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08'
+const HEX32 = '5d41402abc4b2a76b9719d911017c592'
+export const AUDIT3_FORMATS: Array<{ name: string; text: string; secret: string }> = [
+  { name: 'Vault service token', text: `VAULT_ADDR=https://vault.internal:8200 vault login ${j('hvs', '.', 'CAESIJlU9Jk3fQ2mPzR8vXw1yT4b')}`, secret: 'CAESIJlU9Jk3fQ2mPzR8vXw1yT4b' },
+  { name: 'DigitalOcean personal access token', text: `doctl auth init -t ${j('dop', '_v1_', HEX64)}`, secret: HEX64 },
+  { name: 'Linear API key', text: `linear: ${j('lin', '_api_', B62)}`, secret: B62 },
+  { name: 'Twilio API key SID', text: `client = Client(${j("'SK", HEX32, "'")}, api_secret, account_sid)`, secret: HEX32 },
+  { name: 'Mailgun private key', text: `mg = Mailgun(${j("'key", '-', HEX32, "'")})`, secret: HEX32 },
+  { name: 'Shopify admin access token', text: `X-Shopify-Access: ${j('shpat', '_', HEX32)}`, secret: HEX32 },
+  { name: 'PyPI upload token', text: `twine upload -p ${j('pypi', '-', 'AgEIcHlwaS5vcmcCJGE0ZjM2', B62)} dist/*`, secret: B62 },
+  { name: 'Telegram bot token', text: `curl https://api.telegram.org/bot${j('7012345678', ':', 'AAH3kQ9vX2mPzR8vXw1yT4bN5cL6dF7gH8j')}/getMe`, secret: 'AAH3kQ9vX2mPzR8vXw1yT4bN5cL6dF7gH8j' },
+  { name: 'Discord bot token', text: `client.login('${j('MTE0NzI2NTU0MzIxMjM0NTY3OA', '.', 'GhR2xQ', '.', 'k3fQ2mPzR8vXw1yT4bN5cL6dF7gH8jKl9m')}')`, secret: 'k3fQ2mPzR8vXw1yT4bN5cL6dF7gH8jKl9m' },
+  { name: 'Sentry DSN key', text: `SENTRY_DSN=https://${HEX32}@o450123.ingest.sentry.io/5512345`, secret: HEX32 },
+]

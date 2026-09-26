@@ -98,6 +98,25 @@ describe('parseClaudeCodeTranscript', () => {
     expect(parseClaudeCodeTranscript(jsonl)).toHaveLength(1)
   })
 
+  // The eighth review of the masking change: a text block whose `text` wasn't a string threw
+  // `t.replace is not a function`, failing the plugin's PreCompact run and its status report.
+  // Claude Code doesn't write one, but the log is read, not trusted.
+  it('skips a block missing a field it needs, and gives every entry a string id', () => {
+    const jsonl = [
+      record({ type: 'user', uuid: 'u0', message: { role: 'user', content: [{ type: 'text', text: 123 }, { type: 'text', text: null }, { type: 'text' }] } }),
+      record({ type: 'assistant', uuid: 'a0', message: { role: 'assistant', content: [{ type: 'text', text: { a: 1 } }, { type: 'text', text: 'kept' }] } }),
+      record({ type: 'assistant', uuid: 'a1', message: { role: 'assistant', content: [{ type: 'tool_use', id: 5, name: 'Bash', input: {} }, { type: 'tool_use', id: 'c1', name: 7, input: {} }] } }),
+      record({ type: 'user', uuid: 'u1', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: {}, content: 'x' }] } }),
+      record({ type: 'assistant', uuid: 'a2', timestamp: { toString: 1 }, message: { role: 'assistant', content: 'x' } }),
+      record({ type: 'user', uuid: 5, timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: 'fix the bug' } }),
+    ].join('\n')
+    const entries = parseClaudeCodeTranscript(jsonl)
+    expect(entries.map((e) => e.content)).toEqual(['kept', 'fix the bug'])
+    for (const e of entries) expect(typeof e.id).toBe('string')
+    expect(resolveClaudeCodeGoal(jsonl, entries)?.goal).toBe('fix the bug')
+    expect(transcriptStartTime(jsonl)).toBe(Date.parse('2026-01-01T00:00:00.000Z'))
+  })
+
   it('extracts a text block from array-shaped user content (e.g. a message with an attachment)', () => {
     const jsonl = record({
       type: 'user',

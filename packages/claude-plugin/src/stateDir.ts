@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { lstat, mkdir, readFile, readdir, rm, rmdir, stat, unlink } from 'node:fs/promises'
+import { chmod, lstat, mkdir, readFile, readdir, rm, rmdir, stat, unlink } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 
@@ -28,13 +28,85 @@ export function sessionDir(cwd: string, sessionId: string | undefined): string {
   return join(stateRoot(), 'sessions', sessionKey(sessionId, cwd))
 }
 
-/** Creates the session's directory (private to the user), and drops the oldest sessions' state. */
+/**
+ * Creates the session's directory, private to the user, and drops the oldest sessions' state. The
+ * state root, `sessions/`, and the session's own directory are each made 0700 even if they already
+ * existed with looser permissions (mkdir's mode only applies to what it creates), and each is
+ * refused if it belongs to another user: it holds transcript excerpts.
+ */
 export async function ensureSessionDir(cwd: string, sessionId: string | undefined): Promise<string> {
   const dir = sessionDir(cwd, sessionId)
-  await mkdir(stateRoot(), { recursive: true, mode: 0o700 })
-  await mkdir(dir, { recursive: true, mode: 0o700 })
+  for (const path of [stateRoot(), join(stateRoot(), 'sessions'), dir]) await ensurePrivateDir(path)
   await pruneOldSessions()
   return dir
+}
+
+async function ensurePrivateDir(path: string): Promise<void> {
+  await mkdir(path, { recursive: true, mode: 0o700 })
+  const info = await checkOwnDir(path)
+  if (info && (info.mode & 0o777) !== 0o700) await chmod(path, 0o700)
+}
+
+/**
+ * Throws if `path` (a directory, or a symlink to one) isn't a directory or belongs to another user:
+ * the link and what it points at must both be the user's. Returns its stat on POSIX; on Windows,
+ * which has no POSIX owner or mode bits (its per-user profile directory is private already),
+ * nothing, and checks nothing.
+ */
+async function checkOwnDir(path: string) {
+  if (process.platform === 'win32') return undefined
+  const uid = process.getuid?.()
+  const link = await lstat(path)
+  const info = link.isSymbolicLink() ? await stat(path) : link
+  if (!info.isDirectory()) throw new Error(`${path} isn't a directory`)
+  if (uid !== undefined && (link.uid !== uid || info.uid !== uid)) {
+    throw new Error(`${path} belongs to another user (uid ${info.uid}), so ctxjev won't keep or read transcript excerpts there`)
+  }
+  return info
+}
+
+/**
+ * Why the session's state can't be trusted, if it can't: a directory on the way to it (the state
+ * root, `sessions/`, the session's own) that isn't a directory, belongs to another user, or (for
+ * reading) others can write to. What's read from there is re-injected into the conversation, so a
+ * file another user could have planted is never read. One that doesn't exist yet is fine: there's
+ * nothing to read. `forDelete` checks ownership only: removing the user's own stale snapshot from
+ * the user's own directory is safe even while others could write there.
+ */
+export async function sessionDirProblem(cwd: string, sessionId: string | undefined, { forDelete = false } = {}): Promise<string | undefined> {
+  for (const path of [stateRoot(), join(stateRoot(), 'sessions'), sessionDir(cwd, sessionId)]) {
+    try {
+      const info = await checkOwnDir(path)
+      // The user's own directory, but one others can write to: anyone could have put a file there.
+      if (!forDelete && info && (info.mode & 0o022) !== 0) return `${path} is writable by other users, so ctxjev won't read transcript excerpts from it`
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return undefined
+      return err instanceof Error ? err.message : String(err)
+    }
+  }
+  return undefined
+}
+
+/**
+ * Why a state file can't be trusted, if it can't: a symlink or anything but a regular file, a file
+ * with another hard link, or (on
+ * macOS and Linux) one another user owns. A session directory others could write to before the
+ * plugin made it private may still hold a file one of them put there. One that doesn't exist is
+ * fine: there's nothing to read.
+ */
+export async function stateFileProblem(path: string): Promise<string | undefined> {
+  let info
+  try {
+    info = await lstat(path)
+  } catch (err) {
+    return (err as NodeJS.ErrnoException).code === 'ENOENT' ? undefined : `couldn't check ${path} (${(err as NodeJS.ErrnoException).code ?? String(err)})`
+  }
+  if (!info.isFile()) return `${path} isn't a regular file, so ctxjev won't read it`
+  // The plugin writes by rename, so its files have one link; another is a hard link someone made.
+  if (info.nlink > 1) return `${path} has other hard links, so ctxjev won't read it`
+  const uid = process.getuid?.()
+  if (process.platform !== 'win32' && uid !== undefined && info.uid !== uid) return `${path} belongs to another user (uid ${info.uid}), so ctxjev won't read it`
+  return undefined
 }
 
 async function pruneOldSessions(): Promise<void> {

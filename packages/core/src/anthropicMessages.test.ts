@@ -503,5 +503,7 @@ describe('pruneMessages', () => {
     }
     // Guards the test itself: most runs must actually exercise removal or summarizing.
     expect(changedRuns).toBeGreaterThan(75)
-  })
+    // An explicit time limit, since the default 5 s was close: every entry's text is masked, and
+    // masking now applies 0.6.1's rules and the newer ones (redact.ts), about 3.4 s here.
+  }, 20_000)
 })
