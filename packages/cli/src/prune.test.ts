@@ -46,7 +46,8 @@ describe('ctxjev prune', () => {
       }),
     )
 
-    const result = await run(['prune', file, '--offline'])
+    // Two entries are both "the last two", which prune protects by default since 0.7.0.
+    const result = await run(['prune', file, '--offline', '--protect-last', '0'])
     expect(result.exitCode).toBe(0)
     expect(JSON.parse(result.stdout).entries.map((e: { id: string }) => e.id)).toEqual(['a'])
     expect(result.stderr).toContain('removed 1 of 2 entries')
@@ -153,15 +154,19 @@ describe('ctxjev prune', () => {
   }, 15_000)
 
   // The second audit: --protect-last on ctxjev's own format was accepted and silently ignored.
-  it('rejects --protect-last and --no-protect-last-turn on a ctxjev-format transcript', async () => {
+  // --protect-last applies to ctxjev's own format too since 0.7.0 (the last n entries); every flag
+  // that only a Messages conversation has is still refused there.
+  it('rejects every Anthropic-Messages-only flag on a ctxjev-format transcript, and accepts --protect-last', async () => {
     const file = join(dir, 'c.json')
     await writeFile(file, JSON.stringify({ goal: 'g', entries: [{ id: 'a', role: 'tool', content: 'x', timestamp: 1 }] }))
-    for (const flags of [['--protect-last', '5'], ['--no-protect-last-turn']]) {
+    for (const flags of [['--no-protect-last-turn'], ['--target-tokens', '10'], ['--min-saved-tokens', '5'], ['--summarize-excerpts'], ['--drop-user-text'], ['--no-marker']]) {
       const result = await run(['prune', file, '--offline', ...flags])
       expect(result.exitCode).toBe(1)
       expect(result.stderr).toContain(`${flags[0]} only applies to an Anthropic Messages transcript`)
     }
-  }, 15_000)
+    const protectLast = await run(['prune', file, '--offline', '--protect-last', '5'])
+    expect(protectLast.exitCode).toBe(0)
+  }, 30_000)
 
   it('protects the latest turn unless --no-protect-last-turn, and never reports a non-positive saving as saved', async () => {
     const file = join(dir, 'turn.json')
@@ -211,6 +216,109 @@ describe('ctxjev prune', () => {
   }, 15_000)
 })
 
+// The third audit (4.1-2, check 12): on ctxjev's own format prune removed every entry marked drop,
+// which under the default recency scorer included the first request, with no warning; and it wrote
+// back only { goal, entries }, silently dropping the file's other fields.
+describe('prune on ctxjev’s own format: protection and the rest of the file', () => {
+  const sample = (name: string) => join(dirname(cliPath), '..', '..', '..', 'examples', 'sample-transcripts', name)
+
+  it('keeps the first user entry (the original request) by default, and says so', async () => {
+    const result = await run(['prune', sample('invoice-date-ja.json')])
+    expect(result.exitCode).toBe(0)
+    const ids = JSON.parse(result.stdout).entries.map((e: { id: string }) => e.id)
+    expect(ids[0]).toBe('j1')
+    expect(result.stderr).toContain('protected as the first user entry')
+    expect(result.stderr).not.toContain('⚠')
+  }, 15_000)
+
+  it('keeps the last two entries by default, and --protect-last sets how many', async () => {
+    const file = join(dir, 't.json')
+    await writeFile(file, JSON.stringify({ goal: 'g', entries: ['a', 'b', 'c', 'd', 'e'].map((id, i) => ({ id, role: 'tool', content: `entry ${id}`, timestamp: i })) }))
+    // Everything below 1 is marked drop: all but the newest, whose recency score is 1.
+    const byDefault = await run(['prune', file, '--drop-below', '1', '--summarize-below', '1'])
+    expect(JSON.parse(byDefault.stdout).entries.map((e: { id: string }) => e.id)).toEqual(['d', 'e'])
+    expect(byDefault.stderr).toContain('removed 3 of 5 entries')
+    expect(byDefault.stderr).toContain('1 marked drop but kept: 1 protected in the last 2 entries')
+    const three = await run(['prune', file, '--drop-below', '1', '--summarize-below', '1', '--protect-last', '3'])
+    expect(JSON.parse(three.stdout).entries.map((e: { id: string }) => e.id)).toEqual(['c', 'd', 'e'])
+  }, 15_000)
+
+  it('--no-protect-first lets it go, and warns when it does', async () => {
+    const result = await run(['prune', sample('invoice-date-ja.json'), '--no-protect-first', '--protect-last', '0'])
+    expect(result.exitCode).toBe(0)
+    expect(JSON.parse(result.stdout).entries.map((e: { id: string }) => e.id)).not.toContain('j1')
+    expect(result.stderr).toContain('⚠ removed the first user entry (j1)')
+  }, 15_000)
+
+  // The review of this change: removing analyze's warning, or its --json prune, left every test passing.
+  it('analyze says what prune would do: the same warning, and prune in --json', async () => {
+    const flags = ['--no-protect-first', '--protect-last', '0']
+    const report = await run(['analyze', sample('invoice-date-ja.json'), ...flags])
+    expect(report.exitCode).toBe(0)
+    expect(report.stdout).toContain('⚠ would remove the first user entry (j1)')
+    const pruned = await run(['prune', sample('invoice-date-ja.json'), ...flags])
+    const kept = JSON.parse(pruned.stdout).entries.map((e: { id: string }) => e.id)
+    const json = JSON.parse((await run(['analyze', sample('invoice-date-ja.json'), '--json', ...flags])).stdout)
+    expect(json.prune.firstUserEntryRemoved).toBe('j1')
+    expect(json.prune.removed).toContain('j1')
+    for (const id of json.prune.removed) expect(kept).not.toContain(id)
+    expect(json.prune.keptDrops).toEqual({ firstUserEntry: [], lastEntries: [] })
+    const protectedByDefault = JSON.parse((await run(['analyze', sample('invoice-date-ja.json'), '--json'])).stdout)
+    expect(protectedByDefault.prune.removed).not.toContain('j1')
+    expect(protectedByDefault.prune.firstUserEntryRemoved).toBeUndefined()
+  }, 30_000)
+
+  it('writes back every other field of the file as it was', async () => {
+    const result = await run(['prune', sample('checkout-bug.json')])
+    const original = JSON.parse(await readFile(sample('checkout-bug.json'), 'utf8'))
+    const written = JSON.parse(result.stdout)
+    expect(Object.keys(written)).toEqual(Object.keys(original))
+    expect(written.groundTruth).toEqual(original.groundTruth)
+  }, 15_000)
+
+  it('does the same for a wrapped Anthropic Messages file', async () => {
+    const file = join(dir, 'm.json')
+    await writeFile(file, JSON.stringify({ goal: 'fix it', note: 'kept as is', messages: [{ role: 'user', content: 'fix it' }, { role: 'assistant', content: 'ok' }] }))
+    const result = await run(['prune', file])
+    expect(result.exitCode).toBe(0)
+    expect(JSON.parse(result.stdout)).toMatchObject({ goal: 'fix it', note: 'kept as is' })
+  }, 15_000)
+
+  it('analyze reports the same removal and protection prune makes', async () => {
+    const analyze = await run(['analyze', sample('invoice-date-ja.json')])
+    const prune = await run(['prune', sample('invoice-date-ja.json')])
+    const removed = /removed (\d+) of 28 entries, ~(\d+) tokens/.exec(prune.stderr)!
+    expect(analyze.stdout).toContain(`prune would remove ${removed[1]} of the`)
+    expect(analyze.stdout).toContain(`~${removed[2]} / `)
+    expect(analyze.stdout).toContain('1 marked drop but kept: 1 protected as the first user entry')
+  }, 15_000)
+
+  it('refuses a protection flag that can\'t apply to the format', async () => {
+    const messages = await run(['analyze', sample('anthropic-messages.json'), '--no-protect-first'])
+    expect(messages.exitCode).toBe(1)
+    expect(messages.stderr).toContain("--no-protect-first only applies to ctxjev's own format")
+    const claudeCode = await run(['analyze', sample('claude-code-session.jsonl'), '--protect-last', '3'])
+    expect(claudeCode.exitCode).toBe(1)
+    expect(claudeCode.stderr).toContain('--protect-last only applies to')
+  }, 15_000)
+
+  // The review of this change: 0.6.1 read a Claude Code record with an empty uuid or tool id, and
+  // the new entry checks refused the whole transcript over it ("entries[0].id must be a non-empty
+  // string", about a file that has no entries).
+  it('reads a Claude Code transcript with an empty uuid or tool id, as 0.6.1 did', async () => {
+    const original = await readFile(sample('claude-code-session.jsonl'), 'utf8')
+    for (const [from, to] of [['"uuid":"u1"', '"uuid":""'], ['"call2"', '""']]) {
+      expect(original).toContain(from)
+      const file = join(dir, 'empty-id.jsonl')
+      await writeFile(file, original.replaceAll(from, to))
+      const result = await run(['analyze', file, '--offline'])
+      expect(result.stderr, to).not.toContain('must be a non-empty string')
+      expect(result.exitCode, to).toBe(0)
+      expect(result.stdout, to).toContain('entries)')
+    }
+  }, 30_000)
+})
+
 describe('--scorer', () => {
   const entries = JSON.stringify({
     goal: 'fix the checkout double charge on retry',
@@ -223,7 +331,8 @@ describe('--scorer', () => {
   it('recency keeps the newest, whatever it says, with no key', async () => {
     const file = join(dir, 't.json')
     await writeFile(file, entries)
-    const result = await run(['prune', file, '--scorer', 'recency'])
+    // Two entries are both "the last two", which prune protects by default since 0.7.0.
+    const result = await run(['prune', file, '--scorer', 'recency', '--protect-last', '0'])
     expect(result.exitCode).toBe(0)
     expect(JSON.parse(result.stdout).entries.map((e: { id: string }) => e.id)).toEqual(['b'])
     expect(result.stderr).toContain('scored by position alone')
@@ -256,5 +365,38 @@ describe('ctxjev flags', () => {
     expect(result.stderr).toContain("unknown option '--scorr' for `ctxjev analyze`")
     expect(result.stderr).toContain('ctxjev --help')
     expect(result.stderr).not.toContain('To specify a positional argument')
+  }, 15_000)
+})
+
+// The third audit's checks 14-16, run the same way: through the CLI, on files.
+describe('malformed input is named, never a raw error or a NaN', () => {
+  it('a string sourceTokens ("100") is refused, not printed as "NaN%"', async () => {
+    const file = join(dir, 's.json')
+    await writeFile(file, JSON.stringify({ goal: 'g', entries: [{ id: 'a', role: 'tool', content: 'x', timestamp: 1, sourceTokens: '100' }, { id: 'b', role: 'tool', content: 'y', timestamp: 2 }] }))
+    const result = await run(['analyze', file])
+    expect(result.exitCode).toBe(1)
+    expect(result.stderr).toContain('entries[0].sourceTokens must be a non-negative number')
+    expect(result.stdout).not.toContain('NaN')
+  }, 15_000)
+
+  it('a text block with no text is named, not "Cannot read properties of undefined"', async () => {
+    const file = join(dir, 'b.json')
+    await writeFile(file, JSON.stringify([{ role: 'user', content: [{ type: 'text' }] }, { role: 'assistant', content: 'ok' }]))
+    for (const command of ['analyze', 'prune']) {
+      const result = await run([command, file])
+      expect(result.exitCode).toBe(1)
+      expect(result.stderr).toContain('messages[0].content[0].text must be a string')
+      expect(result.stderr).not.toContain('Cannot read properties')
+    }
+  }, 15_000)
+
+  it('timestamps of ±1e308 are scored by their order, not NaN', async () => {
+    const file = join(dir, 't.json')
+    await writeFile(file, JSON.stringify({ goal: 'g', entries: [{ id: 'old', role: 'tool', content: 'x', timestamp: -1e308 }, { id: 'mid', role: 'tool', content: 'y', timestamp: 0 }, { id: 'new', role: 'tool', content: 'z', timestamp: 1e308 }] }))
+    const result = await run(['analyze', file, '--json'])
+    expect(result.exitCode).toBe(0)
+    expect(result.stderr).not.toContain('NaN')
+    const { decisions } = JSON.parse(result.stdout)
+    expect(decisions.map((d: { recency: number }) => d.recency)).toEqual([0, 0.5, 1])
   }, 15_000)
 })

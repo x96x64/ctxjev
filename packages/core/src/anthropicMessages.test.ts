@@ -435,6 +435,108 @@ describe('pruneMessages', () => {
     }, 60_000)
   })
 
+  // The third audit (4.1-1, check 11): the budget loop didn't count the removal note it adds
+  // afterwards, so on 38 of 807 targets the result was over budget with overBudget false. Measured
+  // independently of pruneMessages' own arithmetic: the scored content of the messages it returns.
+  describe('overBudget says whether the result fits targetTokens, the removal note included', () => {
+    const size = (ms: AnthropicMessage[]) => messagesToEntries(ms).reduce((sum, e) => sum + (e.sourceTokens ?? 0), 0)
+
+    it('on every target from 0 to the whole sample conversation', async () => {
+      const sample = JSON.parse(await readFile(join(dirname(fileURLToPath(import.meta.url)), '../../../examples/sample-transcripts/anthropic-messages.json'), 'utf8'))
+      const messages: AnthropicMessage[] = Array.isArray(sample) ? sample : sample.messages
+      const whole = size(messages)
+      const wrong: number[] = []
+      for (let target = 0; target <= whole + 5; target++) {
+        for (const protectLastTurn of [true, false]) {
+          const result = await pruneMessages(messages, 'goal', { targetTokens: target, protectLastTurn, protectLast: 1 })
+          if (result.overBudget !== size(result.messages) > target) wrong.push(target)
+        }
+      }
+      expect(wrong).toEqual([])
+    })
+
+    // The budget leaves room for the note as it removes entries. It used to stop as soon as what
+    // was left fit without the note, then report overBudget with entries it could still remove.
+    it('reports overBudget only when nothing more could be removed', async () => {
+      const sample = JSON.parse(await readFile(join(dirname(fileURLToPath(import.meta.url)), '../../../examples/sample-transcripts/anthropic-messages.json'), 'utf8'))
+      const messages: AnthropicMessage[] = Array.isArray(sample) ? sample : sample.messages
+      const whole = size(messages)
+      const stoppedEarly: number[] = []
+      let over = 0
+      // With a policy that drops nothing up front, the note appears and grows only as the budget
+      // removes entries: its count and token total have to be updated as it goes.
+      const noDrops = { dropBelow: 0, summarizeBelow: 0, recencyWeight: 0 }
+      for (const [protectLastTurn, policy] of [[true, undefined], [false, undefined], [false, noDrops]] as const) {
+        const all = await pruneMessages(messages, 'goal', { targetTokens: 0, protectLastTurn, protectLast: 1, policy })
+        for (let target = 0; target <= whole + 5; target++) {
+          const result = await pruneMessages(messages, 'goal', { targetTokens: target, protectLastTurn, protectLast: 1, policy })
+          if (!result.overBudget) continue
+          over++
+          if ([...result.removed].sort().join() !== [...all.removed].sort().join()) stoppedEarly.push(target)
+        }
+      }
+      expect(over).toBeGreaterThan(0)
+      expect(stoppedEarly).toEqual([])
+    })
+
+    // The final review's case: twelve tool calls and a policy that drops nothing, so every removal
+    // is the budget's, and the note's count and token total change with each one.
+    it('counts the note as it grows, removal by removal', async () => {
+      const messages: AnthropicMessage[] = [{ role: 'user', content: 'the original task' }]
+      for (let t = 0; t < 12; t++) {
+        messages.push({ role: 'assistant', content: [{ type: 'tool_use', id: `t${t}`, name: 'Bash', input: { c: t } }] })
+        messages.push({ role: 'user', content: [{ type: 'tool_result', tool_use_id: `t${t}`, content: 'log line '.repeat(100 + t) }] })
+      }
+      messages.push({ role: 'user', content: 'continue please' }, { role: 'assistant', content: 'done' })
+      const policy = { dropBelow: 0, summarizeBelow: 0, recencyWeight: 0 }
+      const wrong: number[] = []
+      // Every target up to 600 tokens: the tool calls hold about 2,600 in all, and what's left
+      // after removing them all is under 300.
+      for (let target = 0; target <= 600; target++) {
+        const result = await pruneMessages(messages, 'g', { targetTokens: target, protectLastTurn: false, protectLast: 1, policy })
+        if (result.overBudget !== size(result.messages) > target) wrong.push(target)
+        if (result.overBudget && result.removed.length < 12) wrong.push(target)
+      }
+      expect(wrong).toEqual([])
+    }, 30_000)
+
+    it('across randomized conversations, scores, and targets', async () => {
+      const random = seededRandom(807)
+      const wrong: string[] = []
+      let fitting = 0
+      for (let run = 0; run < 200; run++) {
+        const messages: AnthropicMessage[] = [{ role: 'user', content: 'the original task' }]
+        const turns = 2 + Math.floor(random() * 8)
+        for (let t = 0; t < turns; t++) {
+          const id = `r${run}t${t}`
+          messages.push({ role: 'assistant', content: [{ type: 'text', text: random() < 0.5 ? 'looking' : 'found it '.repeat(1 + Math.floor(random() * 30)) }, { type: 'tool_use', id, name: 'Bash', input: { command: id } }] })
+          messages.push({ role: 'user', content: [{ type: 'tool_result', tool_use_id: id, content: random() < 0.5 ? 'ok' : bigLog(id) }, ...(random() < 0.4 ? [{ type: 'text' as const, text: 'continue' }] : [])] })
+        }
+        messages.push({ role: 'assistant', content: 'done' })
+        const whole = size(messages)
+        for (let k = 0; k < 5; k++) {
+          const targetTokens = Math.floor(random() * (whole + 50))
+          const result = await pruneMessages(messages, 'goal', {
+            scorer: async (_goal, entries) => entries.map(() => random()),
+            policy: noRecency,
+            targetTokens,
+            protectLastTurn: random() < 0.3,
+            protectLast: 1 + Math.floor(random() * 2),
+            marker: random() < 0.8,
+            keepUserText: random() < 0.5,
+            ...(random() < 0.3 && { summarize: 'excerpt' as const }),
+          })
+          const final = size(result.messages)
+          if (result.overBudget !== final > targetTokens) wrong.push(`run ${run}: target ${targetTokens}, final ${final}, overBudget ${result.overBudget}`)
+          if (!result.overBudget) fitting++
+        }
+      }
+      expect(wrong).toEqual([])
+      // Guards the test itself: many results must actually claim to fit.
+      expect(fitting).toBeGreaterThan(300)
+    }, 60_000)
+  })
+
   // Seeded random conversations × random scores × every option: the result must always be a request
   // the Messages API accepts, and never touch the first message or the protected tail.
   it('keeps every invariant across randomized conversations and options', async () => {

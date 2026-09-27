@@ -8,15 +8,15 @@ import pc from 'picocolors'
 import {
   DEFAULT_POLICY,
   createUsageAccumulator,
-  estimateTokens,
   pruneContext,
+  pruneEntries,
   pruneMessages,
   summarizeSavings,
   type JevUsage,
   type PruningPolicy,
   type ScoreCache,
 } from 'ctxjev-core'
-import { formatMessagesOutcome, formatReport, jevCostLine, type PruneOutcome } from './report.js'
+import { firstUserEntryWarning, formatEntriesOutcome, formatMessagesOutcome, formatReport, jevCostLine, type PruneOutcome } from './report.js'
 import { DEFAULT_CACHE_PATH, loadFileScoreCache } from './scoreCache.js'
 import { parseTranscript, type TranscriptFile } from './transcript.js'
 import { describePolicyOrderingError, parseThreshold } from './validation.js'
@@ -49,7 +49,10 @@ ${pc.bold('Options')}  (analyze takes prune's options too, and reports what prun
   --json                     analyze: print machine-readable JSON instead of the report (with what
                              prune would do, for an Anthropic Messages transcript).
   --out <file>               prune: write the result here instead of to stdout.
-  --protect-last <n>         Anthropic Messages only: never touch the last n messages. (default 2)
+  --protect-last <n>         Never touch the last n messages (Anthropic Messages, at least 1) or
+                             entries (ctxjev's own format, 0 turns it off). (default 2)
+  --no-protect-first         ctxjev's own format only: let the first user entry (usually the
+                             original request) be removed too; by default it never is.
   --no-protect-last-turn     Anthropic Messages only: let the latest turn (the last user message
                              with text, and every tool call after it) be pruned too; by default it
                              never is. Use it when the only instruction is the first message.
@@ -215,10 +218,12 @@ async function withScoreCache<T>(setup: Setup, score: (options: { cache?: ScoreC
   }
 }
 
-// The settings that only an Anthropic Messages conversation has (messages to protect, a removal
-// note to add). analyze takes them too, so it reports exactly what prune would do with them.
-const MESSAGES_FLAGS = {
+// The settings that apply to what prune writes back (entries to protect, a removal note to add).
+// analyze takes them too, so it reports exactly what prune would do with them. Some apply to one
+// format only; see FLAG_FORMATS.
+const PRUNE_FLAGS = {
   'protect-last': { type: 'string' },
+  'no-protect-first': { type: 'boolean', default: false },
   'target-tokens': { type: 'string' },
   'min-saved-tokens': { type: 'string' },
   'summarize-excerpts': { type: 'boolean', default: false },
@@ -227,20 +232,43 @@ const MESSAGES_FLAGS = {
   'no-protect-last-turn': { type: 'boolean', default: false },
 } as const
 
-/** ctxjev's own format and a Claude Code transcript have no messages: a flag that can't apply is an error, never silently ignored. */
-function rejectMessagesFlags(values: Setup['values']): void {
-  const given = Object.keys(MESSAGES_FLAGS).filter((flag) => values[flag] !== undefined && values[flag] !== false)
-  if (given.length > 0) fail(`${given.map((f) => `--${f}`).join(', ')} only ${given.length === 1 ? 'applies' : 'apply'} to an Anthropic Messages transcript`)
+type Format = TranscriptFile['format']
+const FORMAT_NAMES: Record<Format, string> = { 'anthropic-messages': 'an Anthropic Messages transcript', ctxjev: "ctxjev's own format", 'claude-code': 'a Claude Code transcript' }
+/** Which formats each flag applies to: one that can't apply is an error, never silently ignored. */
+const FLAG_FORMATS: Record<keyof typeof PRUNE_FLAGS, Format[]> = {
+  'protect-last': ['anthropic-messages', 'ctxjev'],
+  'no-protect-first': ['ctxjev'],
+  'target-tokens': ['anthropic-messages'],
+  'min-saved-tokens': ['anthropic-messages'],
+  'summarize-excerpts': ['anthropic-messages'],
+  'drop-user-text': ['anthropic-messages'],
+  'no-marker': ['anthropic-messages'],
+  'no-protect-last-turn': ['anthropic-messages'],
+}
+
+function rejectInapplicableFlags(values: Setup['values'], format: Format): void {
+  const given = (Object.keys(FLAG_FORMATS) as Array<keyof typeof PRUNE_FLAGS>).filter((flag) => values[flag] !== undefined && values[flag] !== false && !FLAG_FORMATS[flag].includes(format))
+  if (given.length === 0) return
+  const formats = [...new Set(given.flatMap((flag) => FLAG_FORMATS[flag]))].map((f) => FORMAT_NAMES[f]).join(' or ')
+  fail(`${given.map((f) => `--${f}`).join(', ')} only ${given.length === 1 ? 'applies' : 'apply'} to ${formats}`)
+}
+
+function wholeNumberOf(values: Setup['values'], flag: string, min: number): number | undefined {
+  if (values[flag] === undefined) return undefined
+  const n = Number(values[flag])
+  if (!Number.isInteger(n) || n < min) fail(`--${flag} must be a whole number of at least ${min}, got "${values[flag]}"`)
+  return n
+}
+
+/** prune's settings for ctxjev's own format, validated the same way for both commands. */
+function entriesSettings(values: Setup['values']) {
+  const protectLast = wholeNumberOf(values, 'protect-last', 0) ?? 2
+  return { protectLast, options: { protectLast, protectFirstUserEntry: !values['no-protect-first'] } }
 }
 
 /** prune's Messages settings from the flags, validated the same way for both commands. */
 function messagesSettings(values: Setup['values']) {
-  const wholeNumber = (flag: string, min: number): number | undefined => {
-    if (values[flag] === undefined) return undefined
-    const n = Number(values[flag])
-    if (!Number.isInteger(n) || n < min) fail(`--${flag} must be a whole number of at least ${min}, got "${values[flag]}"`)
-    return n
-  }
+  const wholeNumber = (flag: string, min: number) => wholeNumberOf(values, flag, min)
   const protectLast = wholeNumber('protect-last', 1) ?? 2
   return {
     protectLast,
@@ -257,18 +285,22 @@ function messagesSettings(values: Setup['values']) {
 }
 
 async function runAnalyze(argv: string[]) {
-  const setup = await setUp('analyze', argv, { json: { type: 'boolean', default: false }, ...MESSAGES_FLAGS })
+  const setup = await setUp('analyze', argv, { json: { type: 'boolean', default: false }, ...PRUNE_FLAGS })
   const { transcript, goal, policy, scorer } = setup
+  rejectInapplicableFlags(setup.values, transcript.format)
 
   if (transcript.format !== 'anthropic-messages') {
-    rejectMessagesFlags(setup.values)
+    const settings = transcript.format === 'ctxjev' ? entriesSettings(setup.values) : undefined
     const { result: decisions, usage } = await withScoreCache(setup, (options) => pruneContext(transcript.entries, goal, policy, { ...options, scorer }))
     const savings = summarizeSavings(transcript.entries, decisions)
+    // Applied the same way prune applies them, so the report's numbers are prune's.
+    const pruned = settings && pruneEntries(transcript.entries, decisions, settings.options)
     if (setup.values.json) {
-      console.log(JSON.stringify({ decisions, savings, usage, scorer }, null, 2))
+      const prune = pruned && { removed: pruned.removed, keptDrops: pruned.keptDrops, savedTokens: pruned.savedTokens, ...(pruned.firstUserEntryRemoved && { firstUserEntryRemoved: pruned.firstUserEntryRemoved }) }
+      console.log(JSON.stringify({ decisions, savings, ...(prune && { prune }), usage, scorer }, null, 2))
       return
     }
-    const outcome: PruneOutcome = transcript.format === 'claude-code' ? { format: 'claude-code' } : { format: 'entries' }
+    const outcome: PruneOutcome = pruned && settings ? { format: 'entries', result: pruned, protectLast: settings.protectLast } : { format: 'claude-code' }
     console.log(formatReport(transcript.entries, decisions, savings, usage, scorer, outcome))
     return
   }
@@ -286,27 +318,29 @@ async function runAnalyze(argv: string[]) {
 }
 
 async function runPrune(argv: string[]) {
-  const setup = await setUp('prune', argv, { out: { type: 'string' }, ...MESSAGES_FLAGS })
+  const setup = await setUp('prune', argv, { out: { type: 'string' }, ...PRUNE_FLAGS })
   const { transcript, goal, policy, scorer, values } = setup
 
   if (transcript.format === 'claude-code') {
     fail("prune can't write back a Claude Code transcript — Claude Code doesn't load an edited one. Use `ctxjev analyze`, or the ctxjev Claude Code plugin.")
   }
+  rejectInapplicableFlags(values, transcript.format)
 
   if (transcript.format !== 'anthropic-messages') {
-    rejectMessagesFlags(values)
+    const { protectLast, options: settings } = entriesSettings(values)
     const { result: decisions, usage } = await withScoreCache(setup, (options) => pruneContext(transcript.entries, goal, policy, { ...options, scorer }))
-    const removed = new Set(decisions.filter((d) => d.action === 'drop').map((d) => d.entryId))
-    await writeOutput({ goal, entries: transcript.entries.filter((e) => !removed.has(e.id)) }, values.out as string | undefined)
-    const savedTokens = transcript.entries.filter((e) => removed.has(e.id)).reduce((sum, e) => sum + (e.sourceTokens ?? estimateTokens(e.content)), 0)
-    console.error(pc.dim(`removed ${removed.size} of ${transcript.entries.length} entries, ~${savedTokens.toLocaleString()} tokens${offlineNote(scorer)}`))
+    const result = pruneEntries(transcript.entries, decisions, settings)
+    // Every other field of the file (groundTruth, notes, anything) is written back as it was.
+    await writeOutput({ ...transcript.file, goal, entries: result.entries }, values.out as string | undefined)
+    console.error(pc.dim(formatEntriesOutcome(transcript.entries.length, result, protectLast, 'did', offlineNote(scorer))))
+    if (result.firstUserEntryRemoved) console.error(`${pc.yellow('⚠')} ${firstUserEntryWarning(result.firstUserEntryRemoved, 'did')}`)
     if (scorer === 'jev') console.error(pc.dim(jevCostLine(usage)))
     return
   }
 
   const { protectLast, options: settings } = messagesSettings(values)
   const { result, usage } = await withScoreCache(setup, (options) => pruneMessages(transcript.messages, goal, { ...options, scorer, policy, ...settings }))
-  await writeOutput(transcript.wrapped ? { goal, messages: result.messages } : result.messages, values.out as string | undefined)
+  await writeOutput(transcript.wrapped ? { ...transcript.file, goal, messages: result.messages } : result.messages, values.out as string | undefined)
   console.error(pc.dim(formatMessagesOutcome(transcript.entries.length, result, protectLast, 'did')))
   if (scorer === 'jev') console.error(pc.dim(jevCostLine(usage)))
 }

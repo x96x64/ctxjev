@@ -1,5 +1,6 @@
 import { excerpt, isSubstantiveMessage, toolEntryContent, toolResultText } from './entryText.js'
 import type { Entry } from './types.js'
+import { validateEntries, validateText } from './validate.js'
 
 /**
  * Parses Claude Code's session log (one JSON record per line) into `Entry[]`. The format is
@@ -30,17 +31,19 @@ type TranscriptRecord = {
 }
 
 // Claude Code doesn't write a block missing a field it needs, but the log is read, not trusted: one
-// is skipped instead of failing the whole parse (and, in the plugin, preserving nothing).
+// (an empty id included) is skipped instead of failing the whole parse (and, in the plugin,
+// preserving nothing).
 function asKnownBlock(raw: unknown): KnownContentBlock | undefined {
   if (typeof raw !== 'object' || raw === null || !('type' in raw)) return undefined
   const block = raw as Record<string, unknown>
   if (block.type === 'text' && typeof block.text !== 'string') return undefined
-  if (block.type === 'tool_use' && (typeof block.id !== 'string' || typeof block.name !== 'string')) return undefined
-  if (block.type === 'tool_result' && typeof block.tool_use_id !== 'string') return undefined
+  if (block.type === 'tool_use' && (typeof block.id !== 'string' || !block.id || typeof block.name !== 'string')) return undefined
+  if (block.type === 'tool_result' && (typeof block.tool_use_id !== 'string' || !block.tool_use_id)) return undefined
   return raw as KnownContentBlock
 }
 
 function parseLines(jsonl: string): TranscriptRecord[] {
+  validateText(jsonl, 'transcript')
   const records: TranscriptRecord[] = []
   for (const line of jsonl.split('\n')) {
     if (!line.trim()) continue
@@ -127,7 +130,7 @@ export function parseClaudeCodeTranscript(jsonl: string, options: ParseClaudeCod
 
     const timestamp = toTimestampMs(record.timestamp) || lastTimestamp
     lastTimestamp = timestamp
-    const recordId = typeof record.uuid === 'string' ? record.uuid : `line-${line}`
+    const recordId = typeof record.uuid === 'string' && record.uuid ? record.uuid : `line-${line}`
     const content = record.message?.content
 
     if (record.type === 'user' && typeof content === 'string') {
@@ -234,6 +237,7 @@ const BASH_MODE = /^<bash-(?:input|stdout|stderr)>/
 
 /** Whether a user entry says what the user wants, rather than running a command (a slash command, bash mode). */
 export function isGoalCandidate(content: string): boolean {
+  validateText(content, 'content')
   return !isSlashCommand(content) && !BASH_MODE.test(content.trimStart())
 }
 
@@ -248,6 +252,7 @@ export type InferGoalOptions = {
  * like "also check the tests". Short acknowledgments are skipped unless nothing longer exists.
  */
 export function inferGoalFromEntries(entries: Entry[], options: InferGoalOptions = {}): string | undefined {
+  validateEntries(entries)
   const candidates = entries.filter((e) => e.role === 'user' && isGoalCandidate(e.content))
   const substantive = candidates.filter((e) => isSubstantiveMessage(e.content))
   const latest = (substantive.at(-1) ?? candidates.at(-1))?.content

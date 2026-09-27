@@ -1,4 +1,5 @@
 import { splitCjkBigrams } from './cjk.js'
+import { validateText } from './validate.js'
 
 /**
  * An offline stand-in for Jev's relevance judgment: the share of the goal's significant words that
@@ -44,6 +45,8 @@ function terms(text: string): Set<string> {
 let lastGoal: { text: string; terms: Set<string> } | undefined
 
 export function localRelevance(goal: string, content: string): number {
+  validateText(goal, 'goal')
+  validateText(content, 'content')
   if (lastGoal?.text !== goal) lastGoal = { text: goal, terms: terms(goal) }
   const goalTerms = lastGoal.terms
   if (goalTerms.size === 0) return 0

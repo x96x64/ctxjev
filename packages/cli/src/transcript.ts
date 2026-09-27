@@ -1,14 +1,13 @@
 import { jsonErrorOffset } from './jsonError.js'
-import { estimateTokens, inferGoalFromEntries, messagesToEntries, parseClaudeCodeTranscript, resolveClaudeCodeGoal, type AnthropicMessage, type Entry, type EntryRole } from 'ctxjev-core'
-
-const VALID_ROLES: EntryRole[] = ['user', 'assistant', 'tool']
+import { estimateTokens, inferGoalFromEntries, messagesToEntries, parseClaudeCodeTranscript, resolveClaudeCodeGoal, validateEntries, validateMessages, type AnthropicMessage, type Entry } from 'ctxjev-core'
 
 export type TranscriptFile =
-  | { format: 'ctxjev'; goal?: string; entries: Entry[] }
+  /** `file`: the whole parsed file, so prune can write back every field it doesn't change. */
+  | { format: 'ctxjev'; goal?: string; entries: Entry[]; file: Record<string, unknown> }
   /** `warnings`: problems in the log that were worked around (see parseClaudeCodeTranscript's `onWarning`). */
   | { format: 'claude-code'; goal?: string; entries: Entry[]; warnings: string[] }
-  /** `wrapped`: the file was `{ goal?, messages }` rather than a bare array, so output keeps that shape. */
-  | { format: 'anthropic-messages'; goal?: string; entries: Entry[]; messages: AnthropicMessage[]; wrapped: boolean }
+  /** `wrapped`: the file was `{ goal?, messages, … }` rather than a bare array, so output keeps that shape (and `file`, its other fields). */
+  | { format: 'anthropic-messages'; goal?: string; entries: Entry[]; messages: AnthropicMessage[]; wrapped: boolean; file?: Record<string, unknown> }
 
 /**
  * Accepts three formats, auto-detected: ctxjev's own `{ goal?, entries }` (see
@@ -33,10 +32,10 @@ export function parseTranscript(raw: string): TranscriptFile {
   // A one-line .jsonl is also a valid single JSON document; its shape still gives it away.
   if (looksLikeClaudeCodeRecord(parsedJson)) return parseClaudeCode(raw)
 
-  if (Array.isArray(parsedJson)) return parseAnthropicMessages(parsedJson, undefined, false)
+  if (Array.isArray(parsedJson)) return parseAnthropicMessages(parsedJson, undefined, undefined)
   if (typeof parsedJson === 'object' && parsedJson !== null && 'messages' in parsedJson) {
     const { messages, goal } = parsedJson as { messages: unknown; goal?: unknown }
-    return parseAnthropicMessages(messages, goal, true)
+    return parseAnthropicMessages(messages, goal, parsedJson as Record<string, unknown>)
   }
   return parseCtxjevFormat(parsedJson)
 }
@@ -81,17 +80,15 @@ function looksLikeClaudeCodeRecord(parsed: unknown): boolean {
   return typeof record.type === 'string' && ('uuid' in record || 'sessionId' in record || 'message' in record) && !('entries' in record) && !('messages' in record)
 }
 
-function parseAnthropicMessages(messages: unknown, goal: unknown, wrapped: boolean): TranscriptFile {
+function parseAnthropicMessages(messages: unknown, goal: unknown, file: Record<string, unknown> | undefined): TranscriptFile {
   if (!Array.isArray(messages)) throw new Error('"messages" must be an array')
   if (goal !== undefined && typeof goal !== 'string') throw new Error('"goal" must be a string when present')
-  messages.forEach((message, index) => {
-    const { role, content } = (message ?? {}) as Record<string, unknown>
-    if (role !== 'user' && role !== 'assistant') throw new Error(`messages[${index}].role must be "user" or "assistant"`)
-    if (typeof content !== 'string' && !Array.isArray(content)) throw new Error(`messages[${index}].content must be a string or an array of blocks`)
-  })
+  // Every message and block ctxjev reads (a text block's text, a tool call's id and name, ...), so a
+  // malformed one is named here instead of failing later with a raw TypeError.
+  validateMessages(messages)
   const typed = messages as AnthropicMessage[]
   const entries = messagesToEntries(typed)
-  return { format: 'anthropic-messages', goal: goal ?? inferGoalFromEntries(entries), entries, messages: typed, wrapped }
+  return { format: 'anthropic-messages', goal: goal ?? inferGoalFromEntries(entries), entries, messages: typed, wrapped: file !== undefined, ...(file && { file }) }
 }
 
 function parseCtxjevFormat(parsed: unknown): TranscriptFile {
@@ -109,35 +106,10 @@ function parseCtxjevFormat(parsed: unknown): TranscriptFile {
     throw new Error('"goal" must be a string when present')
   }
 
-  entries.forEach((entry, index) => validateEntry(entry, index))
+  // A malformed entry (a bad timestamp, especially) doesn't fail loudly — it poisons every other
+  // entry's recency-relative score to NaN, which then silently reads as "keep everything", and a
+  // string sourceTokens printed "NaN%". Rejected here, with the field named.
+  validateEntries(entries)
 
-  return { format: 'ctxjev', goal, entries: entries as Entry[] }
-}
-
-/** A malformed entry (a bad timestamp, especially) doesn't fail loudly — it poisons every other
- * entry's recency-relative score to NaN, which then silently reads as "keep everything". Reject
- * it here instead, at the one place ctxjev's own transcript format is actually parsed. */
-function validateEntry(entry: unknown, index: number): void {
-  const where = `entries[${index}]`
-  if (typeof entry !== 'object' || entry === null) {
-    throw new Error(`${where} must be an object`)
-  }
-
-  const { id, role, toolName, content, timestamp } = entry as Record<string, unknown>
-
-  if (typeof id !== 'string' || id.length === 0) {
-    throw new Error(`${where}.id must be a non-empty string`)
-  }
-  if (typeof role !== 'string' || !VALID_ROLES.includes(role as EntryRole)) {
-    throw new Error(`${where}.role must be one of ${VALID_ROLES.join(', ')}`)
-  }
-  if (toolName !== undefined && typeof toolName !== 'string') {
-    throw new Error(`${where}.toolName must be a string when present`)
-  }
-  if (typeof content !== 'string') {
-    throw new Error(`${where}.content must be a string`)
-  }
-  if (typeof timestamp !== 'number' || !Number.isFinite(timestamp)) {
-    throw new Error(`${where}.timestamp must be a finite number`)
-  }
+  return { format: 'ctxjev', goal, entries: entries as Entry[], file: parsed as Record<string, unknown> }
 }

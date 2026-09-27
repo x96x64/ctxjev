@@ -58,8 +58,10 @@ or, if you never set one, your first request plus your latest instruction, both 
 session's own transcript, so the original request still counts after several compactions. Text
 Claude Code writes into the conversation itself (local command output, interrupt notices, a
 skill's expanded instructions) is never taken for your request. Scoring is keyword overlap by
-default (`ctxjev-core`'s `scorer: 'local'`); `CTXJEV_SCORER=jev` switches to the Jev judgment
-[`ctxjev-mcp`](https://www.npmjs.com/package/ctxjev-mcp) exposes.
+default (`ctxjev-core`'s `scorer: 'local'`), ranked within the session the same way `ctxjev
+analyze --scorer local` ranks it, so a score in the digest means the same as one in the CLI; only
+entries that share at least one word with the goal are kept. `CTXJEV_SCORER=jev` switches to the
+Jev judgment [`ctxjev-mcp`](https://www.npmjs.com/package/ctxjev-mcp) exposes.
 
 ## Skills
 

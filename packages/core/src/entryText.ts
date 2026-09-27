@@ -1,4 +1,5 @@
 import { redactSecrets } from './redact.js'
+import { validateText } from './validate.js'
 
 // Shared by every parser that turns a conversation into entries (Claude Code transcripts,
 // Anthropic Messages), so an entry reads the same whichever format it came from.
@@ -40,6 +41,7 @@ function boundaryAtOrAfter(text: string, index: number): number {
 
 /** Collapses whitespace and clips to `max` chars with an ellipsis. */
 export function truncate(text: string, max: number = MAX_CONTENT_LENGTH): string {
+  validateText(text, 'text')
   const oneLine = text.replace(/\s+/g, ' ').trim()
   return oneLine.length > max ? `${oneLine.slice(0, boundaryAtOrBefore(oneLine, max - 1))}…` : oneLine
 }
@@ -54,6 +56,7 @@ const WIDE_CHAR = /[\p{sc=Han}\p{sc=Hiragana}\p{sc=Katakana}\p{sc=Hangul}\u3000-
 
 /** Whether a user message says something on its own, rather than acknowledging what came before. */
 export function isSubstantiveMessage(text: string): boolean {
+  validateText(text, 'text')
   const trimmed = text.trim()
   const wide = trimmed.match(WIDE_CHAR)?.length ?? 0
   return [...trimmed].length + wide >= MIN_SUBSTANTIVE_LENGTH

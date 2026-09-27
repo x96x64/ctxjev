@@ -1,5 +1,5 @@
 import pc from 'picocolors'
-import { truncate, type Entry, type JevUsage, type KeptDrops, type PruneDecision, type PruneMessagesResult, type SavingsReport } from 'ctxjev-core'
+import { truncate, type Entry, type EntryKeptDrops, type JevUsage, type KeptDrops, type PruneDecision, type PruneEntriesResult, type PruneMessagesResult, type SavingsReport } from 'ctxjev-core'
 import { estimateCostUsd } from './cost.js'
 
 const ACTION_COLOR: Record<PruneDecision['action'], (s: string) => string> = {
@@ -27,11 +27,15 @@ const SCORE_LEGEND: Record<'jev' | 'local' | 'recency', string> = {
 
 /**
  * What `prune` does with the transcript `analyze` just scored, so the report never claims a saving
- * `prune` wouldn't make: ctxjev's own format loses every entry marked drop; an Anthropic Messages
- * conversation goes through `pruneMessages()` with the same settings; a Claude Code transcript
- * can't be written back at all.
+ * `prune` wouldn't make: ctxjev's own format goes through `pruneEntries()` and an Anthropic
+ * Messages conversation through `pruneMessages()`, each with the same settings; a Claude Code
+ * transcript can't be written back at all.
  */
-export type PruneOutcome = { format: 'entries' } | { format: 'claude-code' } | { format: 'anthropic-messages'; result: PruneMessagesResult; protectLast: number }
+export type PruneOutcome =
+  /** Without `result`, every entry marked drop is taken as removed (nothing protected). */
+  | { format: 'entries'; result?: PruneEntriesResult; protectLast?: number }
+  | { format: 'claude-code' }
+  | { format: 'anthropic-messages'; result: PruneMessagesResult; protectLast: number }
 
 export function formatReport(
   entries: Entry[],
@@ -99,14 +103,47 @@ function describeOutcome(savings: SavingsReport, outcome: PruneOutcome): string 
     const marked = savings.droppedEntries > 0 ? ` (entries marked drop hold ${dropped}, ${share}%)` : ''
     return `prune can't write back a Claude Code transcript, so nothing is removed${marked}`
   }
-  // ctxjev's own format: prune removes every entry marked drop and leaves the rest exactly as it is.
+  // ctxjev's own format: prune removes the entries marked drop that aren't protected, and leaves the
+  // rest exactly as it is.
   const summarizable =
     savings.summarizedEntries > 0
       ? `; the ${plural(savings.summarizedEntries, 'entry', 'entries')} marked summarize (~${savings.summarizableTokens.toLocaleString()} tokens) ${savings.summarizedEntries === 1 ? 'stays as it is unless you shorten it' : 'stay as they are unless you shorten them'} yourself`
       : ''
-  return savings.droppedEntries > 0
-    ? `prune would remove the ${plural(savings.droppedEntries, 'entry', 'entries')} marked drop, ${dropped} (${share}%)${summarizable}`
-    : `prune would remove nothing, since no entry is marked drop${summarizable}`
+  if (savings.droppedEntries === 0) return `prune would remove nothing, since no entry is marked drop${summarizable}`
+  const { result, protectLast = 2 } = outcome
+  const kept = result && describeEntryKeptDrops(result.keptDrops, protectLast)
+  const keptLine = kept ? `\n${kept}` : ''
+  const warning = result?.firstUserEntryRemoved ? `\n${pc.yellow('⚠')} ${firstUserEntryWarning(result.firstUserEntryRemoved, 'would')}` : ''
+  const removedShare = result && savings.totalTokens > 0 ? Math.round((result.savedTokens / savings.totalTokens) * 100) : 0
+  const removing =
+    !result || result.removed.length === savings.droppedEntries
+      ? `prune would remove the ${plural(savings.droppedEntries, 'entry', 'entries')} marked drop, ${dropped} (${share}%)`
+      : `prune would remove ${result.removed.length} of the ${plural(savings.droppedEntries, 'entry', 'entries')} marked drop, ~${result.savedTokens.toLocaleString()} / ${savings.totalTokens.toLocaleString()} tokens (${removedShare}%)`
+  return `${removing}${summarizable}${keptLine}${warning}`
+}
+
+/** What prune did (or would do) with ctxjev's own format: the same numbers either way. */
+export function formatEntriesOutcome(total: number, result: PruneEntriesResult, protectLast: number, tense: 'did' | 'would', note = ''): string {
+  const kept = describeEntryKeptDrops(result.keptDrops, protectLast)
+  return `${tense === 'did' ? 'removed' : 'prune would remove'} ${result.removed.length} of ${total} entries, ~${result.savedTokens.toLocaleString()} tokens${note}${kept ? `\n${kept}` : ''}`
+}
+
+export function firstUserEntryWarning(id: string, tense: 'did' | 'would'): string {
+  return `${tense === 'did' ? 'removed' : 'would remove'} the first user entry (${id}), usually the original request (--no-protect-first)`
+}
+
+/** Why prune kept entries marked drop in ctxjev's own format; undefined when it removed every one. */
+export function describeEntryKeptDrops(kept: EntryKeptDrops, protectLast: number): string | undefined {
+  const reasons: Array<[number, string]> = [
+    [kept.firstUserEntry.length, 'protected as the first user entry'],
+    [kept.lastEntries.length, `protected in the last ${protectLast === 1 ? 'entry' : `${protectLast} entries`}`],
+  ]
+  const total = reasons.reduce((sum, [n]) => sum + n, 0)
+  if (total === 0) return undefined
+  return `${total} marked drop but kept: ${reasons
+    .filter(([n]) => n > 0)
+    .map(([n, why]) => `${n} ${why}`)
+    .join('; ')}`
 }
 
 /**

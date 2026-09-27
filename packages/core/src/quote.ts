@@ -1,3 +1,5 @@
+import { validateText } from './validate.js'
+
 /**
  * `«text»` on one line: how ctxjev puts a goal or an excerpt in front of a model as data. An
  * unquoted imperative ("fix computeTotal") reads as a request — in a manual test, Claude Haiku acted
@@ -10,6 +12,7 @@
  * since the digest reaches the model inside Claude Code's own `<system-reminder>` tags.
  */
 export function quoteAsData(text: string): string {
+  validateText(text, 'text')
   const safe = text
     .replace(/\s+/g, ' ')
     .trim()

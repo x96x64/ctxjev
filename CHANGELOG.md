@@ -104,6 +104,80 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
   (Running Claude Code as root on a `~/.claude` that another user owns, such as a bind mount in a
   container, therefore keeps nothing.) Windows has no POSIX owner and mode bits, so the ownership
   and permission checks don't apply there; the symlink and hard-link refusals do.
+- `ctxjev-core`, `ctxjev-cli`: token counting no longer slows to a halt on a long run of one
+  character, of unpunctuated text, or of symbols, slashes, and line breaks. 100,000 `█` took 82
+  seconds, `ctxjev analyze` on a 5,000,000-character entry didn't finish in two minutes, and
+  200,000 characters of `/` and line breaks took 20; all now take well under a second or a few
+  seconds. A run longer than 128 characters is counted in pieces, each on its own, so its count is
+  an estimate: close on the text this repo holds (on every sample and eval session, one string of
+  6,078 changed, by one token), but a long repetitive run, such as a pattern of capital letters
+  repeated for thousands of characters, can count well over the exact number. Text with no such run
+  counts exactly as before.
+- `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`: text that spells a special token, such as
+  `<|endoftext|>` quoted in a conversation about language models, is counted as the text it is;
+  every token count failed on it with "Disallowed special token found".
+- `ctxjev-cli`: `ctxjev prune` on ctxjev's own format keeps the first user entry (usually the
+  original request) and the last two entries by default, as it already did for an Anthropic
+  Messages conversation's first message and tail; under the default `recency` scorer the first
+  request is oldest, so it used to be the first thing removed, silently. `--no-protect-first` and
+  `--protect-last <n>` (now for this format too; `0` turns it off) change that, and `prune` warns
+  when the first user entry goes. `analyze` reports the same, and `analyze --json` adds `prune`.
+- `ctxjev-cli`: `ctxjev prune` writes back every field of the file it doesn't change (such as
+  `groundTruth` in the samples, or anything next to `messages` in a wrapped Anthropic Messages
+  file); it used to write only `goal` and `entries`/`messages`.
+- `ctxjev-core`: `pruneEntries(entries, decisions, options)` applies `pruneContext()`'s decisions
+  to a plain entry list with that protection. A new export; nothing existing changed.
+- `ctxjev-core`, `ctxjev-cli`: `overBudget` (and `prune --target-tokens`' "still over" warning)
+  counts the one-line removal note, and the budget leaves room for it. The result could be over the
+  target with `overBudget` false (the audit found 38 of 807 targets; this repo's sample showed 119).
+  The room is kept even when no user message is left to carry the note, which can remove one entry
+  more than strictly needed.
+- `ctxjev-core`, `ctxjev-cli`: malformed input fails with a message naming the field instead of a
+  raw error or a wrong number. A string `sourceTokens` (`"100"`) printed `NaN%`, a text block with
+  no `text` died with "Cannot read properties of undefined", and a tool call with no `id` or a
+  `tool_result` with no `tool_use_id` failed the same way; `pruneContext()`, `scoreEntries()`,
+  `summarizeSavings()`, `messagesToEntries()`, `pruneMessages()`, `pruneEntries()`, and
+  `rankLocalRelevance()` now check what they read (including that the goal is a string), as do a
+  policy's thresholds and weight and `pruneMessages()`' numeric options. Text passed to a function
+  that reads text (`estimateTokens()`, `redactSecrets()`, the transcript functions, `truncate()`,
+  `quoteAsData()`, `localRelevance()`, …) that isn't a string fails the same way instead of with a
+  raw TypeError. **Input 0.6.1 accepted and this release refuses:**
+  - an entry whose `id` isn't a non-empty string, `content` isn't a string, `role` isn't `user`,
+    `assistant`, or `tool`, `toolName` isn't a string, `timestamp` isn't a finite number, or
+    `sourceTokens` is negative or above `Number.MAX_SAFE_INTEGER` (two of 1e308 printed
+    `~∞ / ∞ tokens (NaN%)`);
+  - a policy that isn't an object, a missing `dropBelow` or `summarizeBelow`, a threshold or weight
+    outside 0-1, or `dropBelow` above `summarizeBelow` (a missing `recencyWeight` still means the
+    default, 0.1); a `recencyWeight` outside 0-1 passed to `scoreEntries()`;
+  - options that aren't an object (`scoreEntries(entries, goal, 0.1, 'recency')`); in
+    `pruneMessages()`, a `protectLast`, `targetTokens`, or `minSavedTokens` that isn't a finite
+    number of at least 0, or a `summarize` that isn't `'excerpt'`, a function, `false`, or `null`;
+  - in `summarizeSavings()`, a decision that isn't an object with a string `entryId` and an
+    `action` of `keep`, `drop`, or `summarize`;
+  - in an Anthropic Messages conversation passed to the library, a message whose `role` isn't
+    `user` or `assistant` (0.6.1 read `system` as a user message; the CLI already refused it), a
+    block with no string `type`, a `tool_use` without a string `id` and `name`, a `tool_result`
+    without a string `tool_use_id` or with `content` that isn't a string or an array of blocks, and
+    a text block (in a `tool_result` too) without a string `text`;
+  - a goal that isn't a string, even with the recency scorer, which ignores it.
+
+  A Claude Code transcript's records are read as before: one that lacks what it needs, or has an
+  empty id, is skipped instead.
+- `ctxjev-core`: `validateEntries(entries)` and `validateMessages(messages)` run those checks on
+  their own, so a caller can check input before scoring it. New exports.
+- `ctxjev-core`: timestamps too far apart to subtract (±1e308) are ranked by order for recency
+  instead of turning every score into NaN (the CLI stopped with "decideAction received a NaN score";
+  the MCP server returned `recency: null`).
+- `ctxjev-claude`: **changes which excerpts the offline digest keeps.** The plugin's default
+  `local` scoring now ranks keyword overlap within the session before blending in recency, as
+  `pruneContext()` and `ctxjev analyze --scorer local` do, so a score in the digest or in
+  `/ctxjev:status` means what the same score means in the CLI. It used to blend the raw overlap,
+  which let recency count for more, and the same entry could show 0.20 in the digest and 0.80 in
+  the CLI. Only entries sharing a word with the goal are kept, as before. On the development
+  sessions this changed some of the five excerpts kept; whether that helps or hurts hasn't been
+  measured (the plugin's default hasn't been evaluated).
+- `ctxjev-core`: `rankLocalRelevance(scored, recencyWeight)` turns `scoreEntries()`' raw keyword
+  overlap into the ranked scale `pruneContext()` uses. A new export.
 
 ## 0.6.1 — 2026-09-25
 

@@ -1,4 +1,4 @@
-import type { Entry, ScoredEntry } from 'ctxjev-core'
+import { pruneContext, type Entry, type ScoredEntry } from 'ctxjev-core'
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_PRESERVE_LIMIT, preserveLimitFromEnv, rankForPreservation, scorerFromEnv, selectPreserved } from './select.js'
 
@@ -155,5 +155,30 @@ describe('rankForPreservation, acknowledgments', () => {
     const ids = rankForPreservation(withRepliesScored, withReplies, goal, 5, Number.MIN_VALUE).map((s) => s.entryId)
     expect(ids).not.toContain('ok')
     expect(ids).toContain('more')
+  })
+})
+
+// The third audit (4.4-3, improvement 15): the same `local` scorer meant keyword overlap ranked
+// within the batch in pruneContext() (and so in the CLI), but the raw overlap in the plugin, so a
+// digest's "score 0.20" and the CLI's "score 0.80" could be the same entry.
+describe('the local scale is the one pruneContext uses', () => {
+  it('each preserved entry carries the relevance and score pruneContext gives it', async () => {
+    const goal = 'fix the checkout double charge on retry'
+    const entries: Entry[] = [
+      { id: 'a', role: 'tool', toolName: 'Grep', content: 'chargeCustomer() is called again by the retry handler on checkout', timestamp: 1 },
+      { id: 'b', role: 'tool', toolName: 'Bash', content: 'npm test: checkout suite passed', timestamp: 2 },
+      { id: 'c', role: 'tool', toolName: 'Read', content: 'README mentions retry settings', timestamp: 3 },
+      { id: 'd', role: 'tool', toolName: 'Bash', content: 'ls public/audio', timestamp: 4 },
+      { id: 'e', role: 'assistant', content: 'the double charge happens when the retry fires', timestamp: 5 },
+    ]
+    const decisions = new Map((await pruneContext(entries, goal, undefined, { scorer: 'local' })).map((d) => [d.entryId, d]))
+    const preserved = await selectPreserved(entries, goal, 5, 'local')
+    expect(preserved.length).toBeGreaterThan(0)
+    for (const p of preserved) {
+      expect(p.relevance).toBeCloseTo(decisions.get(p.entryId)!.relevance, 10)
+      expect(p.combinedScore).toBeCloseTo(decisions.get(p.entryId)!.combinedScore, 10)
+    }
+    // Only entries sharing some word with the goal take a slot, as before.
+    expect(preserved.map((p) => p.entryId)).not.toContain('d')
   })
 })

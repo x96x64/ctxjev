@@ -20,6 +20,7 @@
  * token that no longer matches any rule here.
  */
 import { maskJwts, redactLegacy } from './redactLegacy.js'
+import { validateText } from './validate.js'
 const REDACTED = '[REDACTED]'
 
 // A value that's already masked, possibly cut at its closing bracket by a value pattern below.
@@ -539,6 +540,7 @@ function maskAssignments(text: string): string {
  * caught; it also keeps 0.6.1's false alarms (see the CHANGELOG).
  */
 export function redactSecrets(text: string): string {
+  validateText(text, 'text')
   let out = text
   for (let pass = 0; pass < MAX_PASSES; pass++) {
     const next = redactCurrent(redactLegacy(out))

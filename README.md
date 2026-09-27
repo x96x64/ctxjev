@@ -159,24 +159,26 @@ That's plain truncation, and it shows: the unrelated `ls public/audio` is kept b
 and the `grep` that found the bug is only marked for summarizing. **With `recency` the goal isn't
 used at all**: every entry's score is its position (oldest 0, newest 1), so the default thresholds
 (`dropBelow` 0.3, `summarizeBelow` 0.6) drop roughly the oldest 30% of entries and mark the next 30%
-for summarizing, whatever they say — including the first request, in ctxjev's own format.
-(`pruneMessages()` never touches the first message, the latest turn, or by default anything the
-user wrote.) The same sample with Jev:
+for summarizing, whatever they say, the first request included. What `prune` then removes is
+protected, though: in ctxjev's own format it keeps the first user entry and the last two entries
+(`--no-protect-first` and `--protect-last` change that), and `pruneMessages()` never touches the
+first message, the latest turn, or by default anything the user wrote. The same sample with Jev:
 
 ```console
 $ ctxjev analyze examples/sample-transcripts/checkout-bug.json --scorer jev
 score: 0–1, Jev's judgment of relevance to your goal, blended with recency · keep = leave as-is, summarize = worth shortening, drop = worth removing
 
-  e1  bash       summarize  score 0.52  ran: npm test -- checkout.test.ts — 12 passed, 0 failed
-  e2  read       drop       score 0.29  read package.json — saw the dependency list and script names
-  e3  grep       keep       score 0.85  grep "charge" in src/payments.ts — found chargeCustomer() c…
+  e1  bash       summarize  score 0.51  ran: npm test -- checkout.test.ts — 12 passed, 0 failed
+  e2  read       drop       score 0.28  read package.json — saw the dependency list and script names
+  e3  grep       keep       score 0.84  grep "charge" in src/payments.ts — found chargeCustomer() c…
   e4  bash       drop       score 0.14  ran: git log --oneline -5 — recent commits about unrelated …
-  e5  read       keep       score 0.89  read src/payments.ts — the retry handler re-calls chargeCus…
-  e6  assistant  keep       score 0.89  Found it: the retry path doesn't check for an in-flight or …
+  e5  read       keep       score 0.88  read src/payments.ts — the retry handler re-calls chargeCus…
+  e6  assistant  keep       score 0.90  Found it: the retry path doesn't check for an in-flight or …
   e7  bash       drop       score 0.15  ran: ls public/audio — unrelated, was checking something el…
 
 3 keep, 1 summarize, 3 drop (of 7 entries)
-prune would remove the 3 entries marked drop, ~44 / 154 tokens (29%); the 1 entry marked summarize (~16 tokens) stays as it is unless you shorten it yourself
+prune would remove 2 of the 3 entries marked drop, ~28 / 154 tokens (18%); the 1 entry marked summarize (~16 tokens) stays as it is unless you shorten it yourself
+1 marked drop but kept: 1 protected in the last 2 entries
 Jev cost: 1,290 input tokens, 123 output tokens (free) — ~$0.000054
 ```
 
@@ -422,7 +424,10 @@ $ ctxjev prune examples/sample-transcripts/checkout-bug.json --out pruned.json
 removed 2 of 7 entries, ~27 tokens · scored by position alone
 ```
 
-`e1` and `e2`, the two entries that report marks `drop`, are gone from `pruned.json`. In an
+`e1` and `e2`, the two entries that report marks `drop`, are gone from `pruned.json`, and every
+other field of the file (here `groundTruth`) is written back as it was. In ctxjev's own format
+`prune` never removes the first user entry or the last two entries (`--no-protect-first`,
+`--protect-last <n>`; it warns if the first user entry goes). In an
 Anthropic Messages transcript, `prune` by default never touches the first message or the latest
 turn (your last instruction and every tool call after it; `--no-protect-last-turn` lets that turn
 be pruned), and skips any removal that would save less than the note it leaves in its place, so a

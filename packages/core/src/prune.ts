@@ -6,6 +6,7 @@ import { percentileRanks } from './percentile.js'
 import { combineScore, decideAction } from './policy.js'
 import { computeRecency } from './recency.js'
 import { redactSecrets } from './redact.js'
+import { shown, validateEntries, validateGoal, validateOptions, validatePolicy, validateRecencyWeight, validateScoredEntries } from './validate.js'
 import { DEFAULT_POLICY, type Entry, type JevUsage, type PruneDecision, type PruningPolicy, type ScoredEntry } from './types.js'
 
 /**
@@ -82,12 +83,12 @@ async function scoreWithCustom(entries: Entry[], goal: string, scorer: CustomSco
   const chunkResults = await mapWithConcurrencyLimit(chunkEntries(entries), MAX_CONCURRENT_CHUNK_REQUESTS, async (chunk) => {
     const scores: unknown = await scorer(safeGoal, chunk.map(redact), { latest })
     if (!Array.isArray(scores) || scores.length !== chunk.length) {
-      throw new Error(`custom scorer returned ${Array.isArray(scores) ? `${scores.length} scores` : String(scores)} for ${chunk.length} entries`)
+      throw new Error(`custom scorer returned ${Array.isArray(scores) ? `${scores.length} scores` : shown(scores)} for ${chunk.length} entries`)
     }
     return chunk.map((entry, i) => {
       const relevance: unknown = scores[i]
       if (typeof relevance !== 'number' || !Number.isFinite(relevance) || relevance < 0 || relevance > 1) {
-        throw new Error(`custom scorer returned ${String(relevance)} for entry "${entry.id}" — expected a number from 0 to 1`)
+        throw new Error(`custom scorer returned ${shown(relevance)} for entry "${entry.id}" — expected a number from 0 to 1`)
       }
       return { entryId: entry.id, relevance }
     })
@@ -117,6 +118,10 @@ export async function scoreEntries(
   recencyWeight: number = DEFAULT_POLICY.recencyWeight,
   options: ScoreEntriesOptions = {},
 ): Promise<ScoredEntry[]> {
+  validateEntries(entries)
+  validateGoal(goal)
+  validateRecencyWeight(recencyWeight)
+  validateOptions(options)
   const { scorer } = options
   // Types stop a TypeScript caller's typo; a JavaScript one ('Jev') would otherwise get recency in silence.
   if (scorer !== undefined && typeof scorer !== 'function' && !(BUILT_IN_SCORERS as readonly string[]).includes(scorer)) {
@@ -176,10 +181,21 @@ export async function pruneContext(
   policy: PruningPolicy = DEFAULT_POLICY,
   options: ScoreEntriesOptions = {},
 ): Promise<PruneDecision[]> {
+  validatePolicy(policy)
   let scored = await scoreEntries(entries, goal, policy.recencyWeight, options)
-  if (options.scorer === 'local') {
-    const ranks = percentileRanks(scored.map((s) => s.relevance))
-    scored = scored.map((s, i) => ({ ...s, relevance: ranks[i], combinedScore: combineScore(ranks[i], s.recency, policy.recencyWeight) }))
-  }
+  if (options.scorer === 'local') scored = rankLocalRelevance(scored, policy.recencyWeight)
   return scored.map((entry) => ({ ...entry, action: decideAction(entry.combinedScore, policy) }))
+}
+
+/**
+ * The `'local'` scale everything ctxjev shows or acts on uses: `scoreEntries()`' keyword overlap
+ * (a share of the goal's words) turned into each entry's percentile rank within the batch (ties
+ * averaged), with `combinedScore` blended from that. `pruneContext()` applies it before its
+ * thresholds; the Claude Code plugin ranks its digest by it, so "score 0.8" means the same in both.
+ */
+export function rankLocalRelevance(scored: ScoredEntry[], recencyWeight: number = DEFAULT_POLICY.recencyWeight): ScoredEntry[] {
+  validateScoredEntries(scored)
+  validateRecencyWeight(recencyWeight)
+  const ranks = percentileRanks(scored.map((s) => s.relevance))
+  return scored.map((s, i) => ({ ...s, relevance: ranks[i], combinedScore: combineScore(ranks[i], s.recency, recencyWeight) }))
 }

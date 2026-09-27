@@ -1,5 +1,6 @@
 import { estimateTokens } from './tokenEstimate.js'
 import type { Entry, PruneDecision } from './types.js'
+import { validateDecisions, validateEntries } from './validate.js'
 
 /**
  * The policy's verdicts, counted and sized. These are what the decisions say, not what happened:
@@ -28,6 +29,8 @@ export type SavingsReport = {
 }
 
 export function summarizeSavings(entries: Entry[], decisions: PruneDecision[]): SavingsReport {
+  validateEntries(entries)
+  validateDecisions(decisions)
   const decisionByEntryId = new Map(decisions.map((d) => [d.entryId, d]))
 
   const report: SavingsReport = {
