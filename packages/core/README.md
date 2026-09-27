@@ -38,9 +38,9 @@ npm install ctxjev-core
 ```
 
 No key needed by default: the default scorer is `'recency'` (newest kept, i.e. plain truncation),
-which needs no network and sends nothing. On a [preregistered holdout
-comparison](eval/PREREGISTRATION.md), it tied Jev on whether the agent finished the job (+0 points,
-95% CI [+0, +0]); see the [main README](../../README.md#does-it-work) for the full result,
+which needs no network and sends nothing. <!-- checked-prose -->On a [preregistered holdout
+comparison](eval/PREREGISTRATION.md), it tied Jev on whether the agent finished the job
+(<!-- generated:holdout-diff-short -->0 points, 95% CI [0, 0] with Claude Haiku 4.5 and with Claude Sonnet 5, 6 unseen tasks<!-- /generated:holdout-diff-short -->)<!-- /checked-prose -->; see the [main README](../../README.md#does-it-work) for the full result,
 including where Jev's ranking did and didn't separate itself. Pass `{ scorer: 'jev' }` to opt in,
 which needs `TYPESAFE_API_KEY` (get one at
 [console.typesafe.ai/settings/keys](https://console.typesafe.ai/settings/keys), no waitlist), or

@@ -11,8 +11,18 @@
  * generated block, or directly below an `<!-- unverified: reason -->` line saying why it can't be
  * (its raw output was never saved) — so a new table can't slip in unchecked either.
  *
+ * The prose around them is checked too (the third audit changed three numbers in prose, and this
+ * passed them): in those results sections, in README.md's status paragraph, and anywhere wrapped
+ * in `<!-- checked-prose -->` … `<!-- /checked-prose -->`, every number and number word must be
+ * inside a generated block, or be one of the few kinds that aren't results (a version, a model
+ * name, a date, "95% CI", a list number, a step or phase number), or sit in a paragraph, list, or
+ * table directly below an `<!-- unverified: reason -->` line. A budget ("a 25% budget") must be
+ * one the saved results used. `--selftest` makes the audit's three edits in memory and fails
+ * unless each is caught.
+ *
  *   node eval/check-docs.mjs           exit 1, with a diff, if the docs disagree with the saved results
  *   node eval/check-docs.mjs --write   rewrite every generated block from the saved results
+ *   node eval/check-docs.mjs --selftest   check that the checks catch the third audit's prose edits
  *
  * The statistics are the ones each eval script's --report prints (lib.mjs's bootstrap, which is
  * seeded, so the output is stable).
@@ -715,6 +725,59 @@ function changesCutAnalysis() {
   return `ホールドアウト ${rows.holdout.length} 会話では切り取り点以降がトークンの ${range(rows.holdout.map((r) => r.share))}、そこにしかない事実は各 ${counts(rows.holdout)} 件。dev の記録 ${rows.dev.length} 会話では各 ${counts(rows.dev)} 件`
 }
 
+// --- counts the prose states, counted from the saved results -------------------------------------
+
+const WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve']
+const word = (n) => WORDS[n] ?? String(n)
+const tasksIn = (rows) => [...new Set(rows.map((r) => r.task))]
+const runsIn = (rows) => Math.max(...rows.map((r) => r.run)) + 1
+const holdoutTaskCount = () => String(tasksIn(tasksHoldout.rows).length)
+const holdoutRuns = () => String(runsIn(tasksHoldout.rows))
+const devTaskDesign = () => `${tasksIn(tasksDev.rows).length} tasks × ${runsIn(tasksDev.rows)} runs`
+const outcomeDesign = () => `${new Set(outcome.rows.map((r) => `${r.session}\u0000${r.question}`)).size} questions, ${outcome.runs} runs`
+const pluginRunCount = () => word(PLUGIN_HOLDOUT_RUNS.length)
+const preregHaikuInterval = () => interval0(taskDiff(tasksHoldout.rows, SHIPPED, TRUNCATION).interval)
+const preregSonnetPoint = () => `${points0(taskDiff(tasksHoldoutSonnet.rows, SHIPPED, TRUNCATION).value)} pp`
+const pluginDesign = () => `${tasksIn(plugin.rows).length} tasks × ${runsIn(plugin.rows)} runs`
+
+/** Jev − truncation on the holdout tasks, both models, short form (ROADMAP, core README). */
+function holdoutDiffShort() {
+  const haiku = taskDiff(tasksHoldout.rows, SHIPPED, TRUNCATION)
+  const sonnet = taskDiff(tasksHoldoutSonnet.rows, SHIPPED, TRUNCATION)
+  const same = haiku.value === sonnet.value && haiku.interval.join() === sonnet.interval.join()
+  const diff = (d) => `${points0(d.value)} points, 95% CI ${interval0(d.interval)}`
+  const tasks = tasksIn(tasksHoldout.rows).length
+  return same ? `${diff(haiku)} with Claude Haiku 4.5 and with Claude Sonnet 5, ${tasks} unseen tasks` : `${diff(haiku)} with Claude Haiku 4.5, ${diff(sonnet)} with Claude Sonnet 5, ${tasks} unseen tasks`
+}
+
+/** Where the dev task runs failed, for the two conditions the README compares. */
+function failures(rows, condition) {
+  const failed = rows.filter((r) => r.condition === condition && !r.success)
+  const byTask = new Map()
+  for (const r of failed) byTask.set(r.task, (byTask.get(r.task) ?? 0) + 1)
+  return { runs: rows.filter((r) => r.condition === condition).length, failed: failed.length, byTask }
+}
+const taskList = (tasks) => tasks.map((t) => `\`${t}\``).join(', ')
+
+function devTaskMisses() {
+  const jev = failures(tasksDev.rows, SHIPPED)
+  const truncation = failures(tasksDev.rows, TRUNCATION)
+  const missed = [...new Set([...jev.byTask.keys(), ...truncation.byTask.keys()])]
+  const clean = tasksIn(tasksDev.rows).length - missed.length
+  return `truncation failed ${truncation.failed} of its ${truncation.runs} runs and Jev ${jev.failed}, all on ${taskList(missed)}. On the other ${clean} tasks both passed every run`
+}
+
+function sonnetMissed() {
+  const jev = failures(tasksSonnet.rows, SHIPPED)
+  const truncation = failures(tasksSonnet.rows, TRUNCATION)
+  return { jev, truncation, missed: [...new Set([...jev.byTask.keys(), ...truncation.byTask.keys()])] }
+}
+const devSonnetClean = () => `${tasksIn(tasksSonnet.rows).length - sonnetMissed().missed.length} of the ${tasksIn(tasksSonnet.rows).length}`
+function devSonnetMissed() {
+  const { jev, truncation, missed } = sonnetMissed()
+  return `${taskList(missed)}: Jev lost it in ${jev.failed} of ${runsIn(tasksSonnet.rows)} runs, truncation in ${truncation.failed}`
+}
+
 /** How many sessions each split has, and of what kind: counted from the files, never typed. */
 function sessionCounts() {
   const names = readdirSync(join(root, 'examples/eval-sessions')).filter((f) => f.endsWith('.json'))
@@ -769,13 +832,29 @@ const RENDERERS = {
   'prereg-plugin-rerun': preregPluginRerun,
   'design-plugin-holdout': designPluginHoldout,
   'session-counts': sessionCounts,
+  'holdout-task-count': holdoutTaskCount,
+  'holdout-runs': holdoutRuns,
+  'holdout-diff-short': holdoutDiffShort,
+  'dev-task-design': devTaskDesign,
+  'dev-task-misses': devTaskMisses,
+  'dev-sonnet-clean': devSonnetClean,
+  'dev-sonnet-missed': devSonnetMissed,
+  'outcome-design': outcomeDesign,
+  'plugin-run-count': pluginRunCount,
+  'plugin-design': pluginDesign,
+  'prereg-haiku-interval': preregHaikuInterval,
+  'prereg-sonnet-point': preregSonnetPoint,
 }
 
 // --- checking -----------------------------------------------------------------------------------
 
+// `prose: true`: the section's prose is checked too (see checkedProse). Anything between
+// `<!-- checked-prose -->` markers is checked in every doc listed.
 const DOCS = [
-  { path: 'README.md', section: /^## Does It Work\?/m },
-  { path: 'packages/core/eval/PREREGISTRATION.md', section: /^## Results/m },
+  { path: 'README.md', section: /^## Does It Work\?/m, prose: true },
+  { path: 'packages/core/eval/PREREGISTRATION.md', section: /^## Results/m, prose: true },
+  { path: 'ROADMAP.md' },
+  { path: 'packages/core/README.md' },
   { path: 'docs/design/round-2-scoring-and-evaluation.md', section: /^## 1\./m },
   // No results section to police here: its tables are statuses, and its eval numbers are generated inline.
   { path: 'docs/audits/2026-09-25-round-1-changes-ja.md' },
@@ -811,10 +890,135 @@ function uncheckedTables(text, section) {
   return problems
 }
 
+// --- prose -------------------------------------------------------------------------------------
+
+const NUMBER = /\d|\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|million|once|twice|thrice|half|dozen)\b/i
+// Numbers that aren't results: removed before looking for any.
+const NOT_RESULTS = [
+  /\b\d+\.\d+\.\d+\b/g, // a version (0.5.0)
+  /\b(?:Claude )?(?:Haiku|Sonnet|Opus|Fable) \d+(?:\.\d+)?\b/g, // a model
+  /\b\d{4}-\d{2}-\d{2}\b/g, // a date
+  /\b95% (?:CI|confidence|bootstrap)\b/g, // the interval's level
+  /^(\s*(?:[-*]\s+)?(?:#+\s+)?(?:\*\*)?)\d+\.(?=\s|\*\*)/gm, // a numbered list item or heading
+  /\b(?:[Ss]tep|[Pp]hase|[Rr]ound|[Rr]ule) \d+(?:\s*[–-]\s*\d+)?(?:'s)?\b/g, // a step, phase, round, or rule number
+  /\bv\d\b/g, // a measure's version (v1, v2)
+  /\b(?=[0-9a-f]*\d)[0-9a-f]{7,40}\b/g, // a commit
+  /\b(?:above|below|over|under|clear|clears|include|includes|cross|crosses|than)\s+(?:0|zero)\b/g, // a decision rule's threshold
+  /\b(?:the|no|each|any|which) one\b/gi, // "one" as a pronoun
+]
+// A budget stated in prose must be one the saved results were run at.
+const BUDGET = /\b(\d+)%(?:\s*\/\s*(\d+)%)?(?:(?:-|\s+)budget\b|\s+of its tokens)/g
+const budgetsUsed = new Set(
+  [tasksDev.budget, tasksHoldout.budget, ...(retentionDev.budgets ?? []), ...(retentionHoldout.budgets ?? []), ...outcome.rows.map((r) => r.budget)]
+    .filter((b) => typeof b === 'number' && b > 0 && b < 1)
+    .map((b) => Math.round(b * 100)),
+)
+
+/** The parts of `text` whose prose is checked: its results section (if `prose`) and every checked-prose region. */
+function proseRegions(text, section, prose) {
+  const regions = [...text.matchAll(/<!-- checked-prose -->([\s\S]*?)<!-- \/checked-prose -->/g)].map((m) => m[1])
+  if (prose && section) {
+    const start = text.search(section)
+    if (start !== -1) {
+      const rest = text.slice(start)
+      const next = rest.slice(3).search(/^## /m)
+      regions.push(next === -1 ? rest : rest.slice(0, next + 3))
+    }
+  }
+  return regions
+}
+
+/** Every number in checked prose that isn't generated, isn't one of NOT_RESULTS, and isn't marked unverified. */
+function uncheckedNumbers(text, section, prose) {
+  const problems = []
+  for (const region of proseRegions(text, section, prose)) {
+    const cleaned = region
+      .replace(/^```[\s\S]*?^```/gm, '')
+      .replace(GENERATED, ' ')
+      .replace(/<!-- (?!unverified:)[\s\S]*?-->/g, ' ')
+    // Blocks of non-blank lines; one directly below an unverified marker (or starting with one) is exempt.
+    const blocks = cleaned.split(/\n\s*\n/)
+    blocks.forEach((block, i) => {
+      const lines = block.split('\n').filter((l) => l.trim())
+      if (lines.length === 0) return
+      const marked = (b) => b !== undefined && /^<!-- unverified: .+ -->$/.test(b.trim().split('\n')[0].trim())
+      if (marked(block) || (marked(blocks[i - 1]) && blocks[i - 1].trim().split('\n').length === 1)) return
+      // Code, link targets, URLs, and quotations can span lines; none of them is a claim here.
+      const prose = lines
+        .filter((l) => !l.trimStart().startsWith('|')) // tables: generated or marked, checked by uncheckedTables
+        .join('\n')
+        .replace(/`[^`]*`/g, ' ')
+        .replace(/\]\([^)]*\)/g, ']')
+        .replace(/https?:\/\/\S+/g, ' ')
+        .replace(/"[^"]*"|“[^”]*”/g, ' ')
+      let rest = prose.replace(BUDGET, (m, a, b) => {
+        for (const value of [a, b].filter(Boolean)) if (!budgetsUsed.has(Number(value))) problems.push(`a ${value}% budget that no saved result was run at: "${m}"`)
+        return ' '
+      })
+      for (const pattern of NOT_RESULTS) rest = rest.replace(pattern, (_m, lead) => (typeof lead === 'string' ? lead : ' '))
+      for (const line of rest.split('\n')) {
+        const raw = line
+        const found = NUMBER.exec(line)
+        if (found) problems.push(`a number in prose that isn't generated (or marked unverified): "${line.slice(Math.max(0, found.index - 40), found.index + 40).trim()}" in: ${raw.trim().slice(0, 100)}`)
+      }
+    })
+  }
+  return problems
+}
+
+/** Everything wrong with one doc's text: generated blocks, tables, and prose. */
+function problemsIn(path, section, prose, text) {
+  const problems = []
+  const updated = text.replace(GENERATED, (whole, name, current) => {
+    const render = RENDERERS[name]
+    if (!render) {
+      problems.push(`no renderer for generated block "${name}"`)
+      return whole
+    }
+    const expected = render()
+    if (expected !== current) problems.push(`generated block "${name}" differs from the saved results.\n--- in the file:\n${current}\n--- from eval/results/:\n${expected}\n`)
+    return `<!-- generated:${name} -->${expected}<!-- /generated:${name} -->`
+  })
+  if (section) problems.push(...uncheckedTables(updated, section))
+  problems.push(...uncheckedNumbers(text, section, prose))
+  return problems
+}
+
+// The third audit (docs/audits/2026-09-25-audit-3-ja.md, 4.3-6) made three edits to prose numbers
+// and check-docs passed all three. Each, and each way of making it, must fail now.
+const AUDIT_EDITS = [
+  ['README.md', 'the status paragraph says there was a difference', (t) => t.replace('found no difference in whether the agent finished', 'found a 12-point difference in whether the agent finished')],
+  ['README.md', 'the status paragraph gets a hand-typed task count', (t) => t.replace(/<!-- generated:holdout-task-count -->\d+<!-- \/generated:holdout-task-count --> tasks Jev's ranking/, "seven tasks Jev's ranking")],
+  ['ROADMAP.md', 'ROADMAP\'s "+0 points" becomes "+5 points"', (t) => t.replace(/<!-- generated:holdout-diff-short -->[+−]?0 points/, '<!-- generated:holdout-diff-short -->+5 points')],
+  ['ROADMAP.md', 'ROADMAP\'s result is typed in by hand', (t) => t.replace(/<!-- generated:holdout-diff-short -->[\s\S]*?<!-- \/generated:holdout-diff-short -->/, '+0 points, 95% CI [+0, +0], two models, six unseen tasks')],
+  ['README.md', '"Does It Work?"\'s task count becomes "Seven tasks"', (t) => t.replace(/<!-- generated:holdout-task-count -->\d+<!-- \/generated:holdout-task-count --> tasks\n\(`rate-limit-window`/, 'Seven tasks\n(`rate-limit-window`')],
+]
+
+function selftest() {
+  let ok = true
+  for (const [path, what, edit] of AUDIT_EDITS) {
+    const { section, prose } = DOCS.find((d) => d.path === path)
+    const text = readFileSync(join(root, path), 'utf8')
+    const edited = edit(text)
+    if (edited === text) {
+      console.error(`selftest: couldn't make the edit "${what}" in ${path} (the text it changes is gone)`)
+      ok = false
+      continue
+    }
+    const before = problemsIn(path, section, prose, text).length
+    const after = problemsIn(path, section, prose, edited).length
+    console.log(`${after > before ? 'caught' : 'MISSED'}: ${what} (${path})`)
+    if (after <= before) ok = false
+  }
+  process.exit(ok ? 0 : 1)
+}
+
+if (process.argv.includes('--selftest')) selftest()
+
 const write = process.argv.includes('--write')
 const used = new Set()
 let failed = false
-for (const { path, section } of DOCS) {
+for (const { path, section, prose } of DOCS) {
   const file = join(root, path)
   const text = readFileSync(file, 'utf8')
   const updated = text.replace(GENERATED, (whole, name, current) => {
@@ -833,6 +1037,10 @@ for (const { path, section } of DOCS) {
     return `<!-- generated:${name} -->${expected}<!-- /generated:${name} -->`
   })
   for (const problem of section ? uncheckedTables(updated, section) : []) {
+    console.error(`${path}: ${problem}`)
+    failed = true
+  }
+  for (const problem of uncheckedNumbers(updated, section, prose)) {
     console.error(`${path}: ${problem}`)
     failed = true
   }

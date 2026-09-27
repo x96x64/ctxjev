@@ -42,6 +42,11 @@ jobs:
       # raw TypeError, no NaN, no slow call, no broken structure. Offline; about a minute.
       - name: Boundary brute force
         run: node scripts/boundary-bruteforce.mjs
+      # Test coverage per package, in-process and (for the CLI and the MCP server) in the dist/
+      # their tests run as subprocesses, against a minimum for each.
+      - name: Coverage (per-package minimums)
+        if: matrix.node-version == 22
+        run: node scripts/coverage.mjs
 
   # The eval harness itself, with no model calls: every task's template fails its hidden acceptance
   # tests and its solution passes (verify.mjs), and tasks.mjs's workspace tools apply a solution and
@@ -85,10 +90,13 @@ jobs:
           node eval/tasks.mjs --selftest
         env:
           CTXJEV_SANDBOX: docker
-      # Every eval number in README.md and PREREGISTRATION.md must match the saved results.
+      # Every eval number in the docs (tables and results prose) must match the saved results;
+      # --selftest proves the check catches the third audit's example edits.
       - name: check-docs
         working-directory: packages/core
-        run: node eval/check-docs.mjs
+        run: |
+          node eval/check-docs.mjs
+          node eval/check-docs.mjs --selftest
 
   # Known vulnerabilities in any dependency, dev tools included. High or critical fails the build;
   # Dependabot (.github/dependabot.yml) proposes the updates.

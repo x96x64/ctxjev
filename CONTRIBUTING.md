@@ -74,7 +74,9 @@ Releases are made by the maintainer, from `main`, only through the
 - **Before publishing**, with `TYPESAFE_API_KEY` set: `pnpm test` (runs the live tests) and, if
   anything about scoring changed, `cd packages/core && node eval/run.mjs --gate --runs 3`. The
   workflow runs both itself, plus the version/pin check, then publishes `ctxjev-core`, `ctxjev-cli`,
-  and `ctxjev-mcp` (in that order), tags `v<version>`, and creates the GitHub Release.
+  and `ctxjev-mcp` (in that order), tags `v<version>`, and creates the GitHub Release. **It refuses
+  to start unless the CI workflow has passed on the exact commit being published**, so after
+  merging the release pull request, wait for CI on `main` to finish before running it.
 - **The npm CLI and the GitHub Actions used are pinned** (npm by exact version in `publish.yml`,
   actions by commit SHA). Bump them on purpose; Dependabot proposes the action and dependency
   updates weekly.
@@ -83,9 +85,12 @@ Releases are made by the maintainer, from `main`, only through the
   source at `ref: "v<version>"`, the tag the publish workflow creates, so plugin users get released
   code only (before, it pointed at `packages/claude-plugin` on `main`, released or not).
   `--update-pins` moves the ref, and the workflow's version check refuses a release whose entry
-  doesn't name its own tag. Between merging the release commit and the workflow creating the tag,
-  a new install fails for those few minutes; existing installs are unaffected. Claude Code updates
-  an installed plugin when its `version` changes, so the version bump is what reaches users.
+  doesn't name its own tag, or that names anything else. It names no commit (`sha`) on purpose:
+  Claude Code would install from that commit as soon as the release pull request merges, before
+  the workflow's checks, while the tag exists only once they've passed. Between merging the release
+  commit and the workflow creating the tag, a new install fails for those few minutes; existing
+  installs are unaffected. Claude Code updates an installed plugin when its `version` changes, so
+  the version bump is what reaches users.
 
 ## Reporting a vulnerability
 

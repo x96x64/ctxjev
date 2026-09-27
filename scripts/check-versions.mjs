@@ -10,7 +10,9 @@
  * - The Claude Code marketplace serves the plugin from that release's tag, not from `main`: its
  *   source in .claude-plugin/marketplace.json is `git-subdir` at `ref: "v<version>"`, the tag the
  *   publish workflow creates. (Before 0.6.0 it was the relative `./packages/claude-plugin`, which
- *   Claude Code reads from the default branch, so plugin users got unreleased code.)
+ *   Claude Code reads from the default branch, so plugin users got unreleased code.) Nothing else:
+ *   a `sha` would make the plugin installable from that commit as soon as the release pull request
+ *   merges, before the workflow's checks; the tag exists only once they've passed.
  *
  * Usage (from the repo root):
  *   node scripts/check-versions.mjs                 check; exits 1 on any mismatch
@@ -67,8 +69,8 @@ const PLUGIN_SOURCE = { source: 'git-subdir', url: 'https://github.com/x96x64/ct
       plugin.source = JSON.parse(readFileSync(MARKETPLACE, 'utf8')).plugins.find((p) => p.name === 'ctxjev').source
     }
     const s = plugin.source
-    if (typeof s !== 'object' || s === null || Object.entries(PLUGIN_SOURCE).some(([k, v]) => s[k] !== v)) {
-      problems.push(`${MARKETPLACE}: the ctxjev plugin's source is ${JSON.stringify(s)}, not ${JSON.stringify(PLUGIN_SOURCE)} — the marketplace must serve the release tag, not main`)
+    if (typeof s !== 'object' || s === null || Object.entries(PLUGIN_SOURCE).some(([k, v]) => s[k] !== v) || Object.keys(s).some((k) => !(k in PLUGIN_SOURCE))) {
+      problems.push(`${MARKETPLACE}: the ctxjev plugin's source is ${JSON.stringify(s)}, not ${JSON.stringify(PLUGIN_SOURCE)} and nothing else — the marketplace must serve the release tag (not main, and not a commit that's installable before the tag exists)`)
     }
   }
 }
