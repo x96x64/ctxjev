@@ -15,9 +15,10 @@ the advisory is published once a fixed version is out.
 ## Supported versions
 
 Only the latest release gets security fixes: on npm, the version tagged `latest`; for the Claude
-Code plugin, the release the marketplace entry (`.claude-plugin/marketplace.json`) names, by its tag
-and its commit. The marketplace installs that release, not `main`. Every release is published from a
-commit on `main` that CI passed, and tagged with its version (see CONTRIBUTING.md).
+Code plugin, the release the marketplace entry (`.claude-plugin/marketplace.json`) names by its tag.
+The marketplace installs that release, not `main`. Every release is published from a commit on
+`main` that CI passed, and tagged with its version only after the publish workflow's checks pass
+(see CONTRIBUTING.md).
 
 ## What's in scope
 

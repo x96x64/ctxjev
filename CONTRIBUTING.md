@@ -64,10 +64,9 @@ Releases are made by the maintainer, from `main`, only through the
 - **Batch changes into a release.** Don't publish after every fix. A docs-only change waits for the
   next release, unless npm is showing something wrong or misleading.
 - **Versions are lockstep** across the four packages and the three plugin manifests. Bump all seven
-  together and commit that (with the CHANGELOG), then run `node scripts/check-versions.mjs
-  --update-pins` and commit its changes: every `ctxjev-mcp@<version>` in the MCP setup examples
-  names the new version, and the marketplace serves the plugin from the new tag and from the commit
-  you just made (below). The publish workflow refuses to run if any of them disagree.
+  together, then run `node scripts/check-versions.mjs --update-pins` so every `ctxjev-mcp@<version>`
+  in the MCP setup examples names the new version, and the marketplace serves the plugin from the
+  new tag (below). The publish workflow refuses to run if any of them disagree.
 - **0.x semantics:** a changed default or removed option is a minor bump (0.5 → 0.6) and is called
   out as breaking in the CHANGELOG; fixes and additions are patch bumps.
 - **The CHANGELOG section for the version must exist** before publishing; it becomes the GitHub
@@ -86,14 +85,12 @@ Releases are made by the maintainer, from `main`, only through the
   source at `ref: "v<version>"`, the tag the publish workflow creates, so plugin users get released
   code only (before, it pointed at `packages/claude-plugin` on `main`, released or not).
   `--update-pins` moves the ref, and the workflow's version check refuses a release whose entry
-  doesn't name its own tag. The entry also carries `sha`, a commit (Claude Code checks it out and
-  verifies it, ahead of `ref`), because a tag can be moved and a commit can't. It can't be the
-  tag's own commit, which is the release pull request's merge commit and doesn't exist when the
-  entry is written; `--update-pins` pins the release commit instead (the tag's commit, if the tag
-  already exists), and the workflow refuses a release unless `packages/claude-plugin` at that
-  commit is identical, tree for tree, to the one being published. Between merging the release commit and the workflow creating the tag,
-  a new install fails for those few minutes; existing installs are unaffected. Claude Code updates
-  an installed plugin when its `version` changes, so the version bump is what reaches users.
+  doesn't name its own tag, or that names anything else. It names no commit (`sha`) on purpose:
+  Claude Code would install from that commit as soon as the release pull request merges, before
+  the workflow's checks, while the tag exists only once they've passed. Between merging the release
+  commit and the workflow creating the tag, a new install fails for those few minutes; existing
+  installs are unaffected. Claude Code updates an installed plugin when its `version` changes, so
+  the version bump is what reaches users.
 
 ## Reporting a vulnerability
 

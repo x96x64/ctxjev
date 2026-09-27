@@ -38,11 +38,11 @@ describe('estimateTokens: time on long runs', () => {
   })
 
   // Every 128-character piece of varied text is different, so none is cached: about 0.3 s here,
-  // against 67 s before.
-  it('varied kana, 100,000 with no punctuation, in under 3 seconds', () => {
+  // against 67 s before. The same 1-second limit as the rest (scaled only under coverage).
+  it('varied kana, 100,000 with no punctuation, in under 1 second', () => {
     const start = performance.now()
     expect(estimateTokens(variedKana)).toBeGreaterThan(0)
-    expect(performance.now() - start).toBeLessThan(3000 * SCALE)
+    expect(performance.now() - start).toBeLessThan(1000 * SCALE)
   })
 
   // 5,000,000 `█` also overflowed the regular expression engine's stack in the first version of the

@@ -321,8 +321,7 @@ wide, and they're shown so you can see how wide.
 **1. Can an agent still finish the job?** [`eval/tasks.mjs`](packages/core/eval/tasks.mjs) cuts
 each recorded session before "now implement the fix" and prunes the history to 25% of its tokens.
 Claude Haiku 4.5 then does the fix with real tools in a fresh copy of the repo. It passes if the
-hidden acceptance tests pass, and those tests include the constraints the user stated mid-session.
-<!-- generated:dev-task-design -->10 tasks × 2 runs<!-- /generated:dev-task-design -->:
+hidden acceptance tests pass, and those tests include the constraints the user stated mid-session. <!-- generated:dev-task-design -->10 tasks × 2 runs<!-- /generated:dev-task-design -->:
 
 <!-- generated:dev-tasks -->
 | History given to the agent | Tasks passed | 95% CI |
@@ -336,8 +335,7 @@ hidden acceptance tests pass, and those tests include the constraints the user s
 | Only the task | 40% | [15, 70] |
 <!-- /generated:dev-tasks -->
 
-Against truncation with the same options (user text kept, gap marked), the fair comparison, Jev is <!-- generated:dev-task-diff -->+10 points [0, +30]<!-- /generated:dev-task-diff -->:
-<!-- generated:dev-task-misses -->truncation failed 2 of its 20 runs and Jev 0, all on `webhook-dedupe`. On the other 9 tasks both passed every run<!-- /generated:dev-task-misses -->.
+Against truncation with the same options (user text kept, gap marked), the fair comparison, Jev is <!-- generated:dev-task-diff -->+10 points [0, +30]<!-- /generated:dev-task-diff -->: <!-- generated:dev-task-misses -->truncation failed 2 of its 20 runs and Jev 0, all on `webhook-dedupe`. On the other 9 tasks both passed every run<!-- /generated:dev-task-misses -->.
 
 The misses were agents that lost something the user said and filled the gap with their own guess.
 An agent lost "keep the mark for 24 hours" and kept a later "maybe 25h for margin". Another lost the
@@ -364,7 +362,7 @@ Sonnet 5 grade it (<!-- generated:outcome-design -->102 questions, 2 runs<!-- /g
 | Keyword overlap | 67% | 74% |
 <!-- /generated:outcome -->
 
-<!-- generated:outcome-diff -->Jev minus truncation is +8 points [−1, +18] at 25% and +8 [−1, +19] at 50%. Jev minus keyword overlap is +13 [+7, +18] and +17 [+10, +24]<!-- /generated:outcome-diff -->. The truncation intervals include
+The differences: <!-- generated:outcome-diff -->Jev minus truncation is +8 points [−1, +18] at 25% and +8 [−1, +19] at 50%. Jev minus keyword overlap is +13 [+7, +18] and +17 [+10, +24]<!-- /generated:outcome-diff -->. The truncation intervals include
 zero. <!-- generated:dev-retention -->Ranking alone (`eval/run.mjs`, the dev sessions, Jev: mean of 3 runs) keeps 85.6% / 95.6% of the facts under a 25% / 50% budget, against 66.3% / 80.4% for truncation, 65.3% / 79.8% for keyword overlap, and 62.0% / 69.3% for a random order<!-- /generated:dev-retention -->. Every release is gated on
 Jev not falling below truncation or keyword overlap there at a 50% budget
 (`eval/run.mjs --gate --runs 3`, which fails without a Jev key).

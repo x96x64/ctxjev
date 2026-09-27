@@ -74,7 +74,8 @@ for (const [pkg, { inProcess, subprocessLines, extraArgs = [] }] of Object.entri
     } catch {
       lines = undefined
     }
-    if (c8.status !== 0 || lines === undefined || lines < subprocessLines) {
+    // With nothing measured, c8 reports the percentage as "Unknown", which `< 75` lets through.
+    if (c8.status !== 0 || typeof lines !== 'number' || lines < subprocessLines) {
       failed = true
       console.error(`${pkg}: subprocess coverage ${lines ?? 'missing'}% of lines, minimum ${subprocessLines}%\n${c8.stderr.slice(-2000)}`)
     }

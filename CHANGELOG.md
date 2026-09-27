@@ -182,18 +182,22 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
   (`jevClient`, `cache`), so their success path is tested offline with a stand-in for Jev; the
   server itself is unchanged.
 - Release process: the publish workflow refuses to run unless CI passed on the exact commit being
-  published, and the plugin's marketplace entry pins a commit (`sha`) as well as the release tag,
-  which the workflow checks ships exactly the released plugin files. A tag can be moved; a commit
-  can't.
-- `ctxjev-cli`: `--help`, the CLI README, and the three packages' npm descriptions no longer
-  describe Jev as the default; the default has scored offline, sending nothing, since 0.6.0.
+  published (its push to `main`), and checks the version pins before it spends anything on the
+  live tests and the eval gate. The plugin's marketplace entry still names only the release tag,
+  which the workflow creates after every check has passed; a pinned commit would have made the
+  plugin installable as soon as the release pull request merged.
+- `ctxjev-cli`: `--help`, the CLI README, and the package descriptions of `ctxjev-core`,
+  `ctxjev-cli`, and the Claude Code plugin no longer describe Jev as the default; the default has scored offline, sending nothing, since 0.6.0.
 - Docs: SECURITY.md said the marketplace installs `main`, that the plugin sends content whenever
   `TYPESAFE_API_KEY` is set, and that the eval harness has no sandbox; none of that has been true
   since 0.6.0. The README's Quick Start downloads the sample transcript it runs and shows its
   output, and its status line no longer carries a date that goes stale.
-- Docs: every eval number in the README, ROADMAP, and preregistration prose is generated from the
-  saved results and checked in CI, not only the tables; a hand-edited number in a sentence used to
-  pass the check.
+- Docs: the eval numbers in the prose of the README's "Does It Work?" section, the
+  preregistration's results, and the passages marked as checked (in the ROADMAP, among others) are
+  generated from the saved results and checked in CI, not only the tables; a hand-edited number in
+  such a sentence used to pass the check. The preregistration's other sections (why it was
+  written, the secondary endpoint, the changes after registration) still hold numbers typed by
+  hand, which the check doesn't cover.
 
 ## 0.6.1 — 2026-09-25
 
