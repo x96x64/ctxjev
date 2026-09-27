@@ -1,0 +1,856 @@
+{
+ "script": "scripts/boundary-bruteforce.mjs at b0dd13d (0.7.0), run 2026-09-27 with TYPESAFE_API_KEY unset and TYPESAFE_BASE_URL at a closed local port",
+ "0.6.1": {
+  "total": 1937,
+  "counts": {
+   "pruneContext": 779,
+   "summarizeSavings": 210,
+   "scoreEntries": 204,
+   "estimateTokens": 25,
+   "redactSecrets": 25,
+   "pruneMessages": 151,
+   "messagesToEntries": 17,
+   "cli analyze": 135,
+   "cli prune": 135,
+   "mcp score_relevance": 128,
+   "mcp prune_history": 128
+  },
+  "violations": [
+   {
+    "point": "pruneContext",
+    "case": "entries[1].id = NaN, recency",
+    "problem": "NaN in the output at $.1.entryId"
+   },
+   {
+    "point": "pruneContext",
+    "case": "entries[1].id = NaN, recency",
+    "problem": "invalid result: decision 1 is for NaN, not NaN"
+   },
+   {
+    "point": "pruneContext",
+    "case": "entries[1].id = NaN, local",
+    "problem": "NaN in the output at $.1.entryId"
+   },
+   {
+    "point": "pruneContext",
+    "case": "entries[1].id = NaN, local",
+    "problem": "invalid result: decision 1 is for NaN, not NaN"
+   },
+   {
+    "point": "pruneContext",
+    "case": "entries[1].id = NaN, custom",
+    "problem": "NaN in the output at $.1.entryId"
+   },
+   {
+    "point": "pruneContext",
+    "case": "entries[1].id = NaN, custom",
+    "problem": "invalid result: decision 1 is for NaN, not NaN"
+   },
+   {
+    "point": "scoreEntries",
+    "case": "entries[1].id = NaN",
+    "problem": "NaN in the output at $.1.entryId"
+   },
+   {
+    "point": "pruneContext",
+    "case": "entries[1].content = 0, local",
+    "problem": "raw TypeError: text.matchAll is not a function or its return value is not iterable"
+   },
+   {
+    "point": "pruneContext",
+    "case": "entries[1].content = 0, custom",
+    "problem": "raw TypeError: out.replace is not a function"
+   },
+   {
+    "point": "summarizeSavings",
+    "case": "entries[1].content = 0",
+    "problem": "raw TypeError: lineToEncode.match is not a function"
+   },
+   {
+    "point": "pruneContext",
+    "case": "entries[1].content = missing, local",
+    "problem": "raw TypeError: Cannot read properties of undefined (reading 'matchAll')"
+   },
+   {
+    "point": "pruneContext",
+    "case": "entries[1].content = missing, custom",
+    "problem": "raw TypeError: Cannot read properties of undefined (reading 'replace')"
+   },
+   {
+    "point": "summarizeSavings",
+    "case": "entries[1].content = missing",
+    "problem": "raw TypeError: Cannot read properties of undefined (reading 'match')"
+   },
+   {
+    "point": "pruneContext",
+    "case": "entries[1].content = null, local",
+    "problem": "raw TypeError: Cannot read properties of null (reading 'matchAll')"
+   },
+   {
+    "point": "pruneContext",
+    "case": "entries[1].content = null, custom",
+    "problem": "raw TypeError: Cannot read properties of null (reading 'replace')"
+   },
+   {
+    "point": "summarizeSavings",
+    "case": "entries[1].content = null",
+    "problem": "raw TypeError: Cannot read properties of null (reading 'match')"
+   },
+   {
+    "point": "pruneContext",
+    "case": "entries[1].content = true, local",
+    "problem": "raw TypeError: text.matchAll is not a function or its return value is not iterable"
+   },
+   {
+    "point": "pruneContext",
+    "case": "entries[1].content = true, custom",
+    "problem": "raw TypeError: out.replace is not a function"
+   },
+   {
+    "point": "summarizeSavings",
+    "case": "entries[1].content = true",
+    "problem": "raw TypeError: lineToEncode.match is not a function"
+   },
+   {
+    "point": "pruneContext",
+    "case": "entries[1].content = number 7, local",
+    "problem": "raw TypeError: text.matchAll is not a function or its return value is not iterable"
+   },
+   {
+    "point": "pruneContext",
+    "case": "entries[1].content = number 7, custom",
+    "problem": "raw TypeError: out.replace is not a function"
+   },
+   {
+    "point": "summarizeSavings",
+    "case": "entries[1].content = number 7",
+    "problem": "raw TypeError: lineToEncode.match is not a function"
+   },
+   {
+    "point": "pruneContext",
+    "case": "entries[1].content = array, local",
+    "problem": "raw TypeError: text.matchAll is not a function or its return value is not iterable"
+   },
+   {
+    "point": "pruneContext",
+    "case": "entries[1].content = array, custom",
+    "problem": "raw TypeError: out.replace is not a function"
+   },
+   {
+    "point": "summarizeSavings",
+    "case": "entries[1].content = array",
+    "problem": "raw TypeError: lineToEncode.match is not a function"
+   },
+   {
+    "point": "pruneContext",
+    "case": "entries[1].content = object, local",
+    "problem": "raw TypeError: text.matchAll is not a function or its return value is not iterable"
+   },
+   {
+    "point": "pruneContext",
+    "case": "entries[1].content = object, custom",
+    "problem": "raw TypeError: out.replace is not a function"
+   },
+   {
+    "point": "summarizeSavings",
+    "case": "entries[1].content = object",
+    "problem": "raw TypeError: lineToEncode.match is not a function"
+   },
+   {
+    "point": "pruneContext",
+    "case": "entries[1].content = -1, local",
+    "problem": "raw TypeError: text.matchAll is not a function or its return value is not iterable"
+   },
+   {
+    "point": "pruneContext",
+    "case": "entries[1].content = -1, custom",
+    "problem": "raw TypeError: out.replace is not a function"
+   },
+   {
+    "point": "summarizeSavings",
+    "case": "entries[1].content = -1",
+    "problem": "raw TypeError: lineToEncode.match is not a function"
+   },
+   {
+    "point": "pruneContext",
+    "case": "entries[1].content = 1.5, local",
+    "problem": "raw TypeError: text.matchAll is not a function or its return value is not iterable"
+   },
+   {
+    "point": "pruneContext",
+    "case": "entries[1].content = 1.5, custom",
+    "problem": "raw TypeError: out.replace is not a function"
+   },
+   {
+    "point": "summarizeSavings",
+    "case": "entries[1].content = 1.5",
+    "problem": "raw TypeError: lineToEncode.match is not a function"
+   },
+   {
+    "point": "pruneContext",
+    "case": "entries[1].content = NaN, local",
+    "problem": "raw TypeError: text.matchAll is not a function or its return value is not iterable"
+   },
+   {
+    "point": "pruneContext",
+    "case": "entries[1].content = NaN, custom",
+    "problem": "raw TypeError: out.replace is not a function"
+   },
+   {
+    "point": "summarizeSavings",
+    "case": "entries[1].content = NaN",
+    "problem": "raw TypeError: lineToEncode.match is not a function"
+   },
+   {
+    "point": "pruneContext",
+    "case": "entries[1].content = Infinity, local",
+    "problem": "raw TypeError: text.matchAll is not a function or its return value is not iterable"
+   },
+   {
+    "point": "pruneContext",
+    "case": "entries[1].content = Infinity, custom",
+    "problem": "raw TypeError: out.replace is not a function"
+   },
+   {
+    "point": "summarizeSavings",
+    "case": "entries[1].content = Infinity",
+    "problem": "raw TypeError: lineToEncode.match is not a function"
+   },
+   {
+    "point": "pruneContext",
+    "case": "entries[1].content = -Infinity, local",
+    "problem": "raw TypeError: text.matchAll is not a function or its return value is not iterable"
+   },
+   {
+    "point": "pruneContext",
+    "case": "entries[1].content = -Infinity, custom",
+    "problem": "raw TypeError: out.replace is not a function"
+   },
+   {
+    "point": "summarizeSavings",
+    "case": "entries[1].content = -Infinity",
+    "problem": "raw TypeError: lineToEncode.match is not a function"
+   },
+   {
+    "point": "pruneContext",
+    "case": "entries[1].content = 1e308, local",
+    "problem": "raw TypeError: text.matchAll is not a function or its return value is not iterable"
+   },
+   {
+    "point": "pruneContext",
+    "case": "entries[1].content = 1e308, custom",
+    "problem": "raw TypeError: out.replace is not a function"
+   },
+   {
+    "point": "summarizeSavings",
+    "case": "entries[1].content = 1e308",
+    "problem": "raw TypeError: lineToEncode.match is not a function"
+   },
+   {
+    "point": "pruneContext",
+    "case": "entries[1].content = -1e308, local",
+    "problem": "raw TypeError: text.matchAll is not a function or its return value is not iterable"
+   },
+   {
+    "point": "pruneContext",
+    "case": "entries[1].content = -1e308, custom",
+    "problem": "raw TypeError: out.replace is not a function"
+   },
+   {
+    "point": "summarizeSavings",
+    "case": "entries[1].content = -1e308",
+    "problem": "raw TypeError: lineToEncode.match is not a function"
+   },
+   {
+    "point": "pruneContext",
+    "case": "entries[1].content = MAX_SAFE+1, local",
+    "problem": "raw TypeError: text.matchAll is not a function or its return value is not iterable"
+   },
+   {
+    "point": "pruneContext",
+    "case": "entries[1].content = MAX_SAFE+1, custom",
+    "problem": "raw TypeError: out.replace is not a function"
+   },
+   {
+    "point": "summarizeSavings",
+    "case": "entries[1].content = MAX_SAFE+1",
+    "problem": "raw TypeError: lineToEncode.match is not a function"
+   },
+   {
+    "point": "summarizeSavings",
+    "case": "entries[1].content = string: x × 200000",
+    "problem": "took 46692 ms (limit 5000)"
+   },
+   {
+    "point": "summarizeSavings",
+    "case": "entries[1].content = string: █ × 100000",
+    "problem": "took 105716 ms (limit 5000)"
+   },
+   {
+    "point": "pruneContext",
+    "case": "entries[1].content = string: a.a.a × 200000, custom",
+    "problem": "took 233985 ms (limit 5000)"
+   },
+   {
+    "point": "summarizeSavings",
+    "case": "entries[1].content = string: / and line breaks × 200000",
+    "problem": "took 37050 ms (limit 5000)"
+   },
+   {
+    "point": "summarizeSavings",
+    "case": "entries[1].content = string: !! and an accent × 200000",
+    "problem": "took 62865 ms (limit 5000)"
+   },
+   {
+    "point": "summarizeSavings",
+    "case": "entries[1].content = string: !! and an accent × 200000",
+    "problem": "raw RangeError: Maximum call stack size exceeded"
+   },
+   {
+    "point": "scoreEntries",
+    "case": "entries[1].timestamp = missing",
+    "problem": "NaN in the output at $.1.recency"
+   },
+   {
+    "point": "scoreEntries",
+    "case": "entries[1].timestamp = object",
+    "problem": "NaN in the output at $.1.recency"
+   },
+   {
+    "point": "scoreEntries",
+    "case": "entries[1].timestamp = NaN",
+    "problem": "NaN in the output at $.1.recency"
+   },
+   {
+    "point": "scoreEntries",
+    "case": "entries[1].timestamp = Infinity",
+    "problem": "NaN in the output at $.1.recency"
+   },
+   {
+    "point": "scoreEntries",
+    "case": "entries[1].timestamp = -Infinity",
+    "problem": "NaN in the output at $.0.recency"
+   },
+   {
+    "point": "scoreEntries",
+    "case": "entries[1].timestamp = string: one",
+    "problem": "NaN in the output at $.1.recency"
+   },
+   {
+    "point": "scoreEntries",
+    "case": "entries[1].timestamp = string: unicode: lone surrogate",
+    "problem": "NaN in the output at $.1.recency"
+   },
+   {
+    "point": "scoreEntries",
+    "case": "entries[1].timestamp = string: unicode: RTL override",
+    "problem": "NaN in the output at $.1.recency"
+   },
+   {
+    "point": "scoreEntries",
+    "case": "entries[1].timestamp = string: unicode: zero-width",
+    "problem": "NaN in the output at $.1.recency"
+   },
+   {
+    "point": "scoreEntries",
+    "case": "entries[1].timestamp = string: unicode: ZWJ emoji",
+    "problem": "NaN in the output at $.1.recency"
+   },
+   {
+    "point": "scoreEntries",
+    "case": "entries[1].timestamp = string: unicode: combining marks",
+    "problem": "NaN in the output at $.1.recency"
+   },
+   {
+    "point": "scoreEntries",
+    "case": "entries[1].timestamp = string: unicode: CJK no punctuation",
+    "problem": "NaN in the output at $.1.recency"
+   },
+   {
+    "point": "scoreEntries",
+    "case": "entries[1].timestamp = string: unicode: NUL",
+    "problem": "NaN in the output at $.1.recency"
+   },
+   {
+    "point": "scoreEntries",
+    "case": "entries[1].timestamp = string: unicode: CRLF and tabs",
+    "problem": "NaN in the output at $.1.recency"
+   },
+   {
+    "point": "scoreEntries",
+    "case": "entries[1].timestamp = string: x × 200000",
+    "problem": "NaN in the output at $.1.recency"
+   },
+   {
+    "point": "scoreEntries",
+    "case": "entries[1].timestamp = string: █ × 100000",
+    "problem": "NaN in the output at $.1.recency"
+   },
+   {
+    "point": "scoreEntries",
+    "case": "entries[1].timestamp = string: a.a.a × 200000",
+    "problem": "NaN in the output at $.1.recency"
+   },
+   {
+    "point": "scoreEntries",
+    "case": "entries[1].timestamp = string: \"k\": \"v\" × 200000",
+    "problem": "NaN in the output at $.1.recency"
+   },
+   {
+    "point": "scoreEntries",
+    "case": "entries[1].timestamp = string: / and line breaks × 200000",
+    "problem": "NaN in the output at $.1.recency"
+   },
+   {
+    "point": "scoreEntries",
+    "case": "entries[1].timestamp = string: !! and an accent × 200000",
+    "problem": "NaN in the output at $.1.recency"
+   },
+   {
+    "point": "scoreEntries",
+    "case": "entries[1].timestamp = string: a special token",
+    "problem": "NaN in the output at $.1.recency"
+   },
+   {
+    "point": "scoreEntries",
+    "case": "entries[1].timestamp = string: a secret after a label",
+    "problem": "NaN in the output at $.1.recency"
+   },
+   {
+    "point": "summarizeSavings",
+    "case": "entries[1].sourceTokens = NaN",
+    "problem": "NaN in the output at $.totalTokens"
+   },
+   {
+    "point": "pruneContext",
+    "case": "goal = 0",
+    "problem": "raw TypeError: text.matchAll is not a function or its return value is not iterable"
+   },
+   {
+    "point": "pruneContext",
+    "case": "goal = missing",
+    "problem": "raw TypeError: Cannot read properties of undefined (reading 'matchAll')"
+   },
+   {
+    "point": "pruneContext",
+    "case": "goal = null",
+    "problem": "raw TypeError: Cannot read properties of null (reading 'matchAll')"
+   },
+   {
+    "point": "pruneContext",
+    "case": "goal = true",
+    "problem": "raw TypeError: text.matchAll is not a function or its return value is not iterable"
+   },
+   {
+    "point": "pruneContext",
+    "case": "goal = number 7",
+    "problem": "raw TypeError: text.matchAll is not a function or its return value is not iterable"
+   },
+   {
+    "point": "pruneContext",
+    "case": "goal = array",
+    "problem": "raw TypeError: text.matchAll is not a function or its return value is not iterable"
+   },
+   {
+    "point": "pruneContext",
+    "case": "goal = object",
+    "problem": "raw TypeError: text.matchAll is not a function or its return value is not iterable"
+   },
+   {
+    "point": "pruneContext",
+    "case": "goal = -1",
+    "problem": "raw TypeError: text.matchAll is not a function or its return value is not iterable"
+   },
+   {
+    "point": "pruneContext",
+    "case": "goal = 1.5",
+    "problem": "raw TypeError: text.matchAll is not a function or its return value is not iterable"
+   },
+   {
+    "point": "pruneContext",
+    "case": "goal = NaN",
+    "problem": "raw TypeError: text.matchAll is not a function or its return value is not iterable"
+   },
+   {
+    "point": "pruneContext",
+    "case": "goal = Infinity",
+    "problem": "raw TypeError: text.matchAll is not a function or its return value is not iterable"
+   },
+   {
+    "point": "pruneContext",
+    "case": "goal = -Infinity",
+    "problem": "raw TypeError: text.matchAll is not a function or its return value is not iterable"
+   },
+   {
+    "point": "pruneContext",
+    "case": "goal = 1e308",
+    "problem": "raw TypeError: text.matchAll is not a function or its return value is not iterable"
+   },
+   {
+    "point": "pruneContext",
+    "case": "goal = -1e308",
+    "problem": "raw TypeError: text.matchAll is not a function or its return value is not iterable"
+   },
+   {
+    "point": "pruneContext",
+    "case": "goal = MAX_SAFE+1",
+    "problem": "raw TypeError: text.matchAll is not a function or its return value is not iterable"
+   },
+   {
+    "point": "pruneContext",
+    "case": "entries = missing",
+    "problem": "raw TypeError: entries is not iterable"
+   },
+   {
+    "point": "pruneContext",
+    "case": "entries = null",
+    "problem": "raw TypeError: entries is not iterable"
+   },
+   {
+    "point": "pruneContext",
+    "case": "entries = true",
+    "problem": "raw TypeError: entries is not iterable"
+   },
+   {
+    "point": "pruneContext",
+    "case": "entries = number 7",
+    "problem": "raw TypeError: entries is not iterable"
+   },
+   {
+    "point": "pruneContext",
+    "case": "entries = object",
+    "problem": "raw TypeError: entries is not iterable"
+   },
+   {
+    "point": "pruneContext",
+    "case": "entries = array of null",
+    "problem": "raw TypeError: Cannot read properties of null (reading 'id')"
+   },
+   {
+    "point": "pruneContext",
+    "case": "policy = null",
+    "problem": "raw TypeError: Cannot read properties of null (reading 'recencyWeight')"
+   },
+   {
+    "point": "pruneContext",
+    "case": "options = null",
+    "problem": "raw TypeError: Cannot destructure property 'scorer' of 'options' as it is null."
+   },
+   {
+    "point": "redactSecrets",
+    "case": "a.a.a × 200000",
+    "problem": "took 117828 ms (limit 5000)"
+   },
+   {
+    "point": "estimateTokens",
+    "case": "!! and an accent × 200000",
+    "problem": "raw RangeError: Maximum call stack size exceeded"
+   },
+   {
+    "point": "estimateTokens",
+    "case": "missing",
+    "problem": "raw TypeError: Cannot read properties of undefined (reading 'match')"
+   },
+   {
+    "point": "redactSecrets",
+    "case": "missing",
+    "problem": "raw TypeError: Cannot read properties of undefined (reading 'replace')"
+   },
+   {
+    "point": "estimateTokens",
+    "case": "null",
+    "problem": "raw TypeError: Cannot read properties of null (reading 'match')"
+   },
+   {
+    "point": "redactSecrets",
+    "case": "null",
+    "problem": "raw TypeError: Cannot read properties of null (reading 'replace')"
+   },
+   {
+    "point": "estimateTokens",
+    "case": "true",
+    "problem": "raw TypeError: lineToEncode.match is not a function"
+   },
+   {
+    "point": "redactSecrets",
+    "case": "true",
+    "problem": "raw TypeError: out.replace is not a function"
+   },
+   {
+    "point": "estimateTokens",
+    "case": "number 7",
+    "problem": "raw TypeError: lineToEncode.match is not a function"
+   },
+   {
+    "point": "redactSecrets",
+    "case": "number 7",
+    "problem": "raw TypeError: out.replace is not a function"
+   },
+   {
+    "point": "estimateTokens",
+    "case": "array",
+    "problem": "raw TypeError: lineToEncode.match is not a function"
+   },
+   {
+    "point": "redactSecrets",
+    "case": "array",
+    "problem": "raw TypeError: out.replace is not a function"
+   },
+   {
+    "point": "estimateTokens",
+    "case": "object",
+    "problem": "raw TypeError: lineToEncode.match is not a function"
+   },
+   {
+    "point": "redactSecrets",
+    "case": "object",
+    "problem": "raw TypeError: out.replace is not a function"
+   },
+   {
+    "point": "messagesToEntries",
+    "case": "block: text, no text",
+    "problem": "raw TypeError: Cannot read properties of undefined (reading 'replace')"
+   },
+   {
+    "point": "pruneMessages",
+    "case": "block: text, no text",
+    "problem": "raw TypeError: Cannot read properties of undefined (reading 'replace')"
+   },
+   {
+    "point": "messagesToEntries",
+    "case": "block: text, text 5",
+    "problem": "raw TypeError: out.replace is not a function"
+   },
+   {
+    "point": "pruneMessages",
+    "case": "block: text, text 5",
+    "problem": "raw TypeError: out.replace is not a function"
+   },
+   {
+    "point": "messagesToEntries",
+    "case": "block: null",
+    "problem": "raw TypeError: Cannot read properties of null (reading 'type')"
+   },
+   {
+    "point": "pruneMessages",
+    "case": "block: null",
+    "problem": "raw TypeError: Cannot read properties of null (reading 'type')"
+   },
+   {
+    "point": "pruneMessages",
+    "case": "message: null",
+    "problem": "raw TypeError: Cannot read properties of null (reading 'content')"
+   },
+   {
+    "point": "pruneMessages",
+    "case": "message: content 5",
+    "problem": "raw TypeError: message.content.forEach is not a function"
+   },
+   {
+    "point": "pruneMessages",
+    "case": "message: content null",
+    "problem": "raw TypeError: Cannot read properties of null (reading 'forEach')"
+   },
+   {
+    "point": "pruneMessages",
+    "case": "options.summarize = true",
+    "problem": "raw TypeError: summarize is not a function"
+   },
+   {
+    "point": "pruneMessages",
+    "case": "options.summarize = number 7",
+    "problem": "raw TypeError: summarize is not a function"
+   },
+   {
+    "point": "pruneMessages",
+    "case": "options.summarize = string '100'",
+    "problem": "raw TypeError: summarize is not a function"
+   },
+   {
+    "point": "pruneMessages",
+    "case": "options.summarize = array",
+    "problem": "raw TypeError: summarize is not a function"
+   },
+   {
+    "point": "pruneMessages",
+    "case": "options.summarize = object",
+    "problem": "raw TypeError: summarize is not a function"
+   },
+   {
+    "point": "pruneMessages",
+    "case": "options.summarize = -1",
+    "problem": "raw TypeError: summarize is not a function"
+   },
+   {
+    "point": "pruneMessages",
+    "case": "options.summarize = 1.5",
+    "problem": "raw TypeError: summarize is not a function"
+   },
+   {
+    "point": "pruneMessages",
+    "case": "options.summarize = Infinity",
+    "problem": "raw TypeError: summarize is not a function"
+   },
+   {
+    "point": "pruneMessages",
+    "case": "options.summarize = -Infinity",
+    "problem": "raw TypeError: summarize is not a function"
+   },
+   {
+    "point": "pruneMessages",
+    "case": "options.summarize = 1e308",
+    "problem": "raw TypeError: summarize is not a function"
+   },
+   {
+    "point": "pruneMessages",
+    "case": "options.summarize = -1e308",
+    "problem": "raw TypeError: summarize is not a function"
+   },
+   {
+    "point": "pruneMessages",
+    "case": "options.summarize = MAX_SAFE+1",
+    "problem": "raw TypeError: summarize is not a function"
+   },
+   {
+    "point": "cli analyze",
+    "case": "entries[1].sourceTokens = object",
+    "problem": "NaN in the output at $.nan"
+   },
+   {
+    "point": "cli analyze",
+    "case": "content = x × 200000",
+    "problem": "took 49526 ms (limit 30000)"
+   },
+   {
+    "point": "cli analyze",
+    "case": "content = █ × 100000",
+    "problem": "took 60071 ms (limit 30000)"
+   },
+   {
+    "point": "cli analyze",
+    "case": "content = █ × 100000",
+    "problem": "raw TypeError: killed by SIGKILL"
+   },
+   {
+    "point": "cli analyze",
+    "case": "content = / and line breaks × 200000",
+    "problem": "took 36968 ms (limit 30000)"
+   },
+   {
+    "point": "cli analyze",
+    "case": "content = !! and an accent × 200000",
+    "problem": "took 60058 ms (limit 30000)"
+   },
+   {
+    "point": "cli analyze",
+    "case": "content = !! and an accent × 200000",
+    "problem": "raw TypeError: killed by SIGKILL"
+   },
+   {
+    "point": "cli analyze",
+    "case": "timestamps ±1e308",
+    "problem": "NaN in the output at $.nan"
+   },
+   {
+    "point": "cli prune",
+    "case": "timestamps ±1e308",
+    "problem": "NaN in the output at $.nan"
+   },
+   {
+    "point": "cli analyze",
+    "case": "timestamps ±MAX_VALUE",
+    "problem": "NaN in the output at $.nan"
+   },
+   {
+    "point": "cli prune",
+    "case": "timestamps ±MAX_VALUE",
+    "problem": "NaN in the output at $.nan"
+   },
+   {
+    "point": "cli analyze",
+    "case": "5,000,000-character entry",
+    "problem": "raw TypeError: Maximum call stack: ✖ Maximum call stack size exceeded\n"
+   },
+   {
+    "point": "cli prune",
+    "case": "5,000,000-character entry",
+    "problem": "raw TypeError: Maximum call stack: {\n  \"goal\": \"g\",\n  \"entries\": [\n    {\n      \"id\": \"e1\",\n      \"role\": \"tool\",\n      \"toolName\": \"Bash\",\n      \"content\": \"entry 1 about the checkout retry\",\n      \"timestamp\": 1\n  "
+   },
+   {
+    "point": "cli analyze",
+    "case": "two entries of 1e308 tokens",
+    "problem": "NaN in the output at $.nan"
+   },
+   {
+    "point": "cli analyze",
+    "case": "messages block: text, no text",
+    "problem": "raw TypeError: Cannot read propert: ✖ Cannot read properties of undefined (reading 'replace')\n"
+   },
+   {
+    "point": "cli prune",
+    "case": "messages block: text, no text",
+    "problem": "raw TypeError: Cannot read propert: ✖ Cannot read properties of undefined (reading 'replace')\n"
+   },
+   {
+    "point": "cli analyze",
+    "case": "messages block: text, text 5",
+    "problem": "raw TypeError: is not a function: ✖ out.replace is not a function\n"
+   },
+   {
+    "point": "cli prune",
+    "case": "messages block: text, text 5",
+    "problem": "raw TypeError: is not a function: ✖ out.replace is not a function\n"
+   },
+   {
+    "point": "cli analyze",
+    "case": "messages block: text, huge",
+    "problem": "took 49143 ms (limit 30000)"
+   },
+   {
+    "point": "cli prune",
+    "case": "messages block: text, huge",
+    "problem": "took 47810 ms (limit 30000)"
+   },
+   {
+    "point": "cli analyze",
+    "case": "messages block: null",
+    "problem": "raw TypeError: Cannot read propert: ✖ Cannot read properties of null (reading 'type')\n"
+   },
+   {
+    "point": "cli prune",
+    "case": "messages block: null",
+    "problem": "raw TypeError: Cannot read propert: ✖ Cannot read properties of null (reading 'type')\n"
+   },
+   {
+    "point": "mcp score_relevance",
+    "case": "timestamps ±1e308",
+    "problem": "invalid result: recency null not in 0-1"
+   },
+   {
+    "point": "mcp score_relevance",
+    "case": "timestamps ±MAX_VALUE",
+    "problem": "invalid result: recency null not in 0-1"
+   }
+  ],
+  "target": "d55aa18"
+ },
+ "0.7.0": {
+  "total": 1958,
+  "counts": {
+   "pruneContext": 779,
+   "summarizeSavings": 210,
+   "pruneEntries": 21,
+   "scoreEntries": 204,
+   "estimateTokens": 25,
+   "redactSecrets": 25,
+   "pruneMessages": 151,
+   "messagesToEntries": 17,
+   "cli analyze": 135,
+   "cli prune": 135,
+   "mcp score_relevance": 128,
+   "mcp prune_history": 128
+  },
+  "violations": [],
+  "target": "b0dd13d"
+ }
+}

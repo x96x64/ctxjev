@@ -1,0 +1,198 @@
+# scripts/boundary-bruteforce.mjs at b0dd13d (0.7.0), 2026-09-27, TYPESAFE_API_KEY unset, TYPESAFE_BASE_URL at a closed local port
+# 0.7.0: node scripts/boundary-bruteforce.mjs
+1958 cases: pruneContext 779, summarizeSavings 210, pruneEntries 21, scoreEntries 204, estimateTokens 25, redactSecrets 25, pruneMessages 151, messagesToEntries 17, cli analyze 135, cli prune 135, mcp score_relevance 128, mcp prune_history 128
+no violations
+
+real	1m55.090s
+user	1m47.037s
+sys	0m24.006s
+
+# 0.6.1: node scripts/boundary-bruteforce.mjs <a checkout of d55aa18>
+1937 cases: pruneContext 779, summarizeSavings 210, scoreEntries 204, estimateTokens 25, redactSecrets 25, pruneMessages 151, messagesToEntries 17, cli analyze 135, cli prune 135, mcp score_relevance 128, mcp prune_history 128
+skipped, not in this build: pruneEntries
+163 violations:
+  pruneContext :: entries[1].id = NaN, recency — NaN in the output at $.1.entryId
+  pruneContext :: entries[1].id = NaN, recency — invalid result: decision 1 is for NaN, not NaN
+  pruneContext :: entries[1].id = NaN, local — NaN in the output at $.1.entryId
+  pruneContext :: entries[1].id = NaN, local — invalid result: decision 1 is for NaN, not NaN
+  pruneContext :: entries[1].id = NaN, custom — NaN in the output at $.1.entryId
+  pruneContext :: entries[1].id = NaN, custom — invalid result: decision 1 is for NaN, not NaN
+  scoreEntries :: entries[1].id = NaN — NaN in the output at $.1.entryId
+  pruneContext :: entries[1].content = 0, local — raw TypeError: text.matchAll is not a function or its return value is not iterable
+  pruneContext :: entries[1].content = 0, custom — raw TypeError: out.replace is not a function
+  summarizeSavings :: entries[1].content = 0 — raw TypeError: lineToEncode.match is not a function
+  pruneContext :: entries[1].content = missing, local — raw TypeError: Cannot read properties of undefined (reading 'matchAll')
+  pruneContext :: entries[1].content = missing, custom — raw TypeError: Cannot read properties of undefined (reading 'replace')
+  summarizeSavings :: entries[1].content = missing — raw TypeError: Cannot read properties of undefined (reading 'match')
+  pruneContext :: entries[1].content = null, local — raw TypeError: Cannot read properties of null (reading 'matchAll')
+  pruneContext :: entries[1].content = null, custom — raw TypeError: Cannot read properties of null (reading 'replace')
+  summarizeSavings :: entries[1].content = null — raw TypeError: Cannot read properties of null (reading 'match')
+  pruneContext :: entries[1].content = true, local — raw TypeError: text.matchAll is not a function or its return value is not iterable
+  pruneContext :: entries[1].content = true, custom — raw TypeError: out.replace is not a function
+  summarizeSavings :: entries[1].content = true — raw TypeError: lineToEncode.match is not a function
+  pruneContext :: entries[1].content = number 7, local — raw TypeError: text.matchAll is not a function or its return value is not iterable
+  pruneContext :: entries[1].content = number 7, custom — raw TypeError: out.replace is not a function
+  summarizeSavings :: entries[1].content = number 7 — raw TypeError: lineToEncode.match is not a function
+  pruneContext :: entries[1].content = array, local — raw TypeError: text.matchAll is not a function or its return value is not iterable
+  pruneContext :: entries[1].content = array, custom — raw TypeError: out.replace is not a function
+  summarizeSavings :: entries[1].content = array — raw TypeError: lineToEncode.match is not a function
+  pruneContext :: entries[1].content = object, local — raw TypeError: text.matchAll is not a function or its return value is not iterable
+  pruneContext :: entries[1].content = object, custom — raw TypeError: out.replace is not a function
+  summarizeSavings :: entries[1].content = object — raw TypeError: lineToEncode.match is not a function
+  pruneContext :: entries[1].content = -1, local — raw TypeError: text.matchAll is not a function or its return value is not iterable
+  pruneContext :: entries[1].content = -1, custom — raw TypeError: out.replace is not a function
+  summarizeSavings :: entries[1].content = -1 — raw TypeError: lineToEncode.match is not a function
+  pruneContext :: entries[1].content = 1.5, local — raw TypeError: text.matchAll is not a function or its return value is not iterable
+  pruneContext :: entries[1].content = 1.5, custom — raw TypeError: out.replace is not a function
+  summarizeSavings :: entries[1].content = 1.5 — raw TypeError: lineToEncode.match is not a function
+  pruneContext :: entries[1].content = NaN, local — raw TypeError: text.matchAll is not a function or its return value is not iterable
+  pruneContext :: entries[1].content = NaN, custom — raw TypeError: out.replace is not a function
+  summarizeSavings :: entries[1].content = NaN — raw TypeError: lineToEncode.match is not a function
+  pruneContext :: entries[1].content = Infinity, local — raw TypeError: text.matchAll is not a function or its return value is not iterable
+  pruneContext :: entries[1].content = Infinity, custom — raw TypeError: out.replace is not a function
+  summarizeSavings :: entries[1].content = Infinity — raw TypeError: lineToEncode.match is not a function
+  pruneContext :: entries[1].content = -Infinity, local — raw TypeError: text.matchAll is not a function or its return value is not iterable
+  pruneContext :: entries[1].content = -Infinity, custom — raw TypeError: out.replace is not a function
+  summarizeSavings :: entries[1].content = -Infinity — raw TypeError: lineToEncode.match is not a function
+  pruneContext :: entries[1].content = 1e308, local — raw TypeError: text.matchAll is not a function or its return value is not iterable
+  pruneContext :: entries[1].content = 1e308, custom — raw TypeError: out.replace is not a function
+  summarizeSavings :: entries[1].content = 1e308 — raw TypeError: lineToEncode.match is not a function
+  pruneContext :: entries[1].content = -1e308, local — raw TypeError: text.matchAll is not a function or its return value is not iterable
+  pruneContext :: entries[1].content = -1e308, custom — raw TypeError: out.replace is not a function
+  summarizeSavings :: entries[1].content = -1e308 — raw TypeError: lineToEncode.match is not a function
+  pruneContext :: entries[1].content = MAX_SAFE+1, local — raw TypeError: text.matchAll is not a function or its return value is not iterable
+  pruneContext :: entries[1].content = MAX_SAFE+1, custom — raw TypeError: out.replace is not a function
+  summarizeSavings :: entries[1].content = MAX_SAFE+1 — raw TypeError: lineToEncode.match is not a function
+  summarizeSavings :: entries[1].content = string: x × 200000 — took 46692 ms (limit 5000)
+  summarizeSavings :: entries[1].content = string: █ × 100000 — took 105716 ms (limit 5000)
+  pruneContext :: entries[1].content = string: a.a.a × 200000, custom — took 233985 ms (limit 5000)
+  summarizeSavings :: entries[1].content = string: / and line breaks × 200000 — took 37050 ms (limit 5000)
+  summarizeSavings :: entries[1].content = string: !! and an accent × 200000 — took 62865 ms (limit 5000)
+  summarizeSavings :: entries[1].content = string: !! and an accent × 200000 — raw RangeError: Maximum call stack size exceeded
+  scoreEntries :: entries[1].timestamp = missing — NaN in the output at $.1.recency
+  scoreEntries :: entries[1].timestamp = object — NaN in the output at $.1.recency
+  scoreEntries :: entries[1].timestamp = NaN — NaN in the output at $.1.recency
+  scoreEntries :: entries[1].timestamp = Infinity — NaN in the output at $.1.recency
+  scoreEntries :: entries[1].timestamp = -Infinity — NaN in the output at $.0.recency
+  scoreEntries :: entries[1].timestamp = string: one — NaN in the output at $.1.recency
+  scoreEntries :: entries[1].timestamp = string: unicode: lone surrogate — NaN in the output at $.1.recency
+  scoreEntries :: entries[1].timestamp = string: unicode: RTL override — NaN in the output at $.1.recency
+  scoreEntries :: entries[1].timestamp = string: unicode: zero-width — NaN in the output at $.1.recency
+  scoreEntries :: entries[1].timestamp = string: unicode: ZWJ emoji — NaN in the output at $.1.recency
+  scoreEntries :: entries[1].timestamp = string: unicode: combining marks — NaN in the output at $.1.recency
+  scoreEntries :: entries[1].timestamp = string: unicode: CJK no punctuation — NaN in the output at $.1.recency
+  scoreEntries :: entries[1].timestamp = string: unicode: NUL — NaN in the output at $.1.recency
+  scoreEntries :: entries[1].timestamp = string: unicode: CRLF and tabs — NaN in the output at $.1.recency
+  scoreEntries :: entries[1].timestamp = string: x × 200000 — NaN in the output at $.1.recency
+  scoreEntries :: entries[1].timestamp = string: █ × 100000 — NaN in the output at $.1.recency
+  scoreEntries :: entries[1].timestamp = string: a.a.a × 200000 — NaN in the output at $.1.recency
+  scoreEntries :: entries[1].timestamp = string: "k": "v" × 200000 — NaN in the output at $.1.recency
+  scoreEntries :: entries[1].timestamp = string: / and line breaks × 200000 — NaN in the output at $.1.recency
+  scoreEntries :: entries[1].timestamp = string: !! and an accent × 200000 — NaN in the output at $.1.recency
+  scoreEntries :: entries[1].timestamp = string: a special token — NaN in the output at $.1.recency
+  scoreEntries :: entries[1].timestamp = string: a secret after a label — NaN in the output at $.1.recency
+  summarizeSavings :: entries[1].sourceTokens = NaN — NaN in the output at $.totalTokens
+  pruneContext :: goal = 0 — raw TypeError: text.matchAll is not a function or its return value is not iterable
+  pruneContext :: goal = missing — raw TypeError: Cannot read properties of undefined (reading 'matchAll')
+  pruneContext :: goal = null — raw TypeError: Cannot read properties of null (reading 'matchAll')
+  pruneContext :: goal = true — raw TypeError: text.matchAll is not a function or its return value is not iterable
+  pruneContext :: goal = number 7 — raw TypeError: text.matchAll is not a function or its return value is not iterable
+  pruneContext :: goal = array — raw TypeError: text.matchAll is not a function or its return value is not iterable
+  pruneContext :: goal = object — raw TypeError: text.matchAll is not a function or its return value is not iterable
+  pruneContext :: goal = -1 — raw TypeError: text.matchAll is not a function or its return value is not iterable
+  pruneContext :: goal = 1.5 — raw TypeError: text.matchAll is not a function or its return value is not iterable
+  pruneContext :: goal = NaN — raw TypeError: text.matchAll is not a function or its return value is not iterable
+  pruneContext :: goal = Infinity — raw TypeError: text.matchAll is not a function or its return value is not iterable
+  pruneContext :: goal = -Infinity — raw TypeError: text.matchAll is not a function or its return value is not iterable
+  pruneContext :: goal = 1e308 — raw TypeError: text.matchAll is not a function or its return value is not iterable
+  pruneContext :: goal = -1e308 — raw TypeError: text.matchAll is not a function or its return value is not iterable
+  pruneContext :: goal = MAX_SAFE+1 — raw TypeError: text.matchAll is not a function or its return value is not iterable
+  pruneContext :: entries = missing — raw TypeError: entries is not iterable
+  pruneContext :: entries = null — raw TypeError: entries is not iterable
+  pruneContext :: entries = true — raw TypeError: entries is not iterable
+  pruneContext :: entries = number 7 — raw TypeError: entries is not iterable
+  pruneContext :: entries = object — raw TypeError: entries is not iterable
+  pruneContext :: entries = array of null — raw TypeError: Cannot read properties of null (reading 'id')
+  pruneContext :: policy = null — raw TypeError: Cannot read properties of null (reading 'recencyWeight')
+  pruneContext :: options = null — raw TypeError: Cannot destructure property 'scorer' of 'options' as it is null.
+  redactSecrets :: a.a.a × 200000 — took 117828 ms (limit 5000)
+  estimateTokens :: !! and an accent × 200000 — raw RangeError: Maximum call stack size exceeded
+  estimateTokens :: missing — raw TypeError: Cannot read properties of undefined (reading 'match')
+  redactSecrets :: missing — raw TypeError: Cannot read properties of undefined (reading 'replace')
+  estimateTokens :: null — raw TypeError: Cannot read properties of null (reading 'match')
+  redactSecrets :: null — raw TypeError: Cannot read properties of null (reading 'replace')
+  estimateTokens :: true — raw TypeError: lineToEncode.match is not a function
+  redactSecrets :: true — raw TypeError: out.replace is not a function
+  estimateTokens :: number 7 — raw TypeError: lineToEncode.match is not a function
+  redactSecrets :: number 7 — raw TypeError: out.replace is not a function
+  estimateTokens :: array — raw TypeError: lineToEncode.match is not a function
+  redactSecrets :: array — raw TypeError: out.replace is not a function
+  estimateTokens :: object — raw TypeError: lineToEncode.match is not a function
+  redactSecrets :: object — raw TypeError: out.replace is not a function
+  messagesToEntries :: block: text, no text — raw TypeError: Cannot read properties of undefined (reading 'replace')
+  pruneMessages :: block: text, no text — raw TypeError: Cannot read properties of undefined (reading 'replace')
+  messagesToEntries :: block: text, text 5 — raw TypeError: out.replace is not a function
+  pruneMessages :: block: text, text 5 — raw TypeError: out.replace is not a function
+  messagesToEntries :: block: null — raw TypeError: Cannot read properties of null (reading 'type')
+  pruneMessages :: block: null — raw TypeError: Cannot read properties of null (reading 'type')
+  pruneMessages :: message: null — raw TypeError: Cannot read properties of null (reading 'content')
+  pruneMessages :: message: content 5 — raw TypeError: message.content.forEach is not a function
+  pruneMessages :: message: content null — raw TypeError: Cannot read properties of null (reading 'forEach')
+  pruneMessages :: options.summarize = true — raw TypeError: summarize is not a function
+  pruneMessages :: options.summarize = number 7 — raw TypeError: summarize is not a function
+  pruneMessages :: options.summarize = string '100' — raw TypeError: summarize is not a function
+  pruneMessages :: options.summarize = array — raw TypeError: summarize is not a function
+  pruneMessages :: options.summarize = object — raw TypeError: summarize is not a function
+  pruneMessages :: options.summarize = -1 — raw TypeError: summarize is not a function
+  pruneMessages :: options.summarize = 1.5 — raw TypeError: summarize is not a function
+  pruneMessages :: options.summarize = Infinity — raw TypeError: summarize is not a function
+  pruneMessages :: options.summarize = -Infinity — raw TypeError: summarize is not a function
+  pruneMessages :: options.summarize = 1e308 — raw TypeError: summarize is not a function
+  pruneMessages :: options.summarize = -1e308 — raw TypeError: summarize is not a function
+  pruneMessages :: options.summarize = MAX_SAFE+1 — raw TypeError: summarize is not a function
+  cli analyze :: entries[1].sourceTokens = object — NaN in the output at $.nan
+  cli analyze :: content = x × 200000 — took 49526 ms (limit 30000)
+  cli analyze :: content = █ × 100000 — took 60071 ms (limit 30000)
+  cli analyze :: content = █ × 100000 — raw TypeError: killed by SIGKILL
+  cli analyze :: content = / and line breaks × 200000 — took 36968 ms (limit 30000)
+  cli analyze :: content = !! and an accent × 200000 — took 60058 ms (limit 30000)
+  cli analyze :: content = !! and an accent × 200000 — raw TypeError: killed by SIGKILL
+  cli analyze :: timestamps ±1e308 — NaN in the output at $.nan
+  cli prune :: timestamps ±1e308 — NaN in the output at $.nan
+  cli analyze :: timestamps ±MAX_VALUE — NaN in the output at $.nan
+  cli prune :: timestamps ±MAX_VALUE — NaN in the output at $.nan
+  cli analyze :: 5,000,000-character entry — raw TypeError: Maximum call stack: ✖ Maximum call stack size exceeded
+
+  cli prune :: 5,000,000-character entry — raw TypeError: Maximum call stack: {
+  "goal": "g",
+  "entries": [
+    {
+      "id": "e1",
+      "role": "tool",
+      "toolName": "Bash",
+      "content": "entry 1 about the checkout retry",
+      "timestamp": 1
+  
+  cli analyze :: two entries of 1e308 tokens — NaN in the output at $.nan
+  cli analyze :: messages block: text, no text — raw TypeError: Cannot read propert: ✖ Cannot read properties of undefined (reading 'replace')
+
+  cli prune :: messages block: text, no text — raw TypeError: Cannot read propert: ✖ Cannot read properties of undefined (reading 'replace')
+
+  cli analyze :: messages block: text, text 5 — raw TypeError: is not a function: ✖ out.replace is not a function
+
+  cli prune :: messages block: text, text 5 — raw TypeError: is not a function: ✖ out.replace is not a function
+
+  cli analyze :: messages block: text, huge — took 49143 ms (limit 30000)
+  cli prune :: messages block: text, huge — took 47810 ms (limit 30000)
+  cli analyze :: messages block: null — raw TypeError: Cannot read propert: ✖ Cannot read properties of null (reading 'type')
+
+  cli prune :: messages block: null — raw TypeError: Cannot read propert: ✖ Cannot read properties of null (reading 'type')
+
+  mcp score_relevance :: timestamps ±1e308 — invalid result: recency null not in 0-1
+  mcp score_relevance :: timestamps ±MAX_VALUE — invalid result: recency null not in 0-1
+(last case started: mcp prune_history :: dropBelow = MAX_SAFE+1)
+
+real	16m55.473s
+user	16m38.078s
+sys	0m23.689s
+exit=1
