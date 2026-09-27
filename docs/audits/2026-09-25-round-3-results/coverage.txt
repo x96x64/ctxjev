@@ -1,0 +1,7 @@
+# node scripts/coverage.mjs at b0dd13d (0.7.0), 2026-09-27, TYPESAFE_API_KEY unset, TYPESAFE_BASE_URL at a closed local port (summary lines)
+core           in-process               statements 97.15% (min 95), branches 93.08% (min 92), functions 97.97% (min 96), lines 98.94% (min 97)
+cli            in-process               statements 52.69% (min 50), branches 39.87% (min 37), functions 53.42% (min 50), lines 54.46% (min 52)
+cli            subprocess (dist → src)  lines 80.31% (min 75)
+mcp-server     in-process               statements 80.35% (min 78), branches 77.77% (min 75), functions 84.61% (min 80), lines 78.84% (min 76)
+mcp-server     subprocess (dist → src)  lines 80.84% (min 75)
+claude-plugin  in-process               statements 66.23% (min 63), branches 57.61% (min 54), functions 72.97% (min 68), lines 69.79% (min 65)

@@ -1,0 +1,7 @@
+# 2026-09-27T07:15:44Z: node --experimental-strip-types scripts/redact-blind.ts holdout b0dd13d
+# The one run of the holdout half (redact.ts at the 0.7.0 release commit; scripts/redact-blind.ts
+# with the round-3 changes doc's import fix). Rates only: no line of the holdout half was shown.
+holdout half, redact.ts at b0dd13d:
+  lines with secrets detected: 84/91 (92.3%); none left whole (verbatim): 85/91 (93.4%)
+  secrets masked: 98/106 (92.5%)
+  harmless lines changed (false positives): 6/42 (14.3%)
