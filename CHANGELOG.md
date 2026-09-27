@@ -5,7 +5,15 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 (`.claude-plugin/marketplace.json`, `packages/claude-plugin/.claude-plugin/plugin.json`,
 `plugins/ctxjev/plugin.json`). A bump in one is a bump in all, even when only one changed.
 
-## Unreleased
+## 0.7.0 — 2026-09-27
+
+**Breaking changes, in short** (each is described below): `ctxjev prune` on ctxjev's own format
+keeps the first user entry and the last two entries by default (`--no-protect-first` and
+`--protect-last 0` turn that off); the core functions refuse malformed input that 0.6.1 accepted
+(listed below); the Claude Code plugin's offline digest ranks on the scale `pruneContext()` uses, so
+it can keep different excerpts; secret masking masks much more and changes four of 0.6.1's
+decisions (listed below); a run of more than 128 characters of one kind counts as an estimate; and
+the plugin keeps nothing in a state directory another user owns.
 
 - `ctxjev-core`: secret masking no longer misses a credential that follows a label which isn't
   one. `Error: DB_PASSWORD=hunter22`, `env: API_KEY=…`, `out: password: …`, and
@@ -202,6 +210,30 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
   `Copyright © 2026 Re:COO`, and the author named in the packages' and the plugin's metadata is
   `Re:COO`. The license (MIT) is unchanged, as are the GitHub account (`x96x64`) and every install
   command.
+
+### Known issues
+
+- Secret masking is heuristic and misses some formats 0.6.1 missed too: a secret printed by a cloud
+  CLI (`"SecretString": "…"` from `aws secretsmanager`, `"value": "…"` from `az keyvault secret
+  show` or `terraform output -json`), one set in code with a type or a fallback
+  (`api_key: str = "…"`, `process.env.X || "…"`) or through a setter (`setPassword("…")`), an
+  environment variable whose name has no credential word (`AZURE_OPENAI_KEY`, `GH_PAT`), and a few
+  less common tools' password flags. The full list is in
+  [#16](https://github.com/x96x64/ctxjev/issues/16).
+- Masking text that glues many card numbers, keys, or labels together with nothing between them
+  can mask more when run again (it stops after four passes).
+- Masking ordinary text takes several times as long as in 0.6.1, since 0.6.1's rules and this
+  release's both run; every rule stays linear in the length of the text.
+- The Claude Code plugin's ownership and permission checks are POSIX-only, and a check and the read
+  after it are separate steps ([#17](https://github.com/x96x64/ctxjev/issues/17)).
+- `ctxjev prune --protect-last ""` is read as 0, turning off the tail protection, and the
+  audit's `checkout-bug.json` example still loses its first entry by default, since that entry is
+  a tool call rather than a user message ([#20](https://github.com/x96x64/ctxjev/issues/20)).
+- A release tag can be moved: the marketplace entry names the plugin by its tag only, since a
+  pinned commit would have made it installable before the publish workflow's checks
+  ([#22](https://github.com/x96x64/ctxjev/issues/22)).
+- The eval-document check covers numbers, not words: an edit that changes a result's meaning
+  without a number passes it ([#22](https://github.com/x96x64/ctxjev/issues/22)).
 
 ## 0.6.1 — 2026-09-25
 
