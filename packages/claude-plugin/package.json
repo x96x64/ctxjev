@@ -5,7 +5,7 @@
   "description": "Claude Code plugin: keeps the most relevant context through Claude Code's own compaction, scored offline by default (Jev if you opt in).",
   "license": "MIT",
   "author": {
-    "name": "x96x64",
+    "name": "Re:COO",
     "url": "https://github.com/x96x64"
   },
   "homepage": "https://github.com/x96x64/ctxjev/tree/main/packages/claude-plugin#readme",
