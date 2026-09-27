@@ -198,6 +198,10 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
   such a sentence used to pass the check. The preregistration's other sections (why it was
   written, the secondary endpoint, the changes after registration) still hold numbers typed by
   hand, which the check doesn't cover.
+- All packages and the Claude Code plugin: the copyright line in every `LICENSE` file is now
+  `Copyright © 2026 Re:COO`, and the author named in the packages' and the plugin's metadata is
+  `Re:COO`. The license (MIT) is unchanged, as are the GitHub account (`x96x64`) and every install
+  command.
 
 ## 0.6.1 — 2026-09-25
 
