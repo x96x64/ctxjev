@@ -1,0 +1,18 @@
+# 2026-09-27T07:19:20Z: node --experimental-strip-types scripts/redact-blind.ts dev <commit>, for each commit below
+# (redact.ts at that commit; scripts/redact-blind.ts with the round-3 changes doc's import fix)
+dev half, redact.ts at d55aa18:
+  lines with secrets detected: 69/91 (75.8%); none left whole (verbatim): 69/91 (75.8%)
+  secrets masked: 79/101 (78.2%)
+  harmless lines changed (false positives): 3/43 (7.0%)
+dev half, redact.ts at 4c3f5f0:
+  lines with secrets detected: 78/91 (85.7%); none left whole (verbatim): 78/91 (85.7%)
+  secrets masked: 88/101 (87.1%)
+  harmless lines changed (false positives): 2/43 (4.7%)
+dev half, redact.ts at f23111d:
+  lines with secrets detected: 89/91 (97.8%); none left whole (verbatim): 89/91 (97.8%)
+  secrets masked: 99/101 (98.0%)
+  harmless lines changed (false positives): 0/43 (0.0%)
+dev half, redact.ts at b0dd13d:
+  lines with secrets detected: 89/91 (97.8%); none left whole (verbatim): 89/91 (97.8%)
+  secrets masked: 99/101 (98.0%)
+  harmless lines changed (false positives): 0/43 (0.0%)

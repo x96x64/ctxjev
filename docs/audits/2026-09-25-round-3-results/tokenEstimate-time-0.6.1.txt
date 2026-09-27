@@ -1,0 +1,20 @@
+# packages/core/src/tokenEstimate.test.ts's time tests (as of 7dbcddd) run against 0.6.1's estimateTokens (d55aa18),
+# 2026-09-25, vitest; the limit is 1 second each. Excerpt of the vitest output.
+
+ RUN  v4.1.11 /home/user/ctxjev-sec/packages/core
+
+ ❯ src/tokenEstimate.before.test.ts (12 tests | 9 failed | 1 skipped) 320895ms
+     × █ × 100,000 in under 1 second 79406ms
+     × x × 100,000 in under 1 second 8463ms
+     × x × 200,000 in under 1 second 34751ms
+     × = × 100,000 in under 1 second 7622ms
+     × space × 100,000 in under 1 second 7556ms
+     × ab × 50,000 in under 1 second 7051ms
+     × ─ × 100,000 in under 1 second 76512ms
+     × 😀 × 50,000 in under 1 second 31432ms
+     × varied kana, 100,000 with no punctuation in under 1 second 67270ms
+
+ Test Files  1 failed (1)
+      Tests  9 failed | 2 passed | 1 skipped (12)
+   Start at  09:06:39
+   Duration  321.33s (transform 70ms, setup 0ms, import 268ms, tests 320.89s, environment 0ms)
