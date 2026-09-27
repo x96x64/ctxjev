@@ -1,5 +1,6 @@
 import { excerpt, isSubstantiveMessage, toolEntryContent, toolResultText } from './entryText.js'
 import type { Entry } from './types.js'
+import { validateEntries, validateText } from './validate.js'
 
 /**
  * Parses Claude Code's session log (one JSON record per line) into `Entry[]`. The format is
@@ -42,6 +43,7 @@ function asKnownBlock(raw: unknown): KnownContentBlock | undefined {
 }
 
 function parseLines(jsonl: string): TranscriptRecord[] {
+  validateText(jsonl, 'transcript')
   const records: TranscriptRecord[] = []
   for (const line of jsonl.split('\n')) {
     if (!line.trim()) continue
@@ -235,6 +237,7 @@ const BASH_MODE = /^<bash-(?:input|stdout|stderr)>/
 
 /** Whether a user entry says what the user wants, rather than running a command (a slash command, bash mode). */
 export function isGoalCandidate(content: string): boolean {
+  validateText(content, 'content')
   return !isSlashCommand(content) && !BASH_MODE.test(content.trimStart())
 }
 
@@ -249,6 +252,7 @@ export type InferGoalOptions = {
  * like "also check the tests". Short acknowledgments are skipped unless nothing longer exists.
  */
 export function inferGoalFromEntries(entries: Entry[], options: InferGoalOptions = {}): string | undefined {
+  validateEntries(entries)
   const candidates = entries.filter((e) => e.role === 'user' && isGoalCandidate(e.content))
   const substantive = candidates.filter((e) => isSubstantiveMessage(e.content))
   const latest = (substantive.at(-1) ?? candidates.at(-1))?.content

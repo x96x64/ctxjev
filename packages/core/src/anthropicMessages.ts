@@ -107,9 +107,9 @@ export type PruneMessagesOptions = ScoreEntriesOptions & {
   /**
    * Shorten entries marked `summarize` instead of leaving them as they are. A tool call keeps its
    * `tool_use`; only its result is replaced (as plain text, so any images in it go too). A
-   * replacement that wouldn't be shorter is skipped.
+   * replacement that wouldn't be shorter is skipped. `false` or `null` is the same as leaving it out.
    */
-  summarize?: Summarizer
+  summarize?: Summarizer | false | null
   /**
    * Leave the conversation untouched unless this saves at least this many tokens, after the removal
    * note's own tokens (see `marker`). Any change invalidates a prompt cache from the first changed
@@ -216,7 +216,8 @@ export async function pruneMessages(messages: AnthropicMessage[], goal: string, 
   count('protectLast', protectLast, 0)
   count('minSavedTokens', minSavedTokens, 0)
   if (targetTokens !== undefined) count('targetTokens', targetTokens, 0)
-  if (summarize !== undefined && summarize !== 'excerpt' && typeof summarize !== 'function') throw new Error(`summarize must be 'excerpt' or a function, got ${shown(summarize)}`)
+  // false and null mean no summarizing, as in 0.6.1 (`summarize: condition && 'excerpt'`).
+  if (summarize !== undefined && summarize !== null && summarize !== false && summarize !== 'excerpt' && typeof summarize !== 'function') throw new Error(`summarize must be 'excerpt', a function, false, or null, got ${shown(summarize)}`)
   const mapped = mapMessages(messages)
   const decisions = await pruneContext(mapped.map(toEntry), goal, policy, scoreOptions)
   const decisionById = new Map(decisions.map((d) => [d.entryId, d]))

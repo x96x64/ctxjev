@@ -2,6 +2,14 @@ import { describe, expect, it } from 'vitest'
 import { messagesToEntries, pruneMessages, type AnthropicMessage } from './anthropicMessages.js'
 import { pruneContext, rankLocalRelevance, scoreEntries } from './prune.js'
 import { pruneEntries } from './pruneEntries.js'
+import { cacheKeyFor } from './cache.js'
+import { splitCjkBigrams } from './cjk.js'
+import { findExplicitGoal, findOriginalTask, inferGoalFromEntries, isGoalCandidate, parseClaudeCodeTranscript, resolveClaudeCodeGoal, transcriptStartTime } from './claudeCodeTranscript.js'
+import { isSubstantiveMessage, truncate } from './entryText.js'
+import { localRelevance } from './localRelevance.js'
+import { quoteAsData } from './quote.js'
+import { redactSecrets } from './redact.js'
+import { estimateTokens } from './tokenEstimate.js'
 import { computeRecency } from './recency.js'
 import { summarizeSavings } from './savings.js'
 import type { Entry, PruneDecision, ScoredEntry } from './types.js'
@@ -111,7 +119,7 @@ describe('options are checked', () => {
     [{ protectLast: -1 }, /protectLast must be a number of at least 0/],
     [{ minSavedTokens: Number.NaN }, /minSavedTokens must be a number of at least 0/],
     [{ minSavedTokens: '5' }, /minSavedTokens must be a number of at least 0/],
-    [{ summarize: 'yes' }, /summarize must be 'excerpt' or a function/],
+    [{ summarize: 'yes' }, /summarize must be 'excerpt', a function, false, or null/],
   ])('pruneMessages %j', async (options, message) => {
     await expectPlainError(() => pruneMessages(messages, 'goal', options as never), message)
   })
@@ -187,10 +195,75 @@ describe('options and values that can\'t be printed', () => {
 
   it('a value with no prototype', async () => {
     await expectPlainError(() => pruneMessages(messages, 'goal', { targetTokens: noPrototype as number }), /targetTokens must be a number of at least 0, got \[object Object\]/)
-    await expectPlainError(() => pruneMessages(messages, 'goal', { summarize: noPrototype as never }), /summarize must be 'excerpt' or a function/)
+    await expectPlainError(() => pruneMessages(messages, 'goal', { summarize: noPrototype as never }), /summarize must be 'excerpt', a function, false, or null/)
     await expectPlainError(() => pruneContext([entry()], 'goal', { dropBelow: noPrototype as number, summarizeBelow: 0.5, recencyWeight: 0.1 }), /policy\.dropBelow must be a number from 0 to 1/)
     await expectPlainError(() => scoreEntries([entry()], 'goal', noPrototype as number), /recencyWeight must be a number from 0 to 1/)
     await expectPlainError(() => pruneEntries([entry()], [{ entryId: 'a', relevance: 0, recency: 0, combinedScore: 0, action: 'keep' }], { protectLast: noPrototype as number }), /protectLast must be a number of at least 0/)
     await expectPlainError(() => pruneContext([entry(), entry({ id: 'b' })], 'goal', undefined, { scorer: async () => [noPrototype as number, 0.5] }), /custom scorer returned \[object Object\] for entry "a"/)
+  })
+})
+
+// The final review of this change.
+describe('what 0.6.1 accepted and still should', () => {
+  const messages: AnthropicMessage[] = [
+    { role: 'user', content: 'Fix the checkout retry' },
+    { role: 'assistant', content: [{ type: 'tool_use', id: 't1', name: 'Bash', input: { c: 'ls' } }] },
+    { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't1', content: 'a '.repeat(300) }] },
+    { role: 'assistant', content: 'done' },
+  ]
+  // `summarize: condition && 'excerpt'` is a common way to write it.
+  it.each([false, null])('summarize: %j means no summarizing', async (summarize) => {
+    const result = await pruneMessages(messages, 'checkout', { summarize: summarize as never, protectLastTurn: false, protectLast: 1 })
+    expect(result.summarized).toEqual([])
+  })
+
+  it('a policy without recencyWeight uses the default one', async () => {
+    const entries = [entry({ id: 'a', timestamp: 1 }), entry({ id: 'b', timestamp: 2 }), entry({ id: 'c', timestamp: 3 })]
+    const partial = await pruneContext(entries, 'g', { dropBelow: 0.5, summarizeBelow: 0.6 } as never)
+    expect(partial).toEqual(await pruneContext(entries, 'g', { dropBelow: 0.5, summarizeBelow: 0.6, recencyWeight: 0.1 }))
+    const viaMessages = await pruneMessages(messages, 'checkout', { policy: { dropBelow: 0.5, summarizeBelow: 0.6 } as never })
+    expect(viaMessages.decisions).toEqual((await pruneMessages(messages, 'checkout', { policy: { dropBelow: 0.5, summarizeBelow: 0.6, recencyWeight: 0.1 } })).decisions)
+  })
+})
+
+describe('a policy that isn\'t an object', () => {
+  it('null', async () => {
+    await expectPlainError(() => pruneContext([entry()], 'goal', null as never), /policy must be an object/)
+    await expectPlainError(() => pruneMessages([{ role: 'user', content: 'x' }], 'goal', { policy: null as never }), /policy must be an object/)
+  })
+})
+
+// Two entries of 1e308 tokens added up to Infinity: "~∞ / ∞ tokens (NaN%)".
+describe('sourceTokens too large to add up', () => {
+  it.each([1e308, Number.MAX_SAFE_INTEGER + 2])('%d', async (sourceTokens) => {
+    const big = [entry({ id: 'a', sourceTokens }), entry({ id: 'b', sourceTokens })]
+    await expectPlainError(() => pruneContext(big, 'goal'), /entries\[0\]\.sourceTokens must be a non-negative number no larger than 9007199254740991/)
+    await expectPlainError(() => summarizeSavings(big, []), /entries\[0\]\.sourceTokens/)
+  })
+})
+
+// Every export that takes text: a value that isn't a string fails with a message, not a raw TypeError.
+describe('text that isn\'t a string', () => {
+  const calls: Array<[string, (value: never) => unknown]> = [
+    ['estimateTokens', (v) => estimateTokens(v)],
+    ['redactSecrets', (v) => redactSecrets(v)],
+    ['parseClaudeCodeTranscript', (v) => parseClaudeCodeTranscript(v)],
+    ['resolveClaudeCodeGoal', (v) => resolveClaudeCodeGoal(v, [])],
+    ['findExplicitGoal', (v) => findExplicitGoal(v)],
+    ['findOriginalTask', (v) => findOriginalTask(v)],
+    ['transcriptStartTime', (v) => transcriptStartTime(v)],
+    ['isGoalCandidate', (v) => isGoalCandidate(v)],
+    ['isSubstantiveMessage', (v) => isSubstantiveMessage(v)],
+    ['truncate', (v) => truncate(v)],
+    ['quoteAsData', (v) => quoteAsData(v)],
+    ['localRelevance (goal)', (v) => localRelevance(v, 'content')],
+    ['localRelevance (content)', (v) => localRelevance('goal', v)],
+    ['splitCjkBigrams', (v) => splitCjkBigrams(v)],
+    ['cacheKeyFor (goal)', (v) => cacheKeyFor(v, { role: 'tool', content: 'x' })],
+    ['cacheKeyFor (entry)', (v) => cacheKeyFor('goal', v)],
+    ['inferGoalFromEntries', (v) => inferGoalFromEntries(v)],
+  ]
+  it.each(calls)('%s', async (_name, call) => {
+    for (const value of [null, undefined, 7, {}]) await expectPlainError(() => call(value as never), /must be (a string|an object|an array)/)
   })
 })

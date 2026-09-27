@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import type { Entry } from './types.js'
+import { validateText } from './validate.js'
 
 /**
  * A cache for entry-level relevance scores, keyed by `cacheKeyFor()`. The caller decides where it
@@ -26,6 +27,12 @@ type KeyedEntry = Pick<Entry, 'role' | 'toolName' | 'content'>
  * on disk (ctxjev-cli's score cache), and content in ctxjev's own transcript format isn't masked.
  */
 export function cacheKeyFor(goal: string, entry: KeyedEntry, latest: KeyedEntry[] = []): string {
+  validateText(goal, 'goal')
+  if (!Array.isArray(latest)) throw new Error('latest must be an array')
+  for (const [e, where] of [[entry, 'entry'], ...latest.map((l, i) => [l, `latest[${i}]`])] as Array<[unknown, string]>) {
+    if (typeof e !== 'object' || e === null) throw new Error(`${where} must be an object`)
+    validateText((e as KeyedEntry).content, `${where}.content`)
+  }
   const latestDigest = createHash('sha256')
     .update(JSON.stringify(latest.map((e) => [e.role, e.toolName ?? '', e.content])))
     .digest('hex')

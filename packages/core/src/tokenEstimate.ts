@@ -1,4 +1,5 @@
 import { encode } from 'gpt-tokenizer'
+import { validateText } from './validate.js'
 
 /**
  * Token counting is arithmetic, not judgment — always done in code, never asked of Jev
@@ -11,9 +12,11 @@ import { encode } from 'gpt-tokenizer'
  * entry didn't finish, and 200,000 characters of `!!` plus a combining accent overflowed the stack.
  * So a run of more than MAX_RUN of one of those kinds is counted in pieces of MAX_RUN (each
  * distinct piece encoded once), which leaves no pre-token longer than about twice MAX_RUN; text
- * with no such run counts exactly as `encode()` does. It's an estimate: each cut can move the
- * count by a token or so where it cuts, on text that's rare in practice (a separator line
- * hundreds of characters long, a minified blob, Japanese with no punctuation for a page).
+ * with no such run counts exactly as `encode()` does. A cut run is an estimate, since each piece
+ * is counted on its own: close on text such runs usually hold (a separator line hundreds of
+ * characters long, a minified blob, Japanese with no punctuation for a page), but a long
+ * repetitive run that merges into long tokens, such as capital letters repeated for thousands of
+ * characters, counts well over the exact number.
  */
 const MAX_RUN = 128
 // The kinds a pre-token of o200k_base (gpt-tokenizer's default encoding) is a run of: letters and
@@ -56,6 +59,7 @@ function countRun(run: string): number {
 }
 
 export function estimateTokens(text: string): number {
+  validateText(text, 'text')
   let tokens = 0
   let last = 0
   for (const match of text.matchAll(LONG_RUN)) {

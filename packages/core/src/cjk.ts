@@ -1,3 +1,5 @@
+import { validateText } from './validate.js'
+
 // Han, Katakana (plus its long-vowel mark, which Unicode files under Common) and Hangul are written
 // without spaces between words, or with particles glued on, so a run of them can't be matched as a
 // whole word, and a dictionary segmenter (Intl.Segmenter) splits katakana loanwords inconsistently
@@ -10,6 +12,7 @@ const CJK_RUN = /[\p{sc=Han}\p{sc=Katakana}\p{sc=Hangul}ーｰ]+/gu
  * the offline scorer (localRelevance.ts) and the Claude Code plugin's near-duplicate check.
  */
 export function splitCjkBigrams(text: string): { bigrams: string[]; rest: string } {
+  validateText(text, 'text')
   const bigrams: string[] = []
   for (const [run] of text.matchAll(CJK_RUN)) {
     const chars = [...run]

@@ -211,7 +211,15 @@ for (const key of ['dropBelow', 'summarizeBelow', 'recencyWeight']) {
   }
 }
 for (const [label, value] of Object.entries(ALL)) await check('pruneContext', `options.scorer = ${label}`, () => core.pruneContext([entry(0)], 'g', undefined, { scorer: value }))
-for (const [label, text] of Object.entries(STRINGS)) {
+// A whole policy or options object that isn't one (missing is the default), and counts too large
+// to add up (two of 1e308 made "~∞ / ∞ tokens (NaN%)").
+for (const [label, value] of Object.entries(WRONG)) {
+  await check('pruneContext', `policy = ${label}`, () => core.pruneContext([entry(0), entry(1)], 'g', value), { validate: (d) => validDecisions(d, [entry(0), entry(1)]) })
+  await check('pruneContext', `options = ${label}`, () => core.pruneContext([entry(0), entry(1)], 'g', undefined, value), { validate: (d) => validDecisions(d, [entry(0), entry(1)]) })
+}
+const huge = [entry(0, { sourceTokens: 1e308 }), entry(1, { sourceTokens: 1e308 })]
+await check('summarizeSavings', 'two entries of 1e308 tokens', () => core.summarizeSavings(huge, huge.map((e) => ({ entryId: e.id, relevance: 0, recency: 0, combinedScore: 0, action: 'drop' }))))
+for (const [label, text] of Object.entries({ ...STRINGS, ...WRONG })) {
   await check('estimateTokens', label, () => core.estimateTokens(text), { validate: (n) => (Number.isInteger(n) && n >= 0 ? undefined : `returned ${n}`) })
   await check('redactSecrets', label, () => core.redactSecrets(text), { validate: (s) => (typeof s === 'string' ? undefined : 'not a string') })
 }
@@ -318,6 +326,8 @@ for (const field of ['id', 'role', 'toolName', 'content', 'timestamp', 'sourceTo
 for (const [label, value] of Object.entries(STRINGS)) await checkCli(`content = ${label}`, cliEntries(['content', value]))
 await checkCli('5,000,000-character entry', { goal: 'g', entries: [entry(0, { content: '█'.repeat(5_000_000) }), entry(1)] })
 await checkCli('no entries', { goal: 'g', entries: [] })
+// The two oldest, so the default policy marks them drop and the report adds them up.
+await checkCli('two entries of 1e308 tokens', { goal: 'g', entries: [1, 4, 0, 2, 3, 5, 6].map((i, at) => entry(i, { timestamp: at, ...(at < 2 && { role: 'tool', sourceTokens: 1e308 }) })) })
 await checkCli('10,000 entries', { goal: 'g', entries: Array.from({ length: 10_000 }, (_, i) => entry(i)) })
 for (const [label, block] of Object.entries(blockShapes)) {
   const messages = convo(2)

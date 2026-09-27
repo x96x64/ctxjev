@@ -51,6 +51,13 @@ describe('estimateTokens: counts', () => {
     }
   })
 
+  // A cut never falls between the two halves of a surrogate pair (the final review: cutting every
+  // 128 code units instead turned 5,001 tokens into 5,079).
+  it('cuts a run of emoji between characters, not inside one', () => {
+    const text = `!${'😀'.repeat(5000)}`
+    expect(estimateTokens(text)).toBe(encode(text).length)
+  })
+
   it('stays within 2% of encode() on long runs it cuts', () => {
     for (const text of ['x'.repeat(20_000), '█'.repeat(5_000), `log line\n${'='.repeat(10_000)}\nend`, 'ab'.repeat(10_000)]) {
       const exact = encode(text).length

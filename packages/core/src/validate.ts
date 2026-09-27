@@ -20,6 +20,11 @@ export function shown(value: unknown): string {
   }
 }
 
+/** Text a function reads: anything else would fail inside it with a raw TypeError. */
+export function validateText(value: unknown, name: string): asserts value is string {
+  if (typeof value !== 'string') throw new Error(`${name} must be a string, got ${value === null ? 'null' : Array.isArray(value) ? 'an array' : typeof value}`)
+}
+
 export function validateOptions(options: unknown): void {
   if (!isObject(options)) throw new Error(`options must be an object, got ${options === null ? 'null' : Array.isArray(options) ? 'an array' : typeof options}`)
 }
@@ -32,8 +37,9 @@ export function validateEntry(entry: unknown, where: string): asserts entry is E
   if (toolName !== undefined && typeof toolName !== 'string') throw new Error(`${where}.toolName must be a string when present`)
   if (typeof content !== 'string') throw new Error(`${where}.content must be a string`)
   if (typeof timestamp !== 'number' || !Number.isFinite(timestamp)) throw new Error(`${where}.timestamp must be a finite number`)
-  if (sourceTokens !== undefined && (typeof sourceTokens !== 'number' || !Number.isFinite(sourceTokens) || sourceTokens < 0)) {
-    throw new Error(`${where}.sourceTokens must be a non-negative number when present`)
+  // At most MAX_SAFE_INTEGER, so the counts add up to a finite total (two of 1e308 made "∞ (NaN%)").
+  if (sourceTokens !== undefined && (typeof sourceTokens !== 'number' || !(sourceTokens >= 0 && sourceTokens <= Number.MAX_SAFE_INTEGER))) {
+    throw new Error(`${where}.sourceTokens must be a non-negative number no larger than ${Number.MAX_SAFE_INTEGER} when present`)
   }
 }
 
@@ -83,6 +89,8 @@ export function validatePolicy(policy: PruningPolicy): void {
   if (!isObject(policy)) throw new Error('policy must be an object with dropBelow, summarizeBelow, and recencyWeight')
   for (const key of ['dropBelow', 'summarizeBelow', 'recencyWeight'] as const) {
     const value: unknown = policy[key]
+    // A policy without a weight gets the default one, as in 0.6.1 (scoreEntries' default parameter).
+    if (key === 'recencyWeight' && value === undefined) continue
     if (typeof value !== 'number' || !(value >= 0 && value <= 1)) throw new Error(`policy.${key} must be a number from 0 to 1, got ${shown(value)}`)
   }
   if (policy.dropBelow > policy.summarizeBelow) {

@@ -108,9 +108,11 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
   character, of unpunctuated text, or of symbols, slashes, and line breaks. 100,000 `█` took 82
   seconds, `ctxjev analyze` on a 5,000,000-character entry didn't finish in two minutes, and
   200,000 characters of `/` and line breaks took 20; all now take well under a second or a few
-  seconds. A run longer than 128 characters is counted in pieces, which can move its count by
-  about a token per piece; every other text counts exactly as before (on every sample and eval
-  session in this repo, one string of 6,078 changed, by one token).
+  seconds. A run longer than 128 characters is counted in pieces, each on its own, so its count is
+  an estimate: close on the text this repo holds (on every sample and eval session, one string of
+  6,078 changed, by one token), but a long repetitive run, such as a pattern of capital letters
+  repeated for thousands of characters, can count well over the exact number. Text with no such run
+  counts exactly as before.
 - `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`: text that spells a special token, such as
   `<|endoftext|>` quoted in a conversation about language models, is counted as the text it is;
   every token count failed on it with "Disallowed special token found".
@@ -136,16 +138,31 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
   `tool_result` with no `tool_use_id` failed the same way; `pruneContext()`, `scoreEntries()`,
   `summarizeSavings()`, `messagesToEntries()`, `pruneMessages()`, `pruneEntries()`, and
   `rankLocalRelevance()` now check what they read (including that the goal is a string), as do a
-  policy's thresholds and weight and `pruneMessages()`' numeric options. **Input 0.6.1 accepted and
-  this release refuses:** an entry with an empty or missing `id`, a `role` other than `user`,
-  `assistant`, or `tool`, a non-string `toolName`, a `timestamp` that isn't a finite number, or a
-  negative `sourceTokens`; a policy threshold or weight outside 0-1, or `dropBelow` above
-  `summarizeBelow`; in an Anthropic Messages conversation, a block with no string `type`, a
-  `tool_use` without a string `id` and `name`, a `tool_result` without a string `tool_use_id` or
-  with `content` that isn't a string or an array of blocks, and a text block (in a `tool_result`
-  too) without a string `text`; a goal that isn't a string, even with the recency scorer, which
-  ignores it. A Claude Code transcript's records are read as before: one that lacks what it needs,
-  or has an empty id, is skipped instead.
+  policy's thresholds and weight and `pruneMessages()`' numeric options. Text passed to a function
+  that reads text (`estimateTokens()`, `redactSecrets()`, the transcript functions, `truncate()`,
+  `quoteAsData()`, `localRelevance()`, …) that isn't a string fails the same way instead of with a
+  raw TypeError. **Input 0.6.1 accepted and this release refuses:**
+  - an entry whose `id` isn't a non-empty string, `content` isn't a string, `role` isn't `user`,
+    `assistant`, or `tool`, `toolName` isn't a string, `timestamp` isn't a finite number, or
+    `sourceTokens` is negative or above `Number.MAX_SAFE_INTEGER` (two of 1e308 printed
+    `~∞ / ∞ tokens (NaN%)`);
+  - a policy that isn't an object, a missing `dropBelow` or `summarizeBelow`, a threshold or weight
+    outside 0-1, or `dropBelow` above `summarizeBelow` (a missing `recencyWeight` still means the
+    default, 0.1); a `recencyWeight` outside 0-1 passed to `scoreEntries()`;
+  - options that aren't an object (`scoreEntries(entries, goal, 0.1, 'recency')`); in
+    `pruneMessages()`, a `protectLast`, `targetTokens`, or `minSavedTokens` that isn't a finite
+    number of at least 0, or a `summarize` that isn't `'excerpt'`, a function, `false`, or `null`;
+  - in `summarizeSavings()`, a decision that isn't an object with a string `entryId` and an
+    `action` of `keep`, `drop`, or `summarize`;
+  - in an Anthropic Messages conversation passed to the library, a message whose `role` isn't
+    `user` or `assistant` (0.6.1 read `system` as a user message; the CLI already refused it), a
+    block with no string `type`, a `tool_use` without a string `id` and `name`, a `tool_result`
+    without a string `tool_use_id` or with `content` that isn't a string or an array of blocks, and
+    a text block (in a `tool_result` too) without a string `text`;
+  - a goal that isn't a string, even with the recency scorer, which ignores it.
+
+  A Claude Code transcript's records are read as before: one that lacks what it needs, or has an
+  empty id, is skipped instead.
 - `ctxjev-core`: `validateEntries(entries)` and `validateMessages(messages)` run those checks on
   their own, so a caller can check input before scoring it. New exports.
 - `ctxjev-core`: timestamps too far apart to subtract (±1e308) are ranked by order for recency

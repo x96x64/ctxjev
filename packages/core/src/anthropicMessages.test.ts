@@ -463,10 +463,13 @@ describe('pruneMessages', () => {
       const whole = size(messages)
       const stoppedEarly: number[] = []
       let over = 0
-      for (const protectLastTurn of [true, false]) {
-        const all = await pruneMessages(messages, 'goal', { targetTokens: 0, protectLastTurn, protectLast: 1 })
+      // With a policy that drops nothing up front, the note appears and grows only as the budget
+      // removes entries: its count and token total have to be updated as it goes.
+      const noDrops = { dropBelow: 0, summarizeBelow: 0, recencyWeight: 0 }
+      for (const [protectLastTurn, policy] of [[true, undefined], [false, undefined], [false, noDrops]] as const) {
+        const all = await pruneMessages(messages, 'goal', { targetTokens: 0, protectLastTurn, protectLast: 1, policy })
         for (let target = 0; target <= whole + 5; target++) {
-          const result = await pruneMessages(messages, 'goal', { targetTokens: target, protectLastTurn, protectLast: 1 })
+          const result = await pruneMessages(messages, 'goal', { targetTokens: target, protectLastTurn, protectLast: 1, policy })
           if (!result.overBudget) continue
           over++
           if ([...result.removed].sort().join() !== [...all.removed].sort().join()) stoppedEarly.push(target)
@@ -475,6 +478,27 @@ describe('pruneMessages', () => {
       expect(over).toBeGreaterThan(0)
       expect(stoppedEarly).toEqual([])
     })
+
+    // The final review's case: twelve tool calls and a policy that drops nothing, so every removal
+    // is the budget's, and the note's count and token total change with each one.
+    it('counts the note as it grows, removal by removal', async () => {
+      const messages: AnthropicMessage[] = [{ role: 'user', content: 'the original task' }]
+      for (let t = 0; t < 12; t++) {
+        messages.push({ role: 'assistant', content: [{ type: 'tool_use', id: `t${t}`, name: 'Bash', input: { c: t } }] })
+        messages.push({ role: 'user', content: [{ type: 'tool_result', tool_use_id: `t${t}`, content: 'log line '.repeat(100 + t) }] })
+      }
+      messages.push({ role: 'user', content: 'continue please' }, { role: 'assistant', content: 'done' })
+      const policy = { dropBelow: 0, summarizeBelow: 0, recencyWeight: 0 }
+      const wrong: number[] = []
+      // Every target up to 600 tokens: the tool calls hold about 2,600 in all, and what's left
+      // after removing them all is under 300.
+      for (let target = 0; target <= 600; target++) {
+        const result = await pruneMessages(messages, 'g', { targetTokens: target, protectLastTurn: false, protectLast: 1, policy })
+        if (result.overBudget !== size(result.messages) > target) wrong.push(target)
+        if (result.overBudget && result.removed.length < 12) wrong.push(target)
+      }
+      expect(wrong).toEqual([])
+    }, 30_000)
 
     it('across randomized conversations, scores, and targets', async () => {
       const random = seededRandom(807)
