@@ -18,7 +18,7 @@
  * Each of the three bounds can change a result, on text no one writes: a name over 128 characters
  * isn't read as a credential's, a URL scheme over 32 characters isn't read as one, and a curl user
  * name starting with `=` isn't read as one (the newer rules in redact.ts still mask
- * `curl -u ==:…`). Four decisions differ from 0.6.1's, all listed in the CHANGELOG:
+ * `curl -u ==:…`). These decisions differ from 0.6.1's, all listed in the CHANGELOG:
  * - a list of cookies (`sessionid=…; theme=dark`) under a name whose last word is "cookie" is left
  *   to the cookie rule in redact.ts, which masks every cookie that could hold a login. 0.6.1 masked
  *   the list's first cookie only, and that mask hid the rest of the list (`Cookie: sessionid="…"`
@@ -27,6 +27,13 @@
  *   `password=self.password`, `cookie = req.headers.cookie`), is code passing a variable on;
  * - a `--password`/`--token`/… value in angle brackets (`--password <password>`) is a usage line's
  *   placeholder;
+ * - (0.7.1, the fourth audit's P2-9) a version (`"jsonwebtoken": "^9.0.2"`) isn't a credential, a
+ *   bare `${NAME}` is taken whole as a placeholder (0.6.1 masked its `$` and left
+ *   `[REDACTED]{NAME}`), and a reference ending in the name matches it in any case after a dot
+ *   (`secret_key = settings.SECRET_KEY`); a placeholder is also a Spring one (`${spring.mail.password:}`)
+ *   or an elided example (`sk-ant-...`), a URL's password may be a placeholder
+ *   (`postgres://app:********@db`), and a value that's only `=` is a base64 string's padding
+ *   (`…t+DPw==` read as `DPw` = `=`);
  * - after a Japanese label, a Cookie, Set-Cookie, or Authorization header's name (`パスワード:
  *   Set-Cookie: sid=…`) isn't the value: 0.6.1 masked `Set-Cookie:`, and with it the header the
  *   cookie rule needs.
@@ -58,8 +65,12 @@ const TOKEN_PATTERNS_AFTER_JWT: Array<[RegExp, string]> = [
   [/(\bhttps:\/\/(?:canary\.|ptb\.)?discord(?:app)?\.com\/api\/webhooks\/)[0-9]+\/[A-Za-z0-9_-]+/g, `$1${REDACTED}`],
 ]
 
+// Shared with redact.ts: a URL's password that's a placeholder, not a password.
+export const URL_PASSWORD_PLACEHOLDER = /^(?:\*+|x{3,}|\.{3}|…|<[^>]*>|\{\{[^}]*\}\}|\$\{[A-Za-z_][\w.-]*\}|\$[A-Za-z_]\w*|%[A-Za-z_]\w*%)$/i
+
 const POSITIONAL_PATTERNS: Array<[RegExp, string | ((match: string, ...groups: string[]) => string)]> = [
-  [/\b([a-z][a-z0-9+.-]{0,31}:\/\/[^\s:/?#@"'<>]+:)[^\s/?#"'<>]*(@)/gi, `$1${REDACTED}$2`],
+  // (0.7.1) A placeholder where the password goes (`postgres://app:********@db`, `:${DB_PASSWORD}@`) is left as it is.
+  [/\b([a-z][a-z0-9+.-]{0,31}:\/\/[^\s:/?#@"'<>]+:)([^\s/?#"'<>]*)(@)/gi, (match: string, head: string, password: string, at: string) => (URL_PASSWORD_PLACEHOLDER.test(password) ? match : `${head}${REDACTED}${at}`)],
   [/(\b(?:Proxy-)?Authorization[ \t]*[:=][ \t]*["']?(?:(?:Bearer|Basic|Token|Digest|Bot)[ \t]+)?)[A-Za-z0-9._~+/=-]{8,}/gi, `$1${REDACTED}`],
   [/\b(Bearer\s+)[A-Za-z0-9._~+/=-]{16,}/gi, `$1${REDACTED}`],
   // A value in angle brackets is a usage line's placeholder (`--password <password>`), not a value.
@@ -169,9 +180,10 @@ const AWS_SECRET_CANDIDATE = /(?<![A-Za-z0-9/+=])[A-Za-z0-9/+]{40}(?![A-Za-z0-9/
 const AWS_SECRET_CONTEXT = /aws|secret/i
 const looksLikeAwsSecret = (value: string) => /[A-Z]/.test(value) && /[a-z]/.test(value) && /[0-9]/.test(value)
 
-// 0.6.1's pattern with the name taken whole and at most 128 characters (see the header).
+// 0.6.1's pattern with the name taken whole and at most 128 characters, and a bare value that takes
+// a shell placeholder (`${DB_PASSWORD}`) whole (see the header).
 const ASSIGNMENT =
-  /(\\?["']?)\b(?=([A-Za-z_][A-Za-z0-9_.-]{0,127}))\2\1([ \t]*(?:=>|:=|[:=])[ \t]*)(?:\\"((?:[^"\\\n]|\\[^"\n])*)\\"|"((?:[^"\\\n]|\\.)*)"|'((?:[^'\\\n]|\\.)*)'|`([^`\n]*)`|([^\s"'`,;&<>(){}[\]\\]+))/g
+  /(\\?["']?)\b(?=([A-Za-z_][A-Za-z0-9_.-]{0,127}))\2\1([ \t]*(?:=>|:=|[:=])[ \t]*)(?:\\"((?:[^"\\\n]|\\[^"\n])*)\\"|"((?:[^"\\\n]|\\.)*)"|'((?:[^'\\\n]|\\.)*)'|`([^`\n]*)`|((?:\$\{[^}\s]{1,256}\}|[^\s"'`,;&<>(){}[\]\\])+))/g
 
 const JA_ASSIGNMENT = /((?:API|アクセス|シークレット)\s?キー|パスワード|パスフレーズ|シークレット|トークン|秘密鍵)(\s*[:=：]\s*)(["'「]?)([!#-&(-~]{8,})/gi
 
@@ -214,15 +226,20 @@ function classifyName(name: string): CredentialKind | undefined {
 }
 
 const PLACEHOLDER =
-  /^(?:true|false|null|nil|none|undefined|yes|no|on|off|required|optional|string|str|number|int|boolean|bool|\*+|x{3,}|\.{3}|…|<[^>]*>|\{\{.*\}\}|\$\{?[A-Za-z_]\w*\}?|%[A-Za-z_]\w*%?)$/i
+  /^(?:true|false|null|nil|none|undefined|yes|no|on|off|required|optional|string|str|number|int|boolean|bool|\*+|x{3,}|\.{3}|…|<[^>]*>|\{\{.*\}\}|\$\{?[A-Za-z_]\w*\}?|\$\{[A-Za-z_][\w.-]*(?::?\?[^}]*|:?-|:)?\}|%[A-Za-z_]\w*%?|[A-Za-z0-9_-]{1,16}(?:\.{3}|…))$/i
 const REFERENCE = /^(?:process\.env|os\.environ|import\.meta\.env|ENV\[|System\.getenv|getenv)/
+// A version or a range of them (`^9.0.2`, `==0.9.5`, `>=3.1,<4`): a dependency whose package's name
+// ends in a credential's word (`"jsonwebtoken": "^9.0.2"`, `next-auth`, `csrf-token`), not a secret.
+// Shared with redact.ts.
+const VERSION_PART = String.raw`(?:[~^]|[<>]=?|[=!~]={0,2})?v?\d+(?:\.(?:\d+|[xX*])){1,3}(?:[-+][0-9A-Za-z.-]{1,64})?`
+export const VERSION = new RegExp(String.raw`^${VERSION_PART}(?:(?:,[ \t]*|[ \t]+|[ \t]*\|\|[ \t]*)${VERSION_PART.replace('{1,3}', '{0,3}')})*$`)
 
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 function isMaskableValue(value: string, kind: CredentialKind, bare: boolean, next: string | undefined, name: string): boolean {
-  if (value.length === 0 || isMasked(value) || PLACEHOLDER.test(value) || REFERENCE.test(value)) return false
+  if (value.length === 0 || isMasked(value) || PLACEHOLDER.test(value) || REFERENCE.test(value) || VERSION.test(value) || /^=+$/.test(value)) return false
   if (bare && (next === '(' || next === '[')) return false
-  if (bare && new RegExp(`^(?:[A-Za-z_][A-Za-z0-9_]*\\.)*${escapeRegExp(name)}$`).test(value)) return false
+  if (bare && (value === name || new RegExp(`^(?:[A-Za-z_][A-Za-z0-9_]*\\.)+${escapeRegExp(name)}$`, 'i').test(value))) return false
   if (value.includes('=') && nameWords(name).at(-1) === 'cookie') return false
   if (kind === 'password') return true
   if (/^\d+$/.test(value)) return false
@@ -237,7 +254,7 @@ export function redactLegacy(text: string): string {
   for (const [pattern, replacement] of TOKEN_PATTERNS_AFTER_JWT) out = out.replace(pattern, replacement)
   // Each rule below is skipped when the text lacks what it needs to match (`://` for a URL, "aws" or
   // "secret" before an AWS key): the same result, one pass over the text fewer.
-  for (const [pattern, replacement] of POSITIONAL_PATTERNS.slice(0, 3)) if (pattern !== POSITIONAL_PATTERNS[0][0] || out.includes('://')) out = out.replace(pattern, replacement as string)
+  for (const [pattern, replacement] of POSITIONAL_PATTERNS.slice(0, 3)) if (pattern !== POSITIONAL_PATTERNS[0][0] || out.includes('://')) out = typeof replacement === 'string' ? out.replace(pattern, replacement) : out.replace(pattern, replacement)
   out = maskAfterCommand(out, MYSQL, MYSQL_ARGUMENT, (m) => `${m[1]}${m[2]}${REDACTED}${m[2]}`)
   out = maskAfterCommand(out, CURL, CURL_ARGUMENT, (m) => `${m[1]}${REDACTED}`)
   for (const [pattern, replacement] of POSITIONAL_PATTERNS.slice(3)) out = typeof replacement === 'string' ? out.replace(pattern, replacement) : out.replace(pattern, replacement)

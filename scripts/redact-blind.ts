@@ -1,20 +1,18 @@
 /**
- * redactSecrets() against the blind corpus in packages/core/test/blind-redact/: lines written by a
- * separate agent that never saw redact.ts or its tests (see the README there).
+ * redactSecrets() against a blind corpus in packages/core/test/: lines written by a separate agent
+ * that never saw redact.ts or its tests (see the README in each). `--corpus 2` picks Round 4's
+ * (test/blind-redact-2/); the default is Round 3's (test/blind-redact/), whose holdout half is used up.
  *
  *   node --experimental-strip-types scripts/redact-blind.ts dev             # the working tree
  *   node --experimental-strip-types scripts/redact-blind.ts dev d55aa18     # redact.ts at any commit
  *   node --experimental-strip-types scripts/redact-blind.ts dev --show      # and list every miss
  *   node --experimental-strip-types scripts/redact-blind.ts holdout         # rates only, never lines
+ *   node --experimental-strip-types scripts/redact-blind.ts dev --corpus 2  # Round 4's corpus
  *
  * The measures (fixed before anything was measured) are in packages/core/test/blindCorpus.ts. The
  * holdout half prints rates only: it's measured once, at the end, and not looked at to tune.
  */
-import { execFileSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { loadRedactSecrets } from './loadRedact.ts'
 import { leakOf as leaked, loadBlindHalf, type BlindItem as Item } from '../packages/core/test/blindCorpus.ts'
 
 const args = process.argv.slice(2)
@@ -22,27 +20,15 @@ const half = args[0]
 if (half !== 'dev' && half !== 'holdout') throw new Error('usage: redact-blind.ts dev|holdout [<git ref>] [--show]')
 const show = args.includes('--show')
 if (show && half === 'holdout') throw new Error('--show lists lines; the holdout half is measured for rates only')
-const ref = args.slice(1).find((a) => a !== '--show')
+const corpusAt = args.indexOf('--corpus')
+const corpusArg = corpusAt === -1 ? undefined : args[corpusAt + 1]
+if (corpusAt !== -1 && corpusArg !== '1' && corpusArg !== '2') throw new Error('--corpus takes 1 (Round 3) or 2 (Round 4)')
+const corpus = corpusArg === '2' ? 'blind-redact-2' : 'blind-redact'
+const ref = args.slice(1).find((a, i, rest) => a !== '--show' && a !== '--corpus' && rest[i - 1] !== '--corpus')
 
-// redact.ts and the files it imports (redactLegacy.ts and validate.ts, both from 0.7.0), copied to a
-// temporary directory from the working tree or a commit, with the imports pointed at the .ts files
-// so Node can load them. validate.ts's own imports are type-only, which Node strips.
-const FILES = ['redact.ts', 'redactLegacy.ts', 'validate.ts']
-const dir = mkdtempSync(join(tmpdir(), 'ctxjev-redact-'))
-for (const name of FILES) {
-  let source: string
-  try {
-    source = ref
-      ? execFileSync('git', ['show', `${ref}:packages/core/src/${name}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
-      : readFileSync(new URL(`../packages/core/src/${name}`, import.meta.url), 'utf8')
-  } catch {
-    continue // not in this commit (redactLegacy.ts and validate.ts are new in 0.7.0)
-  }
-  writeFileSync(join(dir, name), source.replace(/from '\.\/(redactLegacy|validate)\.js'/g, "from './$1.ts'"))
-}
-const { redactSecrets } = (await import(pathToFileURL(join(dir, 'redact.ts')).href)) as { redactSecrets: (text: string) => string }
+const redactSecrets = await loadRedactSecrets(ref)
 
-const items: Item[] = loadBlindHalf(half)
+const items: Item[] = loadBlindHalf(half, corpus)
 
 const secretItems = items.filter((i) => i.kind === 'secret')
 const benignItems = items.filter((i) => i.kind === 'benign')
@@ -64,7 +50,7 @@ const altered = benignItems.map((item) => ({ item, output: redactSecrets(item.te
 
 const pct = (n: number, d: number) => `${((100 * n) / d).toFixed(1)}%`
 const detected = secretItems.length - missed.length
-console.log(`${half} half, redact.ts at ${ref ?? 'the working tree'}:`)
+console.log(`${corpus} ${half} half, redact.ts at ${ref ?? 'the working tree'}:`)
 console.log(`  lines with secrets detected: ${detected}/${secretItems.length} (${pct(detected, secretItems.length)}); none left whole (verbatim): ${secretItems.length - verbatimLeaks}/${secretItems.length} (${pct(secretItems.length - verbatimLeaks, secretItems.length)})`)
 console.log(`  secrets masked: ${secretsTotal - secretsLeaked}/${secretsTotal} (${pct(secretsTotal - secretsLeaked, secretsTotal)})`)
 console.log(`  harmless lines changed (false positives): ${altered.length}/${benignItems.length} (${pct(altered.length, benignItems.length)})`)

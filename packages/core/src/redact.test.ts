@@ -1,5 +1,6 @@
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { AUDIT3_FORMATS, AUDIT3_LINES, B62, FORMATS, HARMLESS, PW, j } from '../test/redactCases.js'
+import { AUDIT3_FORMATS, AUDIT3_LINES, AUDIT4_HARMLESS, B62, ENV_SWEEP, ENV_SWEEP_HALVES, FORMATS, HARMLESS, PW, j } from '../test/redactCases.js'
 import { redactSecrets } from './redact.js'
 
 describe('redactSecrets', () => {
@@ -131,6 +132,17 @@ describe('redactSecrets: time on long runs', () => {
     ['Cookie: a=b; …', `Cookie: ${'a=b; '.repeat(N / 5)}`],
     ['.pgpass lines…', 'h:5432:d:u:p\n'.repeat(N / 13)],
     [' --token …', ' --token '.repeat(N / 9)],
+    // The rule for a value that ends its line (the fourth audit's P0-1).
+    ['a=a=a…', 'a='.repeat(N / 2)],
+    ['a=a=a… x', `${'a='.repeat(N / 2)} x`],
+    ['password=)))…', `password=${')'.repeat(N)}`],
+    ['password=,,,…', `password=${','.repeat(N)}`],
+    ['x=y, spaces, z', `x=y${' '.repeat(N)}z`],
+    ['Environment=Environment=…', `${'Environment='.repeat(N / 12)}DB_PASSWORD=x(y`],
+    ['a: a: a: …', 'a: '.repeat(N / 3)],
+    ['token=${${${…', `token=${'${'.repeat(N / 2)}`],
+    ['token: 1.0 1.0 … x', `token: ${'1.0 '.repeat(N / 4)}x`],
+    ['.env lines…', 'DB_PASSWORD=Qx7(pL9\n'.repeat(N / 20)],
   ]
   it.each(runs)('%s (200,000 characters) in under 2 seconds', (_name, text) => {
     const start = performance.now()
@@ -763,4 +775,72 @@ describe('redactSecrets: the eighth review of the masking change', () => {
     }
     expect(calls).toBeGreaterThan(10_000)
   }, 60_000)
+})
+
+// The fourth audit (docs/audits/2026-09-30-audit-4-ja.md, P0-1, P2-9).
+describe('redactSecrets: the fourth audit — unquoted values with punctuation', () => {
+  it('masks the whole value in all 504 lines of the audit\'s sweep (28 symbols × 6 names × 3 separators)', () => {
+    expect(ENV_SWEEP).toHaveLength(504)
+    const leaked = ENV_SWEEP.filter(({ text }) => ENV_SWEEP_HALVES.some((half) => redactSecrets(text).includes(half)))
+    expect(leaked.map((l) => l.text)).toEqual([])
+  })
+
+  it('masks the audit\'s own line, keeping the name', () => {
+    expect(redactSecrets('DB_PASSWORD=Qx7vR2mK(pL9zW4tB')).toBe('DB_PASSWORD=[REDACTED]')
+  })
+
+  it('masks the same values with the symbol at the end, after export, and in a .env block with CRLF line ends', () => {
+    const symbols = [...'!#$%&()*+,-./:;<=>?@[]^_{|}~']
+    for (const symbol of symbols) {
+      const value = `${ENV_SWEEP_HALVES[0]}${ENV_SWEEP_HALVES[1]}${symbol}`
+      for (const text of [`DB_PASSWORD=${value}`, `export SMTP_PASS=${value}`, `  - AUTH_TOKEN=${value}`, `APP_ENV=production\r\nCLIENT_SECRET=${value}\r\nPORT=8080`]) {
+        const masked = redactSecrets(text)
+        expect(masked, text).not.toContain(ENV_SWEEP_HALVES[0])
+        expect(masked, text).not.toContain(ENV_SWEEP_HALVES[1])
+        expect(redactSecrets(masked)).toBe(masked)
+      }
+    }
+    expect(redactSecrets('APP_ENV=production\nDB_PASSWORD=Qx7vR2mK;pL9zW4tB # rotated 2026-09\nPORT=8080')).toBe('APP_ENV=production\nDB_PASSWORD=[REDACTED] # rotated 2026-09\nPORT=8080')
+  })
+
+  it.each(AUDIT4_HARMLESS)('leaves %j as it is', (text) => {
+    expect(redactSecrets(text)).toBe(text)
+  })
+
+  // Where the audit found it: the package.json an eval session's agent read, whose jsonwebtoken
+  // version is what that task is about (read here, not changed).
+  it('keeps the dependency versions in examples/eval-sessions/webpack-upgrade.json', () => {
+    const session = JSON.parse(readFileSync(new URL('../../../examples/eval-sessions/webpack-upgrade.json', import.meta.url), 'utf8')) as { messages: Array<{ content: unknown }> }
+    const packageJson = (session.messages[6].content as Array<{ content: string }>)[0].content
+    expect(packageJson).toContain('"jsonwebtoken": "^9.0.2"')
+    expect(redactSecrets(packageJson)).toBe(packageJson)
+  })
+})
+
+// General shapes behind what the Round 4 blind corpus's dev half (test/blind-redact-2) found; the
+// examples here are this file's own, not the corpus's.
+describe('redactSecrets: shapes from the Round 4 blind corpus\'s dev half', () => {
+  it.each([
+    'connecting to postgres://app:********@db.internal:5432/app (pool=10)',
+    'DATABASE_URL=mysql://root:${DB_PASSWORD}@db:3306/shop',
+    'spring.mail.password=${MAIL_PASSWORD:}',
+    'password: ${spring.datasource.password}',
+    'ANTHROPIC_API_KEY=sk-ant-...',
+    'OPENAI_API_KEY=sk-proj-…',
+    'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEq5HkQ8Y1b9c7Lp/t+DPw==',
+    '- name: DB_PASSWORD\n  value: {{ .Values.postgresql.auth.password | quote }}',
+  ])('leaves %j as it is', (text) => {
+    expect(redactSecrets(text)).toBe(text)
+  })
+
+  it('still masks a real password in the same places', () => {
+    expect(redactSecrets('postgres://app:Zq8vX2mP@db.internal:5432/app')).toBe('postgres://app:[REDACTED]@db.internal:5432/app')
+    expect(redactSecrets('spring.mail.password=${MAIL_PASSWORD:Zq8vX2mPz}')).toBe('spring.mail.password=[REDACTED]')
+    expect(redactSecrets('- name: DB_PASSWORD\n  value: Zq8vX2mPz')).toBe('- name: DB_PASSWORD\n  value: [REDACTED]')
+    expect(redactSecrets('ANTHROPIC_API_KEY=sk-ant-api03-Zq8vX2mPzR8vXw1yT4bNc7Lp')).toBe('ANTHROPIC_API_KEY=[REDACTED]')
+  })
+
+  it('masks a Datadog-style application key header', () => {
+    expect(redactSecrets('-H "DD-APPLICATION-KEY: 4f2a9c1e7d3b8a6f0e5c2d9b1a7f3e8c4d6b2a9f"')).toBe('-H "DD-APPLICATION-KEY: [REDACTED]"')
+  })
 })

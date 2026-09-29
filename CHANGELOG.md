@@ -5,6 +5,31 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 (`.claude-plugin/marketplace.json`, `packages/claude-plugin/.claude-plugin/plugin.json`,
 `plugins/ctxjev/plugin.json`). A bump in one is a bump in all, even when only one changed.
 
+## Unreleased
+
+- `ctxjev-core`: secret masking no longer lets through an unquoted value with punctuation in it.
+  `DB_PASSWORD=Qx7vR2mK(pL9zW4tB` in a `.env` file, an `export` line, YAML, or at the end of a log
+  line was kept whole (after `(` or `[`) or after its first `& ) , ; < > ] { }`, on every path: sent
+  to Jev, written to the plugin's `preserved.json`, and re-injected after compaction. An unquoted
+  value that ends its line is now masked to the end of the line (or to a ` #` comment). Found by
+  the fourth independent audit, which tried 28 symbols × 6 names × 3 separators; all 504 lines are
+  now masked, against 306 in 0.7.0.
+- `ctxjev-core`: secret masking no longer corrupts placeholders or hides versions:
+  `password: ${DB_PASSWORD}` stayed `password: [REDACTED]{DB_PASSWORD}`, and a dependency such as
+  `"jsonwebtoken": "^9.0.2"` lost its version to `[REDACTED]`. Also left as they are now: Spring's
+  `${a.b}` and `${NAME:}`, a URL's placeholder password (`postgres://app:********@db`), an example
+  cut short (`sk-ant-...`), a Helm template after `- name: DB_PASSWORD`, a base64 string ending in
+  `…Pw==`, and `secret_key = settings.SECRET_KEY`. These change 0.6.1's rules, which 0.7.0 ran first
+  unchanged; a `${NAME:-default}` with a default is still masked, since the default may be the secret.
+- `ctxjev-core`: masks an "application key" (`DD-APPLICATION-KEY: …`).
+- Secret masking, measured blind: the README's Design Notes now give the holdout results of each
+  corpus written without sight of the masking code, generated from the saved outputs: 0.7.0 masked
+  92.3% of the lines with secrets and changed 14.3% of the harmless lines on the first one. A new
+  corpus (`packages/core/test/blind-redact-2/`) replaces the used-up one; its holdout half is
+  measured once, on this release.
+- `scripts/redact-coverage.ts` runs again (it crashed with `ERR_MODULE_NOT_FOUND` since 0.7.0), and
+  CI runs it.
+
 ## 0.7.0 — 2026-09-27
 
 **Breaking changes, in short** (each is described below): `ctxjev prune` on ctxjev's own format

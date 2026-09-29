@@ -794,7 +794,40 @@ function designPrecision() {
   return `dev（10課題×2回）での差の95%CI幅は ${Math.round(width)} ポイントでした。課題数だけで単純に換算すると ${PLAN.tasks} 課題では約 ${Math.round(scaled)} ポイント`
 }
 
+// --- secret masking, measured blind (scripts/redact-blind.ts's saved output) ----------------------
+
+// Each holdout half is measured once (see the README in packages/core/test/blind-redact*/), and its
+// output saved under docs/audits/; a half not measured yet has no file.
+const MASKING_HOLDOUTS = [
+  { corpus: 'Round 3', file: 'docs/audits/2026-09-25-round-3-results/blind-holdout.txt', version: '0.7.0' },
+  { corpus: 'Round 4', file: 'docs/audits/2026-09-30-round-4-results/blind2-holdout.txt', version: '0.7.1' },
+]
+
+function maskingHoldout({ file }) {
+  let text
+  try {
+    text = readFileSync(join(root, file), 'utf8')
+  } catch {
+    return undefined
+  }
+  const read = (label) => {
+    const m = new RegExp(`${label}: (\\d+)/(\\d+)`).exec(text)
+    if (!m) throw new Error(`${file}: no "${label}" line`)
+    return { n: Number(m[1]), of: Number(m[2]) }
+  }
+  return { detected: read('lines with secrets detected'), falsePositives: read('harmless lines changed \\(false positives\\)') }
+}
+
+function maskingBlind() {
+  return MASKING_HOLDOUTS.map((h) => {
+    const r = maskingHoldout(h)
+    if (!r) return `${h.corpus}'s corpus: not measured yet (its holdout half is measured once, on the ${h.version} release)`
+    return `${h.corpus}'s corpus, ${h.version}: ${r.detected.n} of ${r.detected.of} lines with secrets masked (${pct1(r.detected.n / r.detected.of)}), and ${r.falsePositives.n} of ${r.falsePositives.of} harmless lines changed (${pct1(r.falsePositives.n / r.falsePositives.of)})`
+  }).join('. ')
+}
+
 const RENDERERS = {
+  'masking-blind': maskingBlind,
   'design-task-success': designTaskSuccess,
   'design-retention': designRetention,
   'design-retention-diffs': designRetentionDiffs,

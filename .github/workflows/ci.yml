@@ -90,6 +90,10 @@ jobs:
           node eval/tasks.mjs --selftest
         env:
           CTXJEV_SANDBOX: docker
+      # redactSecrets() against every secret format and harmless string in redactCases.ts, including
+      # the fourth audit's 504-line .env sweep; fails if any is missed or altered.
+      - name: redact-coverage
+        run: node --experimental-strip-types scripts/redact-coverage.ts
       # Every eval number in the docs (tables and results prose) must match the saved results;
       # --selftest proves the check catches the third audit's example edits.
       - name: check-docs
