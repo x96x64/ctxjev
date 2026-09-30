@@ -52,3 +52,25 @@ describe('redactSecrets: the Round 4 blind corpus, dev half', () => {
     expect(altered.sort()).toEqual([...KNOWN_ALTERED_2].sort())
   })
 })
+
+// Round 5's corpus (test/blind-redact-3/README.md), written after Round 4's holdout half was used up.
+// Its dev half was used while fixing the fifth audit's findings, so this too is a regression check,
+// not evidence; its holdout half is never read by a test.
+const KNOWN_MISSES_3 = new Set([
+  's075', // an API key after an Italian phrase in prose ("… è <key>"), with no `=` or `:`
+  's222', // `snyk auth <uuid>`: a bare UUID after a CLI verb
+])
+
+describe('redactSecrets: the Round 5 blind corpus, dev half', () => {
+  const items = loadBlindHalf('dev', 'blind-redact-3')
+
+  it('masks every line with a secret except the known misses', () => {
+    const missed = items.filter((i) => i.kind === 'secret' && leakOf(i, redactSecrets(i.text)).strict).map((i) => i.id)
+    expect(missed.sort()).toEqual([...KNOWN_MISSES_3].sort())
+  })
+
+  it('leaves every harmless line exactly as it was', () => {
+    const altered = items.filter((i) => i.kind === 'benign' && redactSecrets(i.text) !== i.text).map((i) => i.id)
+    expect(altered).toEqual([])
+  })
+})

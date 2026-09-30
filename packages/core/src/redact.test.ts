@@ -162,6 +162,16 @@ describe('redactSecrets: time on long runs', () => {
     ['トークン=あああ…', `トークン=${'あ'.repeat(N)}`],
     [' --password "…', ' --password "'.repeat(N / 13)],
     [' --password "a b…', ' --password "a b'.repeat(N / 16)],
+    // Round 5's shapes from its blind corpus: typed declarations, redis, labels in other languages.
+    ['x: y x: y …', 'x: y '.repeat(N / 5)],
+    ['password: str = "…', 'password: str = "'.repeat(N / 17)],
+    ['"AUTH" "…', '"AUTH" "'.repeat(N / 8)],
+    ['> AUTH …', '> AUTH '.repeat(N / 7)],
+    ['requirepass lines…', 'requirepass a\n'.repeat(N / 14)],
+    ['密码：密码：…', '密码：'.repeat(N / 3)],
+    ['mot de passe : …', 'mot de passe : '.repeat(N / 15)],
+    ['ssh-keygen -P …', 'ssh-keygen -P '.repeat(N / 14)],
+    ['7z -p7z -p…', '7z -p'.repeat(N / 5)],
   ]
   it.each(runs)('%s (200,000 characters) in under 2 seconds', (_name, text) => {
     const start = performance.now()
@@ -945,6 +955,65 @@ describe('redactSecrets: the fifth audit\'s lines', () => {
   })
 
   it.each(AUDIT5_HARMLESS)('leaves alone: %s', (text) => {
+    expect(redactSecrets(text)).toBe(text)
+  })
+})
+
+// General shapes added after Round 5's blind corpus's dev half (test/blind-redact-3/) showed them
+// missing or over-masked. The examples are this file's own, not the corpus's.
+describe('redactSecrets: shapes added from the Round 5 blind corpus\'s dev half', () => {
+  const pw = 'Hq7rT2vLm9Xc'
+  const leaks: Array<[string, string, string]> = [
+    ['a WireGuard preshared key', `[Peer]\nPresharedKey = ${pw}Zw4Pq8Ns6Ty1Bv3Kd5Rf0Ga=`, pw],
+    ['a wpa_supplicant psk', 'network={\n    ssid="office"\n    psk="lantern 42 copper meadow"\n}', 'lantern 42 copper'],
+    ['a Portuguese name', `app.senha=${pw}`, pw],
+    ['a German name', `Kennwort=${pw}`, pw],
+    ['a Korean label', `서버 비밀번호: ${pw} 입니다`, pw],
+    ['a Chinese label', `数据库密码：${pw}，请勿外传`, pw],
+    ['a Turkish label', `Veritabanı şifresi: Çğ${pw}`, pw],
+    ['a Russian label', `пароль: ${pw}`, pw],
+    ['a French label, a space before the colon', `mot de passe : ${pw}`, pw],
+    ['a Spanish label', `contraseña=${pw}`, pw],
+    ['an Italian label', `chiave API: ${pw}`, pw],
+    ['ssh-keygen -P and -N, the old passphrase', `ssh-keygen -p -f key -P '${pw}' -N 'river stone'`, pw],
+    ['ssh-keygen -P and -N, the new passphrase', `ssh-keygen -p -f key -P '${pw}' -N 'river stone 81'`, 'river stone 81'],
+    ['7z -p with a quoted passphrase', `7z a -p"cobalt ${pw} tide" -mhe=on out.7z ./dir`, pw],
+    ['7z -p run together', `7z x -p${pw} backup.7z`, pw],
+    ['unzip -P', `unzip -P ${pw} bundle.zip`, pw],
+    ['openssl pass:', `openssl enc -d -aes-256-cbc -in a.enc -pass pass:${pw}`, pw],
+    ['redis.conf requirepass', `port 6379\nrequirepass ${pw}\nappendonly yes`, pw],
+    ['redis.conf masterauth', `masterauth ${pw}`, pw],
+    ['a redis MONITOR AUTH line', `1784747937.595199 [0 10.0.0.9:41256] "AUTH" "${pw}"`, pw],
+    ['a redis MONITOR AUTH line with a user', `1784747937.595199 [0 10.0.0.9:41256] "AUTH" "default" "${pw}"`, pw],
+    ['redis-cli AUTH at its prompt', `127.0.0.1:6379> AUTH ${pw}`, pw],
+    ['a Rust typed constant', `const API_KEY: &str = "${pw}";`, pw],
+    ['a TypeScript typed constant', `export const apiToken: string = '${pw}'`, pw],
+    ['a Python annotated constant', `SECRET_KEY: Final[str] = "${pw}"`, pw],
+  ]
+  it.each(leaks)('masks: %s', (_name, text, secret) => {
+    const masked = redactSecrets(text)
+    expect(masked).not.toContain(secret)
+    expect(redactSecrets(masked)).toBe(masked)
+  })
+
+  const harmless = [
+    '[db]\npassword = %(db_password)s\nhost = %(db_host)s',
+    'implementation("org.jsonwebtoken:jjwt-core:2.1.0")',
+    'curl -u "$REPO_USER:$REPO_PASS" --upload-file a.jar https://repo.example/x',
+    'mysql -u app -p$DB_PASS shop',
+    '  password = var.admin_password',
+    '  token    = local.api_token',
+    'curl -H "X-Api-Key: $env:MY_API_KEY" https://api.example/v1',
+    'PublicKey = Zw4Pq8Ns6Ty1Bv3Kd5Rf0GaHq7rT2vLm9Xc=',
+    'key_mgmt=WPA-PSK',
+    'AUTH failed for user',
+    '비밀번호를 변경했습니다',
+    '密码：请联系管理员',
+    'const apiUrl: string = "https://api.example/v1"',
+    'unzip bundle.zip -d out',
+    'archive.7z -p 8080',
+  ]
+  it.each(harmless)('leaves alone: %s', (text) => {
     expect(redactSecrets(text)).toBe(text)
   })
 })
