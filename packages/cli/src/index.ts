@@ -16,7 +16,7 @@ import {
   type PruningPolicy,
   type ScoreCache,
 } from 'ctxjev-core'
-import { firstUserEntryWarning, formatEntriesOutcome, formatMessagesOutcome, formatReport, jevCostLine, type PruneOutcome } from './report.js'
+import { firstUserEntryWarning, formatEntriesOutcome, noUserEntryWarning, formatMessagesOutcome, formatReport, jevCostLine, type PruneOutcome } from './report.js'
 import { DEFAULT_CACHE_PATH, loadFileScoreCache } from './scoreCache.js'
 import { parseTranscript, type TranscriptFile } from './transcript.js'
 import { describePolicyOrderingError, parseThreshold } from './validation.js'
@@ -255,7 +255,8 @@ function rejectInapplicableFlags(values: Setup['values'], format: Format): void 
 
 function wholeNumberOf(values: Setup['values'], flag: string, min: number): number | undefined {
   if (values[flag] === undefined) return undefined
-  const n = Number(values[flag])
+  // Number('') and Number(' ') are 0: an empty value is an error, not 0 (issue #20).
+  const n = String(values[flag]).trim() === '' ? NaN : Number(values[flag])
   if (!Number.isInteger(n) || n < min) fail(`--${flag} must be a whole number of at least ${min}, got "${values[flag]}"`)
   return n
 }
@@ -296,7 +297,7 @@ async function runAnalyze(argv: string[]) {
     // Applied the same way prune applies them, so the report's numbers are prune's.
     const pruned = settings && pruneEntries(transcript.entries, decisions, settings.options)
     if (setup.values.json) {
-      const prune = pruned && { removed: pruned.removed, keptDrops: pruned.keptDrops, savedTokens: pruned.savedTokens, ...(pruned.firstUserEntryRemoved && { firstUserEntryRemoved: pruned.firstUserEntryRemoved }) }
+      const prune = pruned && { removed: pruned.removed, keptDrops: pruned.keptDrops, savedTokens: pruned.savedTokens, ...(pruned.firstUserEntryRemoved && { firstUserEntryRemoved: pruned.firstUserEntryRemoved }), ...(pruned.firstEntryRemovedWithoutUserEntry && { firstEntryRemovedWithoutUserEntry: pruned.firstEntryRemovedWithoutUserEntry }) }
       console.log(JSON.stringify({ decisions, savings, ...(prune && { prune }), usage, scorer }, null, 2))
       return
     }
@@ -334,6 +335,7 @@ async function runPrune(argv: string[]) {
     await writeOutput({ ...transcript.file, goal, entries: result.entries }, values.out as string | undefined)
     console.error(pc.dim(formatEntriesOutcome(transcript.entries.length, result, protectLast, 'did', offlineNote(scorer))))
     if (result.firstUserEntryRemoved) console.error(`${pc.yellow('⚠')} ${firstUserEntryWarning(result.firstUserEntryRemoved, 'did')}`)
+    if (result.firstEntryRemovedWithoutUserEntry) console.error(`${pc.yellow('⚠')} ${noUserEntryWarning(result.firstEntryRemovedWithoutUserEntry, 'did')}`)
     if (scorer === 'jev') console.error(pc.dim(jevCostLine(usage)))
     return
   }

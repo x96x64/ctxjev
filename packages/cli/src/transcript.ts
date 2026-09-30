@@ -18,7 +18,9 @@ export type TranscriptFile =
  * path, with no flag or file extension needed. Any other parse failure is a broken JSON file, and
  * the error says where it broke.
  */
-export function parseTranscript(raw: string): TranscriptFile {
+export function parseTranscript(text: string): TranscriptFile {
+  // A UTF-8 byte order mark (Windows Notepad writes one) isn't part of the JSON (the fourth audit's P2-11).
+  const raw = text.replace(/^\uFEFF/, '')
   let parsedJson: unknown
   try {
     parsedJson = JSON.parse(raw)

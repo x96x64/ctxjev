@@ -1,0 +1,48 @@
+# Round 4 PR 2: the new CLI/core tests run before the fixes (the CLI and core sources as on PR 1's branch, plus these tests)
+
+     × rejects an empty --protect-last instead of reading it as 0
+     × warns when it removes the first entry of a transcript with no user entry
+     × reads a JSON file that starts with a UTF-8 byte order mark
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: prune /tmp/ctxjev-prune-test-HsqpLo/t.json "": expected +0 to be 1 // Object.is equality
+- Expected
++ Received
+AssertionError: expected 'removed 1 of 3 entries, ~3 tokens · s…' to contain 'removed the first entry (a): this tra…'
+- Expected
++ Received
+AssertionError: ✖ could not parse this file: it's not valid JSON (Unexpected token '﻿', "﻿{"goal":""... is not valid JSON, at line 1, column 1), and its first line isn't a Claude Code .jsonl record either
+- Expected
++ Received
+      Tests  3 failed | 27 passed (30)
+     × names the first entry it removed when there is no user entry to protect
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 6 passed (7)
+# P2-12: the new tests in packages/core/src/jevClient.test.ts before the fix
+     × rejects a probability that is a string, naming the entry, and caches nothing
+     × rejects a probability that is NaN, naming the entry, and caches nothing
+     × rejects a probability that is Infinity, naming the entry, and caches nothing
+     × rejects a probability that is above 1, naming the entry, and caches nothing
+     × rejects a probability that is below 0, naming the entry, and caches nothing
+     × rejects a probability that is null, naming the entry, and caches nothing
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  6 failed | 16 passed (22)
+
+# P2-13: the new test in packages/claude-plugin/src/statusHook.test.ts before the fix
+     × loads the status report only for /ctxjev:status
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: expected { exitCode: +0, …(1) } to deeply equal { exitCode: +0, stdout: '' }
+      Tests  1 failed | 3 passed (4)
+
+# P1-7: the new test in packages/claude-plugin/src/license.test.ts before the fix
+     × has a LICENSE identical to the repository's
+     × has THIRD_PARTY_NOTICES with the full license text of every bundled dependency
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  2 failed (2)
+
+# P1-5: the new tests in packages/mcp-server/src/server.test.ts before the fix (schemas.ts, tools.ts, server.ts as at 36d62a3)
+     × scores offline with scorer "local" or "recency", with no key and nothing sent
+     × lists scorer in both tools' input schemas, and says the key is needed for jev only
+     × rejects an unknown scorer
+     × starts, lists its tools, and answers a call with an error instead of exiting
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  4 failed | 3 passed (7)

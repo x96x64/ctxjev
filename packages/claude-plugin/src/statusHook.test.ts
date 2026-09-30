@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { copyFile, mkdir, mkdtemp, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -21,9 +21,9 @@ afterEach(async () => {
   await rm(state, { recursive: true, force: true })
 })
 
-function run(stdin: string): Promise<{ exitCode: number | null; stdout: string }> {
+function run(stdin: string, script = distPath): Promise<{ exitCode: number | null; stdout: string }> {
   return new Promise((resolve, reject) => {
-    const child = spawn('node', [distPath], { env: subprocessEnv({ CTXJEV_STATE_DIR: state }), stdio: ['pipe', 'pipe', 'pipe'] })
+    const child = spawn('node', [script], { env: subprocessEnv({ CTXJEV_STATE_DIR: state }), stdio: ['pipe', 'pipe', 'pipe'] })
     let stdout = ''
     child.stdout.on('data', (d) => (stdout += d))
     child.on('error', reject)
@@ -48,6 +48,23 @@ describe('statusHook.js (dist)', () => {
       expect(result.exitCode).toBe(0)
       expect(result.stdout).toBe('')
     }
+  }, 10_000)
+
+  // The fourth audit (P2-13): the hook runs on every prompt, and loaded the whole status report
+  // (state files, transcript parsing, masking) before looking at the prompt. It now loads status.js
+  // only for /ctxjev:status: copied without it, the hook still passes an ordinary prompt through,
+  // and has nothing to answer /ctxjev:status with.
+  it('loads the status report only for /ctxjev:status', async () => {
+    const alone = join(state, 'hook-alone')
+    await rm(alone, { recursive: true, force: true })
+    await mkdir(alone)
+    await copyFile(distPath, join(alone, 'statusHook.js'))
+    const ordinary = await run(JSON.stringify({ prompt: 'fix the bug', cwd: state, session_id: 's1' }), join(alone, 'statusHook.js'))
+    expect(ordinary).toEqual({ exitCode: 0, stdout: '' })
+    const status = await run(JSON.stringify({ prompt: '/ctxjev:status', cwd: state, session_id: 's1', transcript_path: noisy }), join(alone, 'statusHook.js'))
+    expect(status).toEqual({ exitCode: 0, stdout: '' })
+    // What every prompt loads: the check, not the report.
+    expect((await stat(distPath)).size).toBeLessThan(4_000)
   }, 10_000)
 
   it('stays out of the way on bad input', async () => {

@@ -47,6 +47,49 @@ describe('MCP server without TYPESAFE_API_KEY', () => {
     await client.close()
   })
 
+  // The fourth audit (P1-5): both tools were Jev-only, so without a key they were unusable.
+  it('scores offline with scorer "local" or "recency", with no key and nothing sent', async () => {
+    const client = await connect()
+    for (const scorer of ['local', 'recency']) {
+      const scored = await client.callTool({ name: 'score_relevance', arguments: { goal: 'fix the double charge', entries, scorer } })
+      expect(scored.isError, JSON.stringify(scored.content)).toBeFalsy()
+      const body = JSON.parse((scored.content as Array<{ text: string }>)[0].text)
+      expect(body.scored.map((s: { entryId: string }) => s.entryId).sort()).toEqual(['a', 'b'])
+      expect(body.usage).toEqual({ inputTokens: 0, outputTokens: 0 })
+
+      const pruned = await client.callTool({ name: 'prune_history', arguments: { goal: 'fix the double charge', entries, scorer } })
+      expect(pruned.isError, JSON.stringify(pruned.content)).toBeFalsy()
+      const decided = JSON.parse((pruned.content as Array<{ text: string }>)[0].text)
+      expect(decided.decisions).toHaveLength(2)
+      expect(decided.usage).toEqual({ inputTokens: 0, outputTokens: 0 })
+    }
+    await client.close()
+  })
+
+  it('lists scorer in both tools\' input schemas, and says the key is needed for jev only', async () => {
+    const client = await connect()
+    const { tools } = await client.listTools()
+    for (const tool of tools) {
+      const scorer = (tool.inputSchema.properties as Record<string, { enum?: string[]; default?: string }>).scorer
+      expect(scorer?.enum).toEqual(['jev', 'local', 'recency'])
+      expect(scorer?.default).toBe('jev')
+    }
+    const result = await client.callTool({ name: 'prune_history', arguments: { goal: 'fix the double charge', entries, scorer: 'jev' } })
+    expect(result.isError).toBe(true)
+    expect(JSON.stringify(result.content)).toContain('scorer')
+    await client.close()
+  })
+
+  it('rejects an unknown scorer', async () => {
+    const client = await connect()
+    const result = await client.callTool({ name: 'score_relevance', arguments: { goal: 'fix the double charge', entries, scorer: 'bm25' } })
+    expect(result.isError).toBe(true)
+    // Rejected as input, not answered with the missing key.
+    expect(JSON.stringify(result.content)).toContain('scorer')
+    expect(JSON.stringify(result.content)).not.toContain('TYPESAFE_API_KEY')
+    await client.close()
+  })
+
   it('still rejects invalid input first', async () => {
     const client = await connect()
     const result = await client.callTool({ name: 'prune_history', arguments: { goal: '', entries } })
@@ -66,6 +109,8 @@ describe('dist/index.js without TYPESAFE_API_KEY', () => {
       expect((await client.listTools()).tools).toHaveLength(2)
       const result = await client.callTool({ name: 'score_relevance', arguments: { goal: 'fix the double charge', entries } })
       expect(result.isError).toBe(true)
+      const offline = await client.callTool({ name: 'prune_history', arguments: { goal: 'fix the double charge', entries, scorer: 'local' } })
+      expect(offline.isError, JSON.stringify(offline.content)).toBeFalsy()
     } finally {
       await client.close()
     }
