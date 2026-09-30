@@ -47,11 +47,14 @@ for (const [outFile, output] of Object.entries(result.metafile.outputs)) {
 
 // THIRD_PARTY_NOTICES, next to LICENSE at the plugin's root (a marketplace install copies this
 // directory and nothing else): the license and copyright notice of every third-party package whose
-// code the bundles above contain, read from esbuild's own list of inputs (the fourth audit's P1-7).
+// code the bundles above contain, read from esbuild's own account of what each output holds (the
+// fourth audit's P1-7). A package resolved but tree-shaken away (gpt-tokenizer, today) holds no
+// bytes in any output, so it isn't listed.
 // ctxjev-core is this repository's own code, under LICENSE. A bundled package with no license file
 // fails the build, so a new dependency can't ship without its notice.
 const packageDirs = new Set()
-for (const input of Object.keys(result.metafile.inputs)) {
+const bundledInputs = Object.values(result.metafile.outputs).flatMap((output) => Object.entries(output.inputs).filter(([, { bytesInOutput }]) => bytesInOutput > 0).map(([input]) => input))
+for (const input of bundledInputs) {
   const at = input.lastIndexOf('node_modules/')
   if (at === -1) continue
   const rest = input.slice(at + 'node_modules/'.length).split('/')

@@ -152,6 +152,6 @@ in the main repo: **[github.com/x96x64/ctxjev](https://github.com/x96x64/ctxjev)
 This plugin is released under the MIT license ([`LICENSE`](LICENSE), the same as the repository's):
 free to use, modify, and distribute, including in a commercial product, as long as the license
 text and copyright notice ship with it. Its `dist/` bundles also contain code from
-`@typesafe-ai/sdk` and `gpt-tokenizer`, both MIT; their license texts and copyright notices are in
+`@typesafe-ai/sdk` (MIT); its license text and copyright notice are in
 [`THIRD_PARTY_NOTICES`](THIRD_PARTY_NOTICES), which the build generates from what it bundled. Both
 files are in this directory, so a marketplace install carries them.

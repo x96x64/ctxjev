@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
-// The fourth audit (P1-7): the plugin ships a bundle with @typesafe-ai/sdk (and gpt-tokenizer) inside,
+// The fourth audit (P1-7): the plugin ships a bundle with @typesafe-ai/sdk inside,
 // but its directory, which is all a marketplace install copies, had no LICENSE and no notice for them.
 const plugin = join(dirname(fileURLToPath(import.meta.url)), '..')
 const read = (path: string) => readFileSync(path, 'utf8')
@@ -20,7 +20,7 @@ describe('the plugin directory carries its licenses', () => {
 
   it('has THIRD_PARTY_NOTICES with the full license text of every bundled dependency', () => {
     const notices = read(join(plugin, 'THIRD_PARTY_NOTICES'))
-    for (const name of ['@typesafe-ai/sdk', 'gpt-tokenizer']) {
+    for (const name of ['@typesafe-ai/sdk']) {
       expect(notices).toContain(`## ${name}`)
       expect(notices).toContain(licenseOf(name).trim())
     }
