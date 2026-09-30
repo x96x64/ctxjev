@@ -5,7 +5,7 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 (`.claude-plugin/marketplace.json`, `packages/claude-plugin/.claude-plugin/plugin.json`,
 `plugins/ctxjev/plugin.json`). A bump in one is a bump in all, even when only one changed.
 
-## Unreleased
+## 0.7.1 — 2026-09-30
 
 - `ctxjev-core`: secret masking no longer lets through an unquoted value with punctuation in it.
   `DB_PASSWORD=Qx7vR2mK(pL9zW4tB` in a `.env` file, an `export` line, YAML, or at the end of a log
@@ -31,7 +31,8 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
   measured once, on this release.
 - `ctxjev-mcp`: both tools take `scorer`: `"jev"` (the default, as before), `"local"` (keyword
   overlap), or `"recency"` (plain truncation). The last two run offline, so the server is usable
-  with no key and sends nothing; only a call that uses Jev needs `TYPESAFE_API_KEY`.
+  with no key and sends nothing; only a call that uses Jev needs `TYPESAFE_API_KEY`. The note it
+  prints at startup without a key says so, instead of that every call will fail.
 - `ctxjev-cli`: reads a JSON file saved with a UTF-8 byte order mark (Windows Notepad adds one);
   it was rejected as "not valid JSON".
 - `ctxjev-cli`: an empty `--protect-last ""` (or `--target-tokens ""`, `--min-saved-tokens ""`) is an
@@ -74,6 +75,9 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 - A Jev answer a hair outside 0 to 1 (floating-point noise) fails the batch rather than being
   clamped; the MCP tools' `recencyWeight` does nothing with `scorer: "recency"`. Both, and two
   smaller notes, are in [#29](https://github.com/x96x64/ctxjev/issues/29).
+- The eval-data check pins how many English probe fields two known sessions have, not which ones,
+  and the README example check doesn't pin how many examples it finds
+  ([#31](https://github.com/x96x64/ctxjev/issues/31)).
 
 ## 0.7.0 — 2026-09-27
 

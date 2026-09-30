@@ -104,6 +104,8 @@ describe('dist/index.js without TYPESAFE_API_KEY', () => {
     const client = new Client({ name: 'ctxjev-mcp-test-client', version: '0.0.0' })
     const distPath = join(dirname(fileURLToPath(import.meta.url)), '..', 'dist', 'index.js')
     const transport = new StdioClientTransport({ command: process.execPath, args: [distPath], env: subprocessEnv(), stderr: 'pipe' })
+    let stderr = ''
+    transport.stderr?.on('data', (d) => (stderr += d))
     await client.connect(transport)
     try {
       expect((await client.listTools()).tools).toHaveLength(2)
@@ -111,6 +113,8 @@ describe('dist/index.js without TYPESAFE_API_KEY', () => {
       expect(result.isError).toBe(true)
       const offline = await client.callTool({ name: 'prune_history', arguments: { goal: 'fix the double charge', entries, scorer: 'local' } })
       expect(offline.isError, JSON.stringify(offline.content)).toBeFalsy()
+      // The startup note said every call would fail without a key, which scorer 'local' disproves.
+      expect(stderr).toContain('only scorer "local" and "recency" work')
     } finally {
       await client.close()
     }

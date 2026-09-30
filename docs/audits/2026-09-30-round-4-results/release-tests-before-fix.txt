@@ -1,0 +1,5 @@
+# Release PR: the MCP server's startup note without a key, tested before the fix (packages/mcp-server/dist built from #28's index.ts)
+
+     × starts, lists its tools, and answers a call with an error instead of exiting
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 6 passed (7)
