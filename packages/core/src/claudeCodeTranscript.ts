@@ -42,19 +42,28 @@ function asKnownBlock(raw: unknown): KnownContentBlock | undefined {
   return raw as KnownContentBlock
 }
 
-function parseLines(jsonl: string): TranscriptRecord[] {
+/** `skipped` collects the (1-based) numbers of the lines that aren't a JSON record, if given. */
+function parseLines(jsonl: string, skipped?: number[]): TranscriptRecord[] {
   validateText(jsonl, 'transcript')
   const records: TranscriptRecord[] = []
-  for (const line of jsonl.split('\n')) {
-    if (!line.trim()) continue
+  jsonl.split('\n').forEach((line, i) => {
+    if (!line.trim()) return
+    let record: unknown
     try {
-      const record: unknown = JSON.parse(line)
-      if (typeof record === 'object' && record !== null) records.push(record as TranscriptRecord)
+      record = JSON.parse(line)
     } catch {
       // a malformed or truncated line shouldn't take down the whole parse
     }
-  }
+    if (typeof record === 'object' && record !== null) records.push(record as TranscriptRecord)
+    else skipped?.push(i + 1)
+  })
   return records
+}
+
+/** The warning for lines parseLines() skipped (the fifth audit: they went unreported). */
+function skippedLinesWarning(skipped: number[]): string {
+  const shown = skipped.slice(0, 3).join(', ') + (skipped.length > 3 ? ', …' : '')
+  return `${skipped.length} transcript line(s) aren't valid JSON records (${skipped.length === 1 ? 'line' : 'lines'} ${shown}); skipped`
 }
 
 const COMPACT_SUMMARY_PREFIX = 'This session is being continued from a previous conversation'
@@ -119,7 +128,10 @@ export function parseClaudeCodeTranscript(jsonl: string, options: ParseClaudeCod
   // order instead of reading as the oldest entry in the batch.
   let lastTimestamp = 0
 
-  parseLines(jsonl).forEach((record, line) => {
+  const skipped: number[] = []
+  const records = parseLines(jsonl, skipped)
+  if (skipped.length > 0) onWarning?.(skippedLinesWarning(skipped))
+  records.forEach((record, line) => {
     if (record.isSidechain || record.isMeta) return
 
     if (isCompactionBoundary(record)) {

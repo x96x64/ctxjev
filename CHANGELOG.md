@@ -5,6 +5,14 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 (`.claude-plugin/marketplace.json`, `packages/claude-plugin/.claude-plugin/plugin.json`,
 `plugins/ctxjev/plugin.json`). A bump in one is a bump in all, even when only one changed.
 
+## Unreleased
+
+- `ctxjev-core`: `pruneMessages()` reports `noteOmitted` when it removed entries but had nowhere to put the removal note; `ctxjev prune`/`analyze` warn about it.
+- `ctxjev-core`: under `scorer: 'local'`, a batch where every entry ties is shown as its raw overlap, marked `tied`, and kept (every entry used to show relevance 1).
+- `ctxjev-core`: a Claude Code log's malformed lines are counted and reported (they were skipped in silence).
+- `ctxjev-cli`: `prune` writes the file's own `goal` back as it was, and never writes `--goal` into the output.
+- `ctxjev-mcp`: an argument a tool doesn't take is an error instead of being ignored; `score_relevance` under `local` uses `prune_history`'s ranked scale.
+
 ## 0.7.1 — 2026-09-30
 
 - `ctxjev-core`: secret masking no longer lets through an unquoted value with punctuation in it.

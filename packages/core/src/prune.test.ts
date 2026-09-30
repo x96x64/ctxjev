@@ -38,4 +38,25 @@ describe("pruneContext with scorer: 'local'", () => {
     const decisions = await pruneContext(entries, 'something else entirely', undefined, { scorer: 'local' })
     expect(decisions.map((d) => d.action)).toEqual(['keep', 'keep', 'keep'])
   })
+
+  // The fifth audit (section 4.1, problem 3): a full tie ranked every entry 1, the most relevant a
+  // score can say, when it says nothing at all. The overlap itself is shown, marked tied, and kept.
+  it('shows a full tie as the overlap it is, marked tied, and still keeps every entry', async () => {
+    const entries: Entry[] = ['alpha', 'beta', 'gamma'].map((content, i) => ({ id: `e${i}`, role: 'tool', content, timestamp: i }))
+    const decisions = await pruneContext(entries, 'something else entirely', undefined, { scorer: 'local' })
+    expect(decisions.map((d) => d.relevance)).toEqual([0, 0, 0])
+    expect(decisions.every((d) => d.tied === true && d.action === 'keep')).toBe(true)
+    expect(decisions.every((d) => d.combinedScore < 0.5)).toBe(true)
+
+    const shared: Entry[] = ['retry alpha', 'retry beta'].map((content, i) => ({ id: `s${i}`, role: 'tool', content, timestamp: i }))
+    const both = await pruneContext(shared, 'retry charge', undefined, { scorer: 'local' })
+    expect(both.map((d) => d.relevance)).toEqual([0.5, 0.5])
+    expect(both.every((d) => d.tied === true && d.action === 'keep')).toBe(true)
+  })
+
+  it('marks nothing tied when the overlap differs', async () => {
+    const entries: Entry[] = ['retry alpha', 'beta'].map((content, i) => ({ id: `e${i}`, role: 'tool', content, timestamp: i }))
+    const decisions = await pruneContext(entries, 'retry charge', undefined, { scorer: 'local' })
+    expect(decisions.some((d) => 'tied' in d)).toBe(false)
+  })
 })

@@ -126,8 +126,8 @@ export type PruneMessagesOptions = ScoreEntriesOptions & {
   /**
    * Add a one-line note where history was removed, so the model knows its view of the conversation
    * is incomplete and re-reads files instead of trusting what it half-remembers. It goes at the end
-   * of the first unprotected user message after the first change; with none, no note is added.
-   * Default true.
+   * of the first unprotected user message after the first change; with none, no note is added, and
+   * the result's `noteOmitted` says so. Default true.
    */
   marker?: boolean
 }
@@ -179,6 +179,14 @@ export type PruneMessagesResult = {
   heldBack?: number
   /** Why each entry marked `drop` but not in `removed` stayed. Every `drop` is in exactly one of `removed` and these lists. */
   keptDrops: KeptDrops
+  /**
+   * Entries were removed with `marker` on, but the removal note wasn't added: there was no
+   * unprotected user message after the first change to carry it (see `marker`), so the model isn't
+   * told its view of the conversation is incomplete. A new message holding only the note isn't
+   * inserted instead: between a `tool_use` and its `tool_result` it would make the request invalid,
+   * and the only other places left are the protected messages. `false` whenever nothing was removed.
+   */
+  noteOmitted: boolean
 }
 
 type Replacement = { text: string; saved: number }
@@ -293,6 +301,7 @@ export async function pruneMessages(messages: AnthropicMessage[], goal: string, 
     overBudget: targetTokens !== undefined && untouchedTotal > targetTokens,
     ...(heldBack !== undefined && { heldBack }),
     keptDrops: keptDrops(heldBack !== undefined ? 'belowMinSaved' : 'noNetSaving'),
+    noteOmitted: false,
   })
   if (grossSaved === 0) return unchanged()
 
@@ -379,6 +388,7 @@ export async function pruneMessages(messages: AnthropicMessage[], goal: string, 
     overBudget: targetTokens !== undefined && remaining + (note?.tokens ?? 0) > targetTokens,
     // Every unprotected drop was removed, so only protected ones are left to explain.
     keptDrops: keptDrops(undefined),
+    noteOmitted: Boolean(marker) && removedEntries.length > 0 && note === undefined,
   }
 }
 

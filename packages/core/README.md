@@ -59,7 +59,9 @@ decision's `relevance` is the entry's percentile rank of overlap (tied entries s
 rank), so the thresholds read as shares of the batch rather than as probabilities. Raw overlap
 rarely reaches 0.3, and the thresholds used to drop almost everything, relevant entries included.
 When most entries share no word with the goal, they tie in the middle and are marked for
-summarizing, not dropped; pass `targetTokens` to `pruneMessages()` if you need a fixed size.
+summarizing, not dropped; pass `targetTokens` to `pruneMessages()` if you need a fixed size. When
+every entry ties (none shares more of the goal's words than another), there's nothing to rank:
+each decision keeps its raw overlap as `relevance`, is marked `tied: true`, and is kept.
 `scoreEntries()` still returns the raw overlap; `rankLocalRelevance()` turns it into the ranked
 scale, which the Claude Code plugin uses too.
 
@@ -130,6 +132,10 @@ the two per `PruningPolicy.recencyWeight` before `action` is decided.
   entries marked `drop` that weren't removed, by reason. `firstMessage`, `latestTurn`,
   `lastMessages`, and `userText` are protected; `noNetSaving` (removing them wouldn't save any tokens
   once the removal note is counted) and `belowMinSaved` (held back by `minSavedTokens`) are not.
+  `noteOmitted` is `true` when entries were removed but the note had nowhere to go: it goes into
+  the first unprotected user message after the first change, and there wasn't one (common with
+  `keepUserText: false` and a tight `targetTokens`). A message holding only the note isn't inserted
+  instead: between a `tool_use` and its `tool_result` it would make the request invalid.
 - **`parseClaudeCodeTranscript(jsonl, { countTokens? })`** / **`resolveClaudeCodeGoal(jsonl, entries)`**
   parse a real Claude Code session `.jsonl` transcript into `Entry[]` (what's still in context,
   without the text Claude Code writes into the user turn itself), and find the goal: the latest

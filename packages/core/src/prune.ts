@@ -6,7 +6,7 @@ import { percentileRanks } from './percentile.js'
 import { combineScore, decideAction } from './policy.js'
 import { computeRecency } from './recency.js'
 import { redactSecrets } from './redact.js'
-import { shown, validateEntries, validateGoal, validateOptions, validatePolicy, validateRecencyWeight, validateScoredEntries } from './validate.js'
+import { shown, validateEntries, validateGoal, validateOptions, validatePolicy, validateRecencyWeight, validateScoredEntries, validateUniqueIds } from './validate.js'
 import { DEFAULT_POLICY, type Entry, type JevUsage, type PruneDecision, type PruningPolicy, type ScoredEntry } from './types.js'
 
 /**
@@ -128,13 +128,7 @@ export async function scoreEntries(
     throw new Error(`unknown scorer ${JSON.stringify(scorer)} — expected ${BUILT_IN_SCORERS.map((s) => `'${s}'`).join(', ')}, or a function`)
   }
 
-  const seenIds = new Set<string>()
-  for (const entry of entries) {
-    if (seenIds.has(entry.id)) {
-      throw new Error(`duplicate entry id "${entry.id}" — every entry must have a unique id`)
-    }
-    seenIds.add(entry.id)
-  }
+  validateUniqueIds(entries)
 
   const verdicts =
     scorer === 'local'
@@ -184,7 +178,8 @@ export async function pruneContext(
   validatePolicy(policy)
   let scored = await scoreEntries(entries, goal, policy.recencyWeight, options)
   if (options.scorer === 'local') scored = rankLocalRelevance(scored, policy.recencyWeight)
-  return scored.map((entry) => ({ ...entry, action: decideAction(entry.combinedScore, policy) }))
+  // A full tie under 'local' carries no signal to drop anything on (see rankLocalRelevance).
+  return scored.map((entry) => ({ ...entry, action: entry.tied ? 'keep' : decideAction(entry.combinedScore, policy) }))
 }
 
 /**
@@ -196,6 +191,12 @@ export async function pruneContext(
 export function rankLocalRelevance(scored: ScoredEntry[], recencyWeight: number = DEFAULT_POLICY.recencyWeight): ScoredEntry[] {
   validateScoredEntries(scored)
   validateRecencyWeight(recencyWeight)
+  // Every entry shares the goal's words equally (often not at all): there's nothing to rank them by.
+  // A rank of 1 each said "most relevant" (the fifth audit), so the overlap itself stays, and each is
+  // marked `tied`, which pruneContext() keeps whatever the thresholds say.
+  if (scored.length > 0 && scored.every((s) => s.relevance === scored[0].relevance)) {
+    return scored.map((s) => ({ ...s, combinedScore: combineScore(s.relevance, s.recency, recencyWeight), tied: true as const }))
+  }
   const ranks = percentileRanks(scored.map((s) => s.relevance))
   return scored.map((s, i) => ({ ...s, relevance: ranks[i], combinedScore: combineScore(ranks[i], s.recency, recencyWeight) }))
 }

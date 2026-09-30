@@ -453,4 +453,71 @@ describe('malformed input is named, never a raw error or a NaN', () => {
     await writeFile(messages, '\uFEFF' + JSON.stringify([{ role: 'user', content: 'hi' }, { role: 'assistant', content: 'hello' }]))
     expect((await run(['analyze', messages, '--offline', '--goal', 'g'])).exitCode).toBe(0)
   }, 30_000)
+
+  // The fifth audit (section 4.1, problem 1): entries were removed and the removal note left out
+  // with no word about it, on the Anthropic Messages sample at --target-tokens 50.
+  it('warns when entries were removed but the removal note had nowhere to go', async () => {
+    const sample = join(dirname(fileURLToPath(import.meta.url)), '../../../examples/sample-transcripts/anthropic-messages.json')
+    const out = join(dir, 'out.json')
+    const pruned = await run(['prune', sample, '--target-tokens', '50', '--out', out])
+    expect(pruned.exitCode).toBe(0)
+    expect(pruned.stderr).toContain('removed 5 of 8 entries')
+    expect(pruned.stderr).toMatch(/⚠ no unprotected user message after the first removal to carry the removal note/)
+    expect(await readFile(out, 'utf8')).not.toContain('[ctxjev:')
+    const analyzed = await run(['analyze', sample, '--target-tokens', '50'])
+    expect(analyzed.exitCode).toBe(0)
+    expect(analyzed.stdout).toMatch(/⚠ no unprotected user message after the first removal to carry the removal note/)
+    const json = await run(['analyze', sample, '--target-tokens', '50', '--json'])
+    expect(JSON.parse(json.stdout).prune.noteOmitted).toBe(true)
+  })
+
+  // The fifth audit (section 4.1, problem 3): with no entry overlapping the goal more than another,
+  // every entry showed the top score.
+  it('shows a full tie under --scorer local as tied, not as the top score', async () => {
+    const sample = join(dirname(fileURLToPath(import.meta.url)), '../../../examples/sample-transcripts/checkout-bug.json')
+    const analyzed = await run(['analyze', sample, '--scorer', 'local', '--goal', 'zzqx wvkj'])
+    expect(analyzed.exitCode).toBe(0)
+    expect(analyzed.stdout).toContain('score tied')
+    expect(analyzed.stdout).not.toMatch(/score (?:0\.9\d|1\.00)/)
+    expect(analyzed.stdout).toContain('every entry shares the same keyword overlap with the goal')
+    const json = JSON.parse((await run(['analyze', sample, '--scorer', 'local', '--goal', 'zzqx wvkj', '--json'])).stdout)
+    expect(json.decisions.every((d: { relevance: number; tied?: boolean; action: string }) => d.relevance === 0 && d.tied === true && d.action === 'keep')).toBe(true)
+  })
+
+  // The fifth audit (check B5): `--goal` was written into the output, into a file that had no goal
+  // of its own, or over the one it had; every other field is written back as it was.
+  it('writes the file\'s own goal back as it was, never --goal', async () => {
+    const entries = [
+      { id: 'e1', role: 'user', content: 'fix the checkout bug', timestamp: 1 },
+      { id: 'e2', role: 'tool', toolName: 'Bash', content: 'npm test: 3 failed', timestamp: 2 },
+    ]
+    const noGoal = join(dir, 'no-goal.json')
+    await writeFile(noGoal, JSON.stringify({ entries }))
+    const out1 = join(dir, 'out1.json')
+    expect((await run(['prune', noGoal, '--goal', 'my private override goal', '--out', out1])).exitCode).toBe(0)
+    expect('goal' in JSON.parse(await readFile(out1, 'utf8'))).toBe(false)
+
+    const withGoal = join(dir, 'with-goal.json')
+    await writeFile(withGoal, JSON.stringify({ goal: 'the file\'s goal', entries }))
+    const out2 = join(dir, 'out2.json')
+    expect((await run(['prune', withGoal, '--goal', 'my private override goal', '--out', out2])).exitCode).toBe(0)
+    expect(JSON.parse(await readFile(out2, 'utf8')).goal).toBe('the file\'s goal')
+
+    const messages = join(dir, 'messages.json')
+    await writeFile(messages, JSON.stringify({ messages: [{ role: 'user', content: 'fix the checkout bug' }, { role: 'assistant', content: 'on it' }] }))
+    const out3 = join(dir, 'out3.json')
+    expect((await run(['prune', messages, '--goal', 'my private override goal', '--out', out3])).exitCode).toBe(0)
+    expect('goal' in JSON.parse(await readFile(out3, 'utf8'))).toBe(false)
+  })
+
+  // The fifth audit (section 4.1, problem 3): a Claude Code log's broken line was skipped in silence.
+  it('warns about the lines of a Claude Code log it skipped as malformed', async () => {
+    const file = join(dir, 'session.jsonl')
+    const line = (uuid: string, content: string) => JSON.stringify({ type: 'user', uuid, timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content } })
+    await writeFile(file, [line('u1', 'fix the retry bug'), '{"type":"assistant","uuid":"a1","mess', line('u2', 'and keep the logs')].join('\n'))
+    const result = await run(['analyze', file, '--offline'])
+    expect(result.exitCode, result.stderr).toBe(0)
+    expect(result.stderr).toContain("⚠ 1 transcript line(s) aren't valid JSON records (line 2); skipped")
+  })
 })
+
