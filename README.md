@@ -4,6 +4,16 @@
 
 **Keep what matters when your agent's context gets compacted.**
 
+</div>
+
+> **In five lines:** ctxjev trims an AI agent's history; by default the CLI and the Claude Code plugin send nothing anywhere.
+> The CLI keeps the newest entries (`recency`, plain truncation); the Claude Code plugin uses keyword overlap (`local`).
+> Jev scoring is opt-in there (`--scorer jev`, `CTXJEV_SCORER=jev`) and needs `TYPESAFE_API_KEY`; the MCP tools ask Jev unless a call passes `scorer: "local"` or `"recency"`.
+> On held-out tasks, no scorer has yet beaten plain truncation: see [Does It Work?](#does-it-work).
+> Contributors: run `pnpm build` before this repo's `.mcp.json` can start the MCP server.
+
+<div align="center">
+
 `ctxjev` ranks the entries of an AI agent's history and decides what to keep, drop, or summarize.
 By default it ranks by position alone (newest kept, the same as plain truncation), with no key and
 nothing sent; opt in to [Jev](https://typesafe.ai), TypeSafe AI's typed-decision model, or to an
@@ -154,6 +164,7 @@ score: 0–1, position in the transcript (oldest 0, newest 1), not relevance: th
 
 3 keep, 2 summarize, 2 drop (of 7 entries)
 prune would remove the 2 entries marked drop, ~27 / 154 tokens (18%); the 2 entries marked summarize (~45 tokens) stay as they are unless you shorten them yourself
+⚠ would remove the first entry (e1): this transcript has no user entry to protect as the original request
 Scored by position alone (newest kept, like plain truncation) — no Jev call, nothing sent.
 ```
 
@@ -437,10 +448,12 @@ removed (to stdout, or `--out <file>`). With the defaults, on the same sample as
 ```console
 $ ctxjev prune examples/sample-transcripts/checkout-bug.json --out pruned.json
 removed 2 of 7 entries, ~27 tokens · scored by position alone
+⚠ removed the first entry (e1): this transcript has no user entry to protect as the original request
 ```
 
 `e1` and `e2`, the two entries that report marks `drop`, are gone from `pruned.json`, and every
-other field of the file (here `groundTruth`) is written back as it was. In ctxjev's own format
+other field of the file (here `groundTruth`) is written back as it was. This sample has no user
+entry (it starts with a test run), so nothing stood in for the original request, and `prune` says so. In ctxjev's own format
 `prune` never removes the first user entry or the last two entries (`--no-protect-first`,
 `--protect-last <n>`; it warns if the first user entry goes). In an
 Anthropic Messages transcript, `prune` by default never touches the first message or the latest
@@ -563,10 +576,9 @@ including in a commercial product, as long as the license text and copyright not
 [`LICENSE`](LICENSE) ship with it. It comes with no warranty of any kind; see the license text
 for the full disclaimer.
 
-This choice matches every package `ctxjev` currently depends on, so there is nothing to reconcile
-if you vendor or fork any of it:
+The packages `ctxjev` depends on directly are all under MIT or ISC:
 
-| Dependency | License |
+| Direct dependency | License |
 | --- | --- |
 | [`@typesafe-ai/sdk`](https://www.npmjs.com/package/@typesafe-ai/sdk) | MIT |
 | [`@modelcontextprotocol/sdk`](https://www.npmjs.com/package/@modelcontextprotocol/sdk) | MIT |
@@ -575,4 +587,9 @@ if you vendor or fork any of it:
 | [`picocolors`](https://www.npmjs.com/package/picocolors) | ISC |
 
 ISC and MIT are both short, permissive licenses with no material difference in what they let you
-do.
+do. Their own dependencies (what `npm install` pulls in beneath them, mostly under
+`@modelcontextprotocol/sdk`) are permissive too, but not all MIT or ISC: `fast-uri` and `qs` are
+BSD-3-Clause and `json-schema-typed` is BSD-2-Clause, which also ask you to keep their notices.
+`pnpm licenses list --prod` lists every one. The Claude Code plugin bundles code from
+`@typesafe-ai/sdk` into its `dist/`, and ships its notice in
+[`packages/claude-plugin/THIRD_PARTY_NOTICES`](packages/claude-plugin/THIRD_PARTY_NOTICES).

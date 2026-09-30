@@ -52,6 +52,18 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 - `scripts/redact-coverage.ts` runs again (it crashed with `ERR_MODULE_NOT_FOUND` since 0.7.0), and
   CI runs it.
 
+- Eval data checks: `packages/core/eval/check-sessions.mjs` checked only format-2 sessions, of which
+  there are none yet, so CI passed it having checked nothing. It now checks the probes of every
+  Japanese session, allows two format-1 holdout sessions exactly as many English fields as they are
+  known to have (Round 2 rewrites them), and fails on a new one or when it checks no session at all.
+- README: a five-line summary at the top (the CLI and the plugin send nothing by default, Jev is
+  opt-in there and the MCP tools' default, and no scorer has yet beaten plain truncation on held-out
+  tasks); the License section now tells direct dependencies
+  from the ones beneath them, and names the BSD-licensed ones. CONTRIBUTING: the repository's
+  `.mcp.json` needs `pnpm build` first. The README examples of `ctxjev analyze` and `ctxjev prune` on
+  `checkout-bug.json` show the new no-user-entry warning, and CI now runs every README example that
+  doesn't use Jev and compares it with the real output (`scripts/check-readme-examples.mjs`).
+
 ### Known issues
 
 - Secret masking still misses a quoted `NAME=value` whose quotes wrap the whole assignment
@@ -59,6 +71,9 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
   (`PGPASSWORD=…(… psql …`), and a password in prose with no `=` or `:`; and still masks an AWS
   Secrets Manager ARN's name. All of these leaked or were masked in 0.7.0 too. The list is in
   [#27](https://github.com/x96x64/ctxjev/issues/27) (and #16).
+- A Jev answer a hair outside 0 to 1 (floating-point noise) fails the batch rather than being
+  clamped; the MCP tools' `recencyWeight` does nothing with `scorer: "recency"`. Both, and two
+  smaller notes, are in [#29](https://github.com/x96x64/ctxjev/issues/29).
 
 ## 0.7.0 — 2026-09-27
 

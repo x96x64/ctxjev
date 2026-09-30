@@ -68,6 +68,7 @@ score: 0–1, position in the transcript (oldest 0, newest 1), not relevance: th
 
 3 keep, 2 summarize, 2 drop (of 7 entries)
 prune would remove the 2 entries marked drop, ~27 / 154 tokens (18%); the 2 entries marked summarize (~45 tokens) stay as they are unless you shorten them yourself
+⚠ would remove the first entry (e1): this transcript has no user entry to protect as the original request
 Scored by position alone (newest kept, like plain truncation) — no Jev call, nothing sent.
 ```
 
