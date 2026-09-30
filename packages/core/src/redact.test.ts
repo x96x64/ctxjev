@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { AUDIT3_FORMATS, AUDIT3_LINES, AUDIT4_HARMLESS, B62, ENV_SWEEP, ENV_SWEEP_HALVES, FORMATS, HARMLESS, PW, j } from '../test/redactCases.js'
+import { AUDIT3_FORMATS, AUDIT3_LINES, AUDIT4_HARMLESS, AUDIT5_HARMLESS, AUDIT5_LINES, B62, ENV_SWEEP, ENV_SWEEP_HALVES, FORMATS, HARMLESS, PW, j } from '../test/redactCases.js'
 import { redactSecrets } from './redact.js'
 
 describe('redactSecrets', () => {
@@ -147,6 +147,21 @@ describe('redactSecrets: time on long runs', () => {
     ['password=b # …', 'password=b # '.repeat(N / 13)],
     ['a=b # …', 'a=b # '.repeat(N / 6)],
     ['a: b\t#\t…', 'a: b\t#\t'.repeat(N / 7)],
+    // The fifth audit's rules: a URL password up to its last `@`, a passphrase, a Japanese label's value.
+    ['a://b:c#…', 'a://b:c#'.repeat(N / 8)],
+    ['a://b:#@c/…', 'a://b:#@c/'.repeat(N / 10)],
+    ['a://b:#@a@a…', `a://b:#${'@a'.repeat(N / 2)}`],
+    ['a://b:#@a.a.a…', `a://b:#@${'a.'.repeat(N / 2)}`],
+    ['"a://b:#…', '"a://b:#'.repeat(N / 8)],
+    ['password=a b lines…', 'password=a b\n'.repeat(N / 13)],
+    ['password=a a a…', `password=${'a '.repeat(N / 2)}`],
+    ['password: a b # # …', `password: a b${' #'.repeat(N / 2)}`],
+    ['export export …', `${'export '.repeat(N / 7)}PASSWORD=a b`],
+    ['パスワード: パスワード: …', 'パスワード: '.repeat(N / 7)],
+    ['パスワード:a1b2…', 'パスワード:a1b2'.repeat(N / 10)],
+    ['トークン=あああ…', `トークン=${'あ'.repeat(N)}`],
+    [' --password "…', ' --password "'.repeat(N / 13)],
+    [' --password "a b…', ' --password "a b'.repeat(N / 16)],
   ]
   it.each(runs)('%s (200,000 characters) in under 2 seconds', (_name, text) => {
     const start = performance.now()
@@ -905,6 +920,31 @@ describe('redactSecrets: the review of the fourth audit\'s masking change', () =
     'auth: {}',
     'credentials: {"user": "bob"}',
   ])('still leaves %j as it is', (text) => {
+    expect(redactSecrets(text)).toBe(text)
+  })
+})
+
+// The fifth audit (docs/audits/2026-10-01-audit-5-ja.md, improvement 2): a URL password holding
+// `#`, `/`, or `?`, a passphrase with spaces, a non-ASCII value after a Japanese label.
+describe('redactSecrets: the fifth audit\'s lines', () => {
+  it.each(AUDIT5_LINES)('masks $name', ({ text, secrets }) => {
+    const masked = redactSecrets(text)
+    for (const secret of secrets) expect(masked).not.toContain(secret)
+    expect(redactSecrets(masked)).toBe(masked)
+  })
+
+  it('keeps the host, the port, and the path of the audit\'s URL', () => {
+    expect(redactSecrets('postgres://app:Pg#Secr3t99@db.internal:5432/app')).toBe('postgres://app:[REDACTED]@db.internal:5432/app')
+    expect(redactSecrets('DATABASE_URL=mysql://root:a/b?c#d@db:3306/shop?ssl=true')).toBe('DATABASE_URL=mysql://root:[REDACTED]@db:3306/shop?ssl=true')
+  })
+
+  it('masks the whole passphrase and keeps the name', () => {
+    expect(redactSecrets('JWT_SECRET=correct horse battery staple')).toBe('JWT_SECRET=[REDACTED]')
+    expect(redactSecrets('DB_PASSWORD = correct horse battery staple # rotated')).toBe('DB_PASSWORD = [REDACTED] # rotated')
+    expect(redactSecrets('パスワード: Hunter2の秘密')).toBe('パスワード: [REDACTED]')
+  })
+
+  it.each(AUDIT5_HARMLESS)('leaves alone: %s', (text) => {
     expect(redactSecrets(text)).toBe(text)
   })
 })

@@ -246,6 +246,12 @@ const POSITIONAL_PATTERNS: Rule[] = [
   // flag named like a credential (the same words as an assignment's name; `--token-file x` isn't one).
   // The value is taken whole (so `--db-password hunter22 :x` can't give back its last character),
   // and a quoted value is never a JSON key (`--token "password": "…"`).
+  // The same with a quoted value that has spaces in it, a passphrase (`--passphrase "correct horse
+  // battery staple"`), which the rule below reads only up to its first space (the fifth audit).
+  [/(\s--([A-Za-z][A-Za-z0-9_-]{0,63})[ \t]+)(["'])([^"'\n]{1,256})\3(?![ \t]*:)/g, (match, head: string, flag: string, quote: string, value: string) => {
+    const kind = credentialKind(flag)
+    return /\s/.test(value) && (kind === 'password' || kind === 'token') && isMaskableFlagValue(value, kind) ? `${head}${quote}${REDACTED}${quote}` : match
+  }, ' --'],
   [/(\s--([A-Za-z][A-Za-z0-9_-]{0,63})[ \t]+)(["']?)(?!-)(?=([^\s'"]+))\4\3(?!(?<=["'])[ \t]*:)/g, (match, head: string, flag: string, quote: string, value: string) => {
     const kind = credentialKind(flag)
     if (kind === 'cookie') return `${head}${quote}${maskCookies(value)}${quote}`
@@ -642,19 +648,124 @@ function maskAssignments(text: string): string {
   return out + text.slice(copied)
 }
 
+// scheme://user:password@host, where the password holds a character the URL rules below stop at (`#`,
+// `/`, `?`, a quote, `<`, `>`) because its writer didn't percent-encode it: the fifth audit found
+// `postgres://app:Pg#Secr3t99@db.internal:5432/app` left whole, for any scheme. Here the password runs
+// to the LAST `@` followed by a host, in the same run of text: up to whitespace, the quote the URL
+// opened with, or 1,024 characters. A password without such a character is left to those rules, as
+// before; so is `host:port/…@…` (`http://localhost:3000/users/@alice`), which only looks like a user
+// and a password. A URL whose path also holds `@host` (`https://u:p@registry/@scope/pkg`) loses the
+// host up to that `@` too: when both readings are possible, more is hidden, not less.
+const URL_USERINFO_HEAD = /\b[a-z][a-z0-9+.-]{0,31}:\/\/[^\s:/?#@"'<>[\]]{0,256}:/gi
+const URL_HOST_AFTER_AT = /@(?:\[[0-9A-Fa-f:.]{2,64}\]|[A-Za-z0-9][A-Za-z0-9.-]{0,252})(?::[0-9]{1,5})?(?=[/?#"'<>),;\]}\\]|$)/y
+const URL_LOOSE_PASSWORD = /[/?#"'<>]/
+const URL_PORT_AND_PATH = /^[0-9]{1,5}(?:[/?#]|$)/
+const URL_REGION_LIMIT = 1024
+const CLOSING_QUOTE: Record<string, string> = { '"': '"', "'": "'", '`': '`', '<': '>' }
+
+function maskUrlPasswords(text: string): string {
+  if (!text.includes('://')) return text
+  const head = new RegExp(URL_USERINFO_HEAD.source, 'gi')
+  let out = ''
+  let copied = 0
+  for (let m = head.exec(text); m !== null; m = head.exec(text)) {
+    const start = m.index + m[0].length
+    const closing = CLOSING_QUOTE[text[m.index - 1]]
+    let end = start
+    while (end < text.length && end - start < URL_REGION_LIMIT && !/\s/.test(text[end]) && text[end] !== closing) end++
+    const region = text.slice(start, end)
+    // The last `@` in the region that a host follows (each `@` is tried once, from the end).
+    let at = -1
+    for (let i = region.lastIndexOf('@'); i > 0; i = region.lastIndexOf('@', i - 1)) {
+      URL_HOST_AFTER_AT.lastIndex = i
+      if (URL_HOST_AFTER_AT.test(region)) {
+        at = i
+        break
+      }
+    }
+    // Each character is read by one head's scan: the next search starts past this one's region, or
+    // past the `@` when a password was found.
+    head.lastIndex = at === -1 ? Math.max(end, head.lastIndex) : start + at + 1
+    if (at === -1) continue
+    const password = region.slice(0, at)
+    if (!URL_LOOSE_PASSWORD.test(password) || URL_PORT_AND_PATH.test(password) || isMasked(password) || URL_PASSWORD_PLACEHOLDER.test(password)) continue
+    out += text.slice(copied, start) + REDACTED
+    copied = start + at
+  }
+  return out + text.slice(copied)
+}
+
+// A passphrase with spaces as a line's whole value (`JWT_SECRET=correct horse battery staple` in a
+// .env file, INI's `password = …`, YAML's `passphrase: …`), which the rules below cut at its first
+// space, leaving the rest (the fifth audit). Only where the name starts the line (after `export`, or
+// indentation), so a value followed by prose (`Error: DB_PASSWORD=hunter22 was rejected`) keeps the
+// prose. Each word is plain: none opens a quote, a call, a block, or a substitution, or is a flag
+// or a path (`PGPASSWORD=… psql -h db`), and code (`secret = a if b else c`) is left alone. With a
+// colon, only a value whose first word the rules below mask anyway, so `Token: expired yesterday`
+// stays as it is.
+const PASSPHRASE_LINE = /(?<![^\n])([ \t]*(?:export[ \t]+)?)(?=([A-Za-z_][A-Za-z0-9_.-]{0,127}))\2([ \t]*(?:=|:(?=[ \t])|：)[ \t]*)(?!["'`])([^\n]{1,1024})/g
+const PASSPHRASE_WORD = /^[^"'`$=\\(){}[\]<>|&;]+$/
+const CODE_KEYWORDS = new Set(['if', 'else', 'or', 'and', 'not', 'is', 'in', 'await', 'new', 'typeof', 'lambda', 'for'])
+
+function maskPassphraseLines(text: string): string {
+  if (!/[ \t]/.test(text) || !/[:=：]/.test(text)) return text
+  const pattern = new RegExp(PASSPHRASE_LINE.source, 'g')
+  let out = ''
+  let copied = 0
+  for (let m = pattern.exec(text); m !== null; m = pattern.exec(text)) {
+    const [whole, lead, name, sep, rest] = m
+    const kind = credentialKind(name)
+    if (kind !== 'password' && kind !== 'token') continue
+    // The value ends the line: less a ` #` comment, a `\r`, and trailing space.
+    const comment = rest.search(/[ \t]#/)
+    const value = (comment === -1 ? rest : rest.slice(0, comment)).replace(/[ \t\r]+$/, '')
+    const words = value.split(/[ \t]+/)
+    // A line longer than the pattern reads isn't a .env value.
+    const after = text[m.index + whole.length]
+    if (words.length < 2 || words.length > 16 || (after !== undefined && after !== '\n')) continue
+    if (!words.every((word, i) => PASSPHRASE_WORD.test(word) && (i === 0 || (!word.startsWith('-') && !word.includes('/'))))) continue
+    if (words.some((w) => CODE_KEYWORDS.has(w)) && words.some((w) => /[._]/.test(w))) continue
+    if (!isMaskableValue(value, kind, false, undefined, name)) continue
+    if (sep.trim() !== '=' && !isMaskableValue(words[0], kind, true, undefined, name)) continue
+    const start = m.index + lead.length + name.length + sep.length
+    out += text.slice(copied, start) + REDACTED
+    copied = start + value.length
+  }
+  return out + text.slice(copied)
+}
+
+// A value with non-ASCII characters after a Japanese label (`パスワード: Hunter2の秘密`), which the
+// Japanese rule (ASCII values only, so prose after the colon isn't masked) leaves whole (the fifth
+// audit). The value runs to whitespace, a quote, a bracket, or Japanese punctuation, and is masked
+// only when it holds a run of four or more ASCII characters with both a letter and a digit in it, not
+// a version: "8文字以上にしてください", "v2形式", and "v1.2.3に更新しました" are prose.
+const JA_VALUE = /((?:API|アクセス|シークレット)\s?キー|パスワード|パスフレーズ|シークレット|トークン|秘密鍵)(\s*[:=：]\s*)(["'「]?)([^\s"'「」『』。、，．！？（）()]{1,256})/gi
+const JA_ASCII_RUN = /[!-~]{4,}/g
+
+function maskJapaneseValues(text: string): string {
+  if (!/[キドンー鍵]/.test(text)) return text
+  return text.replace(JA_VALUE, (match, name: string, sep: string, quote: string, value: string) => {
+    if (isMasked(value)) return match
+    const runs = value.match(JA_ASCII_RUN) ?? []
+    const secretLike = runs.some((run) => /[A-Za-z]/.test(run) && /[0-9]/.test(run) && !/^v?\d+(?:\.\d+)+$/.test(run))
+    return secretLike ? `${name}${sep}${quote}${REDACTED}` : match
+  })
+}
+
 /**
- * Masks an unquoted value that ends its line first (maskLineEndAssignments: 0.6.1's assignment rule
- * would mask only its start), then what 0.6.1 masked (redactLegacy.ts), then what these rules mask,
- * and repeats until nothing
- * changes (at most a few passes; one is almost always enough), so masking twice is the same as once.
- * Running 0.6.1's rules first means a gap in a rule rewritten here can't let through a secret 0.6.1
- * caught; it also keeps 0.6.1's false alarms (see the CHANGELOG).
+ * Masks what a later rule would only mask part of, first: a URL password holding `#`, `/`, or `?`
+ * (maskUrlPasswords), a passphrase or a Japanese-labelled value with spaces or non-ASCII characters in
+ * it, an unquoted value that ends its line (maskLineEndAssignments: 0.6.1's assignment rule would mask
+ * only its start). Then what 0.6.1 masked (redactLegacy.ts), then what these rules mask, and repeats
+ * until nothing changes (at most a few passes; one is almost always enough), so masking twice is the
+ * same as once. Running 0.6.1's rules early means a gap in a rule rewritten here can't let through a
+ * secret 0.6.1 caught; it also keeps 0.6.1's false alarms (see the CHANGELOG).
  */
 export function redactSecrets(text: string): string {
   validateText(text, 'text')
   let out = text
   for (let pass = 0; pass < MAX_PASSES; pass++) {
-    const next = redactCurrent(redactLegacy(maskLineEndAssignments(out)))
+    const next = redactCurrent(redactLegacy(maskLineEndAssignments(maskJapaneseValues(maskPassphraseLines(maskUrlPasswords(out))))))
     if (next === out) break
     out = next
   }

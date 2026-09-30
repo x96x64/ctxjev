@@ -5,6 +5,12 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 (`.claude-plugin/marketplace.json`, `packages/claude-plugin/.claude-plugin/plugin.json`,
 `plugins/ctxjev/plugin.json`). A bump in one is a bump in all, even when only one changed.
 
+## Unreleased
+
+- `ctxjev-core`: masks a URL password holding `#`, `/`, or `?` (`postgres://app:Pg#Secr3t99@db…` was kept whole, on every path).
+- `ctxjev-core`: masks a whole passphrase with spaces on a `.env`/INI/YAML line or after a `--password "…"` flag (only its first word was masked, or none).
+- `ctxjev-core`: masks a value with non-ASCII characters after a Japanese label (`パスワード: Hunter2の秘密` was kept whole).
+
 ## 0.7.1 — 2026-09-30
 
 - `ctxjev-core`: secret masking no longer lets through an unquoted value with punctuation in it.

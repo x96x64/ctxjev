@@ -10,7 +10,7 @@
  * reports. It crashed in 0.7.0 (the fourth audit's P2-10): redact.ts had started importing
  * redactLegacy.ts, which it didn't copy (loadRedact.ts now does).
  */
-import { AUDIT3_FORMATS, AUDIT4_HARMLESS, ENV_SWEEP, ENV_SWEEP_HALVES, FORMATS, HARMLESS } from '../packages/core/test/redactCases.ts'
+import { AUDIT3_FORMATS, AUDIT4_HARMLESS, AUDIT5_HARMLESS, AUDIT5_LINES, ENV_SWEEP, ENV_SWEEP_HALVES, FORMATS, HARMLESS } from '../packages/core/test/redactCases.ts'
 import { loadRedactSecrets } from './loadRedact.ts'
 
 const ref = process.argv[2]
@@ -21,10 +21,11 @@ const sweep = ENV_SWEEP.map(({ text }) => ({ name: text, text, secrets: ENV_SWEE
 const leaks = (cases: typeof formats) => cases.filter((f) => f.secrets.some((secret) => redactSecrets(f.text).includes(secret)))
 const missed = leaks(formats)
 const sweepMissed = leaks(sweep)
-const harmless = [...HARMLESS, ...AUDIT4_HARMLESS]
+const audit5Missed = leaks(AUDIT5_LINES)
+const harmless = [...HARMLESS, ...AUDIT4_HARMLESS, ...AUDIT5_HARMLESS]
 const altered = harmless.filter((text) => redactSecrets(text) !== text)
-console.log(`${ref ?? 'working tree'}: ${formats.length - missed.length}/${formats.length} formats masked, ${sweep.length - sweepMissed.length}/${sweep.length} lines of the fourth audit's .env sweep masked, ${altered.length}/${harmless.length} harmless strings altered`)
-for (const f of missed) console.log(`  missed:  ${f.name}`)
+console.log(`${ref ?? 'working tree'}: ${formats.length - missed.length}/${formats.length} formats masked, ${sweep.length - sweepMissed.length}/${sweep.length} lines of the fourth audit's .env sweep masked, ${AUDIT5_LINES.length - audit5Missed.length}/${AUDIT5_LINES.length} of the fifth audit's lines masked, ${altered.length}/${harmless.length} harmless strings altered`)
+for (const f of [...missed, ...audit5Missed]) console.log(`  missed:  ${f.name}`)
 const bySymbol = new Map<string, number>()
 for (const { text } of sweepMissed) {
   const symbol = ENV_SWEEP.find((s) => s.text === text)!.symbol
@@ -32,4 +33,4 @@ for (const { text } of sweepMissed) {
 }
 if (bySymbol.size > 0) console.log(`  .env sweep leaks, by symbol: ${[...bySymbol].map(([s, n]) => `${s} ${n}/18`).join(', ')}`)
 for (const text of altered) console.log(`  altered: ${JSON.stringify(text)}`)
-if (!ref && (missed.length > 0 || sweepMissed.length > 0 || altered.length > 0)) process.exitCode = 1
+if (!ref && (missed.length > 0 || sweepMissed.length > 0 || audit5Missed.length > 0 || altered.length > 0)) process.exitCode = 1
