@@ -6,9 +6,9 @@
 
 </div>
 
-> **In five lines:** ctxjev trims an AI agent's history, and by default sends nothing anywhere.
+> **In five lines:** ctxjev trims an AI agent's history; by default the CLI and the Claude Code plugin send nothing anywhere.
 > The CLI keeps the newest entries (`recency`, plain truncation); the Claude Code plugin uses keyword overlap (`local`).
-> Jev scoring is opt-in there (`--scorer jev`, `CTXJEV_SCORER=jev`) and needs `TYPESAFE_API_KEY`; the MCP tools ask Jev unless a call passes `scorer: "local"`.
+> Jev scoring is opt-in there (`--scorer jev`, `CTXJEV_SCORER=jev`) and needs `TYPESAFE_API_KEY`; the MCP tools ask Jev unless a call passes `scorer: "local"` or `"recency"`.
 > On held-out tasks, no scorer has yet beaten plain truncation: see [Does It Work?](#does-it-work).
 > Contributors: run `pnpm build` before this repo's `.mcp.json` can start the MCP server.
 

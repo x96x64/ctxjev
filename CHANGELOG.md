@@ -54,10 +54,11 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 
 - Eval data checks: `packages/core/eval/check-sessions.mjs` checked only format-2 sessions, of which
   there are none yet, so CI passed it having checked nothing. It now checks the probes of every
-  Japanese session, allows only the English fields two format-1 holdout sessions are known to have
-  (Round 2 rewrites them), and fails on a new one or when it checks no session at all.
-- README: a five-line summary at the top (the default sends nothing, Jev is opt-in, and no scorer has
-  yet beaten plain truncation on held-out tasks); the License section now tells direct dependencies
+  Japanese session, allows two format-1 holdout sessions exactly as many English fields as they are
+  known to have (Round 2 rewrites them), and fails on a new one or when it checks no session at all.
+- README: a five-line summary at the top (the CLI and the plugin send nothing by default, Jev is
+  opt-in there and the MCP tools' default, and no scorer has yet beaten plain truncation on held-out
+  tasks); the License section now tells direct dependencies
   from the ones beneath them, and names the BSD-licensed ones. CONTRIBUTING: the repository's
   `.mcp.json` needs `pnpm build` first. The README examples of `ctxjev analyze` and `ctxjev prune` on
   `checkout-bug.json` show the new no-user-entry warning, and CI now runs every README example that

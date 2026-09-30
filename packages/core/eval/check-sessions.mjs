@@ -7,8 +7,8 @@
  *
  * Format-2 tasks (Round 2 on) must follow the rule. Round 1's format-1 sessions are checked too,
  * against what's known: two Japanese holdout sessions were recorded with English probes (the fourth
- * audit counted 14 questions), which Round 2 will rewrite; until then each is allowed exactly the
- * English fields it has, so a new one fails. It fails when it checks no session at all: in 0.7.0 it
+ * audit counted 14 questions), which Round 2 will rewrite; until then each is allowed exactly as
+ * many English fields as it has (a count, not which ones), so a new one fails. It fails when it checks no session at all: in 0.7.0 it
  * checked only format-2 sessions, of which there are none yet, and passed protecting nothing (the
  * fourth audit's P1-4).
  *
