@@ -32,6 +32,14 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 - `scripts/redact-coverage.ts` runs again (it crashed with `ERR_MODULE_NOT_FOUND` since 0.7.0), and
   CI runs it.
 
+### Known issues
+
+- Secret masking still misses a quoted `NAME=value` whose quotes wrap the whole assignment
+  (`docker run -e "DB_PASSWORD=…(…"`), an inline variable before a command
+  (`PGPASSWORD=…(… psql …`), and a password in prose with no `=` or `:`; and still masks an AWS
+  Secrets Manager ARN's name. All of these leaked or were masked in 0.7.0 too. The list is in
+  [#27](https://github.com/x96x64/ctxjev/issues/27) (and #16).
+
 ## 0.7.0 — 2026-09-27
 
 **Breaking changes, in short** (each is described below): `ctxjev prune` on ctxjev's own format
