@@ -164,6 +164,7 @@ score: 0–1, position in the transcript (oldest 0, newest 1), not relevance: th
 
 3 keep, 2 summarize, 2 drop (of 7 entries)
 prune would remove the 2 entries marked drop, ~27 / 154 tokens (18%); the 2 entries marked summarize (~45 tokens) stay as they are unless you shorten them yourself
+⚠ would remove the first entry (e1): this transcript has no user entry to protect as the original request
 Scored by position alone (newest kept, like plain truncation) — no Jev call, nothing sent.
 ```
 
@@ -447,10 +448,12 @@ removed (to stdout, or `--out <file>`). With the defaults, on the same sample as
 ```console
 $ ctxjev prune examples/sample-transcripts/checkout-bug.json --out pruned.json
 removed 2 of 7 entries, ~27 tokens · scored by position alone
+⚠ removed the first entry (e1): this transcript has no user entry to protect as the original request
 ```
 
 `e1` and `e2`, the two entries that report marks `drop`, are gone from `pruned.json`, and every
-other field of the file (here `groundTruth`) is written back as it was. In ctxjev's own format
+other field of the file (here `groundTruth`) is written back as it was. This sample has no user
+entry (it starts with a test run), so nothing stood in for the original request, and `prune` says so. In ctxjev's own format
 `prune` never removes the first user entry or the last two entries (`--no-protect-first`,
 `--protect-last <n>`; it warns if the first user entry goes). In an
 Anthropic Messages transcript, `prune` by default never touches the first message or the latest

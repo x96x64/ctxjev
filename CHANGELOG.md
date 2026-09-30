@@ -59,7 +59,9 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 - README: a five-line summary at the top (the default sends nothing, Jev is opt-in, and no scorer has
   yet beaten plain truncation on held-out tasks); the License section now tells direct dependencies
   from the ones beneath them, and names the BSD-licensed ones. CONTRIBUTING: the repository's
-  `.mcp.json` needs `pnpm build` first.
+  `.mcp.json` needs `pnpm build` first. The README examples of `ctxjev analyze` and `ctxjev prune` on
+  `checkout-bug.json` show the new no-user-entry warning, and CI now runs every README example that
+  doesn't use Jev and compares it with the real output (`scripts/check-readme-examples.mjs`).
 
 ### Known issues
 

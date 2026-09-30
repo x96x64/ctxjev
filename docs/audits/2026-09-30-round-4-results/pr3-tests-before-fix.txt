@@ -4,3 +4,10 @@
      × fails when a Japanese session gains an English probe
 ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
       Tests  3 failed (3)
+
+# The README examples on main after PR #28 (the CLI's new warning), checked by scripts/check-readme-examples.mjs before this PR updated them
+FAIL  README.md: ctxjev analyze examples/sample-transcripts/checkout-bug.json (exit 0)
+ok    README.md: ctxjev analyze claude-code-session.jsonl
+FAIL  README.md: ctxjev prune examples/sample-transcripts/checkout-bug.json --out pruned.json (exit 0)
+FAIL  packages/cli/README.md: ctxjev analyze checkout-bug.json (exit 0)
+1/4 README examples match
