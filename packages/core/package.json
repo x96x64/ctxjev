@@ -1,6 +1,6 @@
 {
   "name": "ctxjev-core",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Decide what to keep, drop, or summarize in AI agent context: by recency (the default), keyword overlap, or Jev's relevance scores (opt-in).",
   "keywords": [
     "ai-agent",
