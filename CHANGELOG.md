@@ -17,10 +17,12 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 - `ctxjev-core`: secret masking no longer corrupts placeholders or hides versions:
   `password: ${DB_PASSWORD}` stayed `password: [REDACTED]{DB_PASSWORD}`, and a dependency such as
   `"jsonwebtoken": "^9.0.2"` lost its version to `[REDACTED]`. Also left as they are now: Spring's
-  `${a.b}` and `${NAME:}`, a URL's placeholder password (`postgres://app:********@db`), an example
-  cut short (`sk-ant-...`), a Helm template after `- name: DB_PASSWORD`, a base64 string ending in
-  `…Pw==`, and `secret_key = settings.SECRET_KEY`. These change 0.6.1's rules, which 0.7.0 ran first
-  unchanged; a `${NAME:-default}` with a default is still masked, since the default may be the secret.
+  `${a.b}` and `${NAME:}`, a URL's password written `********` or `${NAME}`, an example cut short
+  after its prefix (`sk-ant-...`), a Helm template after `- name: DB_PASSWORD`, a base64 string
+  ending in `…Pw==`, and a reference such as `secret_key = settings.SECRET_KEY` or `config.Password`.
+  These change 0.6.1's rules, which 0.7.0 ran first unchanged. Still masked: a default
+  (`${NAME:-…}`, `${NAME-…}`), since it may be the secret; a password that looks like a version; and
+  a version with any suffix but a pre-release word (`1.2.3-<token>`).
 - `ctxjev-core`: masks an "application key" (`DD-APPLICATION-KEY: …`).
 - Secret masking, measured blind: the README's Design Notes now give the holdout results of each
   corpus written without sight of the masking code, generated from the saved outputs: 0.7.0 masked

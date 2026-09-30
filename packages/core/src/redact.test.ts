@@ -143,6 +143,10 @@ describe('redactSecrets: time on long runs', () => {
     ['token=${${${…', `token=${'${'.repeat(N / 2)}`],
     ['token: 1.0 1.0 … x', `token: ${'1.0 '.repeat(N / 4)}x`],
     ['.env lines…', 'DB_PASSWORD=Qx7(pL9\n'.repeat(N / 20)],
+    // The review of the change: each ` #` read the rest of the line again.
+    ['password=b # …', 'password=b # '.repeat(N / 13)],
+    ['a=b # …', 'a=b # '.repeat(N / 6)],
+    ['a: b\t#\t…', 'a: b\t#\t'.repeat(N / 7)],
   ]
   it.each(runs)('%s (200,000 characters) in under 2 seconds', (_name, text) => {
     const start = performance.now()
@@ -842,5 +846,64 @@ describe('redactSecrets: shapes from the Round 4 blind corpus\'s dev half', () =
 
   it('masks a Datadog-style application key header', () => {
     expect(redactSecrets('-H "DD-APPLICATION-KEY: 4f2a9c1e7d3b8a6f0e5c2d9b1a7f3e8c4d6b2a9f"')).toBe('-H "DD-APPLICATION-KEY: [REDACTED]"')
+  })
+})
+
+// The independent review of the fourth audit's masking change (PR #26): each of these was masked by
+// 0.7.0 or is the kind of value the change set out to mask, and the first version of the change
+// let it through.
+describe('redactSecrets: the review of the fourth audit\'s masking change', () => {
+  const pw = 'Qx7vR2mKpL9zW4tB'
+  it.each([
+    // 1. `${NAME-default}` (no colon): the default may be the secret, as with `${NAME:-default}`.
+    `password: "\${DB_PASSWORD-${pw}}"`,
+    `DATABASE_URL: postgres://app:\${POSTGRES_PASSWORD-${pw}}@db/app`,
+    `password: '\${db.password-${pw}}'`,
+    // 2. A URL's password that starts with `$`, or looks like `%X%` or `xxx…`.
+    'mongodb+srv://admin:$tr0ngPassw0rdQx7@cluster0.mongodb.net/db',
+    'redis://:$ecretRedis9Qx7vR2@cache:6379',
+    'amqp://guest:%RABBITQx7vR2mK%@mq:5672',
+    `https://user:xxxxxxxx${pw}@git.example.com/repo.git`,
+    // 3. A password that starts like a version, and a token with a long version-like suffix.
+    `DB_PASSWORD=1.2-${pw}`,
+    `password: v2.0.1-${pw}`,
+    `password: "3.14-${pw}"`,
+    `token: 1.2.3-${pw}`,
+    `api_key=1.2.3+${pw}`,
+    // 4. A secret cut short is still most of a secret.
+    `password=${pw.slice(0, 12)}…`,
+    'password=Hunter2Qx7...',
+    'token=ghp_abcd1234efgh...',
+    // 6. A password whose brackets balance isn't a call or a literal.
+    `DB_PASSWORD=Qx7vR2mK(pL9zW4tB)`,
+    '  password: P4ss(w0rdQx7vR2mK)',
+    '  password: P4ss(w0rd)',
+    `DB_PASSWORD=Qx7vR2mK[pL9zW4tB]`,
+    `DB_PASSWORD=Qx7vR2mK(pL9zW4tB) # prod`,
+    `DB_PASSWORD={${pw}}`,
+    `DB_PASSWORD=[${pw}]`,
+  ])('masks %j', (text) => {
+    const masked = redactSecrets(text)
+    for (const piece of [pw.slice(0, 8), pw.slice(8), 'tr0ngPassw0rd', 'ecretRedis9', 'RABBITQx7', 'w0rdQx7', 'abcd1234efgh', 'Hunter2', 'P4ss(w0rd)']) {
+      if (text.includes(piece)) expect(masked).not.toContain(piece)
+    }
+    expect(masked).toContain('[REDACTED]')
+  })
+
+  it.each([
+    'OPENAI_API_KEY=sk-...',
+    'ANTHROPIC_API_KEY=sk-ant-api03-...',
+    'GITHUB_TOKEN=ghp_…',
+    '"next-auth": "4.24.5-beta.2"',
+    '"jsonwebtoken": "9.0.0-rc.1"',
+    'token = get_token()',
+    'api_key = os.getenv("API_KEY")',
+    'password = hash_password(raw, salt)',
+    'secret = config.get(\'secret\', None)',
+    'password: []',
+    'auth: {}',
+    'credentials: {"user": "bob"}',
+  ])('still leaves %j as it is', (text) => {
+    expect(redactSecrets(text)).toBe(text)
   })
 })

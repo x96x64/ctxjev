@@ -389,9 +389,11 @@ function classifyName(name: string): CredentialKind | undefined {
 // Not a secret: a type, a placeholder, a reference to where the secret actually lives.
 // `${NAME}` (or Spring's `${a.b}`) with no default, or one that says the variable is required
 // (`${NAME:?}`, `${NAME:-}`, Spring's `${NAME:}`): a default that isn't empty may itself be the
-// secret, so it isn't a placeholder. An example cut short (`sk-ant-...`) isn't a key either.
+// secret, so it isn't a placeholder (nor is `${NAME-default}`: a name has no `-`). An example cut
+// short after a prefix and a separator (`sk-ant-...`, `ghp_…`) isn't a key either; a value cut
+// anywhere else (`ghp_abcd1234...`) may be most of one.
 const PLACEHOLDER =
-  /^(?:true|false|null|nil|none|undefined|yes|no|on|off|required|optional|string|str|number|int|boolean|bool|\*+|x{3,}|\.{3}|…|<[^>]*>|\{\{.*\}\}|\$\{?[A-Za-z_]\w*\}?|\$\{[A-Za-z_][\w.-]*(?::?\?[^}]*|:?-|:)?\}|%[A-Za-z_]\w*%?|[A-Za-z0-9_-]{1,16}(?:\.{3}|…))$/i
+  /^(?:true|false|null|nil|none|undefined|yes|no|on|off|required|optional|string|str|number|int|boolean|bool|\*+|x{3,}|\.{3}|…|<[^>]*>|\{\{.*\}\}|\$\{?[A-Za-z_]\w*\}?|\$\{[A-Za-z_][\w.]*(?::?\?[^}]*|:?-|:)?\}|%[A-Za-z_]\w*%?|[a-z]{1,8}(?:[-_][a-z0-9]{1,8}){0,3}[-_](?:\.{3}|…))$/i
 const REFERENCE = /^(?:process\.env|os\.environ|import\.meta\.env|ENV\[|System\.getenv|getenv)/
 
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -402,7 +404,8 @@ const isSelfReference = (value: string, name: string) =>
 
 function isMaskableValue(value: string, kind: CredentialKind, bare: boolean, next: string | undefined, name?: string): boolean {
   // A value that's only `=` is a base64 string's padding (`…t+DPw==` read as `DPw` = `=`).
-  if (value.length === 0 || isMasked(value) || PLACEHOLDER.test(value) || REFERENCE.test(value) || VERSION.test(value) || /^=+$/.test(value)) return false
+  // A version is never a password's value (`DB_PASSWORD=1.2-…` is a password).
+  if (value.length === 0 || isMasked(value) || PLACEHOLDER.test(value) || REFERENCE.test(value) || (kind !== 'password' && VERSION.test(value)) || /^=+$/.test(value)) return false
   if (bare && (next === '(' || next === '[')) return false
   // Code passing a variable on: `password=password`, `token=self.token`, `secret_key =
   // settings.SECRET_KEY` (after a dot, in any case: a bare `PASSWORD=password` may be the password).
@@ -517,15 +520,21 @@ function maskCommandArguments(text: string): string {
 // label's value (`Environment=DB_PASSWORD=…`) is tried again from where it starts, up to
 // MAX_LABEL_NESTING labels deep. The value is one run with no whitespace: text with spaces in it is
 // prose or code as often as a value, and is left to the assignment rule.
-const LINE_END_BODY = String.raw`(?=([A-Za-z_][A-Za-z0-9_.-]{0,127}))\1([ \t]*(?::=|[:=])[ \t]*)(?!["'\x60])(?=(\S+))\3(?=(?:[ \t]+#[^\r\n]*|[ \t]*)$)`
+// The comment is found by its ` #` alone, never read to the end of the line: that read, made again
+// for each ` #` on a long line, was quadratic.
+const LINE_END_BODY = String.raw`(?=([A-Za-z_][A-Za-z0-9_.-]{0,127}))\1([ \t]*(?::=|[:=])[ \t]*)(?!["'\x60])(?=(\S+))\3(?=[ \t]+#|[ \t]*$)`
 const LINE_END_ASSIGNMENT = new RegExp(String.raw`(?<!\S)${LINE_END_BODY}`, 'gm')
 const LINE_END_ASSIGNMENT_AT = new RegExp(LINE_END_BODY, 'my')
 
 // Code that reads a credential rather than holding one: a call or an index (`get_token()`,
-// `request.form['password']`, `$(vault-read)`), a literal (`{}`, `[]`), a YAML block scalar's
-// indicator (`|`, `>-`) or alias (`*db_password`). A call's brackets must balance, so a password
-// with one `(` in it (`Qx7vR2mK(pL9zW4tB`) isn't one.
-const CODE_CALL = /^(?:[A-Za-z_$][\w$]*(?:(?:\.|\?\.|::|->)[A-Za-z_$][\w$]*)*[([]|\$\(|[{[])/
+// `request.form['password']`, `$(vault-read)`), a literal (`{}`, `[]`, `{"user":"bob"}`), a YAML
+// block scalar's indicator (`|`, `>-`) or alias (`*db_password`). Its brackets balance, and once its
+// quoted strings are taken out, what's left is names and numbers, each name letters with at most
+// digits at the end (`get_token`, `sha256`): a password's parts (`Qx7vR2mK(pL9zW4tB)`, `P4ss(w0rd)`,
+// `{Qx7vR2mKpL9zW4tB}`) aren't.
+const NAME_PART = String.raw`[A-Za-z_$][A-Za-z_$]*[0-9]*`
+const CODE_START = new RegExp(String.raw`^(?:${NAME_PART}(?:(?:\.|\?\.|::|->)${NAME_PART})*[([]|\$\()`)
+const CODE_WORD = new RegExp(String.raw`^(?:${NAME_PART}|[0-9]+)$`)
 const YAML_SYNTAX = /^(?:[|>][-+]?[0-9]?|\*[A-Za-z_][\w-]*)$/
 const CLOSERS: Record<string, string> = { ')': '(', ']': '[', '}': '{' }
 
@@ -538,7 +547,17 @@ function bracketsBalance(value: string): boolean {
   return open.length === 0
 }
 
-const isLineEndCode = (value: string) => YAML_SYNTAX.test(value) || (CODE_CALL.test(value) && /[)\]}];?$/.test(value) && bracketsBalance(value.replace(/;$/, '')))
+function isLineEndCode(value: string): boolean {
+  if (YAML_SYNTAX.test(value)) return true
+  const body = value.replace(/;$/, '')
+  if (!/[)\]}]$/.test(body) || !bracketsBalance(body)) return false
+  // A literal is empty, or has quotes, a key, or a list in it.
+  if (/^[{[]/.test(body) ? body.length > 2 && !/["':,]/.test(body) : !CODE_START.test(body)) return false
+  return body
+    .replace(/'[^']*'|"[^"]*"/g, '')
+    .split(/[^A-Za-z0-9_$]+/)
+    .every((word) => word === '' || CODE_WORD.test(word))
+}
 
 /**
  * How much of a value that ends its line is the value: less a trailing `,` or `;` (the end of a

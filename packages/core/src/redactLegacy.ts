@@ -27,12 +27,12 @@
  *   `password=self.password`, `cookie = req.headers.cookie`), is code passing a variable on;
  * - a `--password`/`--token`/… value in angle brackets (`--password <password>`) is a usage line's
  *   placeholder;
- * - (0.7.1, the fourth audit's P2-9) a version (`"jsonwebtoken": "^9.0.2"`) isn't a credential, a
+ * - (0.7.1, the fourth audit's P2-9) a version (`"jsonwebtoken": "^9.0.2"`) isn't a token's value, a
  *   bare `${NAME}` is taken whole as a placeholder (0.6.1 masked its `$` and left
  *   `[REDACTED]{NAME}`), and a reference ending in the name matches it in any case after a dot
  *   (`secret_key = settings.SECRET_KEY`); a placeholder is also a Spring one (`${spring.mail.password:}`)
- *   or an elided example (`sk-ant-...`), a URL's password may be a placeholder
- *   (`postgres://app:********@db`), and a value that's only `=` is a base64 string's padding
+ *   or an example cut short after a prefix (`sk-ant-...`), a URL's password may be `********` or
+ *   `${NAME}`, and a value that's only `=` is a base64 string's padding
  *   (`…t+DPw==` read as `DPw` = `=`);
  * - after a Japanese label, a Cookie, Set-Cookie, or Authorization header's name (`パスワード:
  *   Set-Cookie: sid=…`) isn't the value: 0.6.1 masked `Set-Cookie:`, and with it the header the
@@ -66,7 +66,8 @@ const TOKEN_PATTERNS_AFTER_JWT: Array<[RegExp, string]> = [
 ]
 
 // Shared with redact.ts: a URL's password that's a placeholder, not a password.
-export const URL_PASSWORD_PLACEHOLDER = /^(?:\*+|x{3,}|\.{3}|…|<[^>]*>|\{\{[^}]*\}\}|\$\{[A-Za-z_][\w.-]*\}|\$[A-Za-z_]\w*|%[A-Za-z_]\w*%)$/i
+// Only a mask (`********`) or `${NAME}`: a password may well start with `$` or look like `%X%`.
+export const URL_PASSWORD_PLACEHOLDER = /^(?:\*+|\$\{[A-Za-z_][\w.]*\})$/
 
 const POSITIONAL_PATTERNS: Array<[RegExp, string | ((match: string, ...groups: string[]) => string)]> = [
   // (0.7.1) A placeholder where the password goes (`postgres://app:********@db`, `:${DB_PASSWORD}@`) is left as it is.
@@ -226,18 +227,19 @@ function classifyName(name: string): CredentialKind | undefined {
 }
 
 const PLACEHOLDER =
-  /^(?:true|false|null|nil|none|undefined|yes|no|on|off|required|optional|string|str|number|int|boolean|bool|\*+|x{3,}|\.{3}|…|<[^>]*>|\{\{.*\}\}|\$\{?[A-Za-z_]\w*\}?|\$\{[A-Za-z_][\w.-]*(?::?\?[^}]*|:?-|:)?\}|%[A-Za-z_]\w*%?|[A-Za-z0-9_-]{1,16}(?:\.{3}|…))$/i
+  /^(?:true|false|null|nil|none|undefined|yes|no|on|off|required|optional|string|str|number|int|boolean|bool|\*+|x{3,}|\.{3}|…|<[^>]*>|\{\{.*\}\}|\$\{?[A-Za-z_]\w*\}?|\$\{[A-Za-z_][\w.]*(?::?\?[^}]*|:?-|:)?\}|%[A-Za-z_]\w*%?|[a-z]{1,8}(?:[-_][a-z0-9]{1,8}){0,3}[-_](?:\.{3}|…))$/i
 const REFERENCE = /^(?:process\.env|os\.environ|import\.meta\.env|ENV\[|System\.getenv|getenv)/
 // A version or a range of them (`^9.0.2`, `==0.9.5`, `>=3.1,<4`): a dependency whose package's name
 // ends in a credential's word (`"jsonwebtoken": "^9.0.2"`, `next-auth`, `csrf-token`), not a secret.
 // Shared with redact.ts.
-const VERSION_PART = String.raw`(?:[~^]|[<>]=?|[=!~]={0,2})?v?\d+(?:\.(?:\d+|[xX*])){1,3}(?:[-+][0-9A-Za-z.-]{1,64})?`
+// A pre-release is a known word and a number (`-beta.2`, `-rc.1`), never any suffix: `1.2.3-<token>` is a token.
+const VERSION_PART = String.raw`(?:[~^]|[<>]=?|[=!~]={0,2})?v?\d+(?:\.(?:\d+|[xX*])){1,3}(?:-(?:alpha|beta|rc|pre|preview|next|canary|dev|nightly)(?:[.-]?\d+){0,3})?`
 export const VERSION = new RegExp(String.raw`^${VERSION_PART}(?:(?:,[ \t]*|[ \t]+|[ \t]*\|\|[ \t]*)${VERSION_PART.replace('{1,3}', '{0,3}')})*$`)
 
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 function isMaskableValue(value: string, kind: CredentialKind, bare: boolean, next: string | undefined, name: string): boolean {
-  if (value.length === 0 || isMasked(value) || PLACEHOLDER.test(value) || REFERENCE.test(value) || VERSION.test(value) || /^=+$/.test(value)) return false
+  if (value.length === 0 || isMasked(value) || PLACEHOLDER.test(value) || REFERENCE.test(value) || (kind !== 'password' && VERSION.test(value)) || /^=+$/.test(value)) return false
   if (bare && (next === '(' || next === '[')) return false
   if (bare && (value === name || new RegExp(`^(?:[A-Za-z_][A-Za-z0-9_]*\\.)+${escapeRegExp(name)}$`, 'i').test(value))) return false
   if (value.includes('=') && nameWords(name).at(-1) === 'cookie') return false
