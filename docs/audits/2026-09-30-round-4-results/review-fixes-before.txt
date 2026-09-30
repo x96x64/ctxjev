@@ -1,4 +1,4 @@
-# The tests added for the independent review's blocking findings on PR #26, run before the fix (redact.ts and redactLegacy.ts at 36d62a3)
+# The tests added for the independent review's findings on PR #26, run against redact.ts and redactLegacy.ts at 36d62a3 (before the fixes), everything else as in the final PR
 
      × password=b # … (200,000 characters) in under 2 seconds
      × masks "password: \"${DB_PASSWORD-Qx7vR2mKpL9zW4tB}\""
@@ -7,6 +7,7 @@
      × masks "mongodb+srv://admin:$tr0ngPassw0rdQx7@cluster0.mongodb.net/db"
      × masks "redis://:$ecretRedis9Qx7vR2@cache:6379"
      × masks "amqp://guest:%RABBITQx7vR2mK%@mq:5672"
+     × masks "https://user:xxxxxxxx@git.example.com/repo.git"
      × masks "DB_PASSWORD=1.2-Qx7vR2mKpL9zW4tB"
      × masks "password: v2.0.1-Qx7vR2mKpL9zW4tB"
      × masks "password: \"3.14-Qx7vR2mKpL9zW4tB\""
@@ -15,11 +16,13 @@
      × masks "password=Qx7vR2mKpL9z…"
      × masks "password=Hunter2Qx7..."
      × masks "token=ghp_abcd1234efgh..."
+     × masks "password=Summer_2024_..."
      × masks "DB_PASSWORD=Qx7vR2mK(pL9zW4tB)"
      × masks "  password: P4ss(w0rdQx7vR2mK)"
+     × masks "  password: P4ss(w0rd)"
      × masks "DB_PASSWORD=Qx7vR2mK[pL9zW4tB]"
      × masks "DB_PASSWORD=Qx7vR2mK(pL9zW4tB) # prod"
      × masks "DB_PASSWORD={Qx7vR2mKpL9zW4tB}"
      × masks "DB_PASSWORD=[Qx7vR2mKpL9zW4tB]"
-⎯⎯⎯⎯⎯⎯ Failed Tests 21 ⎯⎯⎯⎯⎯⎯⎯
-      Tests  21 failed | 38 passed | 416 skipped (475)
+⎯⎯⎯⎯⎯⎯ Failed Tests 24 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  24 failed | 37 passed | 416 skipped (477)

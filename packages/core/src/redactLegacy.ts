@@ -227,7 +227,10 @@ function classifyName(name: string): CredentialKind | undefined {
 }
 
 const PLACEHOLDER =
-  /^(?:true|false|null|nil|none|undefined|yes|no|on|off|required|optional|string|str|number|int|boolean|bool|\*+|x{3,}|\.{3}|…|<[^>]*>|\{\{.*\}\}|\$\{?[A-Za-z_]\w*\}?|\$\{[A-Za-z_][\w.]*(?::?\?[^}]*|:?-|:)?\}|%[A-Za-z_]\w*%?|[a-z]{1,8}(?:[-_][a-z0-9]{1,8}){0,3}[-_](?:\.{3}|…))$/i
+  /^(?:true|false|null|nil|none|undefined|yes|no|on|off|required|optional|string|str|number|int|boolean|bool|\*+|x{3,}|\.{3}|…|<[^>]*>|\{\{.*\}\}|\$\{?[A-Za-z_]\w*\}?|\$\{[A-Za-z_][\w.]*(?::?\?[^}]*|:?-|:)?\}|%[A-Za-z_]\w*%?)$/i
+// An example cut short after a prefix and a separator (`sk-ant-...`, `ghp_…`): not a key, though a
+// password could end that way (`Summer_2024_...`), so never a password's placeholder.
+const ELIDED = /^[a-z]{1,8}(?:[-_][a-z0-9]{1,8}){0,3}[-_](?:\.{3}|…)$/i
 const REFERENCE = /^(?:process\.env|os\.environ|import\.meta\.env|ENV\[|System\.getenv|getenv)/
 // A version or a range of them (`^9.0.2`, `==0.9.5`, `>=3.1,<4`): a dependency whose package's name
 // ends in a credential's word (`"jsonwebtoken": "^9.0.2"`, `next-auth`, `csrf-token`), not a secret.
@@ -239,7 +242,7 @@ export const VERSION = new RegExp(String.raw`^${VERSION_PART}(?:(?:,[ \t]*|[ \t]
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 function isMaskableValue(value: string, kind: CredentialKind, bare: boolean, next: string | undefined, name: string): boolean {
-  if (value.length === 0 || isMasked(value) || PLACEHOLDER.test(value) || REFERENCE.test(value) || (kind !== 'password' && VERSION.test(value)) || /^=+$/.test(value)) return false
+  if (value.length === 0 || isMasked(value) || PLACEHOLDER.test(value) || REFERENCE.test(value) || (kind !== 'password' && (VERSION.test(value) || ELIDED.test(value))) || /^=+$/.test(value)) return false
   if (bare && (next === '(' || next === '[')) return false
   if (bare && (value === name || new RegExp(`^(?:[A-Za-z_][A-Za-z0-9_]*\\.)+${escapeRegExp(name)}$`, 'i').test(value))) return false
   if (value.includes('=') && nameWords(name).at(-1) === 'cookie') return false

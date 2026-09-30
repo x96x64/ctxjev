@@ -389,11 +389,12 @@ function classifyName(name: string): CredentialKind | undefined {
 // Not a secret: a type, a placeholder, a reference to where the secret actually lives.
 // `${NAME}` (or Spring's `${a.b}`) with no default, or one that says the variable is required
 // (`${NAME:?}`, `${NAME:-}`, Spring's `${NAME:}`): a default that isn't empty may itself be the
-// secret, so it isn't a placeholder (nor is `${NAME-default}`: a name has no `-`). An example cut
-// short after a prefix and a separator (`sk-ant-...`, `ghp_…`) isn't a key either; a value cut
-// anywhere else (`ghp_abcd1234...`) may be most of one.
+// secret, so it isn't a placeholder (nor is `${NAME-default}`: a name has no `-`).
 const PLACEHOLDER =
-  /^(?:true|false|null|nil|none|undefined|yes|no|on|off|required|optional|string|str|number|int|boolean|bool|\*+|x{3,}|\.{3}|…|<[^>]*>|\{\{.*\}\}|\$\{?[A-Za-z_]\w*\}?|\$\{[A-Za-z_][\w.]*(?::?\?[^}]*|:?-|:)?\}|%[A-Za-z_]\w*%?|[a-z]{1,8}(?:[-_][a-z0-9]{1,8}){0,3}[-_](?:\.{3}|…))$/i
+  /^(?:true|false|null|nil|none|undefined|yes|no|on|off|required|optional|string|str|number|int|boolean|bool|\*+|x{3,}|\.{3}|…|<[^>]*>|\{\{.*\}\}|\$\{?[A-Za-z_]\w*\}?|\$\{[A-Za-z_][\w.]*(?::?\?[^}]*|:?-|:)?\}|%[A-Za-z_]\w*%?)$/i
+// An example cut short after a prefix and a separator (`sk-ant-...`, `ghp_…`): not a key, though a
+// password could end that way (`Summer_2024_...`), so never a password's placeholder.
+const ELIDED = /^[a-z]{1,8}(?:[-_][a-z0-9]{1,8}){0,3}[-_](?:\.{3}|…)$/i
 const REFERENCE = /^(?:process\.env|os\.environ|import\.meta\.env|ENV\[|System\.getenv|getenv)/
 
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -405,7 +406,7 @@ const isSelfReference = (value: string, name: string) =>
 function isMaskableValue(value: string, kind: CredentialKind, bare: boolean, next: string | undefined, name?: string): boolean {
   // A value that's only `=` is a base64 string's padding (`…t+DPw==` read as `DPw` = `=`).
   // A version is never a password's value (`DB_PASSWORD=1.2-…` is a password).
-  if (value.length === 0 || isMasked(value) || PLACEHOLDER.test(value) || REFERENCE.test(value) || (kind !== 'password' && VERSION.test(value)) || /^=+$/.test(value)) return false
+  if (value.length === 0 || isMasked(value) || PLACEHOLDER.test(value) || REFERENCE.test(value) || (kind !== 'password' && (VERSION.test(value) || ELIDED.test(value))) || /^=+$/.test(value)) return false
   if (bare && (next === '(' || next === '[')) return false
   // Code passing a variable on: `password=password`, `token=self.token`, `secret_key =
   // settings.SECRET_KEY` (after a dot, in any case: a bare `PASSWORD=password` may be the password).

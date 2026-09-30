@@ -863,7 +863,7 @@ describe('redactSecrets: the review of the fourth audit\'s masking change', () =
     'mongodb+srv://admin:$tr0ngPassw0rdQx7@cluster0.mongodb.net/db',
     'redis://:$ecretRedis9Qx7vR2@cache:6379',
     'amqp://guest:%RABBITQx7vR2mK%@mq:5672',
-    `https://user:xxxxxxxx${pw}@git.example.com/repo.git`,
+    'https://user:xxxxxxxx@git.example.com/repo.git',
     // 3. A password that starts like a version, and a token with a long version-like suffix.
     `DB_PASSWORD=1.2-${pw}`,
     `password: v2.0.1-${pw}`,
@@ -874,6 +874,7 @@ describe('redactSecrets: the review of the fourth audit\'s masking change', () =
     `password=${pw.slice(0, 12)}…`,
     'password=Hunter2Qx7...',
     'token=ghp_abcd1234efgh...',
+    'password=Summer_2024_...',
     // 6. A password whose brackets balance isn't a call or a literal.
     `DB_PASSWORD=Qx7vR2mK(pL9zW4tB)`,
     '  password: P4ss(w0rdQx7vR2mK)',
@@ -884,7 +885,7 @@ describe('redactSecrets: the review of the fourth audit\'s masking change', () =
     `DB_PASSWORD=[${pw}]`,
   ])('masks %j', (text) => {
     const masked = redactSecrets(text)
-    for (const piece of [pw.slice(0, 8), pw.slice(8), 'tr0ngPassw0rd', 'ecretRedis9', 'RABBITQx7', 'w0rdQx7', 'abcd1234efgh', 'Hunter2', 'P4ss(w0rd)']) {
+    for (const piece of [pw.slice(0, 8), pw.slice(8), 'tr0ngPassw0rd', 'ecretRedis9', 'RABBITQx7', 'w0rdQx7', 'abcd1234efgh', 'Hunter2', 'P4ss(w0rd)', 'xxxxxxxx', 'Summer_2024']) {
       if (text.includes(piece)) expect(masked).not.toContain(piece)
     }
     expect(masked).toContain('[REDACTED]')
