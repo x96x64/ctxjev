@@ -4,7 +4,7 @@ import type { ScoreCache } from './cache.js'
 import { buildJevRequest, scoreRelevance, type JevClient } from './jevClient.js'
 import { pruneContext, scoreEntries } from './prune.js'
 import type { Entry } from './types.js'
-import { AUDIT3_LINES } from '../test/redactCases.js'
+import { AUDIT3_LINES, ENV_SWEEP, ENV_SWEEP_HALVES } from '../test/redactCases.js'
 
 describe('buildJevRequest', () => {
   const entries: Entry[] = [
@@ -52,6 +52,14 @@ describe('buildJevRequest', () => {
     const request = buildJevRequest(`fix it; ${AUDIT3_LINES[1].text}`, leaky, leaky)
     const sent = JSON.stringify({ state: request.state, questions: request.questions })
     for (const { secret } of AUDIT3_LINES) expect(sent).not.toContain(secret)
+  })
+
+  // The fourth audit (P0-1): an unquoted value with punctuation in it was sent as-is.
+  it('masks the fourth audit\'s .env sweep in the goal, every entry, and the latest activity', () => {
+    const leaky: Entry[] = ENV_SWEEP.map(({ text }, i) => ({ id: `x${i}`, role: 'tool', toolName: 'Bash', content: `$ cat .env\n${text}\nPORT=8080`, timestamp: i }))
+    const request = buildJevRequest(`fix it; ${ENV_SWEEP[0].text}`, leaky, leaky.slice(-3))
+    const sent = JSON.stringify({ state: request.state, questions: request.questions })
+    for (const half of ENV_SWEEP_HALVES) expect(sent).not.toContain(half)
   })
 
   it('omits latest entirely when none is given', () => {

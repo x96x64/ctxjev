@@ -1,0 +1,32 @@
+# The Round 4 masking tests run against 0.7.0's redact.ts and redactLegacy.ts (git show v0.7.0:…), everything else as in PR 1 of Round 4
+
+     × masks every line with a secret except the known misses
+     × leaves every harmless line exactly as it was, except the known ones
+     × masks the whole value in all 504 lines of the audit's sweep (28 symbols × 6 names × 3 separators)
+     × masks the audit's own line, keeping the name
+     × masks the same values with the symbol at the end, after export, and in a .env block with CRLF line ends
+     × leaves "password: ${DB_PASSWORD}" as it is
+     × leaves "DB_PASSWORD=${DB_PASSWORD}" as it is
+     × leaves "\"jsonwebtoken\": \"^9.0.2\"," as it is
+     × leaves "    \"jsonwebtoken\": \"^9.0.2\",\n    \"next-auth\": \"~4.24.5\",\n    \"csrf-token\": \"1.0.3\"" as it is
+     × leaves "jsonwebtoken = \"9.2\"" as it is
+     × leaves "secret_key = settings.SECRET_KEY" as it is
+     × keeps the dependency versions in examples/eval-sessions/webpack-upgrade.json
+     × leaves "connecting to postgres://app:********@db.internal:5432/app (pool=10)" as it is
+     × leaves "DATABASE_URL=mysql://root:${DB_PASSWORD}@db:3306/shop" as it is
+     × leaves "spring.mail.password=${MAIL_PASSWORD:}" as it is
+     × leaves "password: ${spring.datasource.password}" as it is
+     × leaves "ANTHROPIC_API_KEY=sk-ant-..." as it is
+     × leaves "OPENAI_API_KEY=sk-proj-…" as it is
+     × leaves "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEq5HkQ8Y1b9c7Lp/t+DPw==" as it is
+     × leaves "- name: DB_PASSWORD\n  value: {{ .Values.postgresql.auth.password | quote }}" as it is
+     × still masks a real password in the same places
+     × masks a Datadog-style application key header
+     × masks the fourth audit's .env sweep in the goal, every entry, and the latest activity
+⎯⎯⎯⎯⎯⎯ Failed Tests 23 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  23 failed | 11 passed | 424 skipped (458)
+     × default (offline): masked in every file written, in the digest, and in the status report
+     × with CTXJEV_SCORER=jev: masked in the request body sent to Jev, and on disk
+     × masks a snapshot an earlier version wrote unmasked before re-injecting it or reporting it
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  3 failed | 11 passed (14)

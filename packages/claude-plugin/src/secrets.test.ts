@@ -41,12 +41,15 @@ afterEach(async () => {
   await rm(state, { recursive: true, force: true })
 })
 
-// Each secret sits in a tool result relevant to the goal, so the offline scorer preserves it.
-const SECRETS = ['hunter22', 'abcd1234efgh5678', 'q9Zt7Lm2Vx4Rk8Np']
+// Each secret sits in a tool result relevant to the goal, so the offline scorer preserves it. The
+// fourth: the fourth audit's P0-1, a .env file's unquoted values with punctuation in them (0.7.0 kept
+// `Qx7vR2mK(pL9zW4tB` whole, and everything after the `{` of the other).
+const SECRETS = ['hunter22', 'abcd1234efgh5678', 'q9Zt7Lm2Vx4Rk8Np', 'Qx7vR2mK', 'pL9zW4tB', 'Rk2Lp6Yx']
 const LEAKS = [
   'Error: DB_PASSWORD=hunter22 was rejected by the checkout database',
   'checkout database env: API_KEY=abcd1234efgh5678 loaded',
   'checkout database callback https://db.example.com/cb?access_token=q9Zt7Lm2Vx4Rk8Np failed',
+  'checkout database connection settings (.env):\nDB_HOST=db.internal\nDB_PASSWORD=Qx7vR2mK(pL9zW4tB\nSMTP_PASS=Wm4zT8q{Rk2Lp6Yx',
 ]
 
 async function writeTranscript(): Promise<string> {

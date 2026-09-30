@@ -139,3 +139,46 @@ export const AUDIT3_FORMATS: Array<{ name: string; text: string; secret: string 
   { name: 'Discord bot token', text: `client.login('${j('MTE0NzI2NTU0MzIxMjM0NTY3OA', '.', 'GhR2xQ', '.', 'k3fQ2mPzR8vXw1yT4bN5cL6dF7gH8jKl9m')}')`, secret: 'k3fQ2mPzR8vXw1yT4bN5cL6dF7gH8jKl9m' },
   { name: 'Sentry DSN key', text: `SENTRY_DSN=https://${HEX32}@o450123.ingest.sentry.io/5512345`, secret: HEX32 },
 ]
+
+/**
+ * The fourth audit (docs/audits/2026-09-30-audit-4-ja.md, P0-1 and check 8): an unquoted value
+ * holding punctuation. Its sweep, rebuilt from the report: 28 symbols (printable ASCII punctuation
+ * less the three quotes and the backslash) × 6 credential names × 3 separators, the symbol in the
+ * middle of the value. Eleven of the symbols (`& ( ) , ; < > [ ] { }`) leaked in 18 of 18 lines each
+ * in 0.7.0: masking stopped at the symbol, or (`(`, `[`) took the value for a call and kept it.
+ * Neither half of the value (`ENV_SWEEP_HALVES`) may survive.
+ */
+export const ENV_SWEEP_SYMBOLS = [...'!#$%&()*+,-./:;<=>?@[]^_{|}~']
+export const ENV_SWEEP_NAMES = ['DB_PASSWORD', 'API_KEY', 'SECRET_KEY', 'AUTH_TOKEN', 'SMTP_PASS', 'CLIENT_SECRET']
+export const ENV_SWEEP_SEPARATORS = ['=', ' = ', ': ']
+export const ENV_SWEEP_HALVES = ['Qx7vR2mK', 'pL9zW4tB']
+export const ENV_SWEEP: Array<{ symbol: string; text: string }> = ENV_SWEEP_SYMBOLS.flatMap((symbol) =>
+  ENV_SWEEP_NAMES.flatMap((name) => ENV_SWEEP_SEPARATORS.map((sep) => ({ symbol, text: `${name}${sep}${ENV_SWEEP_HALVES[0]}${symbol}${ENV_SWEEP_HALVES[1]}` }))),
+)
+
+/**
+ * The fourth audit's over-masking (P2-9): a placeholder corrupted into `[REDACTED]{DB_PASSWORD}`,
+ * and a dependency's version masked because the package's name ends in "token" (the audit found
+ * it in examples/eval-sessions/webpack-upgrade.json, where that version is what the task is about).
+ * Code that reads a credential rather than holding one stays as it is too, now that an unquoted
+ * value at the start of a line runs to its end.
+ */
+export const AUDIT4_HARMLESS = [
+  'password: ${DB_PASSWORD}',
+  'DB_PASSWORD=${DB_PASSWORD}',
+  'export API_TOKEN=$API_TOKEN',
+  '"jsonwebtoken": "^9.0.2",',
+  '    "jsonwebtoken": "^9.0.2",\n    "next-auth": "~4.24.5",\n    "csrf-token": "1.0.3"',
+  'jsonwebtoken = "9.2"',
+  'jsonwebtoken: 9.0.2',
+  'django-rest-auth==0.9.5',
+  'token = get_token()',
+  'token = get_token();',
+  'password = request.form[\'password\']',
+  'api_key = os.environ.get(\'API_KEY\')',
+  'secret_key = settings.SECRET_KEY',
+  'auth: {}',
+  'password = password',
+  'token: expired',
+  'SECRET_NAME=prod-db-credentials # the name, not the value',
+]

@@ -95,7 +95,8 @@ together are exactly its items, and the seed re-derives the split from it.
   It was measured once, on 2026-09-27, on the 0.7.0 release commit, after 0.7.0 was published:
   [`docs/audits/2026-09-25-round-3-results/blind-holdout.txt`](../../../../docs/audits/2026-09-25-round-3-results/blind-holdout.txt).
   That run used it up: a change to `redact.ts` measured on it from now on isn't measured blind, so
-  an independent measure of a later change needs a new corpus written the same way.
+  an independent measure of a later change needs a new corpus written the same way: Round 4's is
+  [`../blind-redact-2/`](../blind-redact-2/README.md).
 
 Both are base64-encoded JSON, so no provider-shaped fake credential sits in the repository as a
 literal (a secret scanner would rightly flag one). `packages/core/test/blindCorpus.ts` decodes them.

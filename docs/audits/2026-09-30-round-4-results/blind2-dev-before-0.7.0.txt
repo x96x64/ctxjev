@@ -1,0 +1,4 @@
+blind-redact-2 dev half, redact.ts at afecaba:
+  lines with secrets detected: 71/92 (77.2%); none left whole (verbatim): 80/92 (87.0%)
+  secrets masked: 78/103 (75.7%)
+  harmless lines changed (false positives): 7/41 (17.1%)

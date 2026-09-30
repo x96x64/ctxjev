@@ -19,7 +19,7 @@
  * Callers mask before cutting text short, never after (see entryText.ts): a cut can leave half a
  * token that no longer matches any rule here.
  */
-import { maskJwts, redactLegacy } from './redactLegacy.js'
+import { maskJwts, redactLegacy, URL_PASSWORD_PLACEHOLDER, VERSION } from './redactLegacy.js'
 import { validateText } from './validate.js'
 const REDACTED = '[REDACTED]'
 
@@ -209,7 +209,8 @@ const COOKIE_RULE: Rule = [/(\b(?:Set-)?Cookie(?:\\?["'`])?[ \t]*(?:=>|:=|[:=])[
 
 const POSITIONAL_PATTERNS: Rule[] = [
   // scheme://user:password@host — the password may itself contain "@", so it runs to the last one.
-  [/\b([a-z][a-z0-9+.-]{0,31}:\/\/[^\s:/?#@"'<>]{0,256}:)[^\s/?#"'<>]{1,1024}(@)/gi, `$1${REDACTED}$2`, '://'],
+  // A placeholder there (`postgres://app:********@db`, `:${DB_PASSWORD}@`) is left as it is.
+  [/\b([a-z][a-z0-9+.-]{0,31}:\/\/[^\s:/?#@"'<>]{0,256}:)([^\s/?#"'<>]{1,1024})(@)/gi, (match, head: string, password: string, at: string) => (URL_PASSWORD_PLACEHOLDER.test(password) ? match : `${head}${REDACTED}${at}`), '://'],
   // scheme://token@host: a token alone where a user name goes (a Sentry DSN, a git remote with a token).
   [/\b([a-z][a-z0-9+.-]{0,31}:\/\/)([A-Za-z0-9_-]{20,256})(?=@)/gi, (match, scheme: string, user: string) => (/[0-9]/.test(user) && /[A-Za-z]/.test(user) ? `${scheme}${REDACTED}` : match), '://'],
   // An Authorization header's credentials, whatever the scheme.
@@ -264,7 +265,8 @@ const POSITIONAL_PATTERNS: Rule[] = [
   // relative path, so `12:30:45:123:4567` and grep's `file:3:…` aren't one.
   [/^((?:\/[^:\s#]{0,252}|[^:\s#/]{1,253}):(?:[1-9][0-9]{3,4}|\*):[^:\s]{1,128}:[^:\s]{1,128}:)(\S+)$/gm, (match, head: string, value: string) => (isMasked(value) || PLACEHOLDER.test(value) ? match : `${head}${REDACTED}`)],
   // A Kubernetes (or compose) env var over two lines: `- name: DB_PASSWORD` then `value: …`.
-  [/(\bname:[ \t]*(["']?)([A-Za-z_][A-Za-z0-9_.-]{0,127})\2[ \t]*\r?\n[ \t]*value:[ \t]*)(["']?)([^\s"']{1,1024})\4/g, (match, head: string, _q: string, name: string, quote: string, value: string) => {
+  // A Helm template (`value: {{ .Values.db.password }}`) isn't a value.
+  [/(\bname:[ \t]*(["']?)([A-Za-z_][A-Za-z0-9_.-]{0,127})\2[ \t]*\r?\n[ \t]*value:[ \t]*)(["']?)(?!\{\{)([^\s"']{1,1024})\4/g, (match, head: string, _q: string, name: string, quote: string, value: string) => {
     const kind = credentialKind(name)
     return kind && isMaskableValue(value, kind, quote === '', undefined, name) && (kind === 'password' || looksLikeToken(value)) ? `${head}${quote}${REDACTED}${quote}` : match
   }],
@@ -318,8 +320,10 @@ const looksLikeAwsSecret = (value: string) => /[A-Z]/.test(value) && /[a-z]/.tes
 // `maxTokens=100000` stay as they are. The name may be quoted, including as escaped JSON (\"…\").
 // A name is at most 128 characters and taken whole (the lookahead and backreference make it
 // atomic, so it's never re-tried shorter): unbounded, a long dotted run (`a.a.a.…`) was quadratic.
+// A bare value takes a shell placeholder (`${DB_PASSWORD}`) whole, so it's read as one rather than
+// cut at its `{` (the fourth audit found `password: [REDACTED]{DB_PASSWORD}`).
 const ASSIGNMENT =
-  /(\\?["']?)\b(?=([A-Za-z_][A-Za-z0-9_.-]{0,127}))\2\1([ \t]*(?:=>|:=|[:=])[ \t]*)(?:\\"((?:[^"\\\n]|\\[^"\n])*)\\"|"((?:[^"\\\n]|\\.)*)"|'((?:[^'\\\n]|\\.)*)'|`([^`\n]*)`|([^\s"'`,;&<>(){}[\]\\]+))/g
+  /(\\?["']?)\b(?=([A-Za-z_][A-Za-z0-9_.-]{0,127}))\2\1([ \t]*(?:=>|:=|[:=])[ \t]*)(?:\\"((?:[^"\\\n]|\\[^"\n])*)\\"|"((?:[^"\\\n]|\\.)*)"|'((?:[^'\\\n]|\\.)*)'|`([^`\n]*)`|((?:\$\{[^}\s]{1,256}\}|[^\s"'`,;&<>(){}[\]\\])+))/g
 
 // How many labels deep the value of one that isn't a credential is searched for one that is:
 // `Error: DB_PASSWORD=…` is one, `url=https://…?token=…` two. Bounded, so a run like `a:a:a:…`
@@ -341,7 +345,7 @@ const PASSWORD_SUFFIXES = ['password', 'passwd', 'passphrase']
 const TOKEN_WORDS = new Set(['secret', 'token', 'apikey', 'credential', 'credentials', 'auth'])
 const TOKEN_SUFFIXES = ['secret', 'token', 'apikey']
 // "<qualifier> key" is a credential (api key, secret key, account key); a bare "key" usually isn't.
-const KEY_QUALIFIERS = new Set(['api', 'access', 'secret', 'private', 'signing', 'encryption', 'master', 'account', 'shared', 'client', 'app', 'service', 'license', 'subscription', 'admin', 'auth', 'webhook', 'deploy', 'hmac', 'jwt'])
+const KEY_QUALIFIERS = new Set(['api', 'access', 'secret', 'private', 'signing', 'encryption', 'master', 'account', 'shared', 'client', 'app', 'service', 'license', 'subscription', 'admin', 'auth', 'webhook', 'deploy', 'hmac', 'jwt', 'application'])
 const LONG_KEY_QUALIFIERS = new Set(['storage'])
 // "<qualifier> cookie" holds a login (AUTH_COOKIE, SESSION_COOKIE); a bare "cookie" is a header name.
 const COOKIE_QUALIFIERS = new Set(['session', 'sess', 'auth', 'login', 'remember', 'access', 'refresh', 'sso', 'jwt'])
@@ -383,18 +387,30 @@ function classifyName(name: string): CredentialKind | undefined {
 }
 
 // Not a secret: a type, a placeholder, a reference to where the secret actually lives.
+// `${NAME}` (or Spring's `${a.b}`) with no default, or one that says the variable is required
+// (`${NAME:?}`, `${NAME:-}`, Spring's `${NAME:}`): a default that isn't empty may itself be the
+// secret, so it isn't a placeholder (nor is `${NAME-default}`: a name has no `-`).
 const PLACEHOLDER =
-  /^(?:true|false|null|nil|none|undefined|yes|no|on|off|required|optional|string|str|number|int|boolean|bool|\*+|x{3,}|\.{3}|…|<[^>]*>|\{\{.*\}\}|\$\{?[A-Za-z_]\w*\}?|%[A-Za-z_]\w*%?)$/i
+  /^(?:true|false|null|nil|none|undefined|yes|no|on|off|required|optional|string|str|number|int|boolean|bool|\*+|x{3,}|\.{3}|…|<[^>]*>|\{\{.*\}\}|\$\{?[A-Za-z_]\w*\}?|\$\{[A-Za-z_][\w.]*(?::?\?[^}]*|:?-|:)?\}|%[A-Za-z_]\w*%?)$/i
+// An example cut short after a prefix and a separator (`sk-ant-...`, `ghp_…`): not a key, though a
+// password could end that way (`Summer_2024_...`), so never a password's placeholder.
+const ELIDED = /^[a-z]{1,8}(?:[-_][a-z0-9]{1,8}){0,3}[-_](?:\.{3}|…)$/i
 const REFERENCE = /^(?:process\.env|os\.environ|import\.meta\.env|ENV\[|System\.getenv|getenv)/
 
-/** `next` is the character right after the value: an unquoted value followed by `(` or `[` is code (`token = get_token()`). */
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+const isSelfReference = (value: string, name: string) =>
+  value === name || new RegExp(`^(?:[A-Za-z_][A-Za-z0-9_]*\\.)+${escapeRegExp(name)}$`, 'i').test(value)
+
+/** `next` is the character right after the value: an unquoted value followed by `(` or `[` is code (`token = get_token()`). */
 
 function isMaskableValue(value: string, kind: CredentialKind, bare: boolean, next: string | undefined, name?: string): boolean {
-  if (value.length === 0 || isMasked(value) || PLACEHOLDER.test(value) || REFERENCE.test(value)) return false
+  // A value that's only `=` is a base64 string's padding (`…t+DPw==` read as `DPw` = `=`).
+  // A version is never a password's value (`DB_PASSWORD=1.2-…` is a password).
+  if (value.length === 0 || isMasked(value) || PLACEHOLDER.test(value) || REFERENCE.test(value) || (kind !== 'password' && (VERSION.test(value) || ELIDED.test(value))) || /^=+$/.test(value)) return false
   if (bare && (next === '(' || next === '[')) return false
-  // Code passing a variable on: `password=password`, `token=self.token`.
-  if (bare && name !== undefined && new RegExp(`^(?:[A-Za-z_][A-Za-z0-9_]*\\.)*${escapeRegExp(name)}$`).test(value)) return false
+  // Code passing a variable on: `password=password`, `token=self.token`, `secret_key =
+  // settings.SECRET_KEY` (after a dot, in any case: a bare `PASSWORD=password` may be the password).
+  if (bare && name !== undefined && isSelfReference(value, name)) return false
   if (kind === 'password') return true
   if (kind === 'longToken') return value.length >= 20 && !/\s/.test(value)
   if (kind === 'cookie') return maskCookies(value) !== value
@@ -497,6 +513,99 @@ function maskCommandArguments(text: string): string {
   return out + text.slice(copied)
 }
 
+// An unquoted value that ends its line (`.env`, `export`, YAML, a log's last field): the value is
+// everything up to the end of the line, or up to a ` #` comment, however much punctuation it holds.
+// Password generators use `& ( ) , ; < > [ ] { }` freely, and the assignment rule below stops at
+// them (the fourth audit's P0-1: `DB_PASSWORD=Qx7vR2mK(pL9zW4tB` was left whole). The name starts a
+// line or follows whitespace, so each run of text is tried from one place only (linear time); a
+// label's value (`Environment=DB_PASSWORD=…`) is tried again from where it starts, up to
+// MAX_LABEL_NESTING labels deep. The value is one run with no whitespace: text with spaces in it is
+// prose or code as often as a value, and is left to the assignment rule.
+// The comment is found by its ` #` alone, never read to the end of the line: that read, made again
+// for each ` #` on a long line, was quadratic.
+const LINE_END_BODY = String.raw`(?=([A-Za-z_][A-Za-z0-9_.-]{0,127}))\1([ \t]*(?::=|[:=])[ \t]*)(?!["'\x60])(?=(\S+))\3(?=[ \t]+#|[ \t]*$)`
+const LINE_END_ASSIGNMENT = new RegExp(String.raw`(?<!\S)${LINE_END_BODY}`, 'gm')
+const LINE_END_ASSIGNMENT_AT = new RegExp(LINE_END_BODY, 'my')
+
+// Code that reads a credential rather than holding one: a call or an index (`get_token()`,
+// `request.form['password']`, `$(vault-read)`), a literal (`{}`, `[]`, `{"user":"bob"}`), a YAML
+// block scalar's indicator (`|`, `>-`) or alias (`*db_password`). Its brackets balance, and once its
+// quoted strings are taken out, what's left is names and numbers, each name letters with at most
+// digits at the end (`get_token`, `sha256`): a password's parts (`Qx7vR2mK(pL9zW4tB)`, `P4ss(w0rd)`,
+// `{Qx7vR2mKpL9zW4tB}`) aren't.
+const NAME_PART = String.raw`[A-Za-z_$][A-Za-z_$]*[0-9]*`
+const CODE_START = new RegExp(String.raw`^(?:${NAME_PART}(?:(?:\.|\?\.|::|->)${NAME_PART})*[([]|\$\()`)
+const CODE_WORD = new RegExp(String.raw`^(?:${NAME_PART}|[0-9]+)$`)
+const YAML_SYNTAX = /^(?:[|>][-+]?[0-9]?|\*[A-Za-z_][\w-]*)$/
+const CLOSERS: Record<string, string> = { ')': '(', ']': '[', '}': '{' }
+
+function bracketsBalance(value: string): boolean {
+  const open: string[] = []
+  for (const c of value) {
+    if (c === '(' || c === '[' || c === '{') open.push(c)
+    else if (c in CLOSERS && open.pop() !== CLOSERS[c]) return false
+  }
+  return open.length === 0
+}
+
+function isLineEndCode(value: string): boolean {
+  if (YAML_SYNTAX.test(value)) return true
+  const body = value.replace(/;$/, '')
+  if (!/[)\]}]$/.test(body) || !bracketsBalance(body)) return false
+  // A literal is empty, or has quotes, a key, or a list in it.
+  if (/^[{[]/.test(body) ? body.length > 2 && !/["':,]/.test(body) : !CODE_START.test(body)) return false
+  return body
+    .replace(/'[^']*'|"[^"]*"/g, '')
+    .split(/[^A-Za-z0-9_$]+/)
+    .every((word) => word === '' || CODE_WORD.test(word))
+}
+
+/**
+ * How much of a value that ends its line is the value: less a trailing `,` or `;` (the end of a
+ * list's item or a statement), and less a closing bracket with nothing opening it in the value
+ * (`f(user, password=pw)`). At most the trailing characters are given back, never the value's inside.
+ */
+function lineEndValueLength(value: string): number {
+  const counts: Record<string, number> = { '(': 0, '[': 0, '{': 0, ')': 0, ']': 0, '}': 0 }
+  for (const c of value) if (c in counts) counts[c]++
+  let end = value.length
+  while (end > 0) {
+    const c = value[end - 1]
+    if (c === ',' || c === ';' || (c in CLOSERS && counts[c] > counts[CLOSERS[c]])) {
+      if (c in CLOSERS) counts[c]--
+      end--
+    } else break
+  }
+  return end
+}
+
+function maskLineEndAssignments(text: string): string {
+  if (!/[:=]/.test(text)) return text
+  const pattern = new RegExp(LINE_END_ASSIGNMENT.source, 'gm')
+  let out = ''
+  let copied = 0
+  for (let m = pattern.exec(text); m !== null; m = pattern.exec(text)) {
+    let at = m.index
+    let match: RegExpExecArray | null = m
+    for (let depth = 0; match !== null && credentialKind(match[1]) === undefined && depth < MAX_LABEL_NESTING; depth++) {
+      at += match[1].length + match[2].length
+      LINE_END_ASSIGNMENT_AT.lastIndex = at
+      match = LINE_END_ASSIGNMENT_AT.exec(text)
+    }
+    if (match === null) continue
+    const [, name, sep, whole] = match
+    const kind = credentialKind(name)
+    // A cookie string is the cookie rule's (see maskCookies), which keeps its plain cookies.
+    if (kind === undefined || kind === 'cookie') continue
+    const value = whole.slice(0, lineEndValueLength(whole))
+    if (isLineEndCode(value) || !isMaskableValue(value, kind, true, undefined, name)) continue
+    const start = at + name.length + sep.length
+    out += text.slice(copied, start) + REDACTED
+    copied = start + value.length
+  }
+  return out + text.slice(copied)
+}
+
 /**
  * The assignment rule. A label that isn't a credential ("Error:", "env:", "https:") is matched
  * with the text after it as its value, but that value can still hold one (`Error: DB_PASSWORD=…`,
@@ -534,7 +643,9 @@ function maskAssignments(text: string): string {
 }
 
 /**
- * Masks what 0.6.1 masked (redactLegacy.ts), then what these rules mask, and repeats until nothing
+ * Masks an unquoted value that ends its line first (maskLineEndAssignments: 0.6.1's assignment rule
+ * would mask only its start), then what 0.6.1 masked (redactLegacy.ts), then what these rules mask,
+ * and repeats until nothing
  * changes (at most a few passes; one is almost always enough), so masking twice is the same as once.
  * Running 0.6.1's rules first means a gap in a rule rewritten here can't let through a secret 0.6.1
  * caught; it also keeps 0.6.1's false alarms (see the CHANGELOG).
@@ -543,7 +654,7 @@ export function redactSecrets(text: string): string {
   validateText(text, 'text')
   let out = text
   for (let pass = 0; pass < MAX_PASSES; pass++) {
-    const next = redactCurrent(redactLegacy(out))
+    const next = redactCurrent(redactLegacy(maskLineEndAssignments(out)))
     if (next === out) break
     out = next
   }
