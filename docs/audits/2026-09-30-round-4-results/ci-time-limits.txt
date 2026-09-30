@@ -1,0 +1,21 @@
+# Tests near their time limit under coverage (node scripts/coverage.mjs runs them with v8 coverage and
+# CTXJEV_TIME_LIMIT_SCALE=5), after CI run 149 (main at a4ae4b9) failed on one of them.
+# CI: the durations CI printed for core's in-process coverage run in run 149 (a slow runner; CI prints
+# them only when that run fails). Local: every test in every package, measured here the same way
+# (vitest --coverage, JSON reporter), 2026-09-30. "Limit" is the test's timeout, or for a timing test
+# the time its assertion allows under coverage, whichever is lower.
+#
+# test                                                                          CI (ms)  local (ms)  limit (ms)  CI / limit
+core  tokenEstimate: cuts a run of emoji between characters, not inside one      >5075       2022       5000      failed   -> timeout 60_000, like its neighbour (fixed)
+core  tokenEstimate: varied kana, 100,000 with no punctuation, in under 1 second  3221       1385       5000        64%    -> not changed: the limit is the assertion itself (1 s x 5 under coverage)
+core  anthropicMessages: handles 150,000 tool calls without overflowing the stack 11365      10840      60000        19%
+core  tokenEstimate: stays within 2% of encode() on long runs it cuts             9102       5437      60000        15%
+core  anthropicMessages: overBudget … across randomized conversations, scores…     8308       8233      60000        14%
+core  anthropicMessages: overBudget … counts the note as it grows                  3172       2324      30000        11%
+core  anthropicMessages: keeps every invariant across randomized conversations…    3111       3373      20000        16%
+core  redact: the eighth review … never throws, whatever character lands inside    n/a        5463      60000     (local 9%)
+core  tokenEstimate: 5,000,000 characters of <x> in under 5 seconds (x5)       293-525   under 700      5000        11%
+cli   consistency: analyze and prune agree on a Messages conversation prune…       n/a        3288      60000     (local 5%)
+cli   prune: rejects every Anthropic-Messages-only flag … (pnpm test, no coverage)  2239       1862      30000         7%
+cli   prune: rejects an empty --protect-last … (pnpm test, no coverage)             1823       2108      30000         6%
+# Every other test took under 700 ms locally under coverage (mcp-server and claude-plugin: none over 700 ms).
