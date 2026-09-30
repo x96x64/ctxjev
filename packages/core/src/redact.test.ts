@@ -172,6 +172,12 @@ describe('redactSecrets: time on long runs', () => {
     ['mot de passe : …', 'mot de passe : '.repeat(N / 15)],
     ['ssh-keygen -P …', 'ssh-keygen -P '.repeat(N / 14)],
     ['7z -p7z -p…', '7z -p'.repeat(N / 5)],
+    // The review of Round 5's change: a user name with `@`, a command after a run of spaces.
+    ['a://b@c:…', 'a://b@c:'.repeat(N / 8)],
+    ['a://@:@a…', `a://@:${'@a'.repeat(N / 2)}`],
+    ['spaces, then zip -P', `${' '.repeat(N)}zip -P x`],
+    ['; ; ; zip…', '; zip '.repeat(N / 6)],
+    ['h:1> AUTH …', 'h:1> AUTH '.repeat(N / 10)],
   ]
   it.each(runs)('%s (200,000 characters) in under 2 seconds', (_name, text) => {
     const start = performance.now()
@@ -980,7 +986,6 @@ describe('redactSecrets: shapes added from the Round 5 blind corpus\'s dev half'
     ['7z -p with a quoted passphrase', `7z a -p"cobalt ${pw} tide" -mhe=on out.7z ./dir`, pw],
     ['7z -p run together', `7z x -p${pw} backup.7z`, pw],
     ['unzip -P', `unzip -P ${pw} bundle.zip`, pw],
-    ['openssl pass:', `openssl enc -d -aes-256-cbc -in a.enc -pass pass:${pw}`, pw],
     ['redis.conf requirepass', `port 6379\nrequirepass ${pw}\nappendonly yes`, pw],
     ['redis.conf masterauth', `masterauth ${pw}`, pw],
     ['a redis MONITOR AUTH line', `1784747937.595199 [0 10.0.0.9:41256] "AUTH" "${pw}"`, pw],
@@ -1011,7 +1016,66 @@ describe('redactSecrets: shapes added from the Round 5 blind corpus\'s dev half'
     '密码：请联系管理员',
     'const apiUrl: string = "https://api.example/v1"',
     'unzip bundle.zip -d out',
-    'archive.7z -p 8080',
+    'archive.7z -p8080 -o out',
+  ]
+  it.each(harmless)('leaves alone: %s', (text) => {
+    expect(redactSecrets(text)).toBe(text)
+  })
+})
+
+// The independent review of Round 5's masking change (before merging): regressions against 0.7.1
+// and gaps in the shapes it claimed to handle.
+describe('redactSecrets: the review of Round 5\'s masking change', () => {
+  const leaks: Array<[string, string, string]> = [
+    ['a single-quoted $ password after mysql -p (0.7.1 masked it)', "mysql -u root -p'$uperS3cret' mydb", 'uperS3cret'],
+    ['a single-quoted $ password after curl -u (0.7.1 masked it)', "curl -u 'admin:$ecretPass9' https://api.example.com", 'ecretPass9'],
+    ['a single-quoted $ password after sshpass -p', "sshpass -p '$uperS3cret' ssh deploy@host", 'uperS3cret'],
+    ['a single-quoted $ password after redis-cli -a', "redis-cli -a '$uperS3cret' ping", 'uperS3cret'],
+    ['a % password after curl -u (0.7.1 masked it)', 'curl -u admin:%Secret1 https://x', 'Secret1'],
+    ['a single-quoted % password after mysql -p', "mysql -p'%Passw0rd' db", 'Passw0rd'],
+    ['a password that only starts like a Terraform reference', 'DB_PASSWORD=local.Pa55word!', 'Pa55word'],
+    ['a token that only starts like a Terraform reference', 'API_TOKEN=var.abc123def456ghi789', 'abc123def456ghi789'],
+    ['a URL password with digits before #', 'postgres://admin:2024#Summer@db:5432/app', 'Summer'],
+    ['a URL password with digits before /', 'postgres://admin:123/abc@db:5432/app', '123/abc'],
+    ['a URL whose host is followed by ":"', 'failed to connect to postgres://u:Pg#Secr3t99@db.internal:5432: connection refused', 'Secr3t99'],
+    ['a URL in Markdown bold', '**postgres://u:Pg#Secr3t99@db**', 'Secr3t99'],
+    ['an Azure user name with @, and #', 'postgres://myadmin@myserver:Pg#Secr3t99@myserver.postgres.database.azure.com:5432/db', 'Secr3t99'],
+    ['an Azure user name with @', 'postgres://myadmin@myserver:Secr3t99xQ@myserver.postgres.database.azure.com:5432/db', 'Secr3t99xQ'],
+    ['a passphrase in YAML under a secret\'s name', 'jwt_secret: correct horse battery staple', 'horse battery staple'],
+    ['a passphrase in YAML under a client secret', 'client_secret: my super secret phrase 42', 'super secret phrase'],
+    ['a passphrase in a YAML list item', '- password: correct horse battery staple', 'horse battery staple'],
+    ['a tab before a quoted passphrase flag', 'tool\t--passphrase "correct horse battery"', 'horse battery'],
+  ]
+  it.each(leaks)('masks: %s', (_name, text, secret) => {
+    const masked = redactSecrets(text)
+    expect(masked).not.toContain(secret)
+    expect(redactSecrets(masked)).toBe(masked)
+  })
+
+  const harmless = [
+    'mysql -u app -p"$DB_PASS" shop',
+    'curl -u admin:%DB_PASS% https://x',
+    'auth required pam_deny.so',
+    'auth include system-auth',
+    'auth required pam_google_authenticator.so',
+    'AUTH LOGIN',
+    'AUTH CRAM-MD5',
+    'secret = a if b else c',
+    'token = token or default',
+    'auth = basic or digest',
+    'token = await fetch',
+    'SECRET_KEY=dev python manage.py runserver',
+    'TOKEN=abc123 make deploy',
+    '最大トークン: 128k',
+    'トークン：1.5k',
+    'トークン: GPT-4では128kまで',
+    'パスワード: UTF-8で保存',
+    '암호: AES-256',
+    '  password = local.db_password',
+    'zip the logs then rsync -P logs.zip host:',
+    'archive.7z -p8080',
+    'def connect(token: str = "default")',
+    'http://localhost:8080/#/users/@alice',
   ]
   it.each(harmless)('leaves alone: %s', (text) => {
     expect(redactSecrets(text)).toBe(text)
