@@ -4,6 +4,16 @@
 
 **Keep what matters when your agent's context gets compacted.**
 
+</div>
+
+> **In five lines:** ctxjev trims an AI agent's history, and by default sends nothing anywhere.
+> The CLI keeps the newest entries (`recency`, plain truncation); the Claude Code plugin uses keyword overlap (`local`).
+> Jev scoring is opt-in there (`--scorer jev`, `CTXJEV_SCORER=jev`) and needs `TYPESAFE_API_KEY`; the MCP tools ask Jev unless a call passes `scorer: "local"`.
+> On held-out tasks, no scorer has yet beaten plain truncation: see [Does It Work?](#does-it-work).
+> Contributors: run `pnpm build` before this repo's `.mcp.json` can start the MCP server.
+
+<div align="center">
+
 `ctxjev` ranks the entries of an AI agent's history and decides what to keep, drop, or summarize.
 By default it ranks by position alone (newest kept, the same as plain truncation), with no key and
 nothing sent; opt in to [Jev](https://typesafe.ai), TypeSafe AI's typed-decision model, or to an
@@ -563,10 +573,9 @@ including in a commercial product, as long as the license text and copyright not
 [`LICENSE`](LICENSE) ship with it. It comes with no warranty of any kind; see the license text
 for the full disclaimer.
 
-This choice matches every package `ctxjev` currently depends on, so there is nothing to reconcile
-if you vendor or fork any of it:
+The packages `ctxjev` depends on directly are all under MIT or ISC:
 
-| Dependency | License |
+| Direct dependency | License |
 | --- | --- |
 | [`@typesafe-ai/sdk`](https://www.npmjs.com/package/@typesafe-ai/sdk) | MIT |
 | [`@modelcontextprotocol/sdk`](https://www.npmjs.com/package/@modelcontextprotocol/sdk) | MIT |
@@ -575,4 +584,9 @@ if you vendor or fork any of it:
 | [`picocolors`](https://www.npmjs.com/package/picocolors) | ISC |
 
 ISC and MIT are both short, permissive licenses with no material difference in what they let you
-do.
+do. Their own dependencies (what `npm install` pulls in beneath them, mostly under
+`@modelcontextprotocol/sdk`) are permissive too, but not all MIT or ISC: `fast-uri` and `qs` are
+BSD-3-Clause and `json-schema-typed` is BSD-2-Clause, which also ask you to keep their notices.
+`pnpm licenses list --prod` lists every one. The Claude Code plugin bundles code from
+`@typesafe-ai/sdk` into its `dist/`, and ships its notice in
+[`packages/claude-plugin/THIRD_PARTY_NOTICES`](packages/claude-plugin/THIRD_PARTY_NOTICES).

@@ -11,10 +11,15 @@ const JAPANESE = /[\p{sc=Hiragana}\p{sc=Katakana}\p{sc=Han}]/u
 /** What's wrong with `probes` for `taskSpec` (its task.json), empty when nothing is. */
 export function probeLanguageProblems(taskSpec, probes) {
   if ((taskSpec.format ?? 1) < 2 || taskSpec.language !== 'ja') return []
+  return japaneseProbeProblems(probes, 'a Japanese format-2 task')
+}
+
+/** Each question or fact in `probes` that isn't in Japanese, for a session in Japanese (`what` says which kind). */
+export function japaneseProbeProblems(probes, what) {
   return probes.flatMap((probe, i) =>
     ['question', 'fact']
       .filter((field) => !JAPANESE.test(probe[field] ?? ''))
-      .map((field) => `probe ${i + 1} ("${String(probe.fact ?? '').slice(0, 40)}"): its ${field} isn't in Japanese, and this is a Japanese format-2 task`),
+      .map((field) => `probe ${i + 1} ("${String(probe.fact ?? '').slice(0, 40)}"): its ${field} isn't in Japanese, and this is ${what}`),
   )
 }
 

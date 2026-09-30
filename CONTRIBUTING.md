@@ -17,6 +17,12 @@ pnpm typecheck    # the tests too, which the build leaves out
 pnpm test         # no API key or network needed
 ```
 
+The repository's [`.mcp.json`](.mcp.json) starts the MCP server from
+`packages/mcp-server/dist/index.js`, which exists only after `pnpm build`: in a fresh clone, an MCP
+host (Claude Code included) opening this repo reports the `ctxjev` server's connection as closed
+until you build. It passes `TYPESAFE_API_KEY` through from your environment; without it, the tools
+still work with `scorer: "local"` or `"recency"`.
+
 Tests whose names end in `.live.test.ts` call the real Jev API and are skipped unless
 `TYPESAFE_API_KEY` is set. Every other test must pass offline: tests that start a subprocess give it
 an allowlisted environment ([`test-support/subprocessEnv.ts`](test-support/subprocessEnv.ts)) with
@@ -28,6 +34,8 @@ The eval harness has checks that call no model and run in CI:
 node examples/eval-tasks/verify.mjs                       # templates fail the hidden tests, solutions pass
 cd packages/core && node eval/tasks.mjs --selftest        # the agent's workspace tools behave
 cd packages/core && node eval/check-docs.mjs              # the docs' eval numbers match eval/results/
+cd packages/core && node eval/check-sessions.mjs          # Japanese sessions' probes are in Japanese
+node --experimental-strip-types scripts/redact-coverage.ts  # every secret format and harmless string in redactCases.ts
 ```
 
 ## Rules for every change

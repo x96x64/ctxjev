@@ -1,0 +1,6 @@
+# P1-4: the new test in packages/core/eval/check-sessions.test.mjs before the fix
+     × checks the repository's Japanese sessions, and passes
+     × fails when it checks no session at all
+     × fails when a Japanese session gains an English probe
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  3 failed (3)
