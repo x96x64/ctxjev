@@ -826,8 +826,18 @@ function maskingBlind() {
   }).join('. ')
 }
 
+function maskingBlindJa() {
+  return MASKING_HOLDOUTS.map((h) => {
+    const r = maskingHoldout(h)
+    const corpus = `${h.corpus} のコーパス`
+    if (!r) return `${corpus}：未測定`
+    return `${corpus}（${h.version}）：秘密を含む行の検出 ${r.detected.n}/${r.detected.of}（${pct1(r.detected.n / r.detected.of)}）、無害な行の誤検出 ${r.falsePositives.n}/${r.falsePositives.of}（${pct1(r.falsePositives.n / r.falsePositives.of)}）`
+  }).join('。')
+}
+
 const RENDERERS = {
   'masking-blind': maskingBlind,
+  'masking-blind-ja': maskingBlindJa,
   'design-task-success': designTaskSuccess,
   'design-retention': designRetention,
   'design-retention-diffs': designRetentionDiffs,
@@ -894,6 +904,8 @@ const DOCS = [
   { path: 'packages/claude-plugin/README.md' },
   // Status tables, not results; the eval numbers in them are generated inline.
   { path: 'docs/audits/2026-09-25-audit-2-triage-ja.md' },
+  // The masking holdout results, generated inline from the saved outputs.
+  { path: 'docs/audits/2026-09-30-round-4-changes-ja.md' },
 ]
 const GENERATED = /<!-- generated:([\w-]+) -->([\s\S]*?)<!-- \/generated:\1 -->/g
 

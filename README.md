@@ -519,7 +519,7 @@ are in the [`ctxjev-mcp` README](packages/mcp-server/README.md).
   [`buildJevRequest()`](packages/core/src/jevClient.ts), which runs goal and content through
   [`redactSecrets()`](packages/core/src/redact.ts) first. Best-effort, not a guarantee. Measured
   blind, on lines a separate agent wrote without seeing the masking code, each corpus's holdout half
-  once: <!-- generated:masking-blind -->Round 3's corpus, 0.7.0: 84 of 91 lines with secrets masked (92.3%), and 6 of 42 harmless lines changed (14.3%). Round 4's corpus: not measured yet (its holdout half is measured once, on the 0.7.1 release)<!-- /generated:masking-blind -->. Misses and false alarms
+  once: <!-- generated:masking-blind -->Round 3's corpus, 0.7.0: 84 of 91 lines with secrets masked (92.3%), and 6 of 42 harmless lines changed (14.3%). Round 4's corpus, 0.7.1: 80 of 92 lines with secrets masked (87.0%), and 3 of 41 harmless lines changed (7.3%)<!-- /generated:masking-blind -->. Misses and false alarms
   that remain are listed in [issue #16](https://github.com/x96x64/ctxjev/issues/16).
 - **The scorer is pluggable, and the baselines ship.** `scorer` takes `'jev'`, `'recency'` (plain
   truncation), `'local'` (keyword overlap), or your own function, called per chunk with content

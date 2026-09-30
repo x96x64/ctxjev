@@ -1,0 +1,26 @@
+# After "Publish to npm" run #22 (https://github.com/x96x64/ctxjev/actions/runs/36674748991, on 3feba93, every step succeeded), 2026-09-30, from the npm registry, TYPESAFE_API_KEY unset.
+
+$ npm view <package> dist-tags --prefer-online
+ctxjev-core: {"latest":"0.7.1"}
+ctxjev-cli: {"latest":"0.7.1"}
+ctxjev-mcp: {"latest":"0.7.1"}
+(the registry's cached package list showed 0.7.0 for a few minutes after the run; 0.7.1 itself was already there)
+
+GitHub: the latest release is v0.7.1 (https://github.com/x96x64/ctxjev/releases/tag/v0.7.1); tag v0.7.1 -> 3feba9388dc1654bb838b5e021cfebb685854248
+
+$ npm install -g --prefix <empty dir> ctxjev-cli && ctxjev --version
+0.7.1
+
+$ node scripts/check-readme-examples.mjs --bin <that ctxjev>   # raw.githubusercontent.com is blocked here; the sample came from examples/sample-transcripts/
+ok    README.md: ctxjev analyze examples/sample-transcripts/checkout-bug.json
+ok    README.md: ctxjev analyze claude-code-session.jsonl
+ok    README.md: ctxjev prune examples/sample-transcripts/checkout-bug.json --out pruned.json
+ok    packages/cli/README.md: ctxjev analyze checkout-bug.json
+4/4 README examples match
+
+$ npm install ctxjev-mcp (into an empty dir) && node mcp-offline.mjs   # installed version: 0.7.1
+ctxjev-mcp: TYPESAFE_API_KEY is not set, so only scorer "local" and "recency" work; a call that uses Jev (the default) returns an error until it is — get one at console.typesafe.ai/settings/keys
+tools: score_relevance(scorer: jev|local|recency, default jev), prune_history(scorer: jev|local|recency, default jev)
+prune_history scorer=local: isError=false [["a","keep"],["b","drop"]] usage {"inputTokens":0,"outputTokens":0}
+prune_history scorer=recency: isError=false [["a","drop"],["b","keep"]] usage {"inputTokens":0,"outputTokens":0}
+prune_history scorer=(default): isError=true TYPESAFE_API_KEY is not set in the environment this MCP server runs in. scorer " 

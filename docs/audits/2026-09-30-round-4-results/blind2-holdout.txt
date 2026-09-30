@@ -1,0 +1,7 @@
+# 2026-09-30T05:49:19Z: node --experimental-strip-types scripts/redact-blind.ts holdout v0.7.1 --corpus 2
+# The one run of Round 4's holdout half (redact.ts at the 0.7.1 release tag, after 0.7.1 was published).
+# Rates only: no line of the holdout half was shown, before or after.
+blind-redact-2 holdout half, redact.ts at v0.7.1:
+  lines with secrets detected: 80/92 (87.0%); none left whole (verbatim): 83/92 (90.2%)
+  secrets masked: 91/103 (88.3%)
+  harmless lines changed (false positives): 3/41 (7.3%)
