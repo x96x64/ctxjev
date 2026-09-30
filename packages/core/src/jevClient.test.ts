@@ -150,6 +150,27 @@ describe('scoreRelevance with an injected client (offline)', () => {
     await expect(scoreRelevance('goal', twoEntries, undefined, [], jev.client)).rejects.toThrow('Jev returned no answer for entry "b"')
   })
 
+  // The fourth audit (P2-12): whatever came back as `noul` was used as the relevance, unchecked.
+  it.each([
+    ['a string', '0.9'],
+    ['NaN', NaN],
+    ['Infinity', Infinity],
+    ['above 1', 1.5],
+    ['below 0', -0.2],
+    ['null', null],
+  ])('rejects a probability that is %s, naming the entry, and caches nothing', async (_name, bad) => {
+    const jev = fakeJev((content) => (content.startsWith('ls') ? (bad as number) : 0.4))
+    const cache = memoryCache()
+    await expect(scoreRelevance('goal', twoEntries, cache, [], jev.client)).rejects.toThrow(/Jev returned an invalid probability for entry "b": .* — expected a number from 0 to 1/)
+    expect(cache.store.size).toBe(0)
+  })
+
+  it('accepts 0 and 1 exactly', async () => {
+    const jev = fakeJev((content) => (content.startsWith('ls') ? 0 : 1))
+    const { verdicts } = await scoreRelevance('goal', twoEntries, undefined, [], jev.client)
+    expect(verdicts.map((v) => v.relevance)).toEqual([1, 0])
+  })
+
   it('never calls Jev for an empty batch', async () => {
     const jev = fakeJev()
     expect(await scoreRelevance('goal', [], undefined, [], jev.client)).toEqual({ verdicts: [], usage: { inputTokens: 0, outputTokens: 0 } })

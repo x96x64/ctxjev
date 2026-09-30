@@ -485,9 +485,9 @@ or a workflow where knowing what's stale matters more than the cost of asking. F
 specifically, the [plugin](#the-claude-code-plugin) is the integration that actually helps.
 
 `ctxjev-mcp` is a plain stdio server with two tools, `score_relevance` (scores per entry) and
-`prune_history` (a keep/drop/summarize decision per entry, plus a savings report). Its whole job is
-exposing Jev, so unlike the core default (`'recency'`, see [Does It Work?](#does-it-work)) it always
-asks Jev and needs `TYPESAFE_API_KEY`. Setup for Claude Code, Codex (including this repo's
+`prune_history` (a keep/drop/summarize decision per entry, plus a savings report). Unlike the core
+default (`'recency'`, see [Does It Work?](#does-it-work)), both ask Jev unless a call passes
+`scorer: "local"` or `scorer: "recency"`, which run offline; Jev needs `TYPESAFE_API_KEY`. Setup for Claude Code, Codex (including this repo's
 [Agent Plugins](https://agent-plugins.org) bundle), and GitHub Copilot, and an example response,
 are in the [`ctxjev-mcp` README](packages/mcp-server/README.md).
 

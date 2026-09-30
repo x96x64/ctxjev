@@ -399,4 +399,58 @@ describe('malformed input is named, never a raw error or a NaN', () => {
     const { decisions } = JSON.parse(result.stdout)
     expect(decisions.map((d: { recency: number }) => d.recency)).toEqual([0, 0.5, 1])
   }, 15_000)
+
+  // Issue #20, re-confirmed by the fourth audit (C2): an empty value read as 0, so `--protect-last ""`
+  // silently protected nothing.
+  it('rejects an empty --protect-last instead of reading it as 0', async () => {
+    const file = join(dir, 't.json')
+    await writeFile(file, JSON.stringify({ goal: 'g', entries: [{ id: 'a', role: 'user', content: 'x', timestamp: 1 }] }))
+    const messages = join(dir, 'm.json')
+    await writeFile(messages, JSON.stringify([{ role: 'user', content: 'hi' }, { role: 'assistant', content: 'hello' }]))
+    for (const [command, target] of [['prune', file], ['analyze', file], ['prune', messages], ['analyze', messages]]) {
+      for (const value of ['', ' ']) {
+        const result = await run([command, target, '--offline', '--goal', 'g', '--protect-last', value])
+        expect(result.exitCode, `${command} ${target} ${JSON.stringify(value)}`).toBe(1)
+        expect(result.stderr).toContain('--protect-last must be a whole number')
+      }
+    }
+  }, 30_000)
+
+  // Issue #20: with no user entry, the first entry went with no warning.
+  it('warns when it removes the first entry of a transcript with no user entry', async () => {
+    const file = join(dir, 't.json')
+    await writeFile(
+      file,
+      JSON.stringify({
+        goal: 'fix the checkout double charge on retry',
+        entries: [
+          { id: 'a', role: 'tool', content: 'listed public/audio', timestamp: 1 },
+          { id: 'b', role: 'tool', content: 'chargeCustomer() is called again by the retry handler', timestamp: 2 },
+          { id: 'c', role: 'tool', content: 'retry handler calls chargeCustomer() twice', timestamp: 3 },
+        ],
+      }),
+    )
+    const pruned = await run(['prune', file, '--offline', '--protect-last', '0', '--scorer', 'local'])
+    expect(pruned.exitCode).toBe(0)
+    expect(JSON.parse(pruned.stdout).entries.map((e: { id: string }) => e.id)).not.toContain('a')
+    expect(pruned.stderr).toContain('removed the first entry (a): this transcript has no user entry to protect as the original request')
+    const analyzed = await run(['analyze', file, '--protect-last', '0', '--scorer', 'local'])
+    expect(analyzed.exitCode).toBe(0)
+    expect(analyzed.stdout).toContain('would remove the first entry (a): this transcript has no user entry to protect as the original request')
+  }, 15_000)
+
+  // The fourth audit (P2-11, check 11): a file saved with a UTF-8 BOM (Windows Notepad) was
+  // "not valid JSON".
+  it('reads a JSON file that starts with a UTF-8 byte order mark', async () => {
+    const file = join(dir, 'bom.json')
+    await writeFile(file, '\uFEFF' + JSON.stringify({ goal: 'fix the retry', entries: [{ id: 'a', role: 'user', content: 'fix the retry', timestamp: 1 }, { id: 'b', role: 'tool', content: 'ok', timestamp: 2 }] }))
+    for (const command of ['analyze', 'prune']) {
+      const result = await run([command, file, '--offline'])
+      expect(result.exitCode, result.stderr).toBe(0)
+      expect(result.stderr).not.toContain('not valid JSON')
+    }
+    const messages = join(dir, 'bom-messages.json')
+    await writeFile(messages, '\uFEFF' + JSON.stringify([{ role: 'user', content: 'hi' }, { role: 'assistant', content: 'hello' }]))
+    expect((await run(['analyze', messages, '--offline', '--goal', 'g'])).exitCode).toBe(0)
+  }, 30_000)
 })

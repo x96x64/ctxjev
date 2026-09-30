@@ -28,6 +28,11 @@ export type PruneEntriesResult = {
   savedTokens: number
   /** Set when the first user entry was removed (only possible with `protectFirstUserEntry: false`): its id. */
   firstUserEntryRemoved?: string
+  /**
+   * Set when there's no user entry to protect and the first entry was removed anyway: its id. Only
+   * with `protectFirstUserEntry` on, so a caller can say that nothing stood in for the request.
+   */
+  firstEntryRemovedWithoutUserEntry?: string
 }
 
 /**
@@ -67,5 +72,8 @@ export function pruneEntries(entries: Entry[], decisions: PruneDecision[], optio
     keptDrops,
     savedTokens,
     ...(firstUser && removed.has(firstUser.id) && { firstUserEntryRemoved: firstUser.id }),
+    // A transcript with no user entry (tool output only) has no request to protect; its first entry
+    // is often a tool result, not a request, so it isn't protected in its place, only named.
+    ...(protectFirstUserEntry && !firstUser && entries.length > 0 && removed.has(entries[0].id) && { firstEntryRemovedWithoutUserEntry: entries[0].id }),
   }
 }

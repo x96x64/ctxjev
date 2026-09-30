@@ -1,0 +1,14 @@
+# A marketplace-style (git-subdir) install of packages/claude-plugin at PR 2's commit: a sparse checkout of that directory alone. Files outside src/ and skills/:
+.claude-plugin/plugin.json
+LICENSE
+README.md
+THIRD_PARTY_NOTICES
+dist/preCompact.js
+dist/sessionStartCompact.js
+dist/status.js
+dist/statusHook.js
+esbuild.build.mjs
+hooks/hooks.json
+package.json
+tsconfig.json
+tsconfig.test.json

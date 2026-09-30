@@ -3,6 +3,7 @@ import { cacheKeyFor, type ScoreCache } from './cache.js'
 import { truncate } from './entryText.js'
 import { redactSecrets } from './redact.js'
 import type { Entry, JevUsage } from './types.js'
+import { shown } from './validate.js'
 
 export type RelevanceVerdict = {
   entryId: string
@@ -103,12 +104,21 @@ export async function scoreRelevance(
     const response = await (jev ?? getClient()).systemOne({ state, questions })
     usage = { inputTokens: response.usage.input_tokens, outputTokens: response.usage.output_tokens }
 
-    for (const [i, entry] of uncached.entries()) {
+    // Every answer is checked before any is used or cached: a probability that isn't a finite number
+    // from 0 to 1 is an error, not a score (the fourth audit's P2-12), and one bad answer means the
+    // response can't be trusted for the rest of the batch either.
+    const answered = uncached.map((entry, i) => {
       const answer = response.answers[questionIds[i]]
       if (!answer) {
         throw new Error(`Jev returned no answer for entry "${entry.id}" — the response is missing this question`)
       }
-      const relevance = answer.noul
+      const relevance: unknown = answer.noul
+      if (typeof relevance !== 'number' || !Number.isFinite(relevance) || relevance < 0 || relevance > 1) {
+        throw new Error(`Jev returned an invalid probability for entry "${entry.id}": ${shown(relevance)} — expected a number from 0 to 1`)
+      }
+      return { entry, relevance }
+    })
+    for (const { entry, relevance } of answered) {
       relevanceByEntryId.set(entry.id, relevance)
       cache?.set(cacheKeyFor(goal, entry, latest), relevance)
     }

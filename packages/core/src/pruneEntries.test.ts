@@ -34,6 +34,19 @@ describe('pruneEntries', () => {
     expect(result.firstUserEntryRemoved).toBe('e1')
   })
 
+  // Issue #20, re-confirmed by the fourth audit (C2): with no user entry at all, nothing is protected
+  // as the original request, and the first entry went with no word said.
+  it('names the first entry it removed when there is no user entry to protect', () => {
+    const tools = [entry('e1', 'tool'), entry('e2', 'tool'), entry('e3', 'tool'), entry('e4', 'tool')]
+    const result = pruneEntries(tools, decide(tools, ['e1', 'e2']))
+    expect(result.removed).toEqual(['e1', 'e2'])
+    expect(result.firstEntryRemovedWithoutUserEntry).toBe('e1')
+    expect(pruneEntries(tools, decide(tools, ['e2'])).firstEntryRemovedWithoutUserEntry).toBeUndefined()
+    expect(pruneEntries(entries, decide(entries, ['e1', 'e2'])).firstEntryRemovedWithoutUserEntry).toBeUndefined()
+    // Turned off on purpose, it isn't worth a warning.
+    expect(pruneEntries(tools, decide(tools, ['e1']), { protectFirstUserEntry: false }).firstEntryRemovedWithoutUserEntry).toBeUndefined()
+  })
+
   it('counts saved tokens from sourceTokens when present, else the content', () => {
     const sized = [{ ...entry('e1', 'tool'), sourceTokens: 500 }, entry('e2', 'tool', 'hello world'), entry('e3', 'tool'), entry('e4', 'tool')]
     const result = pruneEntries(sized, decide(sized, ['e1', 'e2']))

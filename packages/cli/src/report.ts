@@ -113,7 +113,9 @@ function describeOutcome(savings: SavingsReport, outcome: PruneOutcome): string 
   const { result, protectLast = 2 } = outcome
   const kept = result && describeEntryKeptDrops(result.keptDrops, protectLast)
   const keptLine = kept ? `\n${kept}` : ''
-  const warning = result?.firstUserEntryRemoved ? `\n${pc.yellow('⚠')} ${firstUserEntryWarning(result.firstUserEntryRemoved, 'would')}` : ''
+  const warning =
+    (result?.firstUserEntryRemoved ? `\n${pc.yellow('⚠')} ${firstUserEntryWarning(result.firstUserEntryRemoved, 'would')}` : '') +
+    (result?.firstEntryRemovedWithoutUserEntry ? `\n${pc.yellow('⚠')} ${noUserEntryWarning(result.firstEntryRemovedWithoutUserEntry, 'would')}` : '')
   const removedShare = result && savings.totalTokens > 0 ? Math.round((result.savedTokens / savings.totalTokens) * 100) : 0
   const removing =
     !result || result.removed.length === savings.droppedEntries
@@ -126,6 +128,11 @@ function describeOutcome(savings: SavingsReport, outcome: PruneOutcome): string 
 export function formatEntriesOutcome(total: number, result: PruneEntriesResult, protectLast: number, tense: 'did' | 'would', note = ''): string {
   const kept = describeEntryKeptDrops(result.keptDrops, protectLast)
   return `${tense === 'did' ? 'removed' : 'prune would remove'} ${result.removed.length} of ${total} entries, ~${result.savedTokens.toLocaleString()} tokens${note}${kept ? `\n${kept}` : ''}`
+}
+
+/** Issue #20: with no user entry, --protect-first had nothing to protect, and the first entry went unremarked. */
+export function noUserEntryWarning(id: string, tense: 'did' | 'would'): string {
+  return `${tense === 'did' ? 'removed' : 'would remove'} the first entry (${id}): this transcript has no user entry to protect as the original request`
 }
 
 export function firstUserEntryWarning(id: string, tense: 'did' | 'would'): string {

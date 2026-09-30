@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 import { readStdin } from './readStdin.js'
-import { statusReport } from './status.js'
 
 type UserPromptSubmitInput = { prompt?: string; cwd?: string; session_id?: string; transcript_path?: string }
 
@@ -17,6 +16,10 @@ const STATUS_COMMAND = /^\/ctxjev:status\s*$/
 async function main() {
   const input: UserPromptSubmitInput = JSON.parse(await readStdin())
   if (typeof input.prompt !== 'string' || !STATUS_COMMAND.test(input.prompt.trim())) return
+  // Claude Code runs this hook on every prompt, so the report (state files, the transcript parser,
+  // masking) is loaded only for /ctxjev:status (the fourth audit's P2-13): from dist/status.js, the
+  // skill's own bundle next to this one, by a path esbuild leaves alone rather than bundling here.
+  const { statusReport } = (await import(new URL('./status.js', import.meta.url).href)) as typeof import('./status.js')
   const report = await statusReport(input.cwd ?? process.cwd(), input.session_id, input.transcript_path)
   console.log(JSON.stringify({ decision: 'block', reason: report }))
 }

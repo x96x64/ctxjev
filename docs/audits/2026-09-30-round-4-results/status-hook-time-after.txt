@@ -1,0 +1,1 @@
+node v22.22.2, 40 runs each, median: bare node 26.0 ms; statusHook.js on an ordinary prompt 33.1 ms (+7.1 ms)

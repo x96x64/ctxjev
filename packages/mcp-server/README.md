@@ -2,7 +2,7 @@
 
 # ctxjev-mcp
 
-**Jev-based context scoring, as MCP tools for Claude Code, Codex, and any other MCP host.**
+**Context scoring (Jev, or offline) as MCP tools for Claude Code, Codex, and any other MCP host.**
 
 [![npm](https://img.shields.io/npm/v/ctxjev-mcp.svg)](https://www.npmjs.com/package/ctxjev-mcp)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -30,9 +30,12 @@ config shape differs.
 Every example below pins the version (`ctxjev-mcp@0.7.0`, the latest on npm), so your host runs the
 release you chose rather than whatever npm has at the time; change the pin to upgrade.
 
-Get a key at [console.typesafe.ai/settings/keys](https://console.typesafe.ai/settings/keys) (no
-waitlist) first. Without one the server still starts and lists its two tools, but every call
-returns an error saying `TYPESAFE_API_KEY` isn't set.
+Both tools score with Jev by default (`scorer: "jev"`), which needs a key from
+[console.typesafe.ai/settings/keys](https://console.typesafe.ai/settings/keys) (no waitlist). Without
+one the server still starts and lists its two tools; a call with `scorer: "local"` (keyword overlap
+with the goal) or `scorer: "recency"` (newest first, the same as plain truncation) works offline and
+sends nothing, and a call that uses Jev returns an error saying `TYPESAFE_API_KEY` isn't set. For
+offline use only, leave `--env TYPESAFE_API_KEY=...` (or the `env` block) out of the examples below.
 
 **Claude Code:**
 
@@ -80,14 +83,17 @@ codex plugin add ctxjev@ctxjev-plugins
 
 ## Tools
 
-- **`score_relevance`** takes `{ goal, entries, recencyWeight? }` and returns a
+- **`score_relevance`** takes `{ goal, entries, scorer?, recencyWeight? }` and returns a
   relevance/recency/combined score per entry plus Jev token usage, with no decision made.
+  `scorer` is `"jev"` (the default, as before 0.7.1; needs `TYPESAFE_API_KEY`), `"local"`, or
+  `"recency"`; the last two run offline and report zero usage.
 - **`prune_history`** takes the same input plus `{ dropBelow?, summarizeBelow? }` and returns a
   decision (`keep`/`drop`/`summarize`) per entry, a savings report, and Jev token usage.
 
 `entries` is `{ id, role: 'user'|'assistant'|'tool', toolName?, content, timestamp }[]`.
 
-Entry content and the goal are sent to TypeSafe AI's Jev API. Common secret formats (API keys,
+With `scorer: "jev"`, entry content and the goal are sent to TypeSafe AI's Jev API (with `"local"`
+or `"recency"`, nothing is sent anywhere). Common secret formats (API keys,
 tokens, private-key blocks, `NAME=value` credentials) are masked to `[REDACTED]` first, on a
 best-effort basis.
 

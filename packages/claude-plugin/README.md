@@ -4,7 +4,7 @@
 
 **Keep what matters through Claude Code's own compaction.**
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](../../LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Verified](https://img.shields.io/badge/verified-desktop%20app%20%2B%20CLI-brightgreen)](../../ROADMAP.md)
 
 [Overview](#overview) · [How It Works](#how-it-works) · [Skills](#skills) · [Install](#install) · [Requirements](#requirements) · [Privacy](#privacy)
@@ -149,7 +149,9 @@ in the main repo: **[github.com/x96x64/ctxjev](https://github.com/x96x64/ctxjev)
 
 ## License
 
-This package is released under the [MIT](../../LICENSE) license: free to use, modify, and
-distribute, including in a commercial product, as long as the license text and copyright notice
-ship with it. See the [main repo](https://github.com/x96x64/ctxjev#license) for how this matches
-every dependency `ctxjev` currently uses.
+This plugin is released under the MIT license ([`LICENSE`](LICENSE), the same as the repository's):
+free to use, modify, and distribute, including in a commercial product, as long as the license
+text and copyright notice ship with it. Its `dist/` bundles also contain code from
+`@typesafe-ai/sdk` (MIT); its license text and copyright notice are in
+[`THIRD_PARTY_NOTICES`](THIRD_PARTY_NOTICES), which the build generates from what it bundled. Both
+files are in this directory, so a marketplace install carries them.
