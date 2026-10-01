@@ -9,7 +9,8 @@
  * Entry points: pruneContext, scoreEntries, summarizeSavings, pruneEntries, messagesToEntries,
  * pruneMessages, estimateTokens, redactSecrets (in-process, from packages/core/dist); `ctxjev
  * analyze` and `ctxjev prune` (packages/cli/dist, as a subprocess); and the MCP server's two tools
- * (packages/mcp-server/dist over stdio, with a fake key and a local stand-in for Jev). Offline:
+ * (packages/mcp-server/dist over stdio, each case with `scorer: "jev"` against a fake key and a
+ * local stand-in for Jev, and again with the default scorer). Offline:
  * nothing is sent anywhere but that local stand-in. Build first (`pnpm build`). Exits 1 on any
  * violation. The third audit's round asked for it: "a simple brute force over boundary inputs
  * (size, type, extreme values)" would have found its findings 1c and 4c before it did.
@@ -350,9 +351,13 @@ for (const [flag, value] of [['--target-tokens', 'NaN'], ['--target-tokens', '-1
 }
 
 // ---------------------------------------------------------------------------------------------
-// The MCP server over stdio, with a fake key and a local stand-in for Jev
+// The MCP server over stdio, with a fake key and a local stand-in for Jev. The tools default to
+// the offline `local` scorer, so each case runs twice: with `scorer: "jev"` (through the key check,
+// the request builder, and the stand-in) and with no scorer (the default).
 
+let jevRequests = 0
 const jev = createServer((req, res) => {
+  jevRequests++
   let body = ''
   req.on('data', (d) => (body += d))
   req.on('end', () => {
@@ -365,15 +370,18 @@ await new Promise((r) => jev.listen(0, '127.0.0.1', r))
 const client = new Client({ name: 'ctxjev-bruteforce', version: '0.0.0' })
 await client.connect(new StdioClientTransport({ command: process.execPath, args: [mcpPath], env: { ...cleanEnv, TYPESAFE_API_KEY: 'not-a-real-key', TYPESAFE_BASE_URL: `http://127.0.0.1:${jev.address().port}` }, stderr: 'pipe' }))
 async function checkMcp(name, args) {
-  for (const tool of ['score_relevance', 'prune_history']) {
-    await check(`mcp ${tool}`, name, async () => {
-      const result = await client.callTool({ name: tool, arguments: args })
-      const text = JSON.stringify(result.content)
-      if (RAW.test(text)) throw new TypeError(text.slice(0, 200))
-      if (result.isError) return { isError: true }
-      return JSON.parse(result.content[0].text)
-    }, { limitMs: 15_000, validate: (r) => (r.isError ? undefined : validDecisions(r.scored ?? r.decisions, args.entries)) })
+  for (const [suffix, scorer] of [['', { scorer: 'jev' }], [' (default scorer)', {}]]) {
+    for (const tool of ['score_relevance', 'prune_history']) await checkMcpTool(`mcp ${tool}${suffix}`, name, tool, { ...args, ...scorer })
   }
+}
+async function checkMcpTool(point, name, tool, args) {
+  await check(point, name, async () => {
+    const result = await client.callTool({ name: tool, arguments: args })
+    const text = JSON.stringify(result.content)
+    if (RAW.test(text)) throw new TypeError(text.slice(0, 200))
+    if (result.isError) return { isError: true }
+    return JSON.parse(result.content[0].text)
+  }, { limitMs: 15_000, validate: (r) => (r.isError ? undefined : validDecisions(r.scored ?? r.decisions, args.entries)) })
 }
 const mcpBase = () => [entry(0), entry(1), entry(2)].map(({ toolName, ...e }) => (toolName ? { ...e, toolName } : e))
 for (const field of ['id', 'role', 'toolName', 'content', 'timestamp', 'sourceTokens']) {
@@ -396,6 +404,8 @@ for (const [label, value] of Object.entries({ ...WRONG, ...Object.fromEntries(Ob
   await checkMcp(`dropBelow = ${label}`, { goal: 'g', entries: mcpBase(), dropBelow: value })
 }
 await client.close()
+// Without this, a default or schema change that keeps every call away from Jev would pass unseen.
+if (jevRequests === 0) violations.push({ point: 'mcp', case: 'scorer "jev"', problem: 'no case reached the local stand-in for Jev' })
 jev.closeAllConnections()
 jev.close()
 rmSync(dir, { recursive: true, force: true })

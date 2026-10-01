@@ -9,7 +9,7 @@ async function main() {
   // returns an error saying what's missing.
   const missingKey = missingTypesafeApiKey()
   if (missingKey !== undefined) {
-    console.error(`ctxjev-mcp: ${missingKey}, so only scorer "local" and "recency" work; a call that uses Jev (the default) returns an error until there is one — get one at console.typesafe.ai/settings/keys`)
+    console.error(`ctxjev-mcp: ${missingKey}, so scorer "jev" returns an error until there is one ("local", the default, and "recency" work offline) — get one at console.typesafe.ai/settings/keys`)
   }
 
   const server = createServer()

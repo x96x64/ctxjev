@@ -17,7 +17,7 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs'
 import { parseArgs } from 'node:util'
-import { seededRandom } from '../dist/index.js'
+import { seededRandom } from '../dist/internal.js'
 
 const { values: args } = parseArgs({
   options: { from: { type: 'string' }, sample: { type: 'string', default: '120' }, seed: { type: 'string', default: '20261001' }, out: { type: 'string' }, kappa: { type: 'string' } },

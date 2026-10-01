@@ -25,11 +25,10 @@ The marketplace installs that release, not `main`. Every release is published fr
 ctxjev handles agent transcripts, which routinely contain secrets pasted into chat or echoed by a
 tool. The things most worth reporting:
 
-- **Content leaving the machine unmasked.** The CLI and the library score offline unless asked for
-  Jev (`--scorer jev`, `scorer: 'jev'`), and the Claude Code plugin only when `CTXJEV_SCORER=jev` is
-  set, a key alone is not enough. The MCP server's two tools take a `scorer` argument whose default
-  is `"jev"`: with `TYPESAFE_API_KEY` set in the server's environment, a call that names no scorer
-  sends masked excerpts to Jev; `scorer: "local"` or `"recency"` runs offline and sends nothing. When
+- **Content leaving the machine unmasked.** Every entry point scores offline unless asked for Jev:
+  the CLI and the library with `--scorer jev` / `scorer: 'jev'`, the MCP server's two tools with
+  `scorer: "jev"` (their default is `"local"` from 1.0; before, it was `"jev"`), and the Claude Code
+  plugin with `CTXJEV_SCORER=jev`. A key alone is not enough anywhere. When
   Jev is used, entry excerpts and the goal
   are sent to TypeSafe AI's Jev API after `redactSecrets()` masks recognizable secret formats. A
   common credential format that passes through it, content sent while Jev wasn't asked for, or a
@@ -42,6 +41,8 @@ tool. The things most worth reporting:
   `packages/claude-plugin/dist/`, including their dependencies.
 
 ## Known limitations (not vulnerabilities by themselves)
+
+Every open issue, security-related or not, is summarized in [docs/known-limitations.md](docs/known-limitations.md), which links the issues that hold the full lists.
 
 - Secret masking is best-effort pattern matching. It catches common formats, not every possible
   secret; the README says so wherever content is sent. A value that reads as a variable reference

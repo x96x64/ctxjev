@@ -1,7 +1,8 @@
 import { chmod, mkdir, readFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { atomicWriteFile, type ScoreCache } from 'ctxjev-core'
+import { type ScoreCache } from 'ctxjev-core'
+import { atomicWriteFile } from 'ctxjev-core/internal'
 
 export const DEFAULT_CACHE_PATH = join(homedir(), '.cache', 'ctxjev', 'score-cache.json')
 

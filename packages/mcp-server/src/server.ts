@@ -18,7 +18,7 @@ const missingKeyResult = (missing: string) => ({
   content: [
     {
       type: 'text' as const,
-      text: `${missing} in the environment this MCP server runs in. scorer "jev" (the default) needs a key: get one at console.typesafe.ai/settings/keys and add it to the server's env in your MCP host's config, or pass scorer "local" (keyword overlap) or "recency" (plain truncation), which run offline.`,
+      text: `${missing} in the environment this MCP server runs in. scorer "jev" needs a key: get one at console.typesafe.ai/settings/keys and add it to the server's env in your MCP host's config, or pass scorer "local" (keyword overlap) or "recency" (plain truncation), which run offline.`,
     },
   ],
 })
@@ -35,7 +35,7 @@ export function createServer(): McpServer {
     'score_relevance',
     {
       description:
-        "Score a batch of AI agent history entries for relevance to a goal: with Jev by default (needs TYPESAFE_API_KEY), or offline with scorer 'local' or 'recency'. Under 'local', relevance is keyword overlap ranked within the batch (0 lowest, 1 highest; `tied` when every entry overlaps equally), the scale prune_history's thresholds use. Doesn't decide what to do about it — see prune_history for that.",
+        "Score a batch of AI agent history entries for relevance to a goal: offline by default (scorer 'local', keyword overlap; or 'recency'), or with Jev if the call passes scorer 'jev' (needs TYPESAFE_API_KEY; sends masked excerpts). Under 'local', relevance is keyword overlap ranked within the batch (0 lowest, 1 highest; `tied` when every entry overlaps equally), the scale prune_history's thresholds use. Doesn't decide what to do about it — see prune_history for that.",
       inputSchema: scoreRelevanceSchema,
     },
     async (args) => {
@@ -49,7 +49,7 @@ export function createServer(): McpServer {
   server.registerTool(
     'prune_history',
     {
-      description: "Score a batch of AI agent history entries against a goal and decide what to keep, drop, or summarize: with Jev by default (needs TYPESAFE_API_KEY), or offline with scorer 'local' or 'recency'.",
+      description: "Score a batch of AI agent history entries against a goal and decide what to keep, drop, or summarize: offline by default (scorer 'local', keyword overlap; or 'recency'), or with Jev if the call passes scorer 'jev' (needs TYPESAFE_API_KEY; sends masked excerpts).",
       inputSchema: pruneHistorySchema,
     },
     async (args) => {

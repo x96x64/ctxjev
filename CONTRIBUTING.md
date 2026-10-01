@@ -85,8 +85,20 @@ Releases are made by the maintainer, from `main`, only through the
   together, then run `node scripts/check-versions.mjs --update-pins` so every `ctxjev-mcp@<version>`
   in the MCP setup examples names the new version, and the marketplace serves the plugin from the
   new tag (below). The publish workflow refuses to run if any of them disagree.
-- **0.x semantics:** a changed default or removed option is a minor bump (0.5 → 0.6) and is called
-  out as breaking in the CHANGELOG; fixes and additions are patch bumps.
+- **Semantic Versioning from 1.0.0.** [`docs/api-stability.md`](docs/api-stability.md) lists what's
+  stable and what isn't covered. Within 1.x:
+  - **Major (2.0.0):** removing or renaming anything stable, changing a stable default (a scorer,
+    a threshold, a protection), changing what is sent or when, changing a result field's meaning
+    or type, making an optional input required, or dropping a Node.js version that's still
+    officially supported.
+  - **Minor (1.x.0):** a new function, option, flag, tool argument, or output field; a deprecation
+    (see the policy in `api-stability.md`); dropping a Node.js version whose official support has
+    ended.
+  - **Patch (1.x.y):** a fix that keeps every stable promise, including masking more secrets; a
+    change to anything not covered (`ctxjev-core/internal`, human-readable output, internal file
+    formats); docs.
+  - When in doubt, treat it as the larger bump. A breaking change is listed first in its CHANGELOG
+    section, under "Breaking changes".
 - **The CHANGELOG section for the version must exist** before publishing; it becomes the GitHub
   Release notes.
 - **Before publishing**, with `TYPESAFE_API_KEY` set: `pnpm test` (runs the live tests) and, if

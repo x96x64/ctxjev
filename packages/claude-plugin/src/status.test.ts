@@ -60,6 +60,19 @@ describe('statusReport', () => {
     expect(report).toContain("Last run: unknown — last-run.json isn't valid JSON")
   })
 
+  // Issues #17 and #20: a last-run.json of the wrong shape showed as "no compaction in this
+  // session" (null, a number, an array) or as "Last run: undefined, undefined" (missing fields).
+  for (const [what, body] of [['null', 'null'], ['a number', '42'], ['an array', '[]'], ['an object missing its fields', '{"note": "x"}']]) {
+    it(`says last-run.json is malformed when it holds ${what}`, async () => {
+      await mkdir(join(root, 'state', 'sessions', 'sess-1'), { recursive: true })
+      await writeFile(join(root, 'state', 'sessions', 'sess-1', 'last-run.json'), body)
+      const report = await statusReport(cwd, 'sess-1')
+      expect(report).not.toContain('no compaction in this session')
+      expect(report).not.toContain('undefined')
+      expect(report).toContain('Last run: unknown — last-run.json is malformed')
+    })
+  }
+
   it("says so when it can't find the session's transcript", async () => {
     expect(await statusReport(cwd, 'unknown-session')).toContain("couldn't find this session's transcript")
   })

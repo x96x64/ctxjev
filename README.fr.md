@@ -2,7 +2,7 @@
 
 [en](https://github.com/x96x64/ctxjev/blob/main/README.md) | [ja](https://github.com/x96x64/ctxjev/blob/main/README.ja.md) | [zh](https://github.com/x96x64/ctxjev/blob/main/README.zh.md) | [es](https://github.com/x96x64/ctxjev/blob/main/README.es.md) | [ko](https://github.com/x96x64/ctxjev/blob/main/README.ko.md) | [pt](https://github.com/x96x64/ctxjev/blob/main/README.pt.md) | **fr** | [de](https://github.com/x96x64/ctxjev/blob/main/README.de.md)
 
-<!-- translation-source: README.md sha256=04b2c884329cd3020edab16406a515b2aa4981a636c0fcbb0254b636d28d8ee0 -->
+<!-- translation-source: README.md sha256=a7698a8be4b8ca9f498efbdcbfac02aa00951a43b11dbdd0f4f7bfc8344235bc -->
 > Traduit du README anglais. En cas de divergence, c'est la version anglaise qui fait foi.
 
 **Attribue un score à l'historique d'un agent d'IA et décide quoi garder, retirer ou résumer : hors ligne par
@@ -15,10 +15,8 @@ défaut, ou avec [Jev](https://typesafe.ai) de TypeSafe AI si vous l'activez.**
 [![License](https://img.shields.io/npm/l/ctxjev-core.svg)](LICENSE)
 [![Node](https://img.shields.io/node/v/ctxjev-core.svg)](https://nodejs.org)
 
-- **Par défaut, rien ne quitte votre machine** avec la CLI, la bibliothèque ou le plugin Claude Code.
-  Jev est facultatif (`--scorer jev`, `scorer: 'jev'`, `CTXJEV_SCORER=jev`) et nécessite `TYPESAFE_API_KEY`.
-- **Le serveur MCP fait exception :** ses outils utilisent Jev, sauf si l'appel passe `scorer: "local"` ou
-  `"recency"`.
+- **Par défaut, rien ne quitte votre machine** avec la CLI, la bibliothèque, le serveur MCP ou le plugin Claude Code.
+  Jev est facultatif (`--scorer jev`, `scorer: 'jev'`, `scorer: "jev"`, `CTXJEV_SCORER=jev`) et nécessite `TYPESAFE_API_KEY`.
 - **Son intérêt n'est pas démontré :** sur des tâches mises de côté (held-out), aucune méthode de score n'a montré
   qu'elle aidait un agent à terminer plus de tâches qu'une simple troncature. Voir [État et limites](#état-et-limites).
 
@@ -90,7 +88,7 @@ Scored offline by keyword overlap — no Jev call, nothing sent. It matches word
 | Voir comment une transcription est notée, ou élaguer une transcription enregistrée | [`ctxjev-cli`](packages/cli) | Non |
 | Retirer l'historique périmé dans une boucle d'agent que vous écrivez | [`ctxjev-core`](packages/core) | Non |
 | Conserver les détails importants malgré la compaction de Claude Code | [le plugin Claude Code](packages/claude-plugin) | Non |
-| Donner des outils de score à n'importe quel hôte MCP | [`ctxjev-mcp`](packages/mcp-server) | Avec une clé définie, des extraits masqués à Jev, sauf si l'appel choisit `local` ou `recency` |
+| Donner des outils de score à n'importe quel hôte MCP | [`ctxjev-mcp`](packages/mcp-server) | Non : seul un appel qui passe `scorer: "jev"` envoie quelque chose |
 | Utiliser ctxjev depuis Codex | `ctxjev-mcp`, via le [plugin Codex](#codex) | Comme `ctxjev-mcp` |
 
 ## Installation
@@ -163,7 +161,7 @@ claude mcp add ctxjev --env TYPESAFE_API_KEY=... -- npx ctxjev-mcp@0.7.2   # Cla
 codex mcp add ctxjev --env TYPESAFE_API_KEY=... -- npx ctxjev-mcp@0.7.2    # Codex
 ```
 
-Omettez `--env TYPESAFE_API_KEY=...` pour l'utiliser uniquement hors ligne. Un outil MCP ne peut rien retirer du
+Les outils notent hors ligne (`local`), sauf si l'appel passe `scorer: "jev"` ; omettez `--env TYPESAFE_API_KEY=...` si vous ne voulez jamais utiliser Jev. Un outil MCP ne peut rien retirer du
 contexte de son propre hôte, et l'agent paie des tokens de sortie pour envoyer son historique en arguments : l'appeler
 n'économise donc pas de tokens à lui seul. Il s'adresse aux frameworks d'agents qui agissent d'après les scores. La
 configuration des autres hôtes est dans le [README de `ctxjev-mcp`](packages/mcp-server/README.md).
@@ -203,8 +201,8 @@ Claude Code, et ctxjev ne lit pas les journaux de session propres à Codex.
 | Méthode | Classe selon | Utilise l'objectif | Envoie quelque chose | Par défaut dans |
 | --- | --- | --- | --- | --- |
 | `recency` | La position : la plus ancienne 0, la plus récente 1 (simple troncature) | Non | Non | CLI, bibliothèque |
-| `local` | Le recoupement de mots-clés avec l'objectif, classé au sein du lot | Oui | Non | Plugin Claude Code |
-| `jev` | Le jugement oui/non de Jev sur la pertinence pour l'objectif | Oui | Des extraits masqués et l'objectif, à TypeSafe AI | Outils MCP |
+| `local` | Le recoupement de mots-clés avec l'objectif, classé au sein du lot | Oui | Non | Plugin Claude Code, outils MCP |
+| `jev` | Le jugement oui/non de Jev sur la pertinence pour l'objectif | Oui | Des extraits masqués et l'objectif, à TypeSafe AI | Aucun : facultatif |
 
 `local` et `jev` combinent leur pertinence avec la position de chaque entrée : `recencyWeight` (par défaut `0.1`)
 indique le poids de la position. Une entrée dont le score est inférieur à `dropBelow` (par défaut `0.3`) est marquée
@@ -256,7 +254,7 @@ confiance à 95 % : <!-- generated:holdout-diff-haiku -->0 [0, 0]<!-- /generated
 Selon la mesure préenregistrée de ce dont chaque tâche avait besoin, le classement de Jev en a gardé
 <!-- generated:holdout-retention-jev -->23.6%<!-- /generated:holdout-retention-jev --> avec un budget serré, moins qu'un ordre aléatoire des mêmes entrées
 (<!-- generated:holdout-retention-random -->26.5%<!-- /generated:holdout-retention-random -->). Le résumé (digest) du plugin Claude Code n'a pas non plus d'effet démontré. C'est
-pourquoi tout, sauf les outils MCP, note hors ligne par défaut. Les tâches sont petites, et l'ensemble mis de côté est
+pourquoi tous les points d'entrée notent hors ligne par défaut. Les tâches sont petites, et l'ensemble mis de côté est
 désormais épuisé ; [docs/evaluation.md](docs/evaluation.md) donne tous les chiffres, la façon dont ils ont été obtenus
 et ce qu'ils ne peuvent pas montrer.
 
@@ -264,6 +262,8 @@ et ce qu'ils ne peuvent pas montrer.
 
 - [docs/evaluation.md](docs/evaluation.md) : ce qui a été mesuré, et ce qui ne l'a pas été
 - [docs/design-notes.md](docs/design-notes.md) : pourquoi cela fonctionne ainsi
+- [docs/api-stability.md](docs/api-stability.md) : ce que la 1.x garde stable
+- [docs/known-limitations.md](docs/known-limitations.md) : ce qu'il ne fait pas, et pourquoi
 - README des paquets : [`ctxjev-core`](packages/core/README.md), [`ctxjev-cli`](packages/cli/README.md),
   [`ctxjev-mcp`](packages/mcp-server/README.md), [plugin Claude Code](packages/claude-plugin/README.md)
 - [CHANGELOG.md](CHANGELOG.md) et [ROADMAP.md](ROADMAP.md)

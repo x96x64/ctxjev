@@ -1,5 +1,6 @@
 import { STATUS_MARKER } from './statusMarker.js'
-import { DEFAULT_POLICY, isGoalCandidate, isSubstantiveMessage, rankLocalRelevance, scoreEntries, splitCjkBigrams, type Entry, type EntryRole, type ScoredEntry } from 'ctxjev-core'
+import { DEFAULT_POLICY, scoreEntries, type Entry, type EntryRole, type ScoredEntry } from 'ctxjev-core'
+import { isGoalCandidate, isSubstantiveMessage, rankLocalRelevance, splitCjkBigrams } from 'ctxjev-core/internal'
 
 export type SelectedEntry = ScoredEntry & { content: string }
 

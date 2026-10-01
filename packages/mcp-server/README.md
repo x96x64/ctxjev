@@ -1,7 +1,7 @@
 # ctxjev-mcp
 
-**Context scoring as MCP tools for Claude Code, Codex, and any other MCP host: with Jev by default,
-or offline.**
+**Context scoring as MCP tools for Claude Code, Codex, and any other MCP host: offline by default,
+or with Jev if a call asks for it.**
 
 [![npm](https://img.shields.io/npm/v/ctxjev-mcp.svg)](https://www.npmjs.com/package/ctxjev-mcp)
 [![CI](https://github.com/x96x64/ctxjev/actions/workflows/ci.yml/badge.svg)](https://github.com/x96x64/ctxjev/actions/workflows/ci.yml)
@@ -21,14 +21,15 @@ command works with every host below; only the config shape differs.
 
 ## What it sends
 
-Both tools score with Jev unless a call passes `scorer: "local"` (keyword overlap with the goal)
-or `scorer: "recency"` (newest first, the same as plain truncation). With Jev, the goal and an
-excerpt of each entry are sent to TypeSafe AI's Jev API, after common secret formats are masked to
-`[REDACTED]` (best-effort, not exhaustive). `local` and `recency` run offline and send nothing.
+Both tools score offline by default: `scorer: "local"` (keyword overlap with the goal, the default)
+or `scorer: "recency"` (newest first, the same as plain truncation) send nothing anywhere. Only a
+call that passes `scorer: "jev"` uses Jev: the goal and an excerpt of each entry are then sent to
+TypeSafe AI's Jev API, after common secret formats are masked to `[REDACTED]` (best-effort, not
+exhaustive). Before 1.0, Jev was the default.
 
 Jev needs a key from [console.typesafe.ai/settings/keys](https://console.typesafe.ai/settings/keys)
 in the server's environment. Without one the server still starts and lists its tools, `local` and
-`recency` work, and a call that would use Jev returns an error saying the key is missing, having
+`recency` work, and a call with `scorer: "jev"` returns an error saying the key is missing, having
 sent nothing. A value that is only an unexpanded placeholder, such as `${TYPESAFE_API_KEY}`, counts
 as no key.
 
@@ -78,8 +79,8 @@ not `mcpServers`:
 
 - **`score_relevance`** takes `{ goal, entries, scorer?, recencyWeight? }` and returns a
   relevance/recency/combined score per entry plus Jev token usage, with no decision made.
-  `scorer` is `"jev"` (the default; needs `TYPESAFE_API_KEY`), `"local"`, or
-  `"recency"`; the last two run offline and report zero usage. Under `"local"`, relevance is the
+  `scorer` is `"local"` (the default), `"recency"`, or `"jev"` (needs `TYPESAFE_API_KEY`); the
+  first two run offline and report zero usage. Under `"local"`, relevance is the
   keyword overlap ranked within the batch, the same scale `prune_history`'s thresholds use; when every entry overlaps equally, it's the overlap itself, marked
   `tied`.
 - **`prune_history`** takes the same input plus `{ dropBelow?, summarizeBelow? }` and returns a
@@ -96,7 +97,8 @@ best-effort basis.
 
 ## Example response
 
-Calling `prune_history` with two entries, one obviously relevant to the goal and one not, returns:
+Calling `prune_history` with `scorer: "jev"` and two entries, one obviously relevant to the goal and
+one not, returns:
 
 ```json
 {
@@ -124,7 +126,7 @@ four ways:
 | --- | --- | --- |
 | [`ctxjev-core`](https://www.npmjs.com/package/ctxjev-core) | The library: `pruneMessages()`, `pruneContext()`, and the scorers | No |
 | [`ctxjev-cli`](https://www.npmjs.com/package/ctxjev-cli) | `ctxjev analyze` and `ctxjev prune` in a terminal | No |
-| [`ctxjev-mcp`](https://www.npmjs.com/package/ctxjev-mcp) | `score_relevance` and `prune_history` as MCP tools, for Claude Code, Codex, and other hosts | With a key set, masked excerpts to Jev unless a call picks `local` or `recency` |
+| [`ctxjev-mcp`](https://www.npmjs.com/package/ctxjev-mcp) | `score_relevance` and `prune_history` as MCP tools, for Claude Code, Codex, and other hosts | No: only a call that passes `scorer: "jev"` |
 | [Claude Code plugin](../claude-plugin/README.md) | Hands the highest-scoring entries back right after Claude Code compacts | No |
 
 Scorers: `recency` (plain truncation: newest kept), `local` (keyword overlap with your goal), and

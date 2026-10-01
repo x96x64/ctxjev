@@ -7,11 +7,18 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 
 ## Unreleased
 
+**Breaking changes, in short** (each is described below): the MCP tools score offline by default; `ctxjev-core`'s internal helpers moved to `ctxjev-core/internal`, and its files can no longer be imported by path.
+
+- `ctxjev-mcp` (breaking): `score_relevance` and `prune_history` default to `scorer: "local"` (offline keyword overlap), like every other entry point; only a call that passes `scorer: "jev"` sends anything. A host that relied on the default to reach Jev must now pass `scorer: "jev"`.
+- `ctxjev-core` (breaking): the main entry point exports only the stable API (`docs/api-stability.md`). Seventeen helpers the other ctxjev packages share (`truncate`, `atomicWriteFile`, `seededRandom`, `validateEntries`, `validateMessages`, `rankLocalRelevance`, `createUsageAccumulator`, `cacheKeyFor`, `inferGoalFromEntries`, and others) moved to `ctxjev-core/internal`, which carries no compatibility promise; a `package.json` `exports` map now refuses imports of files under `dist/`.
 - Codex plugin: passes your real `TYPESAFE_API_KEY` to the MCP server. Codex doesn't expand `${TYPESAFE_API_KEY}` in a plugin's `mcp.json`, so the server got that text instead of the key, and Jev never worked through the plugin.
 - `ctxjev-mcp`, `ctxjev-cli`, the Claude Code plugin, and `ctxjev-core`: a `TYPESAFE_API_KEY` that is only an unexpanded placeholder (`${TYPESAFE_API_KEY}`, `$NAME`, `%NAME%`) counts as no key. Without a real key, a call that would use Jev now sends nothing and says so; before, it sent the masked goal and excerpts to Jev, which refused them.
+- Claude Code plugin: hook input that is JSON but not an object (`null`, a number) is ignored quietly instead of printing a raw TypeError, and `/ctxjev:status` calls a malformed `last-run.json` malformed instead of "no compaction" or "undefined, undefined" (#20, #17).
+- `ctxjev-mcp`: the `recencyWeight` description says what it weighs (each entry's timestamp within the batch), and when it changes a `scorer: "recency"` result (#29).
 - `ctxjev-core`: new `typesafeApiKey()` and `missingTypesafeApiKey()` report whether the environment holds a usable Jev key.
 - `ctxjev-cli`: the `--scorer local` report no longer calls keyword overlap "much cruder than Jev"; on held-out tasks Jev's ranking wasn't shown to do better.
 - The READMEs are rewritten to be shorter and example-first; the evaluation's numbers moved to `docs/evaluation.md`, the design notes to `docs/design-notes.md`.
+- `docs/api-stability.md` says what 1.x keeps stable and what it doesn't cover; `docs/known-limitations.md` summarizes every open issue and links the issues that hold the full lists; `docs/evaluation.md` adds the known defects of the evaluation and its data.
 - The npm pages: each package README is complete on its own (what ctxjev is, privacy, status, license), and its links point at the release's files on GitHub instead of breaking.
 - The README is available in Japanese, Simplified Chinese, Spanish, Korean, Brazilian Portuguese, French, and German (`README.<lang>.md`); English stays authoritative.
 

@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { atomicWriteFile, redactSecrets } from 'ctxjev-core'
+import { redactSecrets } from 'ctxjev-core'
+import { atomicWriteFile } from 'ctxjev-core/internal'
 import type { Scorer } from './select.js'
 import { ensureSessionDir, sessionDir, sessionDirProblem, stateFileProblem } from './stateDir.js'
 
@@ -50,9 +51,17 @@ export async function readLastRun(cwd: string, sessionId: string | undefined): P
     const code = (err as NodeJS.ErrnoException).code
     return code === 'ENOENT' ? {} : { problem: `couldn't read ${FILE} (${code ?? String(err)})` }
   }
+  let run: unknown
   try {
-    return { run: JSON.parse(raw) }
+    run = JSON.parse(raw)
   } catch {
     return { problem: `${FILE} isn't valid JSON; the next compaction rewrites it` }
   }
+  // Valid JSON of the wrong shape (null, a number, an array, an object without its fields) is a
+  // malformed file, not "no compaction" and not "Last run: undefined, undefined".
+  const r = run as Partial<LastRun> | null
+  if (r === null || typeof r !== 'object' || Array.isArray(r) || typeof r.at !== 'string' || !['preserved', 'skipped', 'error'].includes(r.outcome as string)) {
+    return { problem: `${FILE} is malformed; the next compaction rewrites it` }
+  }
+  return { run: r as LastRun }
 }

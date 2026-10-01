@@ -1,5 +1,6 @@
 import { z } from 'zod'
-import { DEFAULT_POLICY, isValidPolicyOrdering } from 'ctxjev-core'
+import { DEFAULT_POLICY } from 'ctxjev-core'
+import { isValidPolicyOrdering } from 'ctxjev-core/internal'
 
 // Entries are billed per input token and, per ctxjev-core's own Entry doc, meant to be a short
 // excerpt rather than a full payload — cap both dimensions at the MCP boundary instead of
@@ -31,16 +32,16 @@ export const entrySchema = z.object({
     .describe('Tokens in the full payload `content` was excerpted from, so the savings report counts what removing it actually saves.'),
 })
 
-// 'jev' stays the default so a call that doesn't name a scorer behaves as in 0.7.0; 'local'
-// (keyword overlap) and 'recency' (plain truncation) run offline, with no key and nothing sent.
+// 'local' (keyword overlap with the goal, offline) is the default from 1.0, as everywhere else offline
+// is: only a call that names 'jev' sends anything. 'recency' (plain truncation) is offline too.
 export const SCORERS = ['jev', 'local', 'recency'] as const
 export type McpScorer = (typeof SCORERS)[number]
 
 export const scoreRelevanceInput = {
   scorer: z
     .enum(SCORERS)
-    .default('jev')
-    .describe("How to score: 'jev' (TypeSafe AI's Jev; needs TYPESAFE_API_KEY in the server's env, and sends masked excerpts), 'local' (keyword overlap with the goal, offline), or 'recency' (newest first, the same as plain truncation, offline)."),
+    .default('local')
+    .describe("How to score: 'local' (the default: keyword overlap with the goal, offline), 'recency' (newest first, the same as plain truncation, offline), or 'jev' (TypeSafe AI's Jev; needs TYPESAFE_API_KEY in the server's env, and sends masked excerpts)."),
   goal: z.string().min(1).max(MAX_GOAL_LENGTH).describe('The current task/goal to judge each entry\'s relevance against.'),
   entries: z.array(entrySchema).max(MAX_ENTRIES).describe('The agent history entries to score.'),
   recencyWeight: z
@@ -48,7 +49,7 @@ export const scoreRelevanceInput = {
     .min(0)
     .max(1)
     .optional()
-    .describe(`How much an entry's position in the batch (recency) should factor into its score, 0-1. Defaults to ${DEFAULT_POLICY.recencyWeight}.`),
+    .describe(`How much an entry's recency (its timestamp, scaled within the batch from oldest 0 to newest 1) should factor into its score, 0-1. Defaults to ${DEFAULT_POLICY.recencyWeight}. Under scorer 'recency', whose relevance is the entry's position in the list, it changes the result only when timestamps don't rise evenly with position (equal timestamps included).`),
 }
 
 export const pruneHistoryInput = {

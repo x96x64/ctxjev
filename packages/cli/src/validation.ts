@@ -1,4 +1,4 @@
-import { isValidPolicyOrdering } from 'ctxjev-core'
+import { isValidPolicyOrdering } from 'ctxjev-core/internal'
 
 /** Rejects anything that isn't a real number in [0, 1] instead of silently becoming NaN — a NaN
  * threshold compares false against every score, so `decideAction` would quietly never "drop". */

@@ -43,6 +43,16 @@ afterEach(async () => {
 const sessionFile = (sessionId: string, file: string) => join(state, 'sessions', sessionId, file)
 
 describe('preCompact.js (dist)', () => {
+  // Issue #20: JSON that isn't an object (null, a number) printed a raw TypeError.
+  for (const stdin of ['null', '42', '"text"', '[]']) {
+    it(`no-ops silently on stdin that is JSON but not an object: ${stdin}`, async () => {
+      const result = await run(stdin)
+      expect(result.exitCode).toBe(0)
+      expect(result.stderr).toBe('')
+      expect(result.stdout).toBe('')
+    }, 10_000)
+  }
+
   it('exits 0 without crashing on malformed JSON stdin', async () => {
     const result = await run('not json at all')
     expect(result.exitCode).toBe(0)

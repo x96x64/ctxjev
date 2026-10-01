@@ -1,4 +1,5 @@
-import { DEFAULT_POLICY, createUsageAccumulator, pruneContext, rankLocalRelevance, scoreEntries, summarizeSavings, type Entry, type JevClient, type PruningPolicy, type ScoreCache } from 'ctxjev-core'
+import { DEFAULT_POLICY, pruneContext, scoreEntries, summarizeSavings, type Entry, type JevClient, type PruningPolicy, type ScoreCache } from 'ctxjev-core'
+import { createUsageAccumulator, rankLocalRelevance } from 'ctxjev-core/internal'
 import { validatePolicyOrdering, type McpScorer } from './schemas.js'
 
 /**
@@ -38,18 +39,18 @@ const scoreCache = createBoundedScoreCache()
 export type ToolDeps = { jevClient?: JevClient; cache?: ScoreCache }
 
 export type ScoreRelevanceArgs = {
-  /** Defaults to 'jev', as in 0.7.0; 'local' and 'recency' run offline. */
+  /** Defaults to 'local' (from 1.0; 'jev' before). 'local' and 'recency' run offline; only 'jev' sends anything. */
   scorer?: McpScorer
   goal: string
   entries: Entry[]
   recencyWeight?: number
 }
 
-export async function scoreRelevanceTool({ scorer = 'jev', goal, entries, recencyWeight }: ScoreRelevanceArgs, { jevClient, cache = scoreCache }: ToolDeps = {}) {
+export async function scoreRelevanceTool({ scorer = 'local', goal, entries, recencyWeight }: ScoreRelevanceArgs, { jevClient, cache = scoreCache }: ToolDeps = {}) {
   const { usage, onUsage } = createUsageAccumulator()
-  // core's own default scorer is 'recency' as of 0.6.0 (see prune.ts), since the holdout eval tied
-  // Jev on task success. These tools default to 'jev', as they did before `scorer` existed, so a
-  // host's existing calls keep their meaning; 'local' and 'recency' are offline.
+  // Offline by default ('local', from 1.0), like the library, the CLI, and the plugin: only a call
+  // that names 'jev' sends anything. 'local' rather than core's 'recency', since these tools score
+  // relevance to a goal and 'recency' ignores it.
   const weight = recencyWeight ?? DEFAULT_POLICY.recencyWeight
   const scored = await scoreEntries(entries, goal, weight, { onUsage, cache, jevClient, scorer })
   // 'local' on the scale prune_history (pruneContext) acts on: overlap ranked within the batch, so an
@@ -62,7 +63,7 @@ export type PruneHistoryArgs = ScoreRelevanceArgs & {
   summarizeBelow?: number
 }
 
-export async function pruneHistoryTool({ scorer = 'jev', goal, entries, recencyWeight, dropBelow, summarizeBelow }: PruneHistoryArgs, { jevClient, cache = scoreCache }: ToolDeps = {}) {
+export async function pruneHistoryTool({ scorer = 'local', goal, entries, recencyWeight, dropBelow, summarizeBelow }: PruneHistoryArgs, { jevClient, cache = scoreCache }: ToolDeps = {}) {
   const policy: PruningPolicy = {
     dropBelow: dropBelow ?? DEFAULT_POLICY.dropBelow,
     summarizeBelow: summarizeBelow ?? DEFAULT_POLICY.summarizeBelow,

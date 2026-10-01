@@ -7,7 +7,6 @@ import { parseArgs } from 'node:util'
 import pc from 'picocolors'
 import {
   DEFAULT_POLICY,
-  createUsageAccumulator,
   missingTypesafeApiKey,
   pruneContext,
   pruneEntries,
@@ -17,6 +16,9 @@ import {
   type PruningPolicy,
   type ScoreCache,
 } from 'ctxjev-core'
+import {
+  createUsageAccumulator,
+} from 'ctxjev-core/internal'
 import { firstUserEntryWarning, formatEntriesOutcome, noUserEntryWarning, formatMessagesOutcome, formatReport, jevCostLine, type PruneOutcome } from './report.js'
 import { DEFAULT_CACHE_PATH, loadFileScoreCache } from './scoreCache.js'
 import { parseTranscript, type TranscriptFile } from './transcript.js'

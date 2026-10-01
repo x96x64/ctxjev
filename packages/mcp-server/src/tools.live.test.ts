@@ -14,7 +14,7 @@ const entries: Entry[] = [
 // Jev is probabilistic: a retry absorbs a borderline entry flipping once; a real regression fails every attempt.
 describe.skipIf(!process.env.TYPESAFE_API_KEY)('tools (live)', { retry: 2 }, () => {
   it('scoreRelevanceTool returns a score per entry plus usage, no action', async () => {
-    const result = await scoreRelevanceTool({ goal: 'fix the double-charge bug in checkout (score)', entries })
+    const result = await scoreRelevanceTool({ scorer: 'jev', goal: 'fix the double-charge bug in checkout (score)', entries })
     expect(result.scored).toHaveLength(2)
     expect(result.scored.every((s) => 'combinedScore' in s)).toBe(true)
     expect(result.scored.every((s) => !('action' in s))).toBe(true)
@@ -22,7 +22,7 @@ describe.skipIf(!process.env.TYPESAFE_API_KEY)('tools (live)', { retry: 2 }, () 
   }, 20_000)
 
   it('pruneHistoryTool returns decisions with actions plus a savings report and usage', async () => {
-    const result = await pruneHistoryTool({ goal: 'fix the double-charge bug in checkout (prune)', entries })
+    const result = await pruneHistoryTool({ scorer: 'jev', goal: 'fix the double-charge bug in checkout (prune)', entries })
     expect(result.decisions).toHaveLength(2)
     expect(result.decisions.every((d) => 'action' in d)).toBe(true)
     expect(result.savings.totalEntries).toBe(2)
@@ -31,8 +31,8 @@ describe.skipIf(!process.env.TYPESAFE_API_KEY)('tools (live)', { retry: 2 }, () 
 
   it('a repeated call with the same goal and entries hits the cache and spends no more tokens', async () => {
     const goal = 'fix the double-charge bug in checkout (cache check)'
-    await scoreRelevanceTool({ goal, entries })
-    const second = await scoreRelevanceTool({ goal, entries })
+    await scoreRelevanceTool({ scorer: 'jev', goal, entries })
+    const second = await scoreRelevanceTool({ scorer: 'jev', goal, entries })
     expect(second.usage.inputTokens).toBe(0)
   }, 20_000)
 })

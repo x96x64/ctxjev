@@ -2,7 +2,7 @@
 
 [en](https://github.com/x96x64/ctxjev/blob/main/README.md) | **ja** | [zh](https://github.com/x96x64/ctxjev/blob/main/README.zh.md) | [es](https://github.com/x96x64/ctxjev/blob/main/README.es.md) | [ko](https://github.com/x96x64/ctxjev/blob/main/README.ko.md) | [pt](https://github.com/x96x64/ctxjev/blob/main/README.pt.md) | [fr](https://github.com/x96x64/ctxjev/blob/main/README.fr.md) | [de](https://github.com/x96x64/ctxjev/blob/main/README.de.md)
 
-<!-- translation-source: README.md sha256=04b2c884329cd3020edab16406a515b2aa4981a636c0fcbb0254b636d28d8ee0 -->
+<!-- translation-source: README.md sha256=a7698a8be4b8ca9f498efbdcbfac02aa00951a43b11dbdd0f4f7bfc8344235bc -->
 > 英語版の README から翻訳したものです。内容が食い違う場合は、英語版が正本です。
 
 **AI エージェントの履歴を採点し、何を残し、何を削り、何を要約するかを決めます。既定ではオフラインで動き、
@@ -15,9 +15,8 @@
 [![License](https://img.shields.io/npm/l/ctxjev-core.svg)](LICENSE)
 [![Node](https://img.shields.io/node/v/ctxjev-core.svg)](https://nodejs.org)
 
-- **既定では、何もマシンの外に出ません。** CLI、ライブラリ、Claude Code プラグインのどれでも同じです。
-  Jev は自分で選んだときだけ使われ（`--scorer jev`、`scorer: 'jev'`、`CTXJEV_SCORER=jev`）、`TYPESAFE_API_KEY` が必要です。
-- **MCP サーバーだけは例外です。** 呼び出しが `scorer: "local"` か `"recency"` を指定しない限り、ツールは Jev を使います。
+- **既定では、何もマシンの外に出ません。** CLI、ライブラリ、MCP サーバー、Claude Code プラグインのどれでも同じです。
+  Jev は自分で選んだときだけ使われ（`--scorer jev`、`scorer: 'jev'`、`scorer: "jev"`、`CTXJEV_SCORER=jev`）、`TYPESAFE_API_KEY` が必要です。
 - **効果はまだ示されていません。** 設計に使っていない課題（ホールドアウト）では、どの採点方式も、単純な切り詰めより多くの課題をエージェントに完了させることは示されていません。
   [状態と限界](#状態と限界)を参照してください。
 
@@ -86,7 +85,7 @@ Scored offline by keyword overlap — no Jev call, nothing sent. It matches word
 | 記録の採点を見る、保存した記録を削る | [`ctxjev-cli`](packages/cli) | いいえ |
 | 自分で書くエージェントのループで、古い履歴を削る | [`ctxjev-core`](packages/core) | いいえ |
 | Claude Code の圧縮を経ても、大事な細部を残したい | [Claude Code プラグイン](packages/claude-plugin) | いいえ |
-| MCP ホストに採点のツールを足す | [`ctxjev-mcp`](packages/mcp-server) | キーがあれば、呼び出しが `local` か `recency` を選ばない限り、マスク済みの抜粋を Jev に送る |
+| MCP ホストに採点のツールを足す | [`ctxjev-mcp`](packages/mcp-server) | いいえ（`scorer: "jev"` を指定した呼び出しだけが送る） |
 | Codex から使う | [Codex プラグイン](#codex)経由の `ctxjev-mcp` | `ctxjev-mcp` と同じ |
 
 ## 導入
@@ -159,7 +158,7 @@ claude mcp add ctxjev --env TYPESAFE_API_KEY=... -- npx ctxjev-mcp@0.7.2   # Cla
 codex mcp add ctxjev --env TYPESAFE_API_KEY=... -- npx ctxjev-mcp@0.7.2    # Codex
 ```
 
-オフラインだけで使うなら `--env TYPESAFE_API_KEY=...` を外してください。MCP のツールは、ホスト自身のコンテキストから何も取り除けません。
+ツールは、呼び出しが `scorer: "jev"` を指定しない限りオフライン（`local`）で採点します。Jev を使わないなら `--env TYPESAFE_API_KEY=...` を外してください。MCP のツールは、ホスト自身のコンテキストから何も取り除けません。
 また、エージェントは履歴を引数として送るために出力トークンを払うので、呼ぶだけではトークンは節約されません。
 点数に基づいて動くエージェントのフレームワーク向けです。ほかのホストの設定は
 [`ctxjev-mcp` の README](packages/mcp-server/README.md) にあります。
@@ -198,8 +197,8 @@ ctxjev は Codex 自身のセッションのログを読みません。
 | 採点方式 | 順位の付け方 | 目標を使うか | 何かを送るか | 既定になっている所 |
 | --- | --- | --- | --- | --- |
 | `recency` | 位置: 最も古い 0、最も新しい 1（単純な切り詰め） | いいえ | いいえ | CLI、ライブラリ |
-| `local` | 目標とのキーワードの重なり。バッチの中で順位付け | はい | いいえ | Claude Code プラグイン |
-| `jev` | 目標との関連度についての Jev の yes/no の判断 | はい | マスク済みの抜粋と目標を TypeSafe AI へ | MCP のツール |
+| `local` | 目標とのキーワードの重なり。バッチの中で順位付け | はい | いいえ | Claude Code プラグイン、MCP のツール |
+| `jev` | 目標との関連度についての Jev の yes/no の判断 | はい | マスク済みの抜粋と目標を TypeSafe AI へ | なし（選んだときだけ） |
 
 `local` と `jev` は、関連度に各項目の位置を混ぜます。位置をどれだけ重く見るかが `recencyWeight`（既定 `0.1`）です。
 点数が `dropBelow`（既定 `0.3`）より低い項目は `drop`、`summarizeBelow`（既定 `0.6`）より低い項目は
@@ -244,7 +243,7 @@ Jev の順位で削った履歴を渡したエージェントと、単純な切�
 （差はパーセントポイントで、95% CI 付き: Claude Haiku 4.5 で <!-- generated:holdout-diff-haiku -->0 [0, 0]<!-- /generated:holdout-diff-haiku -->、Claude Sonnet 5 で <!-- generated:holdout-diff-sonnet -->0 [0, 0]<!-- /generated:holdout-diff-sonnet -->）。
 事前登録した指標（各課題に必要だった情報をどれだけ残せたか）では、厳しい予算の下で Jev の順位付けが残せたのは
 <!-- generated:holdout-retention-jev -->23.6%<!-- /generated:holdout-retention-jev --> で、同じ項目をランダムに並べた場合（<!-- generated:holdout-retention-random -->26.5%<!-- /generated:holdout-retention-random -->）を下回りました。Claude Code プラグインの
-ダイジェストにも、示された効果はありません。そのため、MCP のツール以外はすべて、既定でオフラインで採点します。
+ダイジェストにも、示された効果はありません。そのため、どの入口も既定でオフラインで採点します。
 課題は小さく、ホールドアウトの課題セットは使い切りました。すべての数値、その出し方、示せないことは
 [docs/evaluation.md](docs/evaluation.md) にあります。
 
@@ -252,6 +251,8 @@ Jev の順位で削った履歴を渡したエージェントと、単純な切�
 
 - [docs/evaluation.md](docs/evaluation.md): 何が測られ、何が測られていないか
 - [docs/design-notes.md](docs/design-notes.md): なぜこの作りなのか
+- [docs/api-stability.md](docs/api-stability.md): 1.x で何が安定しているか
+- [docs/known-limitations.md](docs/known-limitations.md): 何ができないか、その理由
 - パッケージの README: [`ctxjev-core`](packages/core/README.md)、[`ctxjev-cli`](packages/cli/README.md)、
   [`ctxjev-mcp`](packages/mcp-server/README.md)、[Claude Code プラグイン](packages/claude-plugin/README.md)
 - [CHANGELOG.md](CHANGELOG.md) と [ROADMAP.md](ROADMAP.md)

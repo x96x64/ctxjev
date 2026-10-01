@@ -24,6 +24,7 @@ describe.skipIf(!process.env.TYPESAFE_API_KEY)('MCP server (live, e2e)', { retry
       name: 'prune_history',
       arguments: {
         goal: 'fix the double-charge bug in checkout',
+        scorer: 'jev',
         entries: [
           { id: 'relevant', role: 'tool', toolName: 'grep', content: 'found chargeCustomer() called twice on retry', timestamp: 0 },
           { id: 'irrelevant', role: 'tool', toolName: 'ls', content: 'listed public/audio, unrelated', timestamp: 1 },

@@ -990,6 +990,9 @@ const DOCS = [
   // Releases up to 0.7.0 stay as they were published.
   { path: 'CHANGELOG.md', claims: true, historical: /^## 0\.(?:[0-6]\.\d+|7\.0)\b/ },
   { path: 'SECURITY.md', claims: true },
+  // The 1.0 docs: an eval claim anywhere in them must be generated.
+  { path: 'docs/known-limitations.md', claims: true },
+  { path: 'docs/api-stability.md', claims: true },
   // Status tables, not results; the eval numbers in them are generated inline.
   { path: 'docs/audits/2026-09-25-audit-2-triage-ja.md' },
   // The masking holdout results, generated inline from the saved outputs.

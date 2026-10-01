@@ -54,5 +54,17 @@ if (examples.length === 0) {
   console.log('no example found')
   process.exit(1)
 }
+// How many each README has (issue #31): a change to the fence or prompt format that hid an example
+// would otherwise pass with fewer. Update the count when you add or remove an example on purpose.
+const EXPECTED = { 'README.md': 3, 'packages/cli/README.md': 1 }
+if (!values.doc) {
+  for (const doc of DOCS) {
+    const found = examples.filter((e) => e.doc === doc).length
+    if (found !== (EXPECTED[doc] ?? 0)) {
+      console.log(`FAIL  ${doc}: ${found} example(s) found, ${EXPECTED[doc] ?? 0} expected (update EXPECTED if that's on purpose)`)
+      failed++
+    }
+  }
+}
 console.log(`${examples.length - failed}/${examples.length} README examples match`)
 process.exit(failed > 0 ? 1 : 0)

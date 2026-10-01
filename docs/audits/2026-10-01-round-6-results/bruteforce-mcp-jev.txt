@@ -1,0 +1,8 @@
+# PR #45 review finding B5: with the MCP default now local, the brute force no longer reached its Jev stand-in
+## after: every MCP case runs with scorer "jev" and with the default
+2214 cases: pruneContext 779, summarizeSavings 210, pruneEntries 21, scoreEntries 204, estimateTokens 25, redactSecrets 25, pruneMessages 151, messagesToEntries 17, cli analyze 135, cli prune 135, mcp score_relevance 128, mcp prune_history 128, mcp score_relevance (default scorer) 128, mcp prune_history (default scorer) 128
+no violations
+## the new guard: a copy that sends scorer "local" where it should send "jev"
+1 violations:
+  mcp :: scorer "jev" — no case reached the local stand-in for Jev
+exit 1
