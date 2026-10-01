@@ -2,7 +2,7 @@
 
 [en](https://github.com/x96x64/ctxjev/blob/main/README.md) | [ja](https://github.com/x96x64/ctxjev/blob/main/README.ja.md) | [zh](https://github.com/x96x64/ctxjev/blob/main/README.zh.md) | [es](https://github.com/x96x64/ctxjev/blob/main/README.es.md) | [ko](https://github.com/x96x64/ctxjev/blob/main/README.ko.md) | **pt** | [fr](https://github.com/x96x64/ctxjev/blob/main/README.fr.md) | [de](https://github.com/x96x64/ctxjev/blob/main/README.de.md)
 
-<!-- translation-source: README.md sha256=04b2c884329cd3020edab16406a515b2aa4981a636c0fcbb0254b636d28d8ee0 -->
+<!-- translation-source: README.md sha256=ae7f159f1a78a3c17cc3e875c17eba4968fa5a795a47161d1f19a3ca68bdb039 -->
 > Traduzido do README em inglês (português do Brasil). Em caso de diferença, vale a versão em inglês.
 
 **Dá uma pontuação ao histórico de um agente de IA e decide o que manter, descartar ou resumir: offline por
@@ -15,10 +15,8 @@ padrão, ou com o [Jev](https://typesafe.ai) da TypeSafe AI, se você optar por 
 [![License](https://img.shields.io/npm/l/ctxjev-core.svg)](LICENSE)
 [![Node](https://img.shields.io/node/v/ctxjev-core.svg)](https://nodejs.org)
 
-- **Por padrão, nada sai da sua máquina** com a CLI, a biblioteca ou o plugin do Claude Code.
-  O Jev é opcional (`--scorer jev`, `scorer: 'jev'`, `CTXJEV_SCORER=jev`) e precisa de `TYPESAFE_API_KEY`.
-- **O servidor MCP é a exceção:** as ferramentas dele usam o Jev, a menos que a chamada passe `scorer: "local"` ou
-  `"recency"`.
+- **Por padrão, nada sai da sua máquina** com a CLI, a biblioteca, o servidor MCP ou o plugin do Claude Code.
+  O Jev é opcional (`--scorer jev`, `scorer: 'jev'`, `scorer: "jev"`, `CTXJEV_SCORER=jev`) e precisa de `TYPESAFE_API_KEY`.
 - **O benefício não está comprovado:** em tarefas reservadas (held-out), não se demonstrou que algum método de pontuação
   ajude um agente a concluir mais tarefas do que o simples truncamento. Veja [Situação e limites](#situação-e-limites).
 
@@ -90,7 +88,7 @@ Scored offline by keyword overlap — no Jev call, nothing sent. It matches word
 | Ver como uma transcrição pontua, ou cortar uma já salva | [`ctxjev-cli`](packages/cli) | Não |
 | Descartar histórico obsoleto em um loop de agente escrito por você | [`ctxjev-core`](packages/core) | Não |
 | Preservar detalhes importantes após a compactação do Claude Code | [o plugin do Claude Code](packages/claude-plugin) | Não |
-| Dar ferramentas de pontuação a qualquer host MCP | [`ctxjev-mcp`](packages/mcp-server) | Com uma chave configurada, trechos mascarados ao Jev, a menos que a chamada escolha `local` ou `recency` |
+| Dar ferramentas de pontuação a qualquer host MCP | [`ctxjev-mcp`](packages/mcp-server) | Não: só uma chamada que passe `scorer: "jev"` |
 | Usar o ctxjev no Codex | `ctxjev-mcp`, pelo [plugin do Codex](#codex) | O mesmo que `ctxjev-mcp` |
 
 ## Instalação
@@ -163,7 +161,7 @@ claude mcp add ctxjev --env TYPESAFE_API_KEY=... -- npx ctxjev-mcp@0.7.2   # Cla
 codex mcp add ctxjev --env TYPESAFE_API_KEY=... -- npx ctxjev-mcp@0.7.2    # Codex
 ```
 
-Deixe de fora `--env TYPESAFE_API_KEY=...` para usá-lo só offline. Uma ferramenta MCP não consegue remover nada do
+As ferramentas pontuam offline (`local`), a menos que a chamada passe `scorer: "jev"`; deixe de fora `--env TYPESAFE_API_KEY=...` se nunca quiser usar o Jev. Uma ferramenta MCP não consegue remover nada do
 contexto do próprio host, e o agente paga tokens de saída para enviar o histórico como argumentos, então chamá-la
 não economiza tokens por si só. Ela serve para frameworks de agentes que agem com base nas pontuações. A configuração
 para outros hosts está no [README do `ctxjev-mcp`](packages/mcp-server/README.md).
@@ -202,8 +200,8 @@ Claude Code, e o ctxjev não lê os logs de sessão do próprio Codex.
 | Método | Ordena por | Usa o objetivo | Envia algo | Padrão em |
 | --- | --- | --- | --- | --- |
 | `recency` | Posição: a mais antiga 0, a mais nova 1 (simples truncamento) | Não | Não | CLI, biblioteca |
-| `local` | Sobreposição de palavras-chave com o objetivo, ordenada dentro do lote | Sim | Não | Plugin do Claude Code |
-| `jev` | O julgamento sim/não do Jev sobre a relevância para o objetivo | Sim | Trechos mascarados e o objetivo, para a TypeSafe AI | Ferramentas MCP |
+| `local` | Sobreposição de palavras-chave com o objetivo, ordenada dentro do lote | Sim | Não | Plugin do Claude Code, ferramentas MCP |
+| `jev` | O julgamento sim/não do Jev sobre a relevância para o objetivo | Sim | Trechos mascarados e o objetivo, para a TypeSafe AI | Nenhum: opcional |
 
 `local` e `jev` combinam a relevância com a posição de cada entrada: `recencyWeight` (padrão `0.1`) é o quanto a
 posição conta. Uma entrada com pontuação abaixo de `dropBelow` (padrão `0.3`) é marcada como `drop`, abaixo de
@@ -252,8 +250,7 @@ agente que recebeu o simples truncamento (diferença em pontos percentuais, com 
 <!-- generated:holdout-diff-haiku -->0 [0, 0]<!-- /generated:holdout-diff-haiku --> com Claude Haiku 4.5, <!-- generated:holdout-diff-sonnet -->0 [0, 0]<!-- /generated:holdout-diff-sonnet --> com Claude Sonnet 5). Na medida
 pré-registrada do que cada tarefa precisava, a ordem do Jev manteve <!-- generated:holdout-retention-jev -->23.6%<!-- /generated:holdout-retention-jev --> sob um orçamento
 apertado, menos que uma ordem aleatória das mesmas entradas (<!-- generated:holdout-retention-random -->26.5%<!-- /generated:holdout-retention-random -->). O resumo (digest) do
-plugin do Claude Code também não tem efeito demonstrado. É por isso que tudo, exceto as ferramentas MCP, pontua offline
-por padrão. As tarefas são pequenas, e o conjunto reservado agora está esgotado; [docs/evaluation.md](docs/evaluation.md)
+plugin do Claude Code também não tem efeito demonstrado. É por isso que todos os pontos de entrada pontuam offline por padrão. As tarefas são pequenas, e o conjunto reservado agora está esgotado; [docs/evaluation.md](docs/evaluation.md)
 traz todos os números, como foram obtidos e o que eles não conseguem mostrar.
 
 ## Documentação

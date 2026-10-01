@@ -2,7 +2,7 @@
 
 [en](https://github.com/x96x64/ctxjev/blob/main/README.md) | [ja](https://github.com/x96x64/ctxjev/blob/main/README.ja.md) | [zh](https://github.com/x96x64/ctxjev/blob/main/README.zh.md) | [es](https://github.com/x96x64/ctxjev/blob/main/README.es.md) | **ko** | [pt](https://github.com/x96x64/ctxjev/blob/main/README.pt.md) | [fr](https://github.com/x96x64/ctxjev/blob/main/README.fr.md) | [de](https://github.com/x96x64/ctxjev/blob/main/README.de.md)
 
-<!-- translation-source: README.md sha256=04b2c884329cd3020edab16406a515b2aa4981a636c0fcbb0254b636d28d8ee0 -->
+<!-- translation-source: README.md sha256=ae7f159f1a78a3c17cc3e875c17eba4968fa5a795a47161d1f19a3ca68bdb039 -->
 > 영어 README를 번역한 문서입니다. 내용이 다를 경우 영어판이 기준입니다.
 
 **AI 에이전트의 이력에 점수를 매기고, 무엇을 남기고 버리고 요약할지 정합니다. 기본적으로 오프라인으로
@@ -15,9 +15,8 @@
 [![License](https://img.shields.io/npm/l/ctxjev-core.svg)](LICENSE)
 [![Node](https://img.shields.io/node/v/ctxjev-core.svg)](https://nodejs.org)
 
-- **기본적으로 아무것도 내 컴퓨터 밖으로 나가지 않습니다.** CLI, 라이브러리, Claude Code 플러그인 모두 그렇습니다.
-  Jev는 직접 선택할 때만 쓰이며(`--scorer jev`, `scorer: 'jev'`, `CTXJEV_SCORER=jev`) `TYPESAFE_API_KEY`가 필요합니다.
-- **MCP 서버만 예외입니다.** 호출이 `scorer: "local"` 또는 `"recency"`를 지정하지 않으면 도구가 Jev를 사용합니다.
+- **기본적으로 아무것도 내 컴퓨터 밖으로 나가지 않습니다.** CLI, 라이브러리, MCP 서버, Claude Code 플러그인 모두 그렇습니다.
+  Jev는 직접 선택할 때만 쓰이며(`--scorer jev`, `scorer: 'jev'`, `scorer: "jev"`, `CTXJEV_SCORER=jev`) `TYPESAFE_API_KEY`가 필요합니다.
 - **효과는 아직 입증되지 않았습니다.** 홀드아웃(held-out) 과제에서, 어떤 채점 방식도 단순 잘라내기보다 에이전트가
   더 많은 과제를 끝내도록 돕는다는 것이 입증되지 않았습니다. [현황과 한계](#현황과-한계)를 참고하세요.
 
@@ -87,7 +86,7 @@ Scored offline by keyword overlap — no Jev call, nothing sent. It matches word
 | 기록이 어떻게 채점되는지 보거나, 저장된 기록을 정리 | [`ctxjev-cli`](packages/cli) | 아니요 |
 | 직접 작성한 에이전트 루프에서 오래된 기록을 정리 | [`ctxjev-core`](packages/core) | 아니요 |
 | Claude Code의 압축 후에도 중요한 세부 사항을 유지 | [Claude Code 플러그인](packages/claude-plugin) | 아니요 |
-| 어떤 MCP 호스트에든 채점 도구를 제공 | [`ctxjev-mcp`](packages/mcp-server) | 키가 설정되어 있으면, 호출이 `local`이나 `recency`를 고르지 않는 한 마스킹된 발췌를 Jev로 보냄 |
+| 어떤 MCP 호스트에든 채점 도구를 제공 | [`ctxjev-mcp`](packages/mcp-server) | 아니요: `scorer: "jev"`를 넘긴 호출만 보냄 |
 | Codex에서 ctxjev 사용 | [Codex 플러그인](#codex)을 통한 `ctxjev-mcp` | `ctxjev-mcp`와 같음 |
 
 ## 설치
@@ -159,7 +158,7 @@ claude mcp add ctxjev --env TYPESAFE_API_KEY=... -- npx ctxjev-mcp@0.7.2   # Cla
 codex mcp add ctxjev --env TYPESAFE_API_KEY=... -- npx ctxjev-mcp@0.7.2    # Codex
 ```
 
-오프라인으로만 쓰려면 `--env TYPESAFE_API_KEY=...`를 빼세요. MCP 도구는 호스트 자신의 컨텍스트에서 아무것도
+도구는 호출이 `scorer: "jev"`를 넘기지 않는 한 오프라인(`local`)으로 채점합니다. Jev를 전혀 쓰지 않으려면 `--env TYPESAFE_API_KEY=...`를 빼세요. MCP 도구는 호스트 자신의 컨텍스트에서 아무것도
 지울 수 없고, 에이전트는 기록을 인수로 보내기 위해 출력 토큰을 지불하므로, 호출만으로는 토큰이 절약되지 않습니다.
 점수를 보고 행동하는 에이전트 프레임워크를 위한 것입니다. 다른 호스트의 설정은
 [`ctxjev-mcp` README](packages/mcp-server/README.md)에 있습니다.
@@ -198,8 +197,8 @@ ctxjev는 Codex 자체의 세션 로그를 읽지 않습니다.
 | 채점 방식 | 순위 기준 | 목표 사용 | 무언가를 보내는지 | 기본값으로 쓰는 곳 |
 | --- | --- | --- | --- | --- |
 | `recency` | 위치: 가장 오래된 것 0, 가장 새로운 것 1(단순 잘라내기) | 아니요 | 아니요 | CLI, 라이브러리 |
-| `local` | 목표와의 키워드 겹침, 배치 안에서 순위화 | 예 | 아니요 | Claude Code 플러그인 |
-| `jev` | 목표와의 관련성에 대한 Jev의 예/아니요 판단 | 예 | 마스킹된 발췌와 목표를 TypeSafe AI로 | MCP 도구 |
+| `local` | 목표와의 키워드 겹침, 배치 안에서 순위화 | 예 | 아니요 | Claude Code 플러그인, MCP 도구 |
+| `jev` | 목표와의 관련성에 대한 Jev의 예/아니요 판단 | 예 | 마스킹된 발췌와 목표를 TypeSafe AI로 | 없음: 선택 사항 |
 
 `local`과 `jev`는 관련성에 각 항목의 위치를 섞습니다. `recencyWeight`(기본값 `0.1`)는 위치를 얼마나 반영할지입니다.
 점수가 `dropBelow`(기본값 `0.3`)보다 낮은 항목은 `drop`, `summarizeBelow`(기본값 `0.6`)보다 낮은 항목은
@@ -244,7 +243,7 @@ ctxjev는 이 페이지에 쓴 대로 동작하지만, 그것이 에이전트가
 95% CI 포함: Claude Haiku 4.5에서 <!-- generated:holdout-diff-haiku -->0 [0, 0]<!-- /generated:holdout-diff-haiku -->, Claude Sonnet 5에서 <!-- generated:holdout-diff-sonnet -->0 [0, 0]<!-- /generated:holdout-diff-sonnet -->).
 각 과제에 필요했던 정보를 기준으로 한 사전 등록 지표에서, 빠듯한 예산 아래 Jev 순위로 남긴 비율은 <!-- generated:holdout-retention-jev -->23.6%<!-- /generated:holdout-retention-jev -->로,
 같은 항목을 무작위로 늘어놓았을 때(<!-- generated:holdout-retention-random -->26.5%<!-- /generated:holdout-retention-random -->)보다 적었습니다. Claude Code 플러그인의 다이제스트(digest)도
-입증된 효과가 없습니다. 그래서 MCP 도구를 제외한 모든 것이 기본적으로 오프라인으로 채점합니다. 과제는 작고,
+입증된 효과가 없습니다. 그래서 모든 진입점이 기본적으로 오프라인으로 채점합니다. 과제는 작고,
 홀드아웃 과제 집합은 이제 다 써 버렸습니다. 모든 수치와 그것을 얻은 방법, 그리고 그 수치로 알 수 없는 것은
 [docs/evaluation.md](docs/evaluation.md)에 있습니다.
 

@@ -9,8 +9,8 @@ finish more tasks than plain truncation (keeping the newest entries). On the pre
 of how much of what a task needed survives a tight budget, Jev's ranking beat truncation only
 because truncation keeps none of it by construction, and kept less than a random ordering of the
 same entries; an exploratory version of that measure, added afterwards, decides nothing. The
-Claude Code plugin's digest has no demonstrated effect. That is why every entry point except the
-MCP tools defaults to an offline scorer.
+Claude Code plugin's digest has no demonstrated effect. That is why every entry point defaults to an
+offline scorer.
 
 ## How to read these numbers
 

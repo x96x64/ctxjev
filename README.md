@@ -12,10 +12,9 @@ with TypeSafe AI's [Jev](https://typesafe.ai) if you opt in.**
 [![License](https://img.shields.io/npm/l/ctxjev-core.svg)](LICENSE)
 [![Node](https://img.shields.io/node/v/ctxjev-core.svg)](https://nodejs.org)
 
-- **Nothing leaves your machine by default** with the CLI, the library, or the Claude Code plugin.
-  Jev is opt-in (`--scorer jev`, `scorer: 'jev'`, `CTXJEV_SCORER=jev`) and needs `TYPESAFE_API_KEY`.
-- **The MCP server is the exception:** its tools use Jev unless a call passes `scorer: "local"` or
-  `"recency"`.
+- **Nothing leaves your machine by default**, with the CLI, the library, the MCP server, or the
+  Claude Code plugin. Jev is opt-in (`--scorer jev`, `scorer: 'jev'`, `scorer: "jev"`,
+  `CTXJEV_SCORER=jev`) and needs `TYPESAFE_API_KEY`.
 - **Its benefit is unproven:** on held-out tasks, no scorer has been shown to help an agent finish
   more tasks than plain truncation. See [Status and limits](#status-and-limits).
 
@@ -87,7 +86,7 @@ Scored offline by keyword overlap — no Jev call, nothing sent. It matches word
 | See how a transcript scores, or prune a saved one | [`ctxjev-cli`](packages/cli) | No |
 | Drop stale history in an agent loop you write | [`ctxjev-core`](packages/core) | No |
 | Keep key details through Claude Code's compaction | [the Claude Code plugin](packages/claude-plugin) | No |
-| Give any MCP host scoring tools | [`ctxjev-mcp`](packages/mcp-server) | With a key set, masked excerpts to Jev unless a call picks `local` or `recency` |
+| Give any MCP host scoring tools | [`ctxjev-mcp`](packages/mcp-server) | No: only a call that passes `scorer: "jev"` |
 | Use ctxjev from Codex | `ctxjev-mcp`, through the [Codex plugin](#codex) | Same as `ctxjev-mcp` |
 
 ## Install
@@ -160,7 +159,8 @@ claude mcp add ctxjev --env TYPESAFE_API_KEY=... -- npx ctxjev-mcp@0.7.2   # Cla
 codex mcp add ctxjev --env TYPESAFE_API_KEY=... -- npx ctxjev-mcp@0.7.2    # Codex
 ```
 
-Leave out `--env TYPESAFE_API_KEY=...` to use it offline only. An MCP tool can't remove anything
+The tools score offline (`local`) unless a call passes `scorer: "jev"`; leave out
+`--env TYPESAFE_API_KEY=...` if you never want Jev. An MCP tool can't remove anything
 from its host's own context, and the agent pays output tokens to send its history as arguments,
 so calling it doesn't save tokens by itself. It's for agent frameworks that act on the scores.
 Setup for other hosts is in the [`ctxjev-mcp` README](packages/mcp-server/README.md).
@@ -200,8 +200,8 @@ and ctxjev doesn't read Codex's own session logs.
 | Scorer | Ranks by | Uses the goal | Sends anything | Default in |
 | --- | --- | --- | --- | --- |
 | `recency` | Position: oldest 0, newest 1 (plain truncation) | No | No | CLI, library |
-| `local` | Keyword overlap with the goal, ranked within the batch | Yes | No | Claude Code plugin |
-| `jev` | Jev's yes/no judgment of relevance to the goal | Yes | Masked excerpts and the goal, to TypeSafe AI | MCP tools |
+| `local` | Keyword overlap with the goal, ranked within the batch | Yes | No | Claude Code plugin, MCP tools |
+| `jev` | Jev's yes/no judgment of relevance to the goal | Yes | Masked excerpts and the goal, to TypeSafe AI | Nowhere: opt-in |
 
 `local` and `jev` blend their relevance with each entry's position: `recencyWeight` (default `0.1`)
 is how much position counts. An entry whose score is below `dropBelow` (default `0.3`) is marked
@@ -253,7 +253,7 @@ agent given plain truncation (difference in percentage points, with its 95% CI:
 <!-- generated:holdout-diff-haiku -->0 [0, 0]<!-- /generated:holdout-diff-haiku --> with Claude Haiku 4.5, <!-- generated:holdout-diff-sonnet -->0 [0, 0]<!-- /generated:holdout-diff-sonnet --> with Claude Sonnet 5). On the
 preregistered measure of what each task needed, Jev's ranking kept <!-- generated:holdout-retention-jev -->23.6%<!-- /generated:holdout-retention-jev --> under a tight budget, less than a random
 ordering of the same entries (<!-- generated:holdout-retention-random -->26.5%<!-- /generated:holdout-retention-random -->). The Claude Code plugin's digest has no
-demonstrated effect either. That is why everything but the MCP tools scores offline by default.
+demonstrated effect either. That is why every entry point scores offline by default.
 The tasks are small, and the held-out set is now used up; [docs/evaluation.md](docs/evaluation.md)
 has every number, how it was produced, and what it can't show.
 <!-- /checked-prose -->

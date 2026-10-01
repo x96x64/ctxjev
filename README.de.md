@@ -2,7 +2,7 @@
 
 [en](https://github.com/x96x64/ctxjev/blob/main/README.md) | [ja](https://github.com/x96x64/ctxjev/blob/main/README.ja.md) | [zh](https://github.com/x96x64/ctxjev/blob/main/README.zh.md) | [es](https://github.com/x96x64/ctxjev/blob/main/README.es.md) | [ko](https://github.com/x96x64/ctxjev/blob/main/README.ko.md) | [pt](https://github.com/x96x64/ctxjev/blob/main/README.pt.md) | [fr](https://github.com/x96x64/ctxjev/blob/main/README.fr.md) | **de**
 
-<!-- translation-source: README.md sha256=04b2c884329cd3020edab16406a515b2aa4981a636c0fcbb0254b636d28d8ee0 -->
+<!-- translation-source: README.md sha256=ae7f159f1a78a3c17cc3e875c17eba4968fa5a795a47161d1f19a3ca68bdb039 -->
 > Aus der englischen README übersetzt. Bei Abweichungen ist die englische Fassung maßgeblich.
 
 **Bewertet den Verlauf eines KI-Agenten und entscheidet, was behalten, verworfen oder zusammengefasst wird:
@@ -15,10 +15,8 @@ standardmäßig offline, auf Wunsch mit [Jev](https://typesafe.ai) von TypeSafe 
 [![License](https://img.shields.io/npm/l/ctxjev-core.svg)](LICENSE)
 [![Node](https://img.shields.io/node/v/ctxjev-core.svg)](https://nodejs.org)
 
-- **Standardmäßig verlässt nichts Ihren Rechner** – weder mit der CLI noch mit der Bibliothek noch mit dem Claude-Code-Plugin.
-  Jev muss ausdrücklich aktiviert werden (`--scorer jev`, `scorer: 'jev'`, `CTXJEV_SCORER=jev`) und benötigt `TYPESAFE_API_KEY`.
-- **Der MCP-Server ist die Ausnahme:** Seine Tools verwenden Jev, sofern ein Aufruf nicht `scorer: "local"` oder
-  `"recency"` übergibt.
+- **Standardmäßig verlässt nichts Ihren Rechner** – weder mit der CLI noch mit der Bibliothek, noch mit dem MCP-Server, noch mit dem Claude-Code-Plugin.
+  Jev muss ausdrücklich aktiviert werden (`--scorer jev`, `scorer: 'jev'`, `scorer: "jev"`, `CTXJEV_SCORER=jev`) und benötigt `TYPESAFE_API_KEY`.
 - **Der Nutzen ist nicht belegt:** Bei zurückgehaltenen (held-out) Aufgaben hat sich für keine Bewertungsmethode
   gezeigt, dass sie einem Agenten hilft, mehr Aufgaben zu erledigen als bei einfachem Abschneiden. Siehe
   [Stand und Grenzen](#stand-und-grenzen).
@@ -90,7 +88,7 @@ Scored offline by keyword overlap — no Jev call, nothing sent. It matches word
 | Sehen, wie ein Transkript bewertet wird, oder ein gespeichertes kürzen | [`ctxjev-cli`](packages/cli) | Nein |
 | Veralteten Verlauf in einer selbst geschriebenen Agentenschleife entfernen | [`ctxjev-core`](packages/core) | Nein |
 | Wichtige Details über die Kompaktierung von Claude Code hinweg behalten | [das Claude-Code-Plugin](packages/claude-plugin) | Nein |
-| Jedem MCP-Host Bewertungstools geben | [`ctxjev-mcp`](packages/mcp-server) | Mit gesetztem Schlüssel: maskierte Auszüge an Jev, sofern ein Aufruf nicht `local` oder `recency` wählt |
+| Jedem MCP-Host Bewertungstools geben | [`ctxjev-mcp`](packages/mcp-server) | Nein: nur ein Aufruf, der `scorer: "jev"` übergibt |
 | ctxjev aus Codex verwenden | `ctxjev-mcp`, über das [Codex-Plugin](#codex) | Wie `ctxjev-mcp` |
 
 ## Installation
@@ -163,7 +161,7 @@ claude mcp add ctxjev --env TYPESAFE_API_KEY=... -- npx ctxjev-mcp@0.7.2   # Cla
 codex mcp add ctxjev --env TYPESAFE_API_KEY=... -- npx ctxjev-mcp@0.7.2    # Codex
 ```
 
-Lassen Sie `--env TYPESAFE_API_KEY=...` weg, um ihn nur offline zu verwenden. Ein MCP-Tool kann nichts aus dem
+Die Tools bewerten offline (`local`), sofern ein Aufruf nicht `scorer: "jev"` übergibt; lassen Sie `--env TYPESAFE_API_KEY=...` weg, wenn Sie Jev nie verwenden möchten. Ein MCP-Tool kann nichts aus dem
 Kontext seines eigenen Hosts entfernen, und der Agent zahlt Ausgabe-Tokens, um seinen Verlauf als Argumente zu
 senden; ein Aufruf spart also für sich genommen keine Tokens. Gedacht ist er für Agenten-Frameworks, die die Werte
 selbst umsetzen. Die Einrichtung für andere Hosts steht in der [README von `ctxjev-mcp`](packages/mcp-server/README.md).
@@ -203,8 +201,8 @@ und ctxjev liest die eigenen Sitzungsprotokolle von Codex nicht.
 | Methode | Ordnet nach | Nutzt das Ziel | Sendet etwas | Standard in |
 | --- | --- | --- | --- | --- |
 | `recency` | Position: ältester 0, neuester 1 (einfaches Abschneiden) | Nein | Nein | CLI, Bibliothek |
-| `local` | Schlüsselwortübereinstimmung mit dem Ziel, innerhalb des Stapels in eine Rangfolge gebracht | Ja | Nein | Claude-Code-Plugin |
-| `jev` | Jevs Ja/Nein-Urteil über die Relevanz für das Ziel | Ja | Maskierte Auszüge und das Ziel, an TypeSafe AI | MCP-Tools |
+| `local` | Schlüsselwortübereinstimmung mit dem Ziel, innerhalb des Stapels in eine Rangfolge gebracht | Ja | Nein | Claude-Code-Plugin, MCP-Tools |
+| `jev` | Jevs Ja/Nein-Urteil über die Relevanz für das Ziel | Ja | Maskierte Auszüge und das Ziel, an TypeSafe AI | Nirgends: optional |
 
 `local` und `jev` verrechnen ihre Relevanz mit der Position jedes Eintrags: `recencyWeight` (Standard `0.1`) gibt an,
 wie stark die Position zählt. Ein Eintrag mit einem Wert unter `dropBelow` (Standard `0.3`) wird als `drop`
@@ -253,8 +251,7 @@ der Aufgaben wie ein Agent mit einfach abgeschnittenem Verlauf (Unterschied in P
 95%-Konfidenzintervall: <!-- generated:holdout-diff-haiku -->0 [0, 0]<!-- /generated:holdout-diff-haiku --> mit Claude Haiku 4.5, <!-- generated:holdout-diff-sonnet -->0 [0, 0]<!-- /generated:holdout-diff-sonnet --> mit Claude Sonnet 5).
 Nach dem präregistrierten Maß dafür, was jede Aufgabe brauchte, behielt Jevs Rangfolge bei knappem Budget
 <!-- generated:holdout-retention-jev -->23.6%<!-- /generated:holdout-retention-jev -->, weniger als eine zufällige Anordnung derselben Einträge (<!-- generated:holdout-retention-random -->26.5%<!-- /generated:holdout-retention-random -->).
-Auch der Digest des Claude-Code-Plugins hat keine nachgewiesene Wirkung. Deshalb bewertet alles außer den MCP-Tools
-standardmäßig offline. Die Aufgaben sind klein, und die zurückgehaltene Aufgabenmenge ist nun aufgebraucht;
+Auch der Digest des Claude-Code-Plugins hat keine nachgewiesene Wirkung. Deshalb bewerten alle Einstiegspunkte standardmäßig offline. Die Aufgaben sind klein, und die zurückgehaltene Aufgabenmenge ist nun aufgebraucht;
 [docs/evaluation.md](docs/evaluation.md) enthält alle Zahlen, wie sie entstanden sind und was sie nicht zeigen können.
 
 ## Dokumentation

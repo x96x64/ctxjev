@@ -90,13 +90,13 @@ cd packages/core && node eval/plugin.mjs --runs 2 --max-usd 4.5 --out eval/resul
 
 `TYPESAFE_API_KEY` (from `console.typesafe.ai/settings/keys`) must be set for anything that
 actually calls Jev — `scoreRelevance()`/`pruneContext()` with `scorer: 'jev'`, the CLI's
-`--scorer jev`, the MCP server's two tools (whose default scorer is `jev`), and
+`--scorer jev`, the MCP server's two tools with `scorer: "jev"` (their default is `local`), and
 `packages/claude-plugin`'s `PreCompact` hook when `CTXJEV_SCORER=jev` (the plugin scores offline by
 default). A value that is only an unexpanded placeholder (`${TYPESAFE_API_KEY}`) counts as no key
 (`typesafeApiKey()` in `packages/core/src/apiKey.ts`); every check for a key goes through it. The
 key is kept in `.env.local` at the repo root (gitignored, never commit it) — `source .env.local`
 before running anything live. Without a key, `scorer: 'local'` (`localRelevance.ts`, keyword
-overlap) and `scorer: 'recency'` score offline; `local` is the plugin's default (and its fallback
+overlap) and `scorer: 'recency'` score offline; `local` is the plugin's and the MCP tools' default (and the plugin's fallback
 when Jev is opted into but unavailable), and the CLI exposes it as `--scorer local` / `--offline`.
 `--help`/`--version` and the pure-logic test files don't need it; every test file whose name ends
 in `.live.test.ts` (in `core`, `mcp-server`, and `claude-plugin` — `cli` has none) is skipped

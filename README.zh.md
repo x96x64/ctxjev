@@ -2,7 +2,7 @@
 
 [en](https://github.com/x96x64/ctxjev/blob/main/README.md) | [ja](https://github.com/x96x64/ctxjev/blob/main/README.ja.md) | **zh** | [es](https://github.com/x96x64/ctxjev/blob/main/README.es.md) | [ko](https://github.com/x96x64/ctxjev/blob/main/README.ko.md) | [pt](https://github.com/x96x64/ctxjev/blob/main/README.pt.md) | [fr](https://github.com/x96x64/ctxjev/blob/main/README.fr.md) | [de](https://github.com/x96x64/ctxjev/blob/main/README.de.md)
 
-<!-- translation-source: README.md sha256=04b2c884329cd3020edab16406a515b2aa4981a636c0fcbb0254b636d28d8ee0 -->
+<!-- translation-source: README.md sha256=ae7f159f1a78a3c17cc3e875c17eba4968fa5a795a47161d1f19a3ca68bdb039 -->
 > 本文由英文 README 翻译而来（简体中文）。如有出入，以英文版为准。
 
 **为 AI 智能体的历史记录打分，并决定保留、删除或概括哪些内容：默认离线运行，也可以选择使用
@@ -15,9 +15,8 @@ TypeSafe AI 的 [Jev](https://typesafe.ai)。**
 [![License](https://img.shields.io/npm/l/ctxjev-core.svg)](LICENSE)
 [![Node](https://img.shields.io/node/v/ctxjev-core.svg)](https://nodejs.org)
 
-- **默认情况下，任何数据都不会离开你的机器**：CLI、库和 Claude Code 插件都是如此。
-  Jev 需要主动启用（`--scorer jev`、`scorer: 'jev'`、`CTXJEV_SCORER=jev`），并且需要 `TYPESAFE_API_KEY`。
-- **MCP 服务器是例外**：除非调用时传入 `scorer: "local"` 或 `"recency"`，它的工具会使用 Jev。
+- **默认情况下，任何数据都不会离开你的机器**：CLI、库、MCP 服务器和 Claude Code 插件都是如此。
+  Jev 需要主动启用（`--scorer jev`、`scorer: 'jev'`、`scorer: "jev"`、`CTXJEV_SCORER=jev`），并且需要 `TYPESAFE_API_KEY`。
 - **效果尚未得到证明**：在留出（held-out）任务上，没有任何打分方式被证明能比单纯截断让智能体完成更多任务。
   参见[现状与局限](#现状与局限)。
 
@@ -86,7 +85,7 @@ Scored offline by keyword overlap — no Jev call, nothing sent. It matches word
 | 查看一份记录如何打分，或删减已保存的记录 | [`ctxjev-cli`](packages/cli) | 否 |
 | 在自己编写的智能体循环中删除过时的历史 | [`ctxjev-core`](packages/core) | 否 |
 | 在 Claude Code 压缩后仍保留关键细节 | [Claude Code 插件](packages/claude-plugin) | 否 |
-| 为任意 MCP 宿主提供打分工具 | [`ctxjev-mcp`](packages/mcp-server) | 设置了密钥时，除非调用选择 `local` 或 `recency`，会把脱敏后的摘录发给 Jev |
+| 为任意 MCP 宿主提供打分工具 | [`ctxjev-mcp`](packages/mcp-server) | 否：只有传入 `scorer: "jev"` 的调用才会发送 |
 | 在 Codex 中使用 ctxjev | 通过 [Codex 插件](#codex) 使用 `ctxjev-mcp` | 与 `ctxjev-mcp` 相同 |
 
 ## 安装
@@ -157,7 +156,7 @@ claude mcp add ctxjev --env TYPESAFE_API_KEY=... -- npx ctxjev-mcp@0.7.2   # Cla
 codex mcp add ctxjev --env TYPESAFE_API_KEY=... -- npx ctxjev-mcp@0.7.2    # Codex
 ```
 
-如果只想离线使用，去掉 `--env TYPESAFE_API_KEY=...` 即可。MCP 工具无法从宿主自身的上下文中删除任何内容，
+除非调用传入 `scorer: "jev"`，这些工具都离线打分（`local`）；如果你从不想用 Jev，去掉 `--env TYPESAFE_API_KEY=...` 即可。MCP 工具无法从宿主自身的上下文中删除任何内容，
 而且智能体要把历史作为参数发送，需要为此支付输出 token，所以单纯调用它并不会节省 token。
 它适用于会根据分数采取行动的智能体框架。其他宿主的配置见 [`ctxjev-mcp` 的 README](packages/mcp-server/README.md)。
 
@@ -192,8 +191,8 @@ Codex 能用的就是这些：Codex 没有与 Claude Code 插件的压缩钩子�
 | 打分方式 | 排序依据 | 使用目标 | 是否发送数据 | 默认用于 |
 | --- | --- | --- | --- | --- |
 | `recency` | 位置：最旧为 0，最新为 1（单纯截断） | 否 | 否 | CLI、库 |
-| `local` | 与目标的关键词重叠，在批次内排序 | 是 | 否 | Claude Code 插件 |
-| `jev` | Jev 对与目标是否相关的是/否判断 | 是 | 脱敏后的摘录和目标，发往 TypeSafe AI | MCP 工具 |
+| `local` | 与目标的关键词重叠，在批次内排序 | 是 | 否 | Claude Code 插件、MCP 工具 |
+| `jev` | Jev 对与目标是否相关的是/否判断 | 是 | 脱敏后的摘录和目标，发往 TypeSafe AI | 无：需主动启用 |
 
 `local` 和 `jev` 会把相关性与每个条目的位置混合：`recencyWeight`（默认 `0.1`）决定位置占多大比重。
 得分低于 `dropBelow`（默认 `0.3`）的条目标记为 `drop`，低于 `summarizeBelow`（默认 `0.6`）的标记为
@@ -236,7 +235,7 @@ ctxjev 的行为与本页描述一致，但它是否能帮助智能体完成工�
 （差值以百分点表示，附 95% CI：Claude Haiku 4.5 为 <!-- generated:holdout-diff-haiku -->0 [0, 0]<!-- /generated:holdout-diff-haiku -->，Claude Sonnet 5 为 <!-- generated:holdout-diff-sonnet -->0 [0, 0]<!-- /generated:holdout-diff-sonnet -->）。
 按预注册的衡量方式，在紧张的预算下，Jev 的排序保留了每个任务所需内容的 <!-- generated:holdout-retention-jev -->23.6%<!-- /generated:holdout-retention-jev -->，
 少于把同样条目随机排列时的结果（<!-- generated:holdout-retention-random -->26.5%<!-- /generated:holdout-retention-random -->）。Claude Code 插件的摘要（digest）同样没有经过证实的效果。
-这就是除 MCP 工具之外，所有入口默认都离线打分的原因。这些任务规模很小，而留出集现在已经用完；
+这就是所有入口默认都离线打分的原因。这些任务规模很小，而留出集现在已经用完；
 所有数字、它们的得出方式以及它们无法说明的内容，都在 [docs/evaluation.md](docs/evaluation.md) 中。
 
 ## 文档
