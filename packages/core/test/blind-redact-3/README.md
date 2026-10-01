@@ -112,7 +112,10 @@ halves together are exactly its items, and the seed re-derives the split from it
   were added to `redact.ts` (`src/redactBlind.test.ts` keeps it as a regression check, and lists the
   misses that remain).
 - `holdout.json.b64`: 118 lines with secrets, 80 harmless. Not read by any test and not looked at.
-  It is measured once, on the release tag, after the release is published, rates only.
+  It was measured once, on 2026-10-01, on the 0.7.2 release tag, after 0.7.2 was published, rates
+  only:
+  [`docs/audits/2026-10-01-round-5-results/blind3-holdout.txt`](../../../../docs/audits/2026-10-01-round-5-results/blind3-holdout.txt).
+  That run used it up: a change to `redact.ts` measured on it from now on isn't measured blind.
 
 Both are base64-encoded JSON, so no provider-shaped fake credential sits in the repository as a
 literal. `packages/core/test/blindCorpus.ts` decodes them, with the same measures as the first two

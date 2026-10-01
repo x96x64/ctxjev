@@ -802,6 +802,7 @@ function designPrecision() {
 const MASKING_HOLDOUTS = [
   { corpus: 'Round 3', file: 'docs/audits/2026-09-25-round-3-results/blind-holdout.txt', version: '0.7.0' },
   { corpus: 'Round 4', file: 'docs/audits/2026-09-30-round-4-results/blind2-holdout.txt', version: '0.7.1' },
+  { corpus: 'Round 5', file: 'docs/audits/2026-10-01-round-5-results/blind3-holdout.txt', version: '0.7.2' },
 ]
 
 function maskingHoldout({ file }) {
@@ -827,6 +828,35 @@ function maskingBlind() {
   }).join('. ')
 }
 
+// Round 5's record (docs/audits/2026-10-01-round-5-changes-ja.md): its blind corpus's dev half before
+// and after the fixes, its holdout half, and the fifth audit's masking table, from the saved outputs.
+const ROUND5 = 'docs/audits/2026-10-01-round-5-results'
+function blindRuns(file) {
+  const text = readFileSync(join(root, ROUND5, file), 'utf8')
+  const runs = [...text.matchAll(/redact\.ts at ([^:\n]+):\n\s+lines with secrets detected: (\d+)\/(\d+)[\s\S]*?secrets masked: (\d+)\/(\d+)[\s\S]*?harmless lines changed \(false positives\): (\d+)\/(\d+)/g)]
+  if (runs.length === 0) throw new Error(`${file}: no measurement in it`)
+  return runs.map((m) => ({ at: m[1], lines: [Number(m[2]), Number(m[3])], secrets: [Number(m[4]), Number(m[5])], harmless: [Number(m[6]), Number(m[7])] }))
+}
+const blindJa = ({ lines, harmless }) => `秘密を含む行の検出 ${lines[0]}/${lines[1]}（${pct1(lines[0] / lines[1])}）、無害な行の誤検出 ${harmless[0]}/${harmless[1]}（${pct1(harmless[0] / harmless[1])}）`
+function blind3DevJa() {
+  const [released, firstFix] = blindRuns('blind3-dev-before.txt')
+  const [merged] = blindRuns('blind3-dev-after.txt')
+  return `0.7.1（${released.at}）：${blindJa(released)}。最初の修正（${firstFix.at}）：${blindJa(firstFix)}。マージした版：${blindJa(merged)}`
+}
+function blind3HoldoutJa() {
+  const [r] = blindRuns('blind3-holdout.txt')
+  return `0.7.2（${r.at}）：${blindJa(r)}、秘密そのものの隠蔽 ${r.secrets[0]}/${r.secrets[1]}（${pct1(r.secrets[0] / r.secrets[1])}）`
+}
+function audit5CoverageJa() {
+  const text = readFileSync(join(root, ROUND5, 'redact-coverage.txt'), 'utf8')
+  const at = (who) => {
+    const m = new RegExp(`^${who}: .*?(\\d+)/(\\d+) of the fifth audit's lines masked, (\\d+)/(\\d+) harmless strings altered`, 'm').exec(text)
+    if (!m) throw new Error(`redact-coverage.txt: no line for ${who}`)
+    return `${m[1]}/${m[2]}（無害な文字列の変化 ${m[3]}/${m[4]}）`
+  }
+  return `0.7.1：${at('v0\\.7\\.1')}、修正後：${at('working tree')}`
+}
+
 function maskingBlindJa() {
   return MASKING_HOLDOUTS.map((h) => {
     const r = maskingHoldout(h)
@@ -839,6 +869,9 @@ function maskingBlindJa() {
 const RENDERERS = {
   'masking-blind': maskingBlind,
   'masking-blind-ja': maskingBlindJa,
+  'blind3-dev-ja': blind3DevJa,
+  'blind3-holdout-ja': blind3HoldoutJa,
+  'audit5-coverage-ja': audit5CoverageJa,
   'design-task-success': designTaskSuccess,
   'design-retention': designRetention,
   'design-retention-diffs': designRetentionDiffs,
@@ -913,6 +946,8 @@ const DOCS = [
   { path: 'docs/audits/2026-09-25-audit-2-triage-ja.md' },
   // The masking holdout results, generated inline from the saved outputs.
   { path: 'docs/audits/2026-09-30-round-4-changes-ja.md' },
+  // Round 5's record: its blind-corpus and masking numbers, generated from the saved outputs.
+  { path: 'docs/audits/2026-10-01-round-5-changes-ja.md' },
 ]
 const GENERATED = /<!-- generated:([\w-]+) -->([\s\S]*?)<!-- \/generated:\1 -->/g
 

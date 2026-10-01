@@ -1,0 +1,28 @@
+# After the 0.7.2 release: the plugin installed from the marketplace (2.1.286 (Claude Code), a throwaway HOME and CLAUDE_CONFIG_DIR, no keys).
+$ claude plugin marketplace add x96x64/ctxjev && claude plugin install ctxjev@ctxjev-plugins
+installed at .claude/plugins/cache/ctxjev-plugins/ctxjev/0.7.2; files outside src/ and skills/:
+.claude-plugin/plugin.json
+LICENSE
+README.md
+THIRD_PARTY_NOTICES
+dist/preCompact.js
+dist/sessionStartCompact.js
+dist/status.js
+dist/statusHook.js
+esbuild.build.mjs
+hooks/hooks.json
+package.json
+tsconfig.json
+tsconfig.test.json
+
+LICENSE identical to the repository's LICENSE at v0.7.2: yes
+THIRD_PARTY_NOTICES identical to the committed one at v0.7.2: yes
+THIRD_PARTY_NOTICES sections: ## @typesafe-ai/sdk 
+version in the installed plugin.json: 0.7.2
+dist/preCompact.js identical to v0.7.2: yes
+dist/sessionStartCompact.js identical to v0.7.2: yes
+dist/status.js identical to v0.7.2: yes
+dist/statusHook.js identical to v0.7.2: yes
+
+$ echo '{"prompt":"fix the bug",...}' | node dist/statusHook.js   (installed copy)
+exit 0 (no output expected)
