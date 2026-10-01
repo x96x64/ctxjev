@@ -51,6 +51,13 @@ jobs:
         run: |
           node scripts/readmes.mjs
           node scripts/check-links.mjs
+      # The README's translations: code blocks, generated eval numbers, inline code, numbers in prose,
+      # and link targets as in English (a failure); English changed since a translation's recorded
+      # source hash (a warning annotation, not a failure). --selftest proves each check catches its edit.
+      - name: README translations
+        run: |
+          node scripts/check-translations.mjs
+          node scripts/check-translations.mjs --selftest
       # What npm will show: each package packed for real, its README checked in the tarball (no
       # relative link, every link pinned to the release tag and resolving, examples matching real
       # output), and --selftest proves those checks catch the edits that would break the page.

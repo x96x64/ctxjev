@@ -1,0 +1,12 @@
+# Proof for the PR 3 review's finding: each scenario in a fresh worktree at 3f8feff
+## 1. A release bumps every version to 0.8.0 and runs check-versions --update-pins
+All 7 lockstep files agree on 0.8.0, every ctxjev-mcp pin names it, and the marketplace serves the plugin from tag v0.8.0.
+pins to 0.8.0 in README.ja.md: 3
+check-translations exit 0
+## 2. A generated number in README.ja.md typed by hand, then check-docs --write
+check-docs exit 1: README.ja.md: generated block "holdout-retention-jev" differs from the saved results.
+after --write, check-docs exit 0
+check-translations exit 0
+## 3. English output changes in a code block, then check-translations --write
+check-translations exit 1 (code blocks differ)
+after --write: exit 0, 7 ok, 7 warnings (English changed since each translation's recorded hash)
