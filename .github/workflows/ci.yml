@@ -45,6 +45,19 @@ jobs:
       # byte for byte.
       - name: README examples
         run: node scripts/check-readme-examples.mjs
+      # Every package README carries docs/readme-shared/'s sections as they are, and every link in the
+      # repository's Markdown resolves to a file and heading that exist.
+      - name: Shared README sections and links
+        run: |
+          node scripts/readmes.mjs
+          node scripts/check-links.mjs
+      # What npm will show: each package packed for real, its README checked in the tarball (no
+      # relative link, every link pinned to the release tag and resolving, examples matching real
+      # output), and --selftest proves those checks catch the edits that would break the page.
+      - name: Packed READMEs (the npm pages)
+        run: |
+          node scripts/check-packed-readmes.mjs
+          node scripts/check-packed-readmes.mjs --selftest
       - name: Boundary brute force
         run: node scripts/boundary-bruteforce.mjs
       # Test coverage per package, in-process and (for the CLI and the MCP server) in the dist/

@@ -12,6 +12,7 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 - `ctxjev-core`: new `typesafeApiKey()` and `missingTypesafeApiKey()` report whether the environment holds a usable Jev key.
 - `ctxjev-cli`: the `--scorer local` report no longer calls keyword overlap "much cruder than Jev"; on held-out tasks Jev's ranking wasn't shown to do better.
 - The READMEs are rewritten to be shorter and example-first; the evaluation's numbers moved to `docs/evaluation.md`, the design notes to `docs/design-notes.md`.
+- The npm pages: each package README is complete on its own (what ctxjev is, privacy, status, license), and its links point at the release's files on GitHub instead of breaking.
 
 ## 0.7.2 — 2026-10-01
 
@@ -344,7 +345,7 @@ by earlier versions are ignored.
   on). On the preregistered holdout tasks the Jev-scored digest showed no demonstrated effect, and
   Jev's ranking kept less of what the tasks needed than keyword overlap did, so the default no
   longer sends your session to a third party. Neither scorer has been shown to help; see
-  [Does It Work?](README.md#does-it-work).
+  [Does It Work?](docs/evaluation.md).
 - README, plugin README: the preregistered holdout comparison for the plugin did run, twice; both
   runs are now reported, and neither shows an effect. They used to say it never produced a result.
 - `ctxjev-core` (and so the CLI, MCP server, and plugin): secret masking now also catches JSON-style
@@ -454,7 +455,7 @@ by earlier versions are ignored.
 - `ctxjev-core`, `ctxjev-cli`, `ctxjev-claude`'s `pruneMessages()`: **the default scorer is now
   `'recency'` (plain truncation), not Jev.** On a preregistered comparison against six tasks never
   used to design ctxjev, Jev and truncation finished the same tasks equally often (+0 points, 95%
-  CI [+0, +0] on two models) — see [Does It Work?](README.md#does-it-work). Pass `scorer: 'jev'` /
+  CI [+0, +0] on two models) — see [Does It Work?](docs/evaluation.md). Pass `scorer: 'jev'` /
   `--scorer jev` to opt in; `ctxjev-mcp`, which exists to expose Jev, is unaffected and keeps
   asking for it. This is a breaking default change for anyone relying on the old implicit `'jev'`.
 - `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`: cached Jev scores account for the latest activity, so

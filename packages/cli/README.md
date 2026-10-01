@@ -21,8 +21,7 @@ and pass `--scorer jev`.
 
 With the default `recency`, the goal isn't used: an entry's score is its position (oldest 0,
 newest 1), so the default thresholds drop roughly the oldest 30% of entries and mark the next 30%
-for summarizing, whatever they say. No scorer has been shown to beat that on held-out tasks; see
-the [evaluation](../../docs/evaluation.md).
+for summarizing, whatever they say.
 
 ## Usage
 
@@ -123,16 +122,56 @@ Auto-detected, no flag needed:
 > real, sensitive session log without checking its contents first: common secret formats are
 > masked to `[REDACTED]` first, but that masking is best-effort and can't catch everything.
 
-## Related packages
+<!-- shared:about -->
+## About ctxjev
 
-| Package | What it is |
-| --- | --- |
-| [`ctxjev-core`](https://www.npmjs.com/package/ctxjev-core) | The engine this CLI wraps. |
-| [`ctxjev-mcp`](https://www.npmjs.com/package/ctxjev-mcp) | The same scoring, as MCP tools for Claude Code, Codex, and other MCP hosts. |
+ctxjev scores an AI agent's history and decides what to keep, drop, or summarize. One engine comes
+four ways:
 
-Example transcripts, the Claude Code plugin, and the design notes are in the
-[ctxjev repository](https://github.com/x96x64/ctxjev).
+| Package | What it is | Sends anything by default? |
+| --- | --- | --- |
+| [`ctxjev-core`](https://www.npmjs.com/package/ctxjev-core) | The library: `pruneMessages()`, `pruneContext()`, and the scorers | No |
+| [`ctxjev-cli`](https://www.npmjs.com/package/ctxjev-cli) | `ctxjev analyze` and `ctxjev prune` in a terminal | No |
+| [`ctxjev-mcp`](https://www.npmjs.com/package/ctxjev-mcp) | `score_relevance` and `prune_history` as MCP tools, for Claude Code, Codex, and other hosts | With a key set, masked excerpts to Jev unless a call picks `local` or `recency` |
+| [Claude Code plugin](../claude-plugin/README.md) | Hands the highest-scoring entries back right after Claude Code compacts | No |
 
+Scorers: `recency` (plain truncation: newest kept), `local` (keyword overlap with your goal), and
+`jev` (TypeSafe AI's [Jev](https://typesafe.ai), opt-in, needs `TYPESAFE_API_KEY`). Full docs are in
+the [ctxjev repository](../../README.md).
+<!-- /shared:about -->
+
+<!-- shared:privacy -->
+## Privacy
+
+- With `recency` or `local`, nothing is sent anywhere.
+- With `jev`, the goal and a short excerpt of each entry are sent to TypeSafe AI's Jev API, after
+  common secret formats are replaced with `[REDACTED]` and without entry ids. The masking is
+  pattern matching: it narrows exposure but can't recognize every secret.
+- Without a usable `TYPESAFE_API_KEY` (unset, blank, or an unexpanded placeholder such as
+  `${TYPESAFE_API_KEY}`), nothing is sent, and whatever asked for Jev says so.
+
+How well the masking works is measured in the [evaluation](../../docs/evaluation.md#secret-masking-measured-blind).
+To report a leak, see the [security policy](../../SECURITY.md).
+<!-- /shared:privacy -->
+
+<!-- shared:status -->
+## Status and limits
+
+<!-- checked-prose -->
+Whether pruning this way helps an agent finish its work hasn't been shown. In a preregistered
+comparison on <!-- generated:holdout-task-count -->6<!-- /generated:holdout-task-count --> tasks the design had never seen, Jev's ranking and plain truncation
+gave the same task success (difference in percentage points, with its 95% CI:
+<!-- generated:holdout-diff-haiku -->0 [0, 0]<!-- /generated:holdout-diff-haiku --> with Claude Haiku 4.5, <!-- generated:holdout-diff-sonnet -->0 [0, 0]<!-- /generated:holdout-diff-sonnet --> with Claude Sonnet 5). On the
+preregistered measure of what each task needed, Jev's ranking kept <!-- generated:holdout-retention-jev -->23.6%<!-- /generated:holdout-retention-jev --> under a tight budget, less
+than a random ordering of the same entries (<!-- generated:holdout-retention-random -->26.5%<!-- /generated:holdout-retention-random -->), and the Claude Code plugin's digest had no
+demonstrated effect. The [evaluation](../../docs/evaluation.md) has
+every number and what it can't show.
+<!-- /checked-prose -->
+<!-- /shared:status -->
+
+<!-- shared:license -->
 ## License
 
-[MIT](LICENSE).
+[MIT](LICENSE). ctxjev is an independent project, not affiliated with or endorsed by TypeSafe AI
+or Anthropic.
+<!-- /shared:license -->

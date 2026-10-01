@@ -39,6 +39,8 @@
   },
   "scripts": {
     "build": "tsc -b",
+    "prepack": "node ../../scripts/readmes.mjs --pack",
+    "postpack": "node ../../scripts/readmes.mjs --unpack",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.test.json"
   },
