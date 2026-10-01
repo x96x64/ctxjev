@@ -33,7 +33,8 @@ export type ScoredEntry = {
   /**
    * Under `'local'` in `pruneContext()` (and `rankLocalRelevance()`): every entry in the batch shares
    * the goal's words equally, so there's no ranking. `relevance` is then the overlap itself, not a
-   * rank, and `pruneContext()` keeps the entry whatever `combinedScore` says. Absent otherwise.
+   * rank, and `combinedScore` treats every entry as ranked first (as 0.7.1 did), so position alone
+   * decides. Absent otherwise.
    */
   tied?: true
 }

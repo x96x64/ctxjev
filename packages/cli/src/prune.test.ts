@@ -479,7 +479,11 @@ describe('malformed input is named, never a raw error or a NaN', () => {
     expect(analyzed.exitCode).toBe(0)
     expect(analyzed.stdout).toContain('score tied')
     expect(analyzed.stdout).not.toMatch(/score (?:0\.9\d|1\.00)/)
-    expect(analyzed.stdout).toContain('every entry shares the same keyword overlap with the goal')
+    expect(analyzed.stdout).toContain("every entry shares the same keyword overlap with the goal (none), so it can't rank them: they're scored by position alone")
+    // The review: "all kept" was printed next to a budget that removed entries.
+    const budget = await run(['analyze', join(dirname(fileURLToPath(import.meta.url)), '../../../examples/sample-transcripts/anthropic-messages.json'), '--scorer', 'local', '--goal', 'zzqx wvkj', '--target-tokens', '50', '--no-protect-last-turn', '--protect-last', '1'])
+    expect(budget.stdout).toContain('prune would remove 5 of 8 entries')
+    expect(budget.stdout).not.toContain('all kept')
     const json = JSON.parse((await run(['analyze', sample, '--scorer', 'local', '--goal', 'zzqx wvkj', '--json'])).stdout)
     expect(json.decisions.every((d: { relevance: number; tied?: boolean; action: string }) => d.relevance === 0 && d.tied === true && d.action === 'keep')).toBe(true)
   })

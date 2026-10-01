@@ -185,8 +185,9 @@ export type PruneMessagesResult = {
    * told its view of the conversation is incomplete. A new message holding only the note isn't
    * inserted instead: between a `tool_use` and its `tool_result` it would make the request invalid,
    * and the only other places left are the protected messages. `false` whenever nothing was removed.
+   * Always set by `pruneMessages()`; optional in the type so a result built by hand still compiles.
    */
-  noteOmitted: boolean
+  noteOmitted?: boolean
 }
 
 type Replacement = { text: string; saved: number }

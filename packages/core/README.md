@@ -61,7 +61,8 @@ rarely reaches 0.3, and the thresholds used to drop almost everything, relevant 
 When most entries share no word with the goal, they tie in the middle and are marked for
 summarizing, not dropped; pass `targetTokens` to `pruneMessages()` if you need a fixed size. When
 every entry ties (none shares more of the goal's words than another), there's nothing to rank:
-each decision keeps its raw overlap as `relevance`, is marked `tied: true`, and is kept.
+each decision keeps its raw overlap as `relevance` and is marked `tied: true`, and its
+`combinedScore` ranks it first, as before, so position alone decides.
 `scoreEntries()` still returns the raw overlap; `rankLocalRelevance()` turns it into the ranked
 scale, which the Claude Code plugin uses too.
 

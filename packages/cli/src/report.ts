@@ -77,9 +77,9 @@ export function formatReport(
   lines.push(pc.dim(describeOutcome(savings, outcome)))
 
   if (scorer === 'local') {
-    if (decisions.length > 0 && decisions.every((d) => d.tied)) {
+    if (decisions.length > 1 && decisions.every((d) => d.tied)) {
       const overlap = Math.round(decisions[0].relevance * 100)
-      lines.push(pc.dim(`every entry shares the same keyword overlap with the goal (${overlap === 0 ? 'none' : `${overlap}% of its words`}), so there's nothing to rank them by: all kept`))
+      lines.push(pc.dim(`every entry shares the same keyword overlap with the goal (${overlap === 0 ? 'none' : `${overlap}% of its words`}), so it can't rank them: they're scored by position alone`))
     }
     lines.push(pc.dim('Scored offline by keyword overlap — no Jev call, nothing sent. Much cruder than Jev; treat the decisions as a rough guide.'))
     return lines.join('\n')
@@ -184,7 +184,7 @@ export function formatMessagesOutcome(total: number, result: PruneMessagesResult
   const budget = result.overBudget ? `\n${pc.yellow('⚠')} ${did ? 'still over' : 'would still be over'} --target-tokens: ${left}` : ''
   // The fifth audit: the note was left out without a word when there was nowhere to put it.
   const noNote = result.noteOmitted
-    ? `\n${pc.yellow('⚠')} no unprotected user message after the first removal to carry the removal note: the model ${did ? "won't" : "wouldn't"} be told history was removed (loosen --protect-last or --no-protect-last-turn, or keep user text)`
+    ? `\n${pc.yellow('⚠')} no unprotected user message after the first removal to carry the removal note: the model ${did ? "won't" : "wouldn't"} be told history was removed (a lower --protect-last or --no-protect-last-turn leaves it a place)`
     : ''
   return `${parts.join(', ')}${keptLine}${cache}${budget}${noNote}`
 }

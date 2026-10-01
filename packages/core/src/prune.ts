@@ -178,8 +178,7 @@ export async function pruneContext(
   validatePolicy(policy)
   let scored = await scoreEntries(entries, goal, policy.recencyWeight, options)
   if (options.scorer === 'local') scored = rankLocalRelevance(scored, policy.recencyWeight)
-  // A full tie under 'local' carries no signal to drop anything on (see rankLocalRelevance).
-  return scored.map((entry) => ({ ...entry, action: entry.tied ? 'keep' : decideAction(entry.combinedScore, policy) }))
+  return scored.map((entry) => ({ ...entry, action: decideAction(entry.combinedScore, policy) }))
 }
 
 /**
@@ -192,10 +191,11 @@ export function rankLocalRelevance(scored: ScoredEntry[], recencyWeight: number 
   validateScoredEntries(scored)
   validateRecencyWeight(recencyWeight)
   // Every entry shares the goal's words equally (often not at all): there's nothing to rank them by.
-  // A rank of 1 each said "most relevant" (the fifth audit), so the overlap itself stays, and each is
-  // marked `tied`, which pruneContext() keeps whatever the thresholds say.
+  // Showing a rank of 1 each said "most relevant" (the fifth audit), so `relevance` is the overlap
+  // itself and each is marked `tied`; `combinedScore` still ranks it first, as 0.7.1 did, so every
+  // decision and a budget's order are unchanged: position alone decides.
   if (scored.length > 0 && scored.every((s) => s.relevance === scored[0].relevance)) {
-    return scored.map((s) => ({ ...s, combinedScore: combineScore(s.relevance, s.recency, recencyWeight), tied: true as const }))
+    return scored.map((s) => ({ ...s, combinedScore: combineScore(1, s.recency, recencyWeight), tied: true as const }))
   }
   const ranks = percentileRanks(scored.map((s) => s.relevance))
   return scored.map((s, i) => ({ ...s, relevance: ranks[i], combinedScore: combineScore(ranks[i], s.recency, recencyWeight) }))
