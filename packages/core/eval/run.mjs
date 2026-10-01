@@ -58,9 +58,16 @@
  * without a key, for local use). It only ever reads the dev split, so holdout sessions can't be
  * tuned against by way of a failing release.
  *
+ * With --gate-offline (CI's eval-harness job runs it on every change, with no key), exits 1 if, on
+ * the dev split, the shipped defaults' mean probe retention falls below the saved
+ * eval/results/retention-dev.json at any of its budgets: `recency` (the CLI's and the library's
+ * default) or `local` (the plugin's). Both are deterministic, so the tolerance (1e-6) only covers
+ * floating-point noise. It never calls Jev, even with a key set. The fifth audit found the release
+ * gate tried Jev alone, so a change that made the shipped defaults keep less would have passed.
+ *
  * `--budgets 0.1,0.15,0.25` measures retention at other budgets (default 0.25,0.5; --gate needs 0.5).
  *
- * Usage: node eval/run.mjs [--gate [--allow-skip]] [--runs N] [--split dev|holdout|all] [--budgets …] [--json] [--out file.json]
+ * Usage: node eval/run.mjs [--gate [--allow-skip] | --gate-offline] [--runs N] [--split dev|holdout|all] [--budgets …] [--json] [--out file.json]
  *        (from packages/core, after `pnpm build`)
  */
 import { execFileSync } from 'node:child_process'
@@ -81,14 +88,21 @@ const DEFAULT_BUDGETS = [0.25, 0.5]
 const RANDOM_SEEDS = 20
 
 const { values: args } = parseArgs({
-  options: { gate: { type: 'boolean' }, 'allow-skip': { type: 'boolean' }, json: { type: 'boolean' }, out: { type: 'string' }, runs: { type: 'string', default: '1' }, split: { type: 'string' }, budgets: { type: 'string' } },
+  options: { gate: { type: 'boolean' }, 'gate-offline': { type: 'boolean' }, 'allow-skip': { type: 'boolean' }, json: { type: 'boolean' }, out: { type: 'string' }, runs: { type: 'string', default: '1' }, split: { type: 'string' }, budgets: { type: 'string' } },
 })
 const BUDGETS = args.budgets ? args.budgets.split(',').map(Number) : DEFAULT_BUDGETS
 if (BUDGETS.length === 0 || BUDGETS.some((b) => !(b > 0 && b < 1))) throw new Error(`--budgets must be shares between 0 and 1, got ${args.budgets}`)
 if (args.gate && !BUDGETS.includes(0.5)) throw new Error('--gate checks retention at a 50% budget; keep 0.5 in --budgets')
 const runs = Number(args.runs)
-const split = parseSplit(args.split ?? (args.gate ? 'dev' : 'all'))
-if (args.gate && split !== 'dev') throw new Error('--gate only reads the dev split')
+const offlineGate = Boolean(args['gate-offline'])
+if (offlineGate && args.gate) throw new Error('--gate and --gate-offline are separate checks; run one at a time')
+const split = parseSplit(args.split ?? (args.gate || offlineGate ? 'dev' : 'all'))
+if ((args.gate || offlineGate) && split !== 'dev') throw new Error('the gates only read the dev split')
+// The offline gate compares against retention-dev.json at the budgets it was saved with.
+const SAVED_DEV_RETENTION = join(__dirname, 'results', 'retention-dev.json')
+const savedDev = offlineGate ? JSON.parse(readFileSync(SAVED_DEV_RETENTION, 'utf8')) : undefined
+if (savedDev && args.budgets) throw new Error('--gate-offline uses the budgets retention-dev.json was saved at; leave --budgets out')
+if (savedDev) BUDGETS.splice(0, BUDGETS.length, ...savedDev.budgets)
 if (args.gate && runs < 3) {
   console.error(`GATE FAILED: --gate needs --runs 3 or more (got ${runs}): Jev's answers vary between calls`)
   process.exit(1)
@@ -140,7 +154,7 @@ function atCut(fixture) {
   return { ...fixture, messages, entries, probes, cut: true, excludedProbes: fixture.probes.length - probes.length }
 }
 
-const scorers = process.env.TYPESAFE_API_KEY ? ['local', 'jev'] : ['local']
+const scorers = process.env.TYPESAFE_API_KEY && !offlineGate ? ['local', 'jev'] : ['local']
 if (scorers.length === 1) log('TYPESAFE_API_KEY not set — running the offline baseline only.\n')
 log(`Policy: dropBelow=${DEFAULT_POLICY.dropBelow}, summarizeBelow=${DEFAULT_POLICY.summarizeBelow}, recencyWeight=${DEFAULT_POLICY.recencyWeight} (only "drop" counts as "not relevant")`)
 for (const set of ['short', 'sessions']) {
@@ -429,4 +443,22 @@ if (args.gate) {
     process.exit(1)
   }
   log('--gate: passed.')
+}
+
+if (offlineGate) {
+  const TOLERANCE = 1e-6
+  const failures = []
+  for (const scorer of ['recency', 'local']) {
+    for (const b of savedDev.budgets) {
+      const now = retentionSummary[scorer][b].probes
+      const then = savedDev.retention[scorer][b].probes
+      log(`--gate-offline: ${scorer} at a ${b * 100}% budget keeps ${pct(now).trim()} of probes (saved: ${pct(then).trim()})`)
+      if (now < then - TOLERANCE) failures.push(`${scorer} at a ${b * 100}% budget keeps ${pct(now).trim()} of probes, below the saved ${pct(then).trim()} (eval/results/retention-dev.json)`)
+    }
+  }
+  if (failures.length > 0) {
+    for (const f of failures) console.error(`GATE FAILED: ${f}`)
+    process.exit(1)
+  }
+  log('--gate-offline: passed.')
 }

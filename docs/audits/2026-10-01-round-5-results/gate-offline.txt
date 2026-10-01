@@ -1,0 +1,17 @@
+$ # localRelevance() sabotaged to return 1 minus its real value (temporary, in dist/ only)
+$ node eval/run.mjs --gate-offline
+--gate-offline: recency at a 25% budget keeps 66.3% of probes (saved: 66.3%)
+--gate-offline: recency at a 50% budget keeps 80.4% of probes (saved: 80.4%)
+--gate-offline: local at a 25% budget keeps 62.4% of probes (saved: 65.3%)
+--gate-offline: local at a 50% budget keeps 73.2% of probes (saved: 79.8%)
+GATE FAILED: local at a 25% budget keeps 62.4% of probes, below the saved 65.3% (eval/results/retention-dev.json)
+GATE FAILED: local at a 50% budget keeps 73.2% of probes, below the saved 79.8% (eval/results/retention-dev.json)
+exit 1
+
+$ # restored (pnpm build), the same command
+--gate-offline: recency at a 25% budget keeps 66.3% of probes (saved: 66.3%)
+--gate-offline: recency at a 50% budget keeps 80.4% of probes (saved: 80.4%)
+--gate-offline: local at a 25% budget keeps 65.3% of probes (saved: 65.3%)
+--gate-offline: local at a 50% budget keeps 79.8% of probes (saved: 79.8%)
+--gate-offline: passed.
+exit 0
