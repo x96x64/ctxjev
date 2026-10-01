@@ -139,7 +139,7 @@
 | --- | --- |
 | `docs/evaluation.md`（英語、新規） | 今の「Does It Work?」の全部（生成された表と文、読み方の注意）、マスクのブラインドコーパスの結果（生成）、holdout が使用済みであること、Part E で書く評価データの既知の欠陥 |
 | `docs/design-notes.md`（英語、新規） | 今の「Design Notes」の詳しい版（`recencyWeight` の決め方など） |
-| `docs/development.md`（英語、新規） | `.mcp.json` の注意、Node 22 が要る評価スクリプト、本物の記録を使わない規則への案内（中身は `AGENTS.md` と `CONTRIBUTING.md`） |
+| （作らない） | 開発者向けの注意（`.mcp.json`、Node 22 が要る評価スクリプト、本物の記録を使わない規則）は、すでに `CONTRIBUTING.md` と `AGENTS.md` にあるので、`docs/development.md` は作らず、README からそちらへ案内します（実装時に変更） |
 | `ROADMAP.md` | 「Done」の日誌を外し、「Next」と「Constraints」だけに |
 
 - **検査は弱めません**：`check-docs.mjs` の対象に `docs/evaluation.md` を「結果の節」として加え（表と文の数値をすべて照合）、README の状態の段落は今と同じ `checked-prose` で囲みます。`--selftest` が使う「監査の改ざん例」は、移した先の文書に向け直し、全件が今も検出されることを示します。
