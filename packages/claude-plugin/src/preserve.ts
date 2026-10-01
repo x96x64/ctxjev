@@ -1,6 +1,7 @@
 import { readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
-import { atomicWriteFile, redactSecrets, type ScoredEntry } from 'ctxjev-core'
+import { redactSecrets, type ScoredEntry } from 'ctxjev-core'
+import { atomicWriteFile } from 'ctxjev-core/internal'
 import type { Scorer } from './select.js'
 import { ensureSessionDir, sessionDir, sessionDirProblem, stateFileProblem } from './stateDir.js'
 

@@ -1,4 +1,4 @@
-import { seededRandom } from 'ctxjev-core'
+import { seededRandom } from 'ctxjev-core/internal'
 import { describe, expect, it } from 'vitest'
 import { jsonErrorOffset } from './jsonError.js'
 

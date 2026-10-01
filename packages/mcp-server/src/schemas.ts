@@ -1,5 +1,6 @@
 import { z } from 'zod'
-import { DEFAULT_POLICY, isValidPolicyOrdering } from 'ctxjev-core'
+import { DEFAULT_POLICY } from 'ctxjev-core'
+import { isValidPolicyOrdering } from 'ctxjev-core/internal'
 
 // Entries are billed per input token and, per ctxjev-core's own Entry doc, meant to be a short
 // excerpt rather than a full payload — cap both dimensions at the MCP boundary instead of

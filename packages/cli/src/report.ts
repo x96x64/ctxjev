@@ -1,5 +1,6 @@
 import pc from 'picocolors'
-import { truncate, type Entry, type EntryKeptDrops, type JevUsage, type KeptDrops, type PruneDecision, type PruneEntriesResult, type PruneMessagesResult, type SavingsReport } from 'ctxjev-core'
+import { type Entry, type EntryKeptDrops, type JevUsage, type KeptDrops, type PruneDecision, type PruneEntriesResult, type PruneMessagesResult, type SavingsReport } from 'ctxjev-core'
+import { truncate } from 'ctxjev-core/internal'
 import { estimateCostUsd } from './cost.js'
 
 const ACTION_COLOR: Record<PruneDecision['action'], (s: string) => string> = {

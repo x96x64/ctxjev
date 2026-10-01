@@ -1,5 +1,6 @@
 // Shared by every eval script: spend tracking, prompt caching, the pruning conditions, statistics.
-import { DEFAULT_POLICY, messagesToEntries, pruneMessages, scoreEntries, seededRandom } from '../dist/index.js'
+import { DEFAULT_POLICY, messagesToEntries, pruneMessages, scoreEntries } from '../dist/index.js'
+import { seededRandom } from '../dist/internal.js'
 
 // The evals use Node 22 APIs (fs.globSync, Map.groupBy); the published packages support Node 20.
 // Every eval script imports this module first, so this runs before anything that would fail oddly.

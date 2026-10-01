@@ -7,9 +7,10 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 
 ## Unreleased
 
-**Breaking changes, in short** (each is described below): the MCP tools score offline by default.
+**Breaking changes, in short** (each is described below): the MCP tools score offline by default; `ctxjev-core`'s internal helpers moved to `ctxjev-core/internal`, and its files can no longer be imported by path.
 
 - `ctxjev-mcp` (breaking): `score_relevance` and `prune_history` default to `scorer: "local"` (offline keyword overlap), like every other entry point; only a call that passes `scorer: "jev"` sends anything. A host that relied on the default to reach Jev must now pass `scorer: "jev"`.
+- `ctxjev-core` (breaking): the main entry point exports only the stable API (`docs/api-stability.md`). Seventeen helpers the other ctxjev packages share (`truncate`, `atomicWriteFile`, `seededRandom`, `validateEntries`, `validateMessages`, `rankLocalRelevance`, `createUsageAccumulator`, `cacheKeyFor`, `inferGoalFromEntries`, and others) moved to `ctxjev-core/internal`, which carries no compatibility promise; a `package.json` `exports` map now refuses imports of files under `dist/`.
 - Codex plugin: passes your real `TYPESAFE_API_KEY` to the MCP server. Codex doesn't expand `${TYPESAFE_API_KEY}` in a plugin's `mcp.json`, so the server got that text instead of the key, and Jev never worked through the plugin.
 - `ctxjev-mcp`, `ctxjev-cli`, the Claude Code plugin, and `ctxjev-core`: a `TYPESAFE_API_KEY` that is only an unexpanded placeholder (`${TYPESAFE_API_KEY}`, `$NAME`, `%NAME%`) counts as no key. Without a real key, a call that would use Jev now sends nothing and says so; before, it sent the masked goal and excerpts to Jev, which refused them.
 - `ctxjev-core`: new `typesafeApiKey()` and `missingTypesafeApiKey()` report whether the environment holds a usable Jev key.

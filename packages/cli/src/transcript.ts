@@ -1,5 +1,6 @@
 import { jsonErrorOffset } from './jsonError.js'
-import { estimateTokens, inferGoalFromEntries, messagesToEntries, parseClaudeCodeTranscript, resolveClaudeCodeGoal, validateEntries, validateMessages, type AnthropicMessage, type Entry } from 'ctxjev-core'
+import { estimateTokens, messagesToEntries, parseClaudeCodeTranscript, resolveClaudeCodeGoal, type AnthropicMessage, type Entry } from 'ctxjev-core'
+import { inferGoalFromEntries, validateEntries, validateMessages } from 'ctxjev-core/internal'
 
 export type TranscriptFile =
   /** `file`: the whole parsed file, so prune can write back every field it doesn't change. */

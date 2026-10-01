@@ -1,4 +1,5 @@
-import { DEFAULT_POLICY, createUsageAccumulator, pruneContext, rankLocalRelevance, scoreEntries, summarizeSavings, type Entry, type JevClient, type PruningPolicy, type ScoreCache } from 'ctxjev-core'
+import { DEFAULT_POLICY, pruneContext, scoreEntries, summarizeSavings, type Entry, type JevClient, type PruningPolicy, type ScoreCache } from 'ctxjev-core'
+import { createUsageAccumulator, rankLocalRelevance } from 'ctxjev-core/internal'
 import { validatePolicyOrdering, type McpScorer } from './schemas.js'
 
 /**

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { quoteAsData as quote } from 'ctxjev-core'
+import { quoteAsData as quote } from 'ctxjev-core/internal'
 import { readPreservedContext } from './preserve.js'
 import { readStdin } from './readStdin.js'
 
