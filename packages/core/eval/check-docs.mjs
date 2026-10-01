@@ -965,7 +965,14 @@ const DOCS = [
   { path: 'docs/evaluation.md', section: /^# Evaluation/m, prose: true, whole: true },
   { path: 'packages/core/eval/PREREGISTRATION.md', section: /^## Results/m, prose: true },
   { path: 'ROADMAP.md' },
-  { path: 'packages/core/README.md' },
+  // The package READMEs (each carries docs/readme-shared/status.md's generated numbers) and the
+  // shared sections themselves: eval claims anywhere in them are checked.
+  { path: 'packages/core/README.md', claims: true },
+  { path: 'packages/cli/README.md', claims: true },
+  { path: 'packages/mcp-server/README.md', claims: true },
+  { path: 'docs/readme-shared/status.md', claims: true },
+  { path: 'docs/readme-shared/about.md', claims: true },
+  { path: 'docs/readme-shared/privacy.md', claims: true },
   { path: 'docs/design/round-2-scoring-and-evaluation.md', section: /^## 1\./m },
   // No results section to police here: its tables are statuses, and its eval numbers are generated inline.
   { path: 'docs/audits/2026-09-25-round-1-changes-ja.md' },

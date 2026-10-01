@@ -36,6 +36,9 @@ node examples/eval-tasks/verify.mjs                       # templates fail the h
 cd packages/core && node eval/tasks.mjs --selftest        # the agent's workspace tools behave
 cd packages/core && node eval/check-docs.mjs              # the docs' eval numbers match eval/results/
 node scripts/check-readme-examples.mjs                    # README examples match the CLI's real output
+node scripts/readmes.mjs                                  # package READMEs carry docs/readme-shared/ as it is
+node scripts/check-links.mjs                              # every Markdown link resolves
+node scripts/check-packed-readmes.mjs                     # the READMEs npm will show, from real tarballs
 cd packages/core && node eval/check-sessions.mjs          # Japanese sessions' probes are in Japanese
 node --experimental-strip-types scripts/redact-coverage.ts  # every secret format and harmless string in redactCases.ts
 ```
@@ -54,6 +57,8 @@ node --experimental-strip-types scripts/redact-coverage.ts  # every secret forma
   fails if the committed bundle is stale.
 - **Never type an eval number into a doc.** Save the run to `packages/core/eval/results/`, then
   generate the numbers with `node eval/check-docs.mjs --write`. CI fails if they disagree.
+- **Edit shared README sections in `docs/readme-shared/`**, then `node scripts/readmes.mjs --write`;
+  every package README carries them word for word, because npm shows only the package's own README.
 - **Show only real output in a README.** Run the command and paste what it printed;
   `scripts/check-readme-examples.mjs` compares every example that doesn't use Jev, byte for byte.
 - **Never weaken, skip, or delete a test to make it pass**, and never soften a negative result.

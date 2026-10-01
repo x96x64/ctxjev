@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Every `$ ctxjev …` console example in README.md and packages/cli/README.md that doesn't use Jev,
+ * Every `$ ctxjev …` console example in README.md and the package READMEs that doesn't use Jev,
  * run for real (offline, no key) and compared with what the README shows, byte for byte. Sample
  * files named in an example are the ones in examples/sample-transcripts/. The fourth audit's check 7
  * did this by hand; a change to the CLI's output (Round 4 added a warning) now can't leave a README
@@ -8,6 +8,7 @@
  *
  *   node scripts/check-readme-examples.mjs                 # the built CLI (packages/cli/dist)
  *   node scripts/check-readme-examples.mjs --bin ctxjev    # an installed one (a release check)
+ *   node scripts/check-readme-examples.mjs --doc FILE      # these files instead (a packed README)
  */
 import { spawnSync } from 'node:child_process'
 import { copyFileSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs'
@@ -17,13 +18,14 @@ import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
-const { values } = parseArgs({ options: { bin: { type: 'string' } } })
+const { values } = parseArgs({ options: { bin: { type: 'string' }, doc: { type: 'string', multiple: true } } })
 const command = values.bin ?? `node ${JSON.stringify(join(root, 'packages/cli/dist/index.js'))}`
 const samples = join(root, 'examples/sample-transcripts')
 
 const examples = []
-for (const doc of ['README.md', 'packages/cli/README.md']) {
-  const text = readFileSync(join(root, doc), 'utf8')
+const DOCS = ['README.md', 'packages/core/README.md', 'packages/cli/README.md', 'packages/mcp-server/README.md', 'packages/claude-plugin/README.md']
+for (const doc of values.doc ?? DOCS) {
+  const text = readFileSync(values.doc ? doc : join(root, doc), 'utf8')
   for (const [, body] of text.matchAll(/```console\n([\s\S]*?)```/g)) {
     const [first, ...rest] = body.replace(/\n$/, '').split('\n')
     if (!first.startsWith('$ ctxjev ') || first.includes('--scorer jev')) continue

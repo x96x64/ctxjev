@@ -144,6 +144,11 @@ that was never part of what the parent session's compaction actually operates on
   never claim an effect the saved results don't show.
 - Evaluation detail lives in [`docs/evaluation.md`](docs/evaluation.md); the README keeps one honest
   paragraph and a link.
+- npm shows only the README inside a package, so each package README carries the sections in
+  `docs/readme-shared/` word for word: edit them there and run `node scripts/readmes.mjs --write`,
+  never by hand in a package README. Packing (`prepack`) rewrites every relative link to an absolute
+  GitHub URL at the release tag; `node scripts/check-packed-readmes.mjs` checks the tarball's README,
+  and `node scripts/check-links.mjs` every link in the repository's Markdown (CI runs all three).
 
 ## Releasing
 
