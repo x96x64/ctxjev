@@ -99,6 +99,20 @@ describe('parseClaudeCodeTranscript', () => {
     expect(parseClaudeCodeTranscript(jsonl)).toHaveLength(1)
   })
 
+  // The fifth audit (section 4.1, problem 3): a malformed or truncated line was skipped in silence,
+  // while a repeated record was reported. Both are now.
+  it('counts and reports the lines it skips as malformed', () => {
+    const ok = (uuid: string) => record({ type: 'user', uuid, timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: `ok ${uuid}` } })
+    const jsonl = [ok('u1'), 'not json', ok('u2'), '42', '', ok('u3'), '{"type":"user","uuid":"u4","mess'].join('\n')
+    const warnings: string[] = []
+    const entries = parseClaudeCodeTranscript(jsonl, { onWarning: (w) => warnings.push(w) })
+    expect(entries).toHaveLength(3)
+    expect(warnings).toEqual(["3 transcript line(s) aren't valid JSON records (lines 2, 4, 7); skipped"])
+    const clean: string[] = []
+    parseClaudeCodeTranscript([ok('u1'), ok('u2')].join('\n'), { onWarning: (w) => clean.push(w) })
+    expect(clean).toEqual([])
+  })
+
   // The eighth review of the masking change: a text block whose `text` wasn't a string threw
   // `t.replace is not a function`, failing the plugin's PreCompact run and its status report.
   // Claude Code doesn't write one, but the log is read, not trusted.

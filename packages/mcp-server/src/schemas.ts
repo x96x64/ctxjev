@@ -62,6 +62,12 @@ export const pruneHistoryInput = {
     .describe(`Combined-score floor below which an entry is marked summarize (worth shortening) rather than keep. Defaults to ${DEFAULT_POLICY.summarizeBelow}.`),
 }
 
+// What the server registers: an argument the tool doesn't take (`policy`, a misspelt
+// `recencyweight`) is an error, not dropped in silence, which ran the call on the defaults the caller
+// meant to change (the fifth audit). An entry may still carry fields of its own: they aren't arguments.
+export const scoreRelevanceSchema = z.strictObject(scoreRelevanceInput)
+export const pruneHistorySchema = z.strictObject(pruneHistoryInput)
+
 /** dropBelow/summarizeBelow are each in range on their own, but nothing above stops a reversed
  * pair from making 'summarize' unreachable — check the actual values a call resolves to
  * (including the defaults) before running it. The invariant itself lives in ctxjev-core; this

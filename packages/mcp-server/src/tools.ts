@@ -1,4 +1,4 @@
-import { DEFAULT_POLICY, createUsageAccumulator, pruneContext, scoreEntries, summarizeSavings, type Entry, type JevClient, type PruningPolicy, type ScoreCache } from 'ctxjev-core'
+import { DEFAULT_POLICY, createUsageAccumulator, pruneContext, rankLocalRelevance, scoreEntries, summarizeSavings, type Entry, type JevClient, type PruningPolicy, type ScoreCache } from 'ctxjev-core'
 import { validatePolicyOrdering, type McpScorer } from './schemas.js'
 
 /**
@@ -50,8 +50,11 @@ export async function scoreRelevanceTool({ scorer = 'jev', goal, entries, recenc
   // core's own default scorer is 'recency' as of 0.6.0 (see prune.ts), since the holdout eval tied
   // Jev on task success. These tools default to 'jev', as they did before `scorer` existed, so a
   // host's existing calls keep their meaning; 'local' and 'recency' are offline.
-  const scored = await scoreEntries(entries, goal, recencyWeight ?? DEFAULT_POLICY.recencyWeight, { onUsage, cache, jevClient, scorer })
-  return { scored, usage }
+  const weight = recencyWeight ?? DEFAULT_POLICY.recencyWeight
+  const scored = await scoreEntries(entries, goal, weight, { onUsage, cache, jevClient, scorer })
+  // 'local' on the scale prune_history (pruneContext) acts on: overlap ranked within the batch, so an
+  // entry scores the same in both tools. 0.7.1 returned the raw overlap here (the fifth audit).
+  return { scored: scorer === 'local' ? rankLocalRelevance(scored, weight) : scored, usage }
 }
 
 export type PruneHistoryArgs = ScoreRelevanceArgs & {

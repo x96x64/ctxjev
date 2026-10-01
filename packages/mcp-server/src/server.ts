@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { pruneHistoryInput, scoreRelevanceInput } from './schemas.js'
+import { pruneHistorySchema, scoreRelevanceSchema } from './schemas.js'
 import { pruneHistoryTool, scoreRelevanceTool } from './tools.js'
 
 // Read from this package's own package.json rather than a hardcoded constant, so the version
@@ -33,8 +33,8 @@ export function createServer(): McpServer {
     'score_relevance',
     {
       description:
-        "Score a batch of AI agent history entries for relevance to a goal: with Jev by default (needs TYPESAFE_API_KEY), or offline with scorer 'local' or 'recency'. Doesn't decide what to do about it — see prune_history for that.",
-      inputSchema: scoreRelevanceInput,
+        "Score a batch of AI agent history entries for relevance to a goal: with Jev by default (needs TYPESAFE_API_KEY), or offline with scorer 'local' or 'recency'. Under 'local', relevance is keyword overlap ranked within the batch (0 lowest, 1 highest; `tied` when every entry overlaps equally), the scale prune_history's thresholds use. Doesn't decide what to do about it — see prune_history for that.",
+      inputSchema: scoreRelevanceSchema,
     },
     async (args) => {
       if (needsMissingKey(args.scorer)) return MISSING_KEY
@@ -47,7 +47,7 @@ export function createServer(): McpServer {
     'prune_history',
     {
       description: "Score a batch of AI agent history entries against a goal and decide what to keep, drop, or summarize: with Jev by default (needs TYPESAFE_API_KEY), or offline with scorer 'local' or 'recency'.",
-      inputSchema: pruneHistoryInput,
+      inputSchema: pruneHistorySchema,
     },
     async (args) => {
       if (needsMissingKey(args.scorer)) return MISSING_KEY
