@@ -1,0 +1,67 @@
+# Release PR, before merging: the publish workflow's checks, run locally with TYPESAFE_API_KEY set.
+# Every Jev request went through a local forwarder that totalled the usage in Jev's responses (scratch meter.mjs).
+
+$ node scripts/check-versions.mjs
+All 7 lockstep files agree on 0.7.2, every ctxjev-mcp pin names it, and the marketplace serves the plugin from tag v0.7.2.
+
+$ pnpm test   # live tests included
+packages/core test:       Tests  1034 passed (1034)
+packages/mcp-server test:       Tests  34 passed (34)
+packages/claude-plugin test:       Tests  84 passed (84)
+packages/cli test:       Tests  100 passed (100)
+Jev usage, live tests: 14 requests, 19,360 input tokens, 2,580 output tokens (plus 2 requests, 919 input tokens, 59 output tokens, from a first try of one live test file to check the forwarder)
+
+$ cd packages/core && node eval/run.mjs --gate --runs 3
+Policy: dropBelow=0.3, summarizeBelow=0.6, recencyWeight=0.1 (only "drop" counts as "not relevant")
+short   : checkout-bug.json (7), invoice-date-ja.json (28), memory-leak.json (6), pagination-bug.json (60), session-logout.json (28)
+sessions: csv-mojibake.json (35), flaky-order-test.json (36), recorded-config-precedence.json (44), recorded-csv-import-encoding.json (32), recorded-flag-rollout.json (24), recorded-invoice-rounding.json (35), recorded-month-boundary.json (26), recorded-permission-check.json (26), recorded-pii-logging.json (31), recorded-retry-backoff.json (35), recorded-search-normalize.json (29), recorded-webhook-dedupe.json (25), search-latency.json (29), stale-price.json (31), webpack-upgrade.json (34)
+
+== short ==
+  local  drop accuracy over 129 labels
+         w=0:  72.1%  w=0.05:  72.1%  w=0.1:  72.1%  w=0.2:  72.9%  w=0.3:  71.3%  w=0.5:  60.5%
+         top-K misses: checkout-bug=0  invoice-date-ja=2  memory-leak=0  pagination-bug=0  session-logout=4
+  jev    drop accuracy over 129 labels (mean of 3 runs, worst 89.1% at default)
+         w=0:  89.1%  w=0.05:  89.7%  w=0.1:  89.9%  w=0.2:  86.3%  w=0.3:  76.2%  w=0.5:  63.3%
+         top-K misses: checkout-bug=0  invoice-date-ja=0  memory-leak=0  pagination-bug=0  session-logout=0
+
+== sessions ==
+  local  drop accuracy over 472 labels
+         w=0:  48.5%  w=0.05:  48.1%  w=0.1:  48.5%  w=0.2:  50.0%  w=0.3:  53.2%  w=0.5:  55.1%
+         top-K misses: csv-mojibake=0  flaky-order-test=0  recorded-config-precedence=0  recorded-csv-import-encoding=1  recorded-flag-rollout=1  recorded-invoice-rounding=0  recorded-month-boundary=0  recorded-permission-check=1  recorded-pii-logging=0  recorded-retry-backoff=1  recorded-search-normalize=1  recorded-webhook-dedupe=0  search-latency=0  stale-price=1  webpack-upgrade=1
+  jev    drop accuracy over 472 labels (mean of 3 runs, worst 71.0% at default)
+         w=0:  72.8%  w=0.05:  72.2%  w=0.1:  71.3%  w=0.2:  68.9%  w=0.3:  67.1%  w=0.5:  68.6%
+         top-K misses: csv-mojibake=0  flaky-order-test=0  recorded-config-precedence=0  recorded-csv-import-encoding=0  recorded-flag-rollout=0  recorded-invoice-rounding=0  recorded-month-boundary=0  recorded-permission-check=0  recorded-pii-logging=0.3  recorded-retry-backoff=0  recorded-search-normalize=0  recorded-webhook-dedupe=0  search-latency=0  stale-price=0  webpack-upgrade=0
+
+== all ==
+  local  drop accuracy over 601 labels
+         w=0:  53.6%  w=0.05:  53.2%  w=0.1:  53.6%  w=0.2:  54.9%  w=0.3:  57.1%  w=0.5:  56.2%
+  jev    drop accuracy over 601 labels (mean of 3 runs, worst 75.0% at default)
+         w=0:  76.3%  w=0.05:  76.0%  w=0.1:  75.3%  w=0.2:  72.6%  w=0.3:  69.1%  w=0.5:  67.4%
+
+== retention v1, whole session (dev split; Round 1's preregistered measure): 15 sessions; probe retention / relevant-token recall ==
+  strategy budget 25%            budget 50%            by language and kind (probes at 25% / 50%)
+  local     65.3% /  25.8%        79.8% /  35.7%       en 59.9%/75.9%  ja 73.4%/85.7%  written 44.9%/68.6%  recorded 75.5%/85.5%
+  jev       83.0% /  35.1%        93.7% /  48.8%       en 78.1%/92.6%  ja 90.5%/95.2%  written 78.6%/89.5%  recorded 85.2%/95.7%
+  recency   66.3% /  29.3%        80.4% /  42.5%       en 69.0%/84.5%  ja 62.3%/74.2%  written 50.3%/58.3%  recorded 74.3%/91.4%
+  random    62.0% /  23.6%        69.3% /  32.2%       en 61.3%/69.1%  ja 63.0%/69.4%  written 58.9%/68.5%  recorded 63.6%/69.7%
+  labels    80.2% /  39.7%        90.5% /  53.4%       en 76.5%/88.9%  ja 85.7%/92.9%  written 72.1%/82.9%  recorded 84.3%/94.3%
+  jev − recency at 25%: 16.7 points of probes retained, 95% CI [6.2, 29.3]
+  jev − recency at 50%: 13.3 points of probes retained, 95% CI [-1.3, 30.6]
+
+== retention v2, up to the fix request (exploratory on Round 1's material; Round 2's registered measure): each recorded session cut where the fix request arrives ==
+  strategy budget 25%            budget 50%            
+  local     63.6% /  27.9%        76.0% /  38.2%       
+  jev       84.4% /  37.0%        94.6% /  49.3%       
+  recency   73.4% /  29.5%        86.1% /  40.4%       
+  random    64.1% /  23.7%        71.7% /  31.5%       
+  labels    82.9% /  38.3%        94.3% /  51.2%       
+  jev − recency   10.9 [0.1, 24.3]       8.5 [-1.7, 22.4]   
+  jev − local     20.7 [11.4, 30.8]     18.6 [7.9, 30.4]    
+  jev − random    20.3 [14.7, 25.6]     22.9 [18.8, 27.0]   
+  jev − labels     1.5 [-4.5, 8.1]       0.3 [-4.4, 5.2]    
+
+Jev usage: 108 requests, 629,502 input tokens, 52,077 output tokens (free) — ~$0.0264
+
+--gate: passed.
+
+Jev usage in total: 124 requests, 649,781 input tokens, 54,716 output tokens: ~$0.0273 at $0.042 per million input tokens (output is free).

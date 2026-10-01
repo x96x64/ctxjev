@@ -5,7 +5,7 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 (`.claude-plugin/marketplace.json`, `packages/claude-plugin/.claude-plugin/plugin.json`,
 `plugins/ctxjev/plugin.json`). A bump in one is a bump in all, even when only one changed.
 
-## Unreleased
+## 0.7.2 — 2026-10-01
 
 - `ctxjev-core`: masks a URL password holding `#`, `/`, or `?` (`postgres://app:Pg#Secr3t99@db…` was kept whole, on every path).
 - `ctxjev-core`: masks a whole passphrase with spaces on a `.env`/INI/YAML line or after a `--password "…"` flag (only its first word was masked, or none).
@@ -20,6 +20,12 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 - Codex plugin: its marketplace entry asks for authentication on first use rather than at install (`authentication: ON_USE`), and says its tools also run offline.
 - Plugin and marketplace descriptions no longer say it "keeps what matters"; they say its effect on held-out tasks hasn't been shown.
 - `SECURITY.md`: the MCP tools take `scorer` (default `jev`, which sends masked excerpts when a key is set); it said they always used Jev.
+
+### Known issues
+
+- Secret masking still misses a secret in prose with no `:` or `=`, a full-width or all-digit value after a label, and strongSwan/Cisco pre-shared keys; the list is in [#38](https://github.com/x96x64/ctxjev/issues/38) (and #27, #16).
+- The MCP tools' strict input adds `additionalProperties: false`, which a host's schema converter could reject (none seen yet; [#38](https://github.com/x96x64/ctxjev/issues/38)).
+- The plugin keeps warning about a malformed log line from before the last compaction on every run ([#38](https://github.com/x96x64/ctxjev/issues/38)).
 
 ## 0.7.1 — 2026-09-30
 
