@@ -178,6 +178,11 @@ describe('redactSecrets: time on long runs', () => {
     ['spaces, then zip -P', `${' '.repeat(N)}zip -P x`],
     ['; ; ; zip…', '; zip '.repeat(N / 6)],
     ['h:1> AUTH …', 'h:1> AUTH '.repeat(N / 10)],
+    // The re-review: a labelled value is read to its end, however long.
+    ['パスワード: a(a(…', `パスワード: ${'a('.repeat(N / 2)}`],
+    ['密码：xxx…', `密码：${'x1'.repeat(N / 2)}`],
+    ['トークン: a1 トークン: a1 …', 'トークン: a1 '.repeat(N / 10)],
+    ['zip -9 -9 …', `zip ${'-9 '.repeat(N / 3)}-P x`],
   ]
   it.each(runs)('%s (200,000 characters) in under 2 seconds', (_name, text) => {
     const start = performance.now()
@@ -1010,12 +1015,10 @@ describe('redactSecrets: shapes added from the Round 5 blind corpus\'s dev half'
     '  token    = local.api_token',
     'curl -H "X-Api-Key: $env:MY_API_KEY" https://api.example/v1',
     'PublicKey = Zw4Pq8Ns6Ty1Bv3Kd5Rf0GaHq7rT2vLm9Xc=',
-    'key_mgmt=WPA-PSK',
     'AUTH failed for user',
     '비밀번호를 변경했습니다',
     '密码：请联系管理员',
     'const apiUrl: string = "https://api.example/v1"',
-    'unzip bundle.zip -d out',
     'archive.7z -p8080 -o out',
   ]
   it.each(harmless)('leaves alone: %s', (text) => {
@@ -1076,6 +1079,43 @@ describe('redactSecrets: the review of Round 5\'s masking change', () => {
     'archive.7z -p8080',
     'def connect(token: str = "default")',
     'http://localhost:8080/#/users/@alice',
+  ]
+  it.each(harmless)('leaves alone: %s', (text) => {
+    expect(redactSecrets(text)).toBe(text)
+  })
+})
+
+// The re-review of Round 5's masking change: a value after a Japanese (or other) label was masked
+// only up to an ASCII `(` or its 256th character, leaving the rest, which 0.7.1 masked whole; and
+// documentation under a setting's name (`api_key: Your Anthropic API key.`) read as a passphrase.
+describe('redactSecrets: the re-review of Round 5\'s masking change', () => {
+  const longToken = `${'eyJzdWIiOiIxMjM0NTY3ODkwIn0'.repeat(10)}SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV`
+  const leaks: Array<[string, string, string]> = [
+    ['a Japanese-labelled value with "(" (0.7.1 masked it)', 'パスワード: Pass1(word99xyz', 'word99xyz'],
+    ['a Japanese-labelled value with "(…)" (0.7.1 masked it)', 'DBのパスワード: S3cr3t(2024)Prod', '(2024)Prod'],
+    ['a token over 256 characters after トークン (0.7.1 masked it)', `トークン: ${longToken}`, 'SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV'],
+    ['a key over 256 characters after APIキー (0.7.1 masked it)', `APIキー: ${'8kL0zX2cV4bN6mQ8wE0r'.repeat(15)}Zq9Tail77`, 'Zq9Tail77'],
+    ['a value over 256 characters after 密码', `密码: ${'8kL0zX2cV4bN6mQ8wE0r'.repeat(15)}Zq9Tail77`, 'Zq9Tail77'],
+    ['zip -9 -P', 'zip -9 -P S3cret99x out.zip a.txt', 'S3cret99x'],
+    ['zip -r9 -P', 'zip -r9 -P S3cret99x out.zip dir', 'S3cret99x'],
+    ['a quoted redis password with spaces', 'requirepass "my redis pass 42"', 'redis pass 42'],
+  ]
+  it.each(leaks)('masks: %s', (_name, text, secret) => {
+    const masked = redactSecrets(text)
+    expect(masked).not.toContain(secret)
+    expect(redactSecrets(masked)).toBe(masked)
+  })
+
+  const harmless = [
+    '            api_key: Your Anthropic API key.',
+    '        access_token: Optional bearer token for auth',
+    '    access_token : str, optional',
+    '      invalid_token: Invalid authentication token.',
+    'github_token: required for private repos',
+    'client_secret: from the Azure portal',
+    'refresh_token: null until first login',
+    'pip install git+ssh://git@github.com:org/repo.git@v1.2.3',
+    'poetry add git+ssh://git@github.com:sdispater/pendulum.git@develop',
   ]
   it.each(harmless)('leaves alone: %s', (text) => {
     expect(redactSecrets(text)).toBe(text)

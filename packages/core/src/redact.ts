@@ -275,8 +275,10 @@ const POSITIONAL_PATTERNS: Rule[] = [
   // (`"AUTH" "…"`, `"AUTH" "user" "…"`), and after redis-cli's prompt (`127.0.0.1:6379> AUTH …`),
   // where only a value that looks like a token is taken. Only after the prompt: a line of its own
   // starting with `auth` is PAM's (`auth required pam_deny.so`), or SMTP's (`AUTH LOGIN`).
-  [/(^[ \t]*(?:requirepass|masterauth)[ \t]+)(["']?)([^\s"']{1,1024})\2(?=[ \t]*(?:#|$))/gm, (match, head: string, quote: string, value: string) =>
-    isMasked(value) || PLACEHOLDER.test(value) ? match : `${head}${quote}${REDACTED}${quote}`],
+  [/(^[ \t]*(?:requirepass|masterauth)[ \t]+)(?:(["'])([^"'\n]{1,1024})\2|([^\s"']{1,1024}))(?=[ \t]*(?:#|$))/gm, (match, head: string, quote = '', quoted?: string, bare?: string) => {
+    const value = quoted ?? bare ?? ''
+    return isMasked(value) || PLACEHOLDER.test(value) ? match : `${head}${quote}${REDACTED}${quote}`
+  }],
   [/("AUTH"(?:[ \t]+"[^"\n]{1,256}")?[ \t]+")([^"\n]{1,1024})"/gi, (match, head: string, value: string) => (isMasked(value) || PLACEHOLDER.test(value) ? match : `${head}${REDACTED}"`)],
   [/((?<![^\s])[\w.-]{1,253}:\d{1,5}(?:\[\d{1,2}\])?>[ \t]*AUTH[ \t]+(?:[^\s"']{1,256}[ \t]+)?)([^\s"']{1,1024})(?=[ \t]*$)/gim, (match, head: string, value: string) =>
     isMasked(value) || PLACEHOLDER.test(value) || !looksLikeToken(value) ? match : `${head}${REDACTED}`],
@@ -491,7 +493,7 @@ const COMMAND_ARGUMENTS: Array<[RegExp, RegExp, boolean]> = [
   [/\bssh-keygen\b/g, new RegExp(`\\s-P[ \\t]*(?:${QUOTED}|(?<v>(?!-)[^\\s'"]+))`, 'd'), true],
   [/\bssh-keygen\b/g, new RegExp(`\\s-N[ \\t]*(?:${QUOTED}|(?<v>(?!-)[^\\s'"]+))`, 'd'), true],
   [/(?<=(?:^|[\n;&|(`$])[ \t]{0,4}(?:sudo[ \t]{1,4})?)7z[ar]?(?=[ \t])/g, new RegExp(`\\s-p(?:${QUOTED}|(?<v>[^\\s'"]+))`, 'd'), true],
-  [/(?<=(?:^|[\n;&|(`$])[ \t]{0,4}(?:sudo[ \t]{1,4})?)(?:zip|unzip)(?=[ \t])/g, new RegExp(`^(?:zip|unzip)(?:[ \\t]+-[A-Za-z]{1,8})*[ \\t]+-P[ \\t]+(?:${QUOTED}|(?<v>(?!-)[^\\s'"]+))`, 'd'), true],
+  [/(?<=(?:^|[\n;&|(`$])[ \t]{0,4}(?:sudo[ \t]{1,4})?)(?:zip|unzip)(?=[ \t])/g, new RegExp(`^(?:zip|unzip)(?:[ \\t]+-[A-Za-z0-9]{1,8})*[ \\t]+-P[ \\t]+(?:${QUOTED}|(?<v>(?!-)[^\\s'"]+))`, 'd'), true],
 ]
 
 /**
@@ -723,8 +725,11 @@ function maskUrlPasswords(text: string): string {
     const password = region.slice(0, at)
     // `host:3000/users/@alice` reads as a port and a path, unless the host after the `@` has a port
     // of its own (`admin:123/abc@db:5432`).
-    const loose = URL_LOOSE_PASSWORD.test(password) || m[0].includes('@')
-    if (!loose || (URL_PORT_AND_PATH.test(password) && !hostHasPort) || isMasked(password) || URL_PASSWORD_PLACEHOLDER.test(password)) continue
+    const userHasAt = m[0].includes('@')
+    const loose = URL_LOOSE_PASSWORD.test(password) || userHasAt
+    // `git+ssh://git@github.com:org/repo.git@v1.2.3` (pip, poetry): a user, a host, a path, and a ref.
+    const gitPath = userHasAt && password.includes('/') && !/[?#"'<>]/.test(password)
+    if (!loose || gitPath || (URL_PORT_AND_PATH.test(password) && !hostHasPort) || isMasked(password) || URL_PASSWORD_PLACEHOLDER.test(password)) continue
     out += text.slice(copied, start) + REDACTED
     copied = start + at
   }
@@ -744,6 +749,11 @@ const PASSPHRASE_WORD = /^[^"'`$=\\(){}[\]<>|&;]+$/
 // An expression (`a if b else c`, `token or default`, `await fetch`), not a passphrase.
 const isExpression = (words: string[]) =>
   (words.includes('if') && words.includes('else')) || ['await', 'new', 'typeof', 'lambda', 'not'].includes(words[0]) || (words.length === 3 && ['or', 'and', 'is', 'in', 'instanceof'].includes(words[1]))
+// Three or more lowercase words or numbers, with no punctuation and none of the words documentation
+// is made of: `correct horse battery staple`, not `required for private repos` or `null until first
+// login` (the re-review's docstrings).
+const DOC_WORDS = new Set(['a', 'an', 'the', 'for', 'from', 'to', 'of', 'in', 'on', 'by', 'with', 'and', 'or', 'not', 'is', 'are', 'be', 'if', 'when', 'until', 'only', 'must', 'should', 'will', 'can', 'see', 'set', 'use', 'used', 'your', 'this', 'that', 'it', 'required', 'optional', 'default', 'defaults', 'null', 'none', 'true', 'false', 'str', 'string', 'int', 'bool', 'e', 'g'])
+const isPassphraseShaped = (words: string[]) => words.length >= 3 && words.every((w) => /^[a-z0-9]+$/.test(w)) && !words.some((w) => DOC_WORDS.has(w))
 // A command run with a variable set for it (`SECRET_KEY=dev python manage.py runserver`): the value
 // is the first word, which the rules below mask when it's a secret, and the command stays readable.
 const SHELL_COMMANDS = new Set(['python', 'python3', 'node', 'npm', 'npx', 'pnpm', 'yarn', 'bun', 'deno', 'make', 'go', 'cargo', 'ruby', 'bundle', 'rails', 'rake', 'php', 'java', 'mvn', 'gradle', 'docker', 'kubectl', 'helm', 'terraform', 'ansible', 'psql', 'mysql', 'curl', 'wget', 'git', 'bash', 'sh', 'zsh', 'env', 'sudo', 'exec', 'uv', 'poetry', 'pytest', 'aws', 'gcloud', 'az', 'dotnet', 'flask', 'uvicorn', 'gunicorn', 'celery', 'mix', 'jest', 'vitest', 'tsx', 'ts-node'])
@@ -767,9 +777,11 @@ function maskPassphraseLines(text: string): string {
     if (!words.every((word, i) => PASSPHRASE_WORD.test(word) && (i === 0 || (!word.startsWith('-') && !word.includes('/'))))) continue
     if (isExpression(words) || (sep.trim() === '=' && SHELL_COMMANDS.has(words[1]))) continue
     if (!isMaskableValue(value, kind, false, undefined, name)) continue
-    // With a colon, a value is prose as often as not (`Token: expired yesterday`), unless its name
-    // is a setting's (`jwt_secret:`, `client-secret:`) or the rules below mask its first word anyway.
-    if (sep.trim() !== '=' && !/[_.-]/.test(name) && !isMaskableValue(words[0], kind, true, undefined, name)) continue
+    // With a colon, a value is prose as often as not (`Token: expired yesterday`, a docstring's
+    // `api_key: Your Anthropic API key.`), so it's taken whole only when the rules below mask its
+    // first word anyway, or when the name is a setting's (`jwt_secret:`) and the value is shaped like
+    // a passphrase rather than a sentence (see isPassphraseShaped).
+    if (sep.trim() !== '=' && !(/[_.-]/.test(name) && isPassphraseShaped(words)) && !isMaskableValue(words[0], kind, true, undefined, name)) continue
     const start = m.index + lead.length + name.length + sep.length
     out += text.slice(copied, start) + REDACTED
     copied = start + value.length
@@ -791,7 +803,11 @@ const LABEL_WORDS = [
   String.raw`[Пп]ароль|[Şş]ifre(?:si)?|[Pp]arola(?:s[ıi])?|contraseña|hasło|lösenord|mot de passe`, // Russian, Turkish, Spanish, Polish, Swedish, French
   String.raw`chiave(?: (?:di )?)?API|clave(?: de)? API|chave(?: de)? API|clé(?: d')? ?API|API-Schlüssel`, // "API key" in Italian, Spanish, Portuguese, French, German
 ].join('|')
-const LABELLED_VALUE = new RegExp(String.raw`(${LABEL_WORDS})(\s*[:=：]\s*)(["'「]?)([^\s"'「」『』。、，．！？（）()]{1,256})`, 'gi')
+// The value runs to whitespace, a quote, or CJK punctuation, however long (a JWT after トークン is
+// often over 256 characters; the label anchors each match, so this stays linear), ASCII brackets
+// included: the re-review found 0.7.1's legacy rule masked `Pass1(word99xyz` whole, and a value cut
+// at its `(` or 256th character left the rest.
+const LABELLED_VALUE = new RegExp(String.raw`(${LABEL_WORDS})(\s*[:=：]\s*)(["'「]?)([^\s"'「」『』。、，．！？（）]+)`, 'gi')
 const ASCII_RUN = /[!-~]{4,}/g
 
 function maskLabelledValues(text: string): string {
