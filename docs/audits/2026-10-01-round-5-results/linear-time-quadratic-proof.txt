@@ -9,3 +9,13 @@ AssertionError: 302.0 ms for n = 20,000, 34546.3 ms for 10n: ×114.4 (linear is 
 
 $ # restored, the same command
       Tests  1 passed | 20 skipped (21)
+
+$ # ASSIGNMENT's name temporarily unbounded and not atomic again (redact.ts and redactLegacy.ts), as before the fix for `a.a.a…`
+$ vitest run src/redact.test.ts -t "time grows linearly on long runs a.a.a"
+     × a.a.a…: 20,000 characters against 200,000 318735ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: 1442.3 ms for n = 20,000, 156879.3 ms for 10n: ×108.8 (linear is about ×10; the limit is ×30): expected false to be true // Object.is equality
+      Tests  1 failed | 716 skipped (717)
+
+$ # restored, the same command
+      Tests  1 passed | 716 skipped (717)

@@ -31,7 +31,7 @@ const PACKAGES = {
   'claude-plugin': { inProcess: { statements: 63, branches: 54, functions: 68, lines: 65 } },
 }
 
-const env = { ...process.env, TYPESAFE_BASE_URL: 'http://127.0.0.1:9', CTXJEV_TIME_LIMIT_SCALE: '5' }
+const env = { ...process.env, TYPESAFE_BASE_URL: 'http://127.0.0.1:9' }
 for (const name of ['TYPESAFE_API_KEY', 'ANTHROPIC_API_KEY', 'CTXJEV_ANTHROPIC_API_KEY', 'ANTHROPIC_BASE_URL']) delete env[name]
 
 const pct = (summary, key) => summary.total[key].pct
