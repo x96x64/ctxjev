@@ -34,21 +34,27 @@ evaluation itself, and of its data, are in
 is pattern matching, so it is best-effort. How well it works on lines written without sight of its
 code is in [evaluation.md](evaluation.md#secret-masking-measured-blind).
 
-- **Misses that remain.** Secrets in prose with no `:` or `=` (`the password is hunter2`), full-width
-  or digit-only values after a label, passphrases made of common words in YAML, some command-line
-  and cloud-CLI shapes (`ldapsearch -w`, `aws secretsmanager get-secret-value` output, strongSwan and
-  Cisco pre-shared keys), quoted `NAME=value` assignments where the quote wraps the whole assignment,
-  inline environment variables before a command, a passphrase holding an escaped quote, a key
-  passed as a bare argument (`snyk auth <uuid>`), and key prefixes the rules don't know. The full,
-  current lists are in [#16](https://github.com/x96x64/ctxjev/issues/16),
+- **Misses that remain.** Secrets in prose with no `:` or `=` (`the password is hunter2`), a
+  full-width value after a label in another language or a full-width colon (`パスワード：Ｑｘ７ｖＲ２ｍＫｐＬ`), a
+  digit-only value after a credential name other than a password's (`API_KEY=12345678`,
+  `secret: 12345678`) or a label in another language, passphrases made of common words in YAML, some
+  command-line and cloud-CLI shapes (`ldapsearch -w`, `aws secretsmanager get-secret-value`
+  output, strongSwan and Cisco pre-shared keys), quoted `NAME=value` assignments where the quote
+  wraps the whole assignment, inline environment variables before a command, a passphrase holding
+  an escaped quote, a key passed as a bare argument (`snyk auth <uuid>`), and key prefixes the
+  rules don't know. The full, current lists are in
+  [#16](https://github.com/x96x64/ctxjev/issues/16),
   [#27](https://github.com/x96x64/ctxjev/issues/27), and
   [#38](https://github.com/x96x64/ctxjev/issues/38).
-- **Deliberate choices.** A value that reads as a variable reference (`$NAME`, `${NAME}`, `%NAME%`,
-  and `${NAME:?message}` with its message) is taken for a placeholder and left alone, even when a
-  real password happens to look like one. A digit-only value after a label isn't masked (since
-  0.6.1), nor is a value shaped like a dependency coordinate (`API_KEY=abc:1.2.3`), nor a single
-  plain word (`AUTH foobared`). Prose after a label (`Token: expired yesterday`) is kept, and so is
-  what reads as code: a reference ending in the name (`password: config.Password`) or a call whose
+- **Deliberate choices.** A value that reads as a variable reference (`$NAME`, `${NAME}`,
+  `%NAME%`) is taken for a placeholder and left alone, even when a real password happens to look
+  like one. So is `${NAME?message}`, and `${NAME:?message}` with its message, except after a
+  password's name (`DB_PASSWORD=${DB_PASSWORD:?required}`), where it is masked whole. A value
+  shaped like a dependency coordinate (`API_KEY=abc:1.2.3`) isn't masked, nor is a single plain
+  word (`AUTH foobared`). A digit-only value is masked only after a password's name (`password`,
+  `passwd`, `pwd`, `passphrase`): after other names a number is usually a setting
+  (`MAX_TOKENS=100000`). Prose after a label (`Token: expired yesterday`) is kept, and so is what
+  reads as code: a reference ending in the name (`password: config.Password`) or a call whose
   parts all look like names (`Pass(word)`) ([#27](https://github.com/x96x64/ctxjev/issues/27)).
 - **Over-masking.** Some harmless text is masked: a second quoted argument after a credential-like
   name, prose shaped like a `.netrc` line, an AWS Secrets Manager ARN's name, a scp-style URL with no
