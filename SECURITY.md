@@ -44,7 +44,9 @@ tool. The things most worth reporting:
 ## Known limitations (not vulnerabilities by themselves)
 
 - Secret masking is best-effort pattern matching. It catches common formats, not every possible
-  secret; the README says so wherever content is sent.
+  secret; the README says so wherever content is sent. A value that reads as a variable reference
+  (`$NAME`, `%NAME%`) is deliberately left as it is, even when a real password happens to have that
+  shape (see `redactSecrets` in [packages/core/README.md](packages/core/README.md)).
 - The eval harness (`packages/core/eval/`, maintainer-only, never run by the published packages)
   executes shell commands a model chose. They run in a sandbox (`packages/core/eval/sandbox.mjs`:
   docker, bubblewrap, `unshare`, or macOS `sandbox-exec`, whichever is available) that can see only

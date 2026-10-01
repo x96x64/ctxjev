@@ -1,0 +1,90 @@
+v0.7.1: 61/61 formats masked, 504/504 lines of the fourth audit's .env sweep masked, 1/89 of the fifth audit's lines masked, 0/66 harmless strings altered
+  missed:  the audit: # in a postgres password
+  missed:  the audit: a passphrase on a .env line
+  missed:  the audit: a non-ASCII value after a Japanese label
+  missed:  "#" in a postgres password
+  missed:  "#" in a postgresql password
+  missed:  "#" in a mysql password
+  missed:  "#" in a mongodb+srv password
+  missed:  "#" in a redis password
+  missed:  "#" in a rediss password
+  missed:  "#" in a amqp password
+  missed:  "#" in a https password
+  missed:  "#" in a ftp password
+  missed:  "#" in a smtp password
+  missed:  "/" in a postgres password
+  missed:  "/" in a postgresql password
+  missed:  "/" in a mysql password
+  missed:  "/" in a mongodb+srv password
+  missed:  "/" in a redis password
+  missed:  "/" in a rediss password
+  missed:  "/" in a amqp password
+  missed:  "/" in a https password
+  missed:  "/" in a ftp password
+  missed:  "/" in a smtp password
+  missed:  "?" in a postgres password
+  missed:  "?" in a postgresql password
+  missed:  "?" in a mysql password
+  missed:  "?" in a mongodb+srv password
+  missed:  "?" in a redis password
+  missed:  "?" in a rediss password
+  missed:  "?" in a amqp password
+  missed:  "?" in a https password
+  missed:  "?" in a ftp password
+  missed:  "?" in a smtp password
+  missed:  "\"" in a postgres password
+  missed:  "\"" in a postgresql password
+  missed:  "\"" in a mysql password
+  missed:  "\"" in a mongodb+srv password
+  missed:  "\"" in a redis password
+  missed:  "\"" in a rediss password
+  missed:  "\"" in a amqp password
+  missed:  "\"" in a https password
+  missed:  "\"" in a ftp password
+  missed:  "\"" in a smtp password
+  missed:  "'" in a postgres password
+  missed:  "'" in a postgresql password
+  missed:  "'" in a mysql password
+  missed:  "'" in a mongodb+srv password
+  missed:  "'" in a redis password
+  missed:  "'" in a rediss password
+  missed:  "'" in a amqp password
+  missed:  "'" in a https password
+  missed:  "'" in a ftp password
+  missed:  "'" in a smtp password
+  missed:  "<" in a postgres password
+  missed:  "<" in a postgresql password
+  missed:  "<" in a mysql password
+  missed:  "<" in a mongodb+srv password
+  missed:  "<" in a redis password
+  missed:  "<" in a rediss password
+  missed:  "<" in a amqp password
+  missed:  "<" in a https password
+  missed:  "<" in a ftp password
+  missed:  "<" in a smtp password
+  missed:  ">" in a postgres password
+  missed:  ">" in a postgresql password
+  missed:  ">" in a mysql password
+  missed:  ">" in a mongodb+srv password
+  missed:  ">" in a redis password
+  missed:  ">" in a rediss password
+  missed:  ">" in a amqp password
+  missed:  ">" in a https password
+  missed:  ">" in a ftp password
+  missed:  ">" in a smtp password
+  missed:  # at the start of the password
+  missed:  / ? and # together, no user name
+  missed:  @ and # both in the password
+  missed:  in a log line
+  missed:  in escaped JSON
+  missed:  in a JSON string
+  missed:  an IPv6 host
+  missed:  a passphrase after export
+  missed:  a passphrase with a comment after it
+  missed:  a passphrase in a .env block
+  missed:  a passphrase in YAML
+  missed:  a quoted passphrase after a flag
+  missed:  a single-quoted password after a flag
+  missed:  a Japanese label, full-width colon
+  missed:  a Japanese label, non-ASCII first
+working tree: 61/61 formats masked, 504/504 lines of the fourth audit's .env sweep masked, 89/89 of the fifth audit's lines masked, 0/66 harmless strings altered

@@ -152,7 +152,15 @@ the two per `PruningPolicy.recencyWeight` before `action` is decided.
     scorer: async (goal, chunk) => chunk.map((entry) => (entry.content.includes('[error]') ? 0.9 : myModel.score(goal, entry.content))),
   })
   ```
-- **`redactSecrets(text)`** is the secret masking every Jev request already goes through.
+- **`redactSecrets(text)`** is the secret masking every Jev request already goes through. What it
+  leaves alone on purpose: a value that reads as a variable reference (`$NAME`, `${NAME}`,
+  `%NAME%`, and `%NAME` without the closing `%`) is taken for a placeholder, so a real password of
+  that shape (`DB_PASSWORD=$Qx7vR2mKpL9zW4tB`: a `$` or `%` and then only letters and digits) is
+  kept as written. A command's password argument (`mysql -p…`, `curl -u user:…`) is kept only as
+  `$NAME`, `${NAME}`, or `%NAME%`, and not in single quotes, where the shell doesn't expand it.
+  Prose after a label (`Token: expired yesterday`, `トークン：有効期限切れ`) is kept.
+  A URL whose password is followed by a path that itself holds `@host` loses that part of the path
+  too: the password is read up to the last `@` a host follows, so more is hidden rather than less.
 - `summarizeSavings()` counts the verdicts: `droppedTokens` (in entries marked `drop`: saved once
   they're all removed, which is what ctxjev-format pruning does; for an Anthropic Messages
   conversation, `pruneMessages()`' `savedTokens` is what's actually saved) separately from

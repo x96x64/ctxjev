@@ -4,7 +4,7 @@ import type { ScoreCache } from './cache.js'
 import { buildJevRequest, scoreRelevance, type JevClient } from './jevClient.js'
 import { pruneContext, scoreEntries } from './prune.js'
 import type { Entry } from './types.js'
-import { AUDIT3_LINES, ENV_SWEEP, ENV_SWEEP_HALVES } from '../test/redactCases.js'
+import { AUDIT3_LINES, AUDIT5_LINES, ENV_SWEEP, ENV_SWEEP_HALVES } from '../test/redactCases.js'
 
 describe('buildJevRequest', () => {
   const entries: Entry[] = [
@@ -60,6 +60,15 @@ describe('buildJevRequest', () => {
     const request = buildJevRequest(`fix it; ${ENV_SWEEP[0].text}`, leaky, leaky.slice(-3))
     const sent = JSON.stringify({ state: request.state, questions: request.questions })
     for (const half of ENV_SWEEP_HALVES) expect(sent).not.toContain(half)
+  })
+
+  // The fifth audit: a URL password with `#`, `/`, or `?`, a passphrase, a Japanese label's value.
+  it('masks the fifth audit\'s lines in the goal, every entry, and the latest activity', () => {
+    const leaky: Entry[] = AUDIT5_LINES.map(({ text }, i) => ({ id: `x${i}`, role: 'tool', toolName: 'Bash', content: `$ cat .env\n${text}\nPORT=8080`, timestamp: i }))
+    const request = buildJevRequest(`fix it\n${AUDIT5_LINES[0].text}\n${AUDIT5_LINES[1].text}\n${AUDIT5_LINES[2].text}`, leaky, leaky.slice(-3))
+    const sent = JSON.stringify({ state: request.state, questions: request.questions })
+    for (const { secrets } of AUDIT5_LINES) for (const secret of secrets) expect(sent).not.toContain(secret)
+    for (const { secrets } of AUDIT5_LINES.slice(0, 3)) for (const secret of secrets) expect(request.state.goal).not.toContain(secret)
   })
 
   it('omits latest entirely when none is given', () => {

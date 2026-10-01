@@ -19,7 +19,7 @@
  * Callers mask before cutting text short, never after (see entryText.ts): a cut can leave half a
  * token that no longer matches any rule here.
  */
-import { maskJwts, redactLegacy, URL_PASSWORD_PLACEHOLDER, VERSION } from './redactLegacy.js'
+import { COORDINATE, isVariableArgument, maskJwts, PLACEHOLDER, redactLegacy, REFERENCE, URL_PASSWORD_PLACEHOLDER, VERSION } from './redactLegacy.js'
 import { validateText } from './validate.js'
 const REDACTED = '[REDACTED]'
 
@@ -246,6 +246,12 @@ const POSITIONAL_PATTERNS: Rule[] = [
   // flag named like a credential (the same words as an assignment's name; `--token-file x` isn't one).
   // The value is taken whole (so `--db-password hunter22 :x` can't give back its last character),
   // and a quoted value is never a JSON key (`--token "password": "…"`).
+  // The same with a quoted value that has spaces in it, a passphrase (`--passphrase "correct horse
+  // battery staple"`), which the rule below reads only up to its first space (the fifth audit).
+  [/(\s--([A-Za-z][A-Za-z0-9_-]{0,63})[ \t]+)(["'])([^"'\n]{1,256})\3(?![ \t]*:)/g, (match, head: string, flag: string, quote: string, value: string) => {
+    const kind = credentialKind(flag)
+    return /\s/.test(value) && (kind === 'password' || kind === 'token') && isMaskableFlagValue(value, kind) ? `${head}${quote}${REDACTED}${quote}` : match
+  }, '--'],
   [/(\s--([A-Za-z][A-Za-z0-9_-]{0,63})[ \t]+)(["']?)(?!-)(?=([^\s'"]+))\4\3(?!(?<=["'])[ \t]*:)/g, (match, head: string, flag: string, quote: string, value: string) => {
     const kind = credentialKind(flag)
     if (kind === 'cookie') return `${head}${quote}${maskCookies(value)}${quote}`
@@ -257,6 +263,25 @@ const POSITIONAL_PATTERNS: Rule[] = [
   // Never a quoted key (`password "password": "…"`): the assignment rule masks that key's value.
   [/(\b(?:PASSWORD|PASSWD|IDENTIFIED\s+BY)\s+)(['"])([^'"\n]{1,256})\2(?![ \t]*:)/gi, (match, head: string, quote: string, value: string) =>
     isMasked(value) || (/\s/.test(value) && !/^(?:PASSWORD|PASSWD|IDENTIFIED)/.test(head)) ? match : `${head}${quote}${REDACTED}${quote}`],
+  // A typed declaration: `const API_KEY: &str = "…"` (Rust), `const apiToken: string = '…'`
+  // (TypeScript), `SECRET_KEY: Final[str] = "…"` (Python), `val apiKey: String = "…"` (Kotlin). The
+  // type is at most 64 characters, so each name is tried against a bounded stretch of text.
+  [/\b([A-Za-z_][A-Za-z0-9_]{0,127})([ \t]*:[ \t]*&?(?:'static[ \t]+)?[A-Za-z_][A-Za-z0-9_.:<>[\]?| ]{0,64}?[ \t]*=[ \t]*)(["'`])([^"'`\n]{1,1024})\3/g, (match, name: string, typed: string, quote: string, value: string) => {
+    const kind = credentialKind(name)
+    // A default that's a word (`token: str = "default"`) isn't a token; any password is one.
+    return kind && kind !== 'cookie' && isMaskableValue(value, kind, false, undefined, name) && (kind === 'password' || looksLikeToken(value)) ? `${name}${typed}${quote}${REDACTED}${quote}` : match
+  }],
+  // redis: `requirepass` and `masterauth` in redis.conf, the AUTH command as MONITOR prints it
+  // (`"AUTH" "…"`, `"AUTH" "user" "…"`), and after redis-cli's prompt (`127.0.0.1:6379> AUTH …`),
+  // where only a value that looks like a token is taken. Only after the prompt: a line of its own
+  // starting with `auth` is PAM's (`auth required pam_deny.so`), or SMTP's (`AUTH LOGIN`).
+  [/(^[ \t]*(?:requirepass|masterauth)[ \t]+)(?:(["'])([^"'\n]{1,1024})\2|([^\s"']{1,1024}))(?=[ \t]*(?:#|$))/gm, (match, head: string, quote = '', quoted?: string, bare?: string) => {
+    const value = quoted ?? bare ?? ''
+    return isMasked(value) || PLACEHOLDER.test(value) ? match : `${head}${quote}${REDACTED}${quote}`
+  }],
+  [/("AUTH"(?:[ \t]+"[^"\n]{1,256}")?[ \t]+")([^"\n]{1,1024})"/gi, (match, head: string, value: string) => (isMasked(value) || PLACEHOLDER.test(value) ? match : `${head}${REDACTED}"`)],
+  [/((?<![^\s])[\w.-]{1,253}:\d{1,5}(?:\[\d{1,2}\])?>[ \t]*AUTH[ \t]+(?:[^\s"']{1,256}[ \t]+)?)([^\s"']{1,1024})(?=[ \t]*$)/gim, (match, head: string, value: string) =>
+    isMasked(value) || PLACEHOLDER.test(value) || !looksLikeToken(value) ? match : `${head}${REDACTED}`],
   // A user name and password passed to a credential constructor: NetworkCredential("u", "p"),
   // HTTPBasicAuth('u', 'p'), UsernamePasswordCredentials("u", "p"), requests' auth=('u', 'p').
   [/(\b(?:NetworkCredential|UsernamePasswordCredentials|PasswordAuthentication|HTTPBasicAuth|HTTPDigestAuth|BasicAuth|basicAuth|auth\s*=\s*)\(\s*(["'])[^"'\n]{0,128}\2\s*,\s*)(["'])([^"'\n]{1,256})\3/g, `$1$3${REDACTED}$3`],
@@ -340,12 +365,14 @@ const JA_ASSIGNMENT = /((?:API|アクセス|シークレット)\s?キー|パス�
 // rawCookie = "…"): its value is read as a cookie string (see maskCookies).
 type CredentialKind = 'password' | 'token' | 'longToken' | 'cookie'
 
-const PASSWORD_WORDS = new Set(['password', 'passwd', 'passwort', 'pwd', 'pw', 'pass', 'passphrase'])
+// Also the word in other languages, written in ASCII in a name (`banco.senha`, `Kennwort`).
+const PASSWORD_WORDS = new Set(['password', 'passwd', 'passwort', 'pwd', 'pw', 'pass', 'passphrase', 'kennwort', 'senha', 'contrasena', 'wachtwoord', 'sifre', 'haslo', 'losenord', 'salasana', 'parol'])
 const PASSWORD_SUFFIXES = ['password', 'passwd', 'passphrase']
-const TOKEN_WORDS = new Set(['secret', 'token', 'apikey', 'credential', 'credentials', 'auth'])
+// `psk`: a pre-shared key (wpa_supplicant's `psk="…"`).
+const TOKEN_WORDS = new Set(['secret', 'token', 'apikey', 'credential', 'credentials', 'auth', 'psk'])
 const TOKEN_SUFFIXES = ['secret', 'token', 'apikey']
 // "<qualifier> key" is a credential (api key, secret key, account key); a bare "key" usually isn't.
-const KEY_QUALIFIERS = new Set(['api', 'access', 'secret', 'private', 'signing', 'encryption', 'master', 'account', 'shared', 'client', 'app', 'service', 'license', 'subscription', 'admin', 'auth', 'webhook', 'deploy', 'hmac', 'jwt', 'application'])
+const KEY_QUALIFIERS = new Set(['api', 'access', 'secret', 'private', 'signing', 'encryption', 'master', 'account', 'shared', 'preshared', 'client', 'app', 'service', 'license', 'subscription', 'admin', 'auth', 'webhook', 'deploy', 'hmac', 'jwt', 'application'])
 const LONG_KEY_QUALIFIERS = new Set(['storage'])
 // "<qualifier> cookie" holds a login (AUTH_COOKIE, SESSION_COOKIE); a bare "cookie" is a header name.
 const COOKIE_QUALIFIERS = new Set(['session', 'sess', 'auth', 'login', 'remember', 'access', 'refresh', 'sso', 'jwt'])
@@ -386,16 +413,15 @@ function classifyName(name: string): CredentialKind | undefined {
   return undefined
 }
 
-// Not a secret: a type, a placeholder, a reference to where the secret actually lives.
-// `${NAME}` (or Spring's `${a.b}`) with no default, or one that says the variable is required
-// (`${NAME:?}`, `${NAME:-}`, Spring's `${NAME:}`): a default that isn't empty may itself be the
-// secret, so it isn't a placeholder (nor is `${NAME-default}`: a name has no `-`).
-const PLACEHOLDER =
-  /^(?:true|false|null|nil|none|undefined|yes|no|on|off|required|optional|string|str|number|int|boolean|bool|\*+|x{3,}|\.{3}|…|<[^>]*>|\{\{.*\}\}|\$\{?[A-Za-z_]\w*\}?|\$\{[A-Za-z_][\w.]*(?::?\?[^}]*|:?-|:)?\}|%[A-Za-z_]\w*%?)$/i
+// Not a secret: a type, a placeholder, a reference to where the secret actually lives (PLACEHOLDER
+// and REFERENCE, shared with redactLegacy.ts). `${NAME}` (or Spring's `${a.b}`) with no default, or
+// one that says the variable is required (`${NAME:?}`, `${NAME:-}`, Spring's `${NAME:}`): a default
+// that isn't empty may itself be the secret, so it isn't a placeholder (nor is `${NAME-default}`: a
+// name has no `-`). `$NAME` and `%NAME%` (and `%NAME`) are variable references, so a password of
+// that shape (`$Qx7vR2mKpL9zW4tB`) is left as it is, by design.
 // An example cut short after a prefix and a separator (`sk-ant-...`, `ghp_…`): not a key, though a
 // password could end that way (`Summer_2024_...`), so never a password's placeholder.
 const ELIDED = /^[a-z]{1,8}(?:[-_][a-z0-9]{1,8}){0,3}[-_](?:\.{3}|…)$/i
-const REFERENCE = /^(?:process\.env|os\.environ|import\.meta\.env|ENV\[|System\.getenv|getenv)/
 
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 const isSelfReference = (value: string, name: string) =>
@@ -406,7 +432,7 @@ const isSelfReference = (value: string, name: string) =>
 function isMaskableValue(value: string, kind: CredentialKind, bare: boolean, next: string | undefined, name?: string): boolean {
   // A value that's only `=` is a base64 string's padding (`…t+DPw==` read as `DPw` = `=`).
   // A version is never a password's value (`DB_PASSWORD=1.2-…` is a password).
-  if (value.length === 0 || isMasked(value) || PLACEHOLDER.test(value) || REFERENCE.test(value) || (kind !== 'password' && (VERSION.test(value) || ELIDED.test(value))) || /^=+$/.test(value)) return false
+  if (value.length === 0 || isMasked(value) || PLACEHOLDER.test(value) || REFERENCE.test(value) || (kind !== 'password' && (VERSION.test(value) || COORDINATE.test(value) || ELIDED.test(value))) || /^=+$/.test(value)) return false
   if (bare && (next === '(' || next === '[')) return false
   // Code passing a variable on: `password=password`, `token=self.token`, `secret_key =
   // settings.SECRET_KEY` (after a dot, in any case: a bare `PASSWORD=password` may be the password).
@@ -460,6 +486,14 @@ const COMMAND_ARGUMENTS: Array<[RegExp, RegExp, boolean]> = [
   [/\bdocker[ \t]+login\b/g, new RegExp(`\\s-p[ \\t]*(?:${QUOTED}|(?<v>(?!-)[^\\s'"]+))`, 'd'), true],
   [/\baz[ \t]+login\b/g, new RegExp(`\\s-p[ \\t]+(?:${QUOTED}|(?<v>(?!-)[^\\s'"]+))`, 'd'), true],
   [/\bsqlcmd\b/g, new RegExp(`\\s-P[ \\t]*(?:${QUOTED}|(?<v>(?!-)[^\\s'"]+))`, 'd'), true],
+  // ssh-keygen's old (-P) and new (-N) passphrases, 7-Zip's -p (run together), zip's and unzip's -P.
+  // 7z and zip only where a command starts (a line, after `;`, `&`, `|`, `(`, a backtick, a `$ `
+  // prompt, or sudo; the lookbehind reads at most a few characters back, so it costs linear time):
+  // `out.7z` is a file. zip's -P only after nothing but flags ("zip the logs then rsync -P …" is prose).
+  [/\bssh-keygen\b/g, new RegExp(`\\s-P[ \\t]*(?:${QUOTED}|(?<v>(?!-)[^\\s'"]+))`, 'd'), true],
+  [/\bssh-keygen\b/g, new RegExp(`\\s-N[ \\t]*(?:${QUOTED}|(?<v>(?!-)[^\\s'"]+))`, 'd'), true],
+  [/(?<=(?:^|[\n;&|(`$])[ \t]{0,4}(?:sudo[ \t]{1,4})?)7z[ar]?(?=[ \t])/g, new RegExp(`\\s-p(?:${QUOTED}|(?<v>[^\\s'"]+))`, 'd'), true],
+  [/(?<=(?:^|[\n;&|(`$])[ \t]{0,4}(?:sudo[ \t]{1,4})?)(?:zip|unzip)(?=[ \t])/g, new RegExp(`^(?:zip|unzip)(?:[ \\t]+-[A-Za-z0-9]{1,8})*[ \\t]+-P[ \\t]+(?:${QUOTED}|(?<v>(?!-)[^\\s'"]+))`, 'd'), true],
 ]
 
 /**
@@ -498,7 +532,10 @@ function maskCommandArguments(text: string): string {
       const end = commandEnd(text, start, starts[i + 1] ?? text.length, atSeparators)
       const m = argument.exec(text.slice(start, end))
       const at = m?.indices?.groups?.q ?? m?.indices?.groups?.v
-      if (at && !isMasked(text.slice(start + at[0], start + at[1]))) edits.push([start + at[0], start + at[1]])
+      // A variable where the password goes (`-p$DB_PASS`, `-u "$USER:$PASS"`) is left as it is,
+      // unless single quotes keep it from expanding (see isVariableArgument).
+      const quote = m?.indices?.groups?.q ? m[1] : undefined
+      if (at && !isMasked(text.slice(start + at[0], start + at[1])) && !isVariableArgument(text.slice(start + at[0], start + at[1]), quote)) edits.push([start + at[0], start + at[1]])
     })
   }
   if (edits.length === 0) return text
@@ -642,19 +679,165 @@ function maskAssignments(text: string): string {
   return out + text.slice(copied)
 }
 
+// scheme://user:password@host, where the password holds a character the URL rules below stop at (`#`,
+// `/`, `?`, a quote, `<`, `>`) because its writer didn't percent-encode it: the fifth audit found
+// `postgres://app:Pg#Secr3t99@db.internal:5432/app` left whole, for any scheme. Here the password runs
+// to the LAST `@` followed by a host, in the same run of text: up to whitespace, the quote the URL
+// opened with, or 1,024 characters. A password without such a character is left to those rules, as
+// before; so is `host:port/…@…` (`http://localhost:3000/users/@alice`), which only looks like a user
+// and a password. A URL whose path also holds `@host` (`https://u:p@registry/@scope/pkg`) loses the
+// host up to that `@` too: when both readings are possible, more is hidden, not less.
+// The user name may hold `@` itself (Azure's `user@server`), which the rules below don't read.
+const URL_USERINFO_HEAD = /\b[a-z][a-z0-9+.-]{0,31}:\/\/[^\s:/?#"'<>[\]]{0,256}:/gi
+const URL_HOST_AFTER_AT = /@(?:\[[0-9A-Fa-f:.]{2,64}\]|[A-Za-z0-9][A-Za-z0-9.-]{0,252})(:[0-9]{1,5})?(?=[^\w.-]|$)/y
+const URL_LOOSE_PASSWORD = /[/?#"'<>]/
+const URL_PORT_AND_PATH = /^[0-9]{1,5}(?:[/?]|#\/)/
+const URL_REGION_LIMIT = 1024
+const CLOSING_QUOTE: Record<string, string> = { '"': '"', "'": "'", '`': '`', '<': '>' }
+
+function maskUrlPasswords(text: string): string {
+  if (!text.includes('://')) return text
+  const head = new RegExp(URL_USERINFO_HEAD.source, 'gi')
+  let out = ''
+  let copied = 0
+  for (let m = head.exec(text); m !== null; m = head.exec(text)) {
+    const start = m.index + m[0].length
+    const closing = CLOSING_QUOTE[text[m.index - 1]]
+    let end = start
+    while (end < text.length && end - start < URL_REGION_LIMIT && !/\s/.test(text[end]) && text[end] !== closing) end++
+    const region = text.slice(start, end)
+    // The last `@` in the region that a host follows (each `@` is tried once, from the end).
+    let at = -1
+    let hostHasPort = false
+    for (let i = region.lastIndexOf('@'); i > 0; i = region.lastIndexOf('@', i - 1)) {
+      URL_HOST_AFTER_AT.lastIndex = i
+      const host = URL_HOST_AFTER_AT.exec(region)
+      if (host) {
+        at = i
+        hostHasPort = host[1] !== undefined
+        break
+      }
+    }
+    // Each character is read by one head's scan: the next search starts past this one's region, or
+    // past the `@` when a password was found.
+    head.lastIndex = at === -1 ? Math.max(end, head.lastIndex) : start + at + 1
+    if (at === -1) continue
+    const password = region.slice(0, at)
+    // `host:3000/users/@alice` reads as a port and a path, unless the host after the `@` has a port
+    // of its own (`admin:123/abc@db:5432`).
+    const userHasAt = m[0].includes('@')
+    const loose = URL_LOOSE_PASSWORD.test(password) || userHasAt
+    // `git+ssh://git@github.com:org/repo.git@v1.2.3` (pip, poetry): a user, a host, a path, and a ref.
+    const gitPath = userHasAt && password.includes('/') && !/[?#"'<>]/.test(password)
+    if (!loose || gitPath || (URL_PORT_AND_PATH.test(password) && !hostHasPort) || isMasked(password) || URL_PASSWORD_PLACEHOLDER.test(password)) continue
+    out += text.slice(copied, start) + REDACTED
+    copied = start + at
+  }
+  return out + text.slice(copied)
+}
+
+// A passphrase with spaces as a line's whole value (`JWT_SECRET=correct horse battery staple` in a
+// .env file, INI's `password = …`, YAML's `passphrase: …`), which the rules below cut at its first
+// space, leaving the rest (the fifth audit). Only where the name starts the line (after `export`, or
+// indentation), so a value followed by prose (`Error: DB_PASSWORD=hunter22 was rejected`) keeps the
+// prose. Each word is plain: none opens a quote, a call, a block, or a substitution, or is a flag
+// or a path (`PGPASSWORD=… psql -h db`), and code (`secret = a if b else c`) is left alone. With a
+// colon, only a value whose first word the rules below mask anyway, so `Token: expired yesterday`
+// stays as it is.
+const PASSPHRASE_LINE = /(?<![^\n])([ \t]*(?:-[ \t]+)?(?:export[ \t]+)?)(?=([A-Za-z_][A-Za-z0-9_.-]{0,127}))\2([ \t]*(?:=|:(?=[ \t])|：)[ \t]*)(?!["'`])([^\n]{1,1024})/g
+const PASSPHRASE_WORD = /^[^"'`$=\\(){}[\]<>|&;]+$/
+// An expression (`a if b else c`, `token or default`, `await fetch`), not a passphrase.
+const isExpression = (words: string[]) =>
+  (words.includes('if') && words.includes('else')) || ['await', 'new', 'typeof', 'lambda', 'not'].includes(words[0]) || (words.length === 3 && ['or', 'and', 'is', 'in', 'instanceof'].includes(words[1]))
+// Three or more lowercase words or numbers, with no punctuation and none of the words documentation
+// is made of: `correct horse battery staple`, not `required for private repos` or `null until first
+// login` (the re-review's docstrings).
+const DOC_WORDS = new Set(['a', 'an', 'the', 'for', 'from', 'to', 'of', 'in', 'on', 'by', 'with', 'and', 'or', 'not', 'is', 'are', 'be', 'if', 'when', 'until', 'only', 'must', 'should', 'will', 'can', 'see', 'set', 'use', 'used', 'your', 'this', 'that', 'it', 'required', 'optional', 'default', 'defaults', 'null', 'none', 'true', 'false', 'str', 'string', 'int', 'bool', 'e', 'g'])
+const isPassphraseShaped = (words: string[]) => words.length >= 3 && words.every((w) => /^[a-z0-9]+$/.test(w)) && !words.some((w) => DOC_WORDS.has(w))
+// A command run with a variable set for it (`SECRET_KEY=dev python manage.py runserver`): the value
+// is the first word, which the rules below mask when it's a secret, and the command stays readable.
+const SHELL_COMMANDS = new Set(['python', 'python3', 'node', 'npm', 'npx', 'pnpm', 'yarn', 'bun', 'deno', 'make', 'go', 'cargo', 'ruby', 'bundle', 'rails', 'rake', 'php', 'java', 'mvn', 'gradle', 'docker', 'kubectl', 'helm', 'terraform', 'ansible', 'psql', 'mysql', 'curl', 'wget', 'git', 'bash', 'sh', 'zsh', 'env', 'sudo', 'exec', 'uv', 'poetry', 'pytest', 'aws', 'gcloud', 'az', 'dotnet', 'flask', 'uvicorn', 'gunicorn', 'celery', 'mix', 'jest', 'vitest', 'tsx', 'ts-node'])
+
+function maskPassphraseLines(text: string): string {
+  if (!/[ \t]/.test(text) || !/[:=：]/.test(text)) return text
+  const pattern = new RegExp(PASSPHRASE_LINE.source, 'g')
+  let out = ''
+  let copied = 0
+  for (let m = pattern.exec(text); m !== null; m = pattern.exec(text)) {
+    const [whole, lead, name, sep, rest] = m
+    const kind = credentialKind(name)
+    if (kind !== 'password' && kind !== 'token') continue
+    // The value ends the line: less a ` #` comment, a `\r`, and trailing space.
+    const comment = rest.search(/[ \t]#/)
+    const value = (comment === -1 ? rest : rest.slice(0, comment)).replace(/[ \t\r]+$/, '')
+    const words = value.split(/[ \t]+/)
+    // A line longer than the pattern reads isn't a .env value.
+    const after = text[m.index + whole.length]
+    if (words.length < 2 || words.length > 16 || (after !== undefined && after !== '\n')) continue
+    if (!words.every((word, i) => PASSPHRASE_WORD.test(word) && (i === 0 || (!word.startsWith('-') && !word.includes('/'))))) continue
+    if (isExpression(words) || (sep.trim() === '=' && SHELL_COMMANDS.has(words[1]))) continue
+    if (!isMaskableValue(value, kind, false, undefined, name)) continue
+    // With a colon, a value is prose as often as not (`Token: expired yesterday`, a docstring's
+    // `api_key: Your Anthropic API key.`), so it's taken whole only when the rules below mask its
+    // first word anyway, or when the name is a setting's (`jwt_secret:`) and the value is shaped like
+    // a passphrase rather than a sentence (see isPassphraseShaped).
+    if (sep.trim() !== '=' && !(/[_.-]/.test(name) && isPassphraseShaped(words)) && !isMaskableValue(words[0], kind, true, undefined, name)) continue
+    const start = m.index + lead.length + name.length + sep.length
+    out += text.slice(copied, start) + REDACTED
+    copied = start + value.length
+  }
+  return out + text.slice(copied)
+}
+
+// A value after a label in Japanese or another language that isn't written as a name (`パスワード:
+// Hunter2の秘密`, `비밀번호: …`, `数据库密码：…`, `şifresi: …`, `mot de passe : …`), which the
+// Japanese rule (ASCII values only, so prose after the colon isn't masked) leaves whole or doesn't
+// know (the fifth audit; Round 5's blind corpus). The value runs to whitespace, a quote, a bracket,
+// or CJK punctuation, and is masked when it holds a run of four or more ASCII characters with both a
+// letter and a digit in it that isn't a version, or is ASCII that looks like a token, eight
+// characters or more: "8文字以上にしてください", "v2形式", "v1.2.3に更新しました" are prose.
+const LABEL_WORDS = [
+  String.raw`(?:API|アクセス|シークレット)\s?キー|パスワード|パスフレーズ|シークレット|トークン|秘密鍵`, // Japanese
+  String.raw`密码|密碼|口令|密钥|密鑰|令牌`, // Chinese
+  String.raw`비밀번호|암호|API\s?키|토큰`, // Korean
+  String.raw`[Пп]ароль|[Şş]ifre(?:si)?|[Pp]arola(?:s[ıi])?|contraseña|hasło|lösenord|mot de passe`, // Russian, Turkish, Spanish, Polish, Swedish, French
+  String.raw`chiave(?: (?:di )?)?API|clave(?: de)? API|chave(?: de)? API|clé(?: d')? ?API|API-Schlüssel`, // "API key" in Italian, Spanish, Portuguese, French, German
+].join('|')
+// The value runs to whitespace, a quote, or CJK punctuation, however long (a JWT after トークン is
+// often over 256 characters; the label anchors each match, so this stays linear), ASCII brackets
+// included: the re-review found 0.7.1's legacy rule masked `Pass1(word99xyz` whole, and a value cut
+// at its `(` or 256th character left the rest.
+const LABELLED_VALUE = new RegExp(String.raw`(${LABEL_WORDS})(\s*[:=：]\s*)(["'「]?)([^\s"'「」『』。、，．！？（）]+)`, 'gi')
+const ASCII_RUN = /[!-~]{4,}/g
+
+function maskLabelledValues(text: string): string {
+  if (!/[^ -~\s]|API|mot de passe/i.test(text)) return text
+  return text.replace(LABELLED_VALUE, (match, name: string, sep: string, quote: string, value: string) => {
+    // A header's name (`パスワード: Set-Cookie: sid=…`) isn't the value: masking it would hide the header.
+    if (isMasked(value) || PLACEHOLDER.test(value) || /^(?:(?:Set-)?Cookie|(?:Proxy-)?Authorization):$/i.test(value)) return match
+    const runs = value.match(ASCII_RUN) ?? []
+    // Not a version (`v1.2.3`), a size (`128k`, `1.5k`: トークン is a model's tokens too), or an
+    // acronym and a number (`GPT-4`, `UTF-8`, `AES-256`).
+    const mixed = runs.some((run) => /[A-Za-z]/.test(run) && /[0-9]/.test(run) && !/^v?\d+(?:\.\d+)+$|^\d+(?:\.\d+)?[kKmMgGbB]$|^[A-Z]{2,}-?\d+$/.test(run))
+    const token = /^[!-~]{8,}$/.test(value) && !/^\d+$/.test(value) && looksLikeToken(value)
+    return mixed || token ? `${name}${sep}${quote}${REDACTED}` : match
+  })
+}
+
 /**
- * Masks an unquoted value that ends its line first (maskLineEndAssignments: 0.6.1's assignment rule
- * would mask only its start), then what 0.6.1 masked (redactLegacy.ts), then what these rules mask,
- * and repeats until nothing
- * changes (at most a few passes; one is almost always enough), so masking twice is the same as once.
- * Running 0.6.1's rules first means a gap in a rule rewritten here can't let through a secret 0.6.1
- * caught; it also keeps 0.6.1's false alarms (see the CHANGELOG).
+ * Masks what a later rule would only mask part of, first: a URL password holding `#`, `/`, or `?`
+ * (maskUrlPasswords), a passphrase with spaces in it, a value after a label in Japanese or another
+ * language, an unquoted value that ends its line (maskLineEndAssignments: 0.6.1's assignment rule would mask
+ * only its start). Then what 0.6.1 masked (redactLegacy.ts), then what these rules mask, and repeats
+ * until nothing changes (at most a few passes; one is almost always enough), so masking twice is the
+ * same as once. Running 0.6.1's rules early means a gap in a rule rewritten here can't let through a
+ * secret 0.6.1 caught; it also keeps 0.6.1's false alarms (see the CHANGELOG).
  */
 export function redactSecrets(text: string): string {
   validateText(text, 'text')
   let out = text
   for (let pass = 0; pass < MAX_PASSES; pass++) {
-    const next = redactCurrent(redactLegacy(maskLineEndAssignments(out)))
+    const next = redactCurrent(redactLegacy(maskLineEndAssignments(maskLabelledValues(maskPassphraseLines(maskUrlPasswords(out))))))
     if (next === out) break
     out = next
   }
