@@ -77,7 +77,7 @@ import { readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
-import { DEFAULT_POLICY, messagesToEntries, pruneMessages, scoreEntries, seededRandom } from '../dist/index.js'
+import { DEFAULT_POLICY, messagesToEntries, pruneMessages, scoreEntries, seededRandom, missingTypesafeApiKey, typesafeApiKey } from '../dist/index.js'
 import { bootstrap } from './lib.mjs'
 import { inSplit, parseSplit, sessionSplit } from './split.mjs'
 
@@ -109,12 +109,12 @@ if (args.gate && runs < 3) {
   console.error(`GATE FAILED: --gate needs --runs 3 or more (got ${runs}): Jev's answers vary between calls`)
   process.exit(1)
 }
-if (args.gate && !process.env.TYPESAFE_API_KEY) {
+if (args.gate && typesafeApiKey() === undefined) {
   if (args['allow-skip']) {
-    console.log('--gate: TYPESAFE_API_KEY not set; skipping, as --allow-skip asked.')
+    console.log(`--gate: ${missingTypesafeApiKey()}; skipping, as --allow-skip asked.`)
     process.exit(0)
   }
-  console.error('GATE FAILED: TYPESAFE_API_KEY is not set, so there is no Jev result to check (pass --allow-skip to skip locally)')
+  console.error(`GATE FAILED: ${missingTypesafeApiKey()}, so there is no Jev result to check (pass --allow-skip to skip locally)`)
   process.exit(1)
 }
 if (!Number.isInteger(runs) || runs < 1) throw new Error(`--runs must be a whole number of at least 1, got ${args.runs}`)
@@ -156,7 +156,7 @@ function atCut(fixture) {
   return { ...fixture, messages, entries, probes, cut: true, excludedProbes: fixture.probes.length - probes.length }
 }
 
-const scorers = process.env.TYPESAFE_API_KEY && !offlineGate ? ['local', 'jev'] : ['local']
+const scorers = typesafeApiKey() !== undefined && !offlineGate ? ['local', 'jev'] : ['local']
 if (scorers.length === 1) log('TYPESAFE_API_KEY not set — running the offline baseline only.\n')
 log(`Policy: dropBelow=${DEFAULT_POLICY.dropBelow}, summarizeBelow=${DEFAULT_POLICY.summarizeBelow}, recencyWeight=${DEFAULT_POLICY.recencyWeight} (only "drop" counts as "not relevant")`)
 for (const set of ['short', 'sessions']) {

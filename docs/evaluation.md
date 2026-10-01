@@ -4,9 +4,13 @@ What ctxjev's pruning has and hasn't been shown to do, measured on small coding 
 [README](../README.md#status-and-limits) has the one-paragraph summary; this page has the numbers,
 how they were produced, and what they can't tell you.
 
-**The short answer.** On tasks the design had never seen, no scorer has been shown to beat plain
-truncation (keeping the newest entries), and the Claude Code plugin's digest has no demonstrated
-effect. That is why every entry point except the MCP tools defaults to an offline scorer.
+**The short answer.** On tasks the design had never seen, no scorer has been shown to help an agent
+finish more tasks than plain truncation (keeping the newest entries). On how much of what a task
+needed survives a tight budget, Jev's ranking beat truncation only because truncation keeps none of
+it by construction on that measure, and on the preregistered version of it kept less than a random
+ordering of the same entries. The
+Claude Code plugin's digest has no demonstrated effect. That is why every entry point except the
+MCP tools defaults to an offline scorer.
 
 ## How to read these numbers
 

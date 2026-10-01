@@ -81,7 +81,8 @@ export function buildJevRequest(goal: string, entries: Entry[], latest: Entry[] 
  * `cache`, when provided, is checked before spending a Jev request on an entry and populated with
  * fresh verdicts afterward. Keyed on goal, entry content, and `latest` (see `cacheKeyFor`), not on
  * `entry.id`, so the same history scores as a hit across transcripts. `jev` defaults to a
- * `TypeSafeClient` that reads TYPESAFE_API_KEY (and TYPESAFE_BASE_URL) from the environment.
+ * `TypeSafeClient` with the key `typesafeApiKey()` finds (none: an error, and nothing sent) and
+ * TYPESAFE_BASE_URL from the environment.
  */
 export async function scoreRelevance(
   goal: string,

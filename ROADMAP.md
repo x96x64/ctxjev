@@ -24,7 +24,9 @@ What's next, and the constraints that shaped the design. What has shipped is in
    when it beat both on dev. The leading explanation is a labeling difference between the two
    splits (the held-out sessions labeled nothing after the fix request).
 3. **Codex compaction hooks.** Codex now has `PreCompact` and `SessionStart` (`source: "compact"`)
-   hooks, so the Claude Code plugin's approach could work there too, but it needs a parser for
+   hooks (see the event schemas in
+   [`openai/codex`'s `codex-rs/hooks/schema/generated/`](https://github.com/openai/codex/tree/main/codex-rs/hooks/schema/generated)),
+   so the Claude Code plugin's approach could work there too, but it needs a parser for
    Codex's own session logs and a check against a real Codex compaction.
 4. Token budgets with Claude's own token counting instead of `gpt-tokenizer`, if scorer choice
    starts to hinge on budgets tighter than the ones measured so far.

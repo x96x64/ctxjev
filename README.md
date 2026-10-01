@@ -14,8 +14,8 @@ with TypeSafe AI's [Jev](https://typesafe.ai) if you opt in.**
   Jev is opt-in (`--scorer jev`, `scorer: 'jev'`, `CTXJEV_SCORER=jev`) and needs `TYPESAFE_API_KEY`.
 - **The MCP server is the exception:** its tools use Jev unless a call passes `scorer: "local"` or
   `"recency"`.
-- **Its benefit is unproven:** on held-out tasks, no scorer has beaten plain truncation. See
-  [Status and limits](#status-and-limits).
+- **Its benefit is unproven:** on held-out tasks, no scorer has been shown to help an agent finish
+  more tasks than plain truncation. See [Status and limits](#status-and-limits).
 
 ## Try it in 30 seconds
 
@@ -126,8 +126,9 @@ removed 2 of 7 entries, ~27 tokens · scored by position alone
 ⚠ removed the first entry (e1): this transcript has no user entry to protect as the original request
 ```
 
-`prune` never removes the first user entry or the last two entries of ctxjev's own format, and
-never touches the first message or the latest turn of an Anthropic Messages conversation. Every
+By default, `prune` never removes the first user entry or the last two entries of ctxjev's own
+format, and never touches the first message or the latest turn of an Anthropic Messages
+conversation. Every
 flag is in the [`ctxjev-cli` README](packages/cli/README.md).
 
 ### Library
@@ -182,8 +183,8 @@ what the last run did and why, and what was kept. More in the
 ### Codex
 
 Codex uses ctxjev through `ctxjev-mcp`, as MCP tools. Either run the `codex mcp add` line above, or
-install the plugin bundle in this repository, which registers the same server and passes your
-`TYPESAFE_API_KEY` through to it:
+install the plugin bundle in this repository, which registers the same server and tells Codex to
+pass your `TYPESAFE_API_KEY` through to it (`env_vars`):
 
 ```bash
 codex plugin marketplace add x96x64/ctxjev
@@ -248,8 +249,8 @@ ctxjev does what this page describes, but whether that helps an agent finish its
 shown. In a [preregistered comparison](docs/evaluation.md) on <!-- generated:holdout-task-count -->6<!-- /generated:holdout-task-count --> tasks the design had
 never seen, an agent given history pruned by Jev's ranking finished the same share of tasks as an
 agent given plain truncation (difference in percentage points, with its 95% CI:
-<!-- generated:holdout-diff-haiku -->0 [0, 0]<!-- /generated:holdout-diff-haiku --> with Claude Haiku 4.5, <!-- generated:holdout-diff-sonnet -->0 [0, 0]<!-- /generated:holdout-diff-sonnet --> with Claude Sonnet 5). Of what each
-task needed, Jev's ranking kept <!-- generated:holdout-retention-jev -->23.6%<!-- /generated:holdout-retention-jev --> under a tight budget, less than a random
+<!-- generated:holdout-diff-haiku -->0 [0, 0]<!-- /generated:holdout-diff-haiku --> with Claude Haiku 4.5, <!-- generated:holdout-diff-sonnet -->0 [0, 0]<!-- /generated:holdout-diff-sonnet --> with Claude Sonnet 5). On the
+preregistered measure of what each task needed, Jev's ranking kept <!-- generated:holdout-retention-jev -->23.6%<!-- /generated:holdout-retention-jev --> under a tight budget, less than a random
 ordering of the same entries (<!-- generated:holdout-retention-random -->26.5%<!-- /generated:holdout-retention-random -->). The Claude Code plugin's digest has no
 demonstrated effect either. That is why everything but the MCP tools scores offline by default.
 The tasks are small, and the held-out set is now used up; [docs/evaluation.md](docs/evaluation.md)

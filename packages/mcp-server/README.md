@@ -50,8 +50,8 @@ claude mcp add ctxjev --env TYPESAFE_API_KEY=... -- npx ctxjev-mcp@0.7.2
 codex mcp add ctxjev --env TYPESAFE_API_KEY=... -- npx ctxjev-mcp@0.7.2
 ```
 
-Or install the plugin bundle in the ctxjev repository, which registers the same command and passes
-`TYPESAFE_API_KEY` through from the environment Codex runs in:
+Or install the plugin bundle in the ctxjev repository, which registers the same command and tells
+Codex to pass `TYPESAFE_API_KEY` through from the environment it runs in (`env_vars`):
 
 ```bash
 codex plugin marketplace add x96x64/ctxjev

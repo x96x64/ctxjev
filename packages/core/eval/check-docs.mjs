@@ -958,10 +958,11 @@ const RENDERERS = {
 // heading, left as they were released.
 // `whole: true`: the section runs to the end of the doc instead of to the next `## ` heading.
 const DOCS = [
-  // The README keeps one checked-prose status paragraph; every eval claim anywhere in it is checked.
-  { path: 'README.md', claims: true },
-  // Every table and every number in prose, from the title to the end; eval claims anywhere too.
-  { path: 'docs/evaluation.md', section: /^# Evaluation/m, prose: true, whole: true, claims: true },
+  // The README's status section: its tables and every number in its prose; eval claims anywhere.
+  { path: 'README.md', section: /^## Status and limits/m, prose: true, claims: true },
+  // Every table and every number in prose, from the title to the end: stricter than the claims check
+  // (which a budget like "a 25% budget" would trip), so that one isn't run here.
+  { path: 'docs/evaluation.md', section: /^# Evaluation/m, prose: true, whole: true },
   { path: 'packages/core/eval/PREREGISTRATION.md', section: /^## Results/m, prose: true },
   { path: 'ROADMAP.md' },
   { path: 'packages/core/README.md' },
@@ -1114,15 +1115,6 @@ function uncheckedClaims(text, historical) {
       .replace(/\]\([^)]*\)/g, ']')
       .replace(/https?:\/\/\S+/g, ' ')
     for (const pattern of NOT_RESULTS) rest = rest.replace(pattern, (_m, lead) => (typeof lead === 'string' ? lead : ' '))
-    // A budget is a setting, not a result, but only one the saved results were run at ("a 25% budget").
-    rest = rest.replace(BUDGET, (m, a, b) => {
-      const values = [a, b].filter(Boolean)
-      if (values.some((value) => !budgetsUsed.has(Number(value)))) {
-        problems.push(`a ${values.join('% / ')}% budget that no saved result was run at: "${m}"`)
-        return m
-      }
-      return ' '
-    })
     const number = RESULT_NUMBER.exec(rest)
     if (number && EVAL_WORDS.test(rest)) problems.push(`an eval claim with a number that isn't generated (or marked unverified): "${rest.slice(Math.max(0, number.index - 60), number.index + 40).replace(/\s+/g, ' ').trim()}"`)
   })
@@ -1170,6 +1162,10 @@ const AUDIT_EDITS = [
   ['docs/evaluation.md', 'a hand-typed rate in the masking section\'s prose', (t) => t.replace(/^## Secret masking, measured blind\n/m, '## Secret masking, measured blind\n\nIt masks 97% of the secrets in practice.\n')],
   ['docs/evaluation.md', 'a table added outside a generated block', (t) => t.replace(/^## Secret masking, measured blind\n/m, '## Secret masking, measured blind\n\n| Corpus | Masked |\n| --- | --- |\n| Corpus 4 | all |\n')],
   // The review of this check: two wordings that passed it.
+  // The review of Round 6's change: a result written as a share "of its tokens".
+  ['CHANGELOG.md', 'a result written as a share of its tokens', (t) => t.replace(/^(## [^\n]+\n\n)/m, '$1- On held-out tasks, the plugin now keeps 50% of its tokens.\n')],
+  ['packages/claude-plugin/README.md', 'a result written as a share of its tokens, in the plugin README', (t) => t.replace(/^## How It Works\n/m, '## How It Works\n\nIn the eval, the digest saves 25% of its tokens.\n')],
+  ['README.md', 'a table of hand-typed results in the status section', (t) => t.replace(/^## Status and limits\n/m, '## Status and limits\n\n| Scorer | Kept |\n| --- | --- |\n| local | 28.3% |\n')],
   ['CHANGELOG.md', 'a rate written as "percent"', (t) => t.replace(/^(## [^\n]+\n\n)/m, '$1- Keeps 93.4 percent of the probes on the holdout.\n')],
   ['SECURITY.md', 'a rate claimed from "testing"', (t) => t.replace(/^## Known limitations[^\n]*\n/m, (h) => `${h}\n- In testing it now catches 97% of real secrets.\n`)],
 ]

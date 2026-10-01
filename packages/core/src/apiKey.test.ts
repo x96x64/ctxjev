@@ -55,14 +55,14 @@ describe('typesafeApiKey / missingTypesafeApiKey', () => {
   })
 
   it('has no key when the value is only a variable reference, and names it', () => {
-    for (const placeholder of ['${TYPESAFE_API_KEY}', '${env:TYPESAFE_API_KEY}', '$TYPESAFE_API_KEY', '%TYPESAFE_API_KEY%', '${}']) {
+    for (const placeholder of ['${TYPESAFE_API_KEY}', '${env:TYPESAFE_API_KEY}', '$TYPESAFE_API_KEY', '%TYPESAFE_API_KEY%']) {
       expect(typesafeApiKey({ TYPESAFE_API_KEY: placeholder })).toBeUndefined()
       expect(missingTypesafeApiKey({ TYPESAFE_API_KEY: placeholder })).toBe(`TYPESAFE_API_KEY is ${JSON.stringify(placeholder)}, an unexpanded placeholder, not a key`)
     }
   })
 
   it('keeps a key that only contains a $ or % somewhere, and never quotes a real key back', () => {
-    for (const key of ['tsk_$abc', 'abc$DEF', '${a}b', 'a%B%', '$1abc', '%1x%']) {
+    for (const key of ['tsk_$abc', 'abc$DEF', '${a}b', 'a%B%', '$1abc', '%1x%', '${tsk-live-9f8e7d6c}', '${}']) {
       expect(typesafeApiKey({ TYPESAFE_API_KEY: key })).toBe(key)
       expect(missingTypesafeApiKey({ TYPESAFE_API_KEY: key })).toBeUndefined()
     }

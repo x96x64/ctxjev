@@ -24,6 +24,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 import Anthropic from '@anthropic-ai/sdk'
+import { missingTypesafeApiKey } from '../dist/index.js'
 import { inSplit, parseSplit, sessionSplit } from './split.mjs'
 import { ANSWER_MODEL, JUDGE_MODEL, SpendLimitError, bootstrap, createLimiter, createQA, createSpend, pruneTo, rankings, rateDifference, successRate } from './lib.mjs'
 
@@ -92,9 +93,8 @@ const runs = Number(args.runs)
 if (!Number.isInteger(runs) || runs < 1) throw new Error(`--runs must be a whole number of at least 1, got ${args.runs}`)
 const maxUsd = Number(args['max-usd'])
 if (!(maxUsd > 0)) throw new Error('--max-usd is required: the most this run may spend, in dollars')
-for (const key of ['ANTHROPIC_API_KEY', 'TYPESAFE_API_KEY']) {
-  if (!process.env[key]) throw new Error(`${key} is not set`)
-}
+if (!process.env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY is not set')
+if (missingTypesafeApiKey() !== undefined) throw new Error(missingTypesafeApiKey())
 
 const client = new Anthropic()
 const spend = createSpend(maxUsd)

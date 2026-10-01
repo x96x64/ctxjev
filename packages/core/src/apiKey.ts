@@ -6,7 +6,9 @@
  * sent masked excerpts to Jev only for Jev to refuse them. Every place that decides whether Jev can
  * be called goes through this, so none of them sends anything without a real key.
  */
-const PLACEHOLDER = /^(?:\$\{[^{}]*\}|\$[A-Za-z_][A-Za-z0-9_]*|%[A-Za-z_][A-Za-z0-9_]*%)$/
+// Only a variable name fits inside: `${tsk_…}` with a real key in the braces isn't taken for a
+// placeholder, so it's never quoted back into a message (which an MCP host shows the model).
+const PLACEHOLDER = /^(?:\$\{(?:env:)?[A-Za-z_][A-Za-z0-9_]*\}|\$[A-Za-z_][A-Za-z0-9_]*|%[A-Za-z_][A-Za-z0-9_]*%)$/
 
 /** The usable key in `env.TYPESAFE_API_KEY`, trimmed; undefined if it's unset, blank, or a placeholder. */
 export function typesafeApiKey(env: NodeJS.ProcessEnv = process.env): string | undefined {
