@@ -1,6 +1,6 @@
 {
   "name": "ctxjev-claude",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "private": true,
   "description": "Claude Code plugin: hands the highest-scoring context back after Claude Code compacts a session, scored offline by default (Jev if you opt in); its effect on held-out tasks hasn't been shown.",
   "license": "MIT",

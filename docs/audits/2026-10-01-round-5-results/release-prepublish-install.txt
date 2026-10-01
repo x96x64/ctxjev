@@ -1,0 +1,20 @@
+# Release PR, before merging: the three packages packed (pnpm pack) and installed together from the tarballs into an empty directory, with TYPESAFE_API_KEY unset and Jev's URL pointed at a closed port.
+# raw.githubusercontent.com is blocked by this environment's proxy, so the Quick Start's sample file came from examples/sample-transcripts/ (the same file).
+
+$ ctxjev --version
+0.7.2
+
+$ node scripts/check-readme-examples.mjs --bin <installed ctxjev>
+ok    README.md: ctxjev analyze examples/sample-transcripts/checkout-bug.json
+ok    README.md: ctxjev analyze claude-code-session.jsonl
+ok    README.md: ctxjev prune examples/sample-transcripts/checkout-bug.json --out pruned.json
+ok    packages/cli/README.md: ctxjev analyze checkout-bug.json
+4/4 README examples match
+
+$ node mcp-offline.mjs   # the installed ctxjev-mcp over stdio
+server: ctxjev 0.7.2; tools: score_relevance(scorer default jev, additionalProperties false), prune_history(scorer default jev, additionalProperties false)
+prune_history scorer=local: isError=false [["a","keep"],["b","drop"]] usage {"inputTokens":0,"outputTokens":0}
+prune_history scorer=recency: isError=false [["a","drop"],["b","keep"]] usage {"inputTokens":0,"outputTokens":0}
+prune_history scorer=(default): isError=true TYPESAFE_API_KEY is not set in the environment this MCP server runs in. scorer "jev" (the 
+score_relevance with an unknown argument: isError=true MCP error -32602: Input validation error: Invalid arguments for tool score_relevance: Unrecognized k
+stderr at start: ctxjev-mcp: TYPESAFE_API_KEY is not set, so only scorer "local" and "recency" work; a call that uses Jev (the default) returns an error until it is — get one at console.typesafe.ai/settings/keys
