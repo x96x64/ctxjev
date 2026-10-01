@@ -963,6 +963,15 @@ const DOCS = [
   // Every table and every number in prose, from the title to the end: stricter than the claims check
   // (which a budget like "a 25% budget" would trip), so that one isn't run here.
   { path: 'docs/evaluation.md', section: /^# Evaluation/m, prose: true, whole: true },
+  // The README's translations carry its generated blocks byte for byte (check-translations.mjs), so
+  // --write updates them with the English and a stale one fails here too.
+  { path: 'README.ja.md' },
+  { path: 'README.zh.md' },
+  { path: 'README.es.md' },
+  { path: 'README.ko.md' },
+  { path: 'README.pt.md' },
+  { path: 'README.fr.md' },
+  { path: 'README.de.md' },
   { path: 'packages/core/eval/PREREGISTRATION.md', section: /^## Results/m, prose: true },
   { path: 'ROADMAP.md' },
   // The package READMEs (each carries docs/readme-shared/status.md's generated numbers) and the

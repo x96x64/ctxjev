@@ -31,7 +31,7 @@ const LOCKSTEP = [
   'packages/claude-plugin/.claude-plugin/plugin.json',
   'plugins/ctxjev/plugin.json',
 ]
-const PINNED = ['README.md', 'packages/mcp-server/README.md', 'plugins/ctxjev/mcp.json', 'plugins/ctxjev/.codex-plugin/plugin.json']
+const PINNED = ['README.md', ...['ja', 'zh', 'es', 'ko', 'pt', 'fr', 'de'].map((lang) => `README.${lang}.md`), 'packages/mcp-server/README.md', 'plugins/ctxjev/mcp.json', 'plugins/ctxjev/.codex-plugin/plugin.json']
 
 const problems = []
 const versions = LOCKSTEP.map((file) => [file, JSON.parse(readFileSync(file, 'utf8')).version])

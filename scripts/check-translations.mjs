@@ -14,11 +14,14 @@
  * (`<!-- translation-source: README.md sha256=… -->`): the translation may be out of date.
  *
  *   node scripts/check-translations.mjs              check every README.<lang>.md
+ *   node scripts/check-translations.mjs --write      copy README.md's code blocks and generated blocks
+ *                                                    into every translation, in order (prose is left
+ *                                                    alone, and so is the recorded source hash)
  *   node scripts/check-translations.mjs --hash       print README.md's current hash, to record
  *   node scripts/check-translations.mjs --selftest   each check catches its own kind of edit
  */
 import { createHash } from 'node:crypto'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { ROOT } from './readmes.mjs'
 
@@ -101,6 +104,16 @@ export function checkTranslation(lang, text, english) {
   return { problems, warnings }
 }
 
+/** `text` with its fenced code blocks and generated blocks replaced by English's, in order. */
+export function syncFromEnglish(text, english) {
+  const fenced = english.match(FENCED) ?? []
+  const generated = new Map([...english.matchAll(GENERATED)].map((m) => [m[1], m[0]]))
+  let i = 0
+  const count = (text.match(FENCED) ?? []).length
+  if (count !== fenced.length) throw new Error(`${count} code blocks here, ${fenced.length} in README.md: add or remove them by hand first`)
+  return text.replace(FENCED, () => fenced[i++]).replace(GENERATED, (whole, name) => generated.get(name) ?? whole)
+}
+
 function selftest() {
   const english = readFileSync(join(ROOT, 'README.md'), 'utf8')
   const ja = readFileSync(join(ROOT, 'README.ja.md'), 'utf8')
@@ -137,6 +150,18 @@ function main() {
     return
   }
   if (process.argv.includes('--selftest')) return selftest()
+  if (process.argv.includes('--write')) {
+    const english = readFileSync(join(ROOT, 'README.md'), 'utf8')
+    for (const lang of LANGUAGES.slice(1)) {
+      const file = join(ROOT, fileOf(lang))
+      const text = readFileSync(file, 'utf8')
+      const synced = syncFromEnglish(text, english)
+      if (synced !== text) {
+        writeFileSync(file, synced)
+        console.log(`copied README.md's code and generated blocks into ${fileOf(lang)}`)
+      }
+    }
+  }
   const english = readFileSync(join(ROOT, 'README.md'), 'utf8')
   let failed = false
   if (!english.includes(switcher('en'))) {

@@ -1,0 +1,13 @@
+# Proof for the PR 3 review's finding, in a copy of the working tree
+## 1. A release bumps every version to 0.8.0 and runs --update-pins
+All 7 lockstep files agree on 0.8.0, every ctxjev-mcp pin names it, and the marketplace serves the plugin from tag v0.8.0.
+README.ja.md:3
+README.de.md:3
+check-translations exit 0
+ok    README.de.md
+## 2. A generated number in a translation edited by hand, then check-docs --write
+check-docs exit 0
+after --write, check-docs exit 0
+## 3. English output changes (a code block), then check-translations --write
+check-translations exit 1
+after --write exit 1 (0 ok, 7 warnings: English changed since translation)
