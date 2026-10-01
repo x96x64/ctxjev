@@ -1,0 +1,3 @@
+     × is local: with a key set, a call that names no scorer scores offline and sends nothing 1412ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 10 skipped (11)

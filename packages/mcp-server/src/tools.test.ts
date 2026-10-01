@@ -42,7 +42,7 @@ const byContent = (content: string) => (content.includes('charge') ? 0.9 : 0.05)
 describe('scoreRelevanceTool, with a stand-in for Jev', () => {
   it('scores every entry through Jev, blending recency, and reports the usage Jev returned', async () => {
     const jev = fakeJev(byContent)
-    const { scored, usage } = await scoreRelevanceTool({ goal: 'fix the double charge', entries }, { jevClient: jev.client, cache: createBoundedScoreCache() })
+    const { scored, usage } = await scoreRelevanceTool({ scorer: 'jev', goal: 'fix the double charge', entries }, { jevClient: jev.client, cache: createBoundedScoreCache() })
     expect(scored.map((s) => s.entryId)).toEqual(['a', 'b', 'c'])
     expect(scored.map((s) => s.relevance)).toEqual([0.9, 0.05, 0.9])
     expect(scored.map((s) => s.recency)).toEqual([0, 0.5, 1])
@@ -53,15 +53,15 @@ describe('scoreRelevanceTool, with a stand-in for Jev', () => {
   })
 
   it('uses recencyWeight when given', async () => {
-    const { scored } = await scoreRelevanceTool({ goal: 'g', entries, recencyWeight: 1 }, { jevClient: fakeJev().client, cache: createBoundedScoreCache() })
+    const { scored } = await scoreRelevanceTool({ scorer: 'jev', goal: 'g', entries, recencyWeight: 1 }, { jevClient: fakeJev().client, cache: createBoundedScoreCache() })
     expect(scored.map((s) => s.combinedScore)).toEqual([0, 0.5, 1])
   })
 
   it('reuses cached scores: the same call again sends nothing and reports no usage', async () => {
     const jev = fakeJev(byContent)
     const cache = createBoundedScoreCache()
-    await scoreRelevanceTool({ goal: 'g', entries }, { jevClient: jev.client, cache })
-    const again = await scoreRelevanceTool({ goal: 'g', entries }, { jevClient: jev.client, cache })
+    await scoreRelevanceTool({ scorer: 'jev', goal: 'g', entries }, { jevClient: jev.client, cache })
+    const again = await scoreRelevanceTool({ scorer: 'jev', goal: 'g', entries }, { jevClient: jev.client, cache })
     expect(jev.requests).toHaveLength(1)
     expect(again.usage).toEqual({ inputTokens: 0, outputTokens: 0 })
     expect(again.scored.map((s) => s.relevance)).toEqual([0.9, 0.05, 0.9])
@@ -69,7 +69,7 @@ describe('scoreRelevanceTool, with a stand-in for Jev', () => {
 
   it('masks secrets and never sends entry ids', async () => {
     const jev = fakeJev()
-    await scoreRelevanceTool({ goal: 'rotate it; DB_PASSWORD=hunter22', entries: [{ id: 'toolu_secret_id', role: 'tool', content: 'Error: DB_PASSWORD=hunter22', timestamp: 0 }] }, { jevClient: jev.client, cache: createBoundedScoreCache() })
+    await scoreRelevanceTool({ scorer: 'jev', goal: 'rotate it; DB_PASSWORD=hunter22', entries: [{ id: 'toolu_secret_id', role: 'tool', content: 'Error: DB_PASSWORD=hunter22', timestamp: 0 }] }, { jevClient: jev.client, cache: createBoundedScoreCache() })
     const sent = JSON.stringify(jev.requests)
     expect(sent).not.toContain('hunter22')
     expect(sent).not.toContain('toolu_secret_id')
@@ -79,20 +79,20 @@ describe('scoreRelevanceTool, with a stand-in for Jev', () => {
 describe('pruneHistoryTool, with a stand-in for Jev', () => {
   it('decides keep, summarize, or drop per the policy, and counts the savings', async () => {
     const withTokens = entries.map((e) => ({ ...e, sourceTokens: 100 }))
-    const { decisions, savings, usage } = await pruneHistoryTool({ goal: 'fix the double charge', entries: withTokens }, { jevClient: fakeJev(byContent).client, cache: createBoundedScoreCache() })
+    const { decisions, savings, usage } = await pruneHistoryTool({ scorer: 'jev', goal: 'fix the double charge', entries: withTokens }, { jevClient: fakeJev(byContent).client, cache: createBoundedScoreCache() })
     expect(decisions.map((d) => d.action)).toEqual(['keep', 'drop', 'keep'])
     expect(savings).toMatchObject({ totalEntries: 3, keptEntries: 2, droppedEntries: 1, totalTokens: 300, droppedTokens: 100 })
     expect(usage.inputTokens).toBe(300)
   })
 
   it('applies dropBelow, summarizeBelow, and recencyWeight when given', async () => {
-    const { decisions } = await pruneHistoryTool({ goal: 'g', entries, dropBelow: 0, summarizeBelow: 1, recencyWeight: 0 }, { jevClient: fakeJev(byContent).client, cache: createBoundedScoreCache() })
+    const { decisions } = await pruneHistoryTool({ scorer: 'jev', goal: 'g', entries, dropBelow: 0, summarizeBelow: 1, recencyWeight: 0 }, { jevClient: fakeJev(byContent).client, cache: createBoundedScoreCache() })
     expect(decisions.map((d) => d.action)).toEqual(['summarize', 'summarize', 'summarize'])
   })
 
   it('refuses a reversed pair of thresholds before calling Jev', async () => {
     const jev = fakeJev()
-    await expect(pruneHistoryTool({ goal: 'g', entries, dropBelow: 0.7, summarizeBelow: 0.2 }, { jevClient: jev.client, cache: createBoundedScoreCache() })).rejects.toThrow(/dropBelow \(0.7\) must not be greater than summarizeBelow \(0.2\)/)
+    await expect(pruneHistoryTool({ scorer: 'jev', goal: 'g', entries, dropBelow: 0.7, summarizeBelow: 0.2 }, { jevClient: jev.client, cache: createBoundedScoreCache() })).rejects.toThrow(/dropBelow \(0.7\) must not be greater than summarizeBelow \(0.2\)/)
     expect(jev.requests).toHaveLength(0)
   })
 })

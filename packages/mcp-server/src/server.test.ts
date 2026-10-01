@@ -29,6 +29,42 @@ async function connect(): Promise<Client> {
 
 // Codex (0.159.3) passes an Agent Plugins bundle's `"TYPESAFE_API_KEY": "${TYPESAFE_API_KEY}"`
 // through unexpanded. The server took it for a key and sent masked excerpts to Jev, which refused them.
+// 1.0: a call that names no scorer runs offline (`local`), like every other entry point, even with a
+// key set; only an explicit `scorer: "jev"` sends anything.
+describe('MCP server, default scorer', () => {
+  const received: string[] = []
+  let jev: Server
+  beforeEach(async () => {
+    received.length = 0
+    jev = createHttpServer((req, res) => {
+      received.push(`${req.method} ${req.url}`)
+      res.writeHead(500)
+      res.end()
+    })
+    await new Promise<void>((resolve) => jev.listen(0, '127.0.0.1', resolve))
+    vi.stubEnv('TYPESAFE_API_KEY', 'not-a-real-key')
+    vi.stubEnv('TYPESAFE_BASE_URL', `http://127.0.0.1:${(jev.address() as AddressInfo).port}`)
+  })
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    jev.closeAllConnections()
+    jev.close()
+  })
+
+  it('is local: with a key set, a call that names no scorer scores offline and sends nothing', async () => {
+    const client = await connect()
+    const scored = await client.callTool({ name: 'score_relevance', arguments: { goal: 'fix the double charge', entries } })
+    expect(scored.isError, JSON.stringify(scored.content)).toBeFalsy()
+    expect(JSON.parse((scored.content as Array<{ text: string }>)[0].text).usage).toEqual({ inputTokens: 0, outputTokens: 0 })
+    const pruned = await client.callTool({ name: 'prune_history', arguments: { goal: 'fix the double charge', entries } })
+    expect(pruned.isError, JSON.stringify(pruned.content)).toBeFalsy()
+    expect(received).toEqual([])
+    const { tools } = await client.listTools()
+    for (const tool of tools) expect((tool.inputSchema.properties as Record<string, { default?: string }>).scorer?.default).toBe('local')
+    await client.close()
+  })
+})
+
 describe('MCP server with an unexpanded ${TYPESAFE_API_KEY}', () => {
   const received: string[] = []
   let jev: Server
@@ -52,7 +88,7 @@ describe('MCP server with an unexpanded ${TYPESAFE_API_KEY}', () => {
   it('treats it as no key: a call that uses Jev says so, and nothing is sent', async () => {
     const client = await connect()
     for (const name of ['score_relevance', 'prune_history']) {
-      const result = await client.callTool({ name, arguments: { goal: 'fix the double charge', entries } })
+      const result = await client.callTool({ name, arguments: { goal: 'fix the double charge', entries, scorer: 'jev' } })
       expect(result.isError).toBe(true)
       expect(JSON.stringify(result.content)).toContain('TYPESAFE_API_KEY')
       expect(JSON.stringify(result.content)).toContain('placeholder')
@@ -77,7 +113,7 @@ describe('MCP server without TYPESAFE_API_KEY', () => {
   it('answers a tool call with an isError result naming the missing key', async () => {
     const client = await connect()
     for (const name of ['score_relevance', 'prune_history']) {
-      const result = await client.callTool({ name, arguments: { goal: 'fix the double charge', entries } })
+      const result = await client.callTool({ name, arguments: { goal: 'fix the double charge', entries, scorer: 'jev' } })
       expect(result.isError).toBe(true)
       expect(JSON.stringify(result.content)).toContain('TYPESAFE_API_KEY is not set')
     }
@@ -109,7 +145,7 @@ describe('MCP server without TYPESAFE_API_KEY', () => {
     for (const tool of tools) {
       const scorer = (tool.inputSchema.properties as Record<string, { enum?: string[]; default?: string }>).scorer
       expect(scorer?.enum).toEqual(['jev', 'local', 'recency'])
-      expect(scorer?.default).toBe('jev')
+      expect(scorer?.default).toBe('local')
     }
     const result = await client.callTool({ name: 'prune_history', arguments: { goal: 'fix the double charge', entries, scorer: 'jev' } })
     expect(result.isError).toBe(true)
@@ -176,12 +212,12 @@ describe('dist/index.js without TYPESAFE_API_KEY', () => {
     await client.connect(transport)
     try {
       expect((await client.listTools()).tools).toHaveLength(2)
-      const result = await client.callTool({ name: 'score_relevance', arguments: { goal: 'fix the double charge', entries } })
+      const result = await client.callTool({ name: 'score_relevance', arguments: { goal: 'fix the double charge', entries, scorer: 'jev' } })
       expect(result.isError).toBe(true)
       const offline = await client.callTool({ name: 'prune_history', arguments: { goal: 'fix the double charge', entries, scorer: 'local' } })
       expect(offline.isError, JSON.stringify(offline.content)).toBeFalsy()
       // The startup note said every call would fail without a key, which scorer 'local' disproves.
-      expect(stderr).toContain('only scorer "local" and "recency" work')
+      expect(stderr).toContain('scorer "jev" returns an error until there is one')
     } finally {
       await client.close()
     }
