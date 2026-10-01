@@ -1,0 +1,10 @@
+{
+  "name": "ctxjev",
+  "mcpServers": {
+    "ctxjev": {
+      "command": "npx",
+      "args": ["ctxjev-mcp@0.7.2"],
+      "env_vars": ["TYPESAFE_API_KEY"]
+    }
+  }
+}

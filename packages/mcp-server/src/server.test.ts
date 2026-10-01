@@ -1,3 +1,5 @@
+import { createServer as createHttpServer, type Server } from 'node:http'
+import type { AddressInfo } from 'node:net'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
@@ -24,6 +26,41 @@ async function connect(): Promise<Client> {
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)])
   return client
 }
+
+// Codex (0.159.3) passes an Agent Plugins bundle's `"TYPESAFE_API_KEY": "${TYPESAFE_API_KEY}"`
+// through unexpanded. The server took it for a key and sent masked excerpts to Jev, which refused them.
+describe('MCP server with an unexpanded ${TYPESAFE_API_KEY}', () => {
+  const received: string[] = []
+  let jev: Server
+  beforeEach(async () => {
+    received.length = 0
+    jev = createHttpServer((req, res) => {
+      received.push(`${req.method} ${req.url}`)
+      res.writeHead(401, { 'content-type': 'application/json' })
+      res.end('{"error":"unauthorized"}')
+    })
+    await new Promise<void>((resolve) => jev.listen(0, '127.0.0.1', resolve))
+    vi.stubEnv('TYPESAFE_API_KEY', '${TYPESAFE_API_KEY}')
+    vi.stubEnv('TYPESAFE_BASE_URL', `http://127.0.0.1:${(jev.address() as AddressInfo).port}`)
+  })
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    jev.closeAllConnections()
+    jev.close()
+  })
+
+  it('treats it as no key: a call that uses Jev says so, and nothing is sent', async () => {
+    const client = await connect()
+    for (const name of ['score_relevance', 'prune_history']) {
+      const result = await client.callTool({ name, arguments: { goal: 'fix the double charge', entries } })
+      expect(result.isError).toBe(true)
+      expect(JSON.stringify(result.content)).toContain('TYPESAFE_API_KEY')
+      expect(JSON.stringify(result.content)).toContain('placeholder')
+    }
+    expect(received).toEqual([])
+    await client.close()
+  })
+})
 
 describe('MCP server without TYPESAFE_API_KEY', () => {
   beforeEach(() => void vi.stubEnv('TYPESAFE_API_KEY', ''))

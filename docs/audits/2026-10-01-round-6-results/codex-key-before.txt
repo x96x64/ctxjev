@@ -1,0 +1,15 @@
+# Before the fix (branch claude/dazzling-davinci-mzw4sq, tests added, src unchanged)
+     × is no key, and Jev gets nothing: ${TYPESAFE_API_KEY} 36ms
+     × is no key, and Jev gets nothing: $TYPESAFE_API_KEY 6ms
+     × is no key, and Jev gets nothing: %TYPESAFE_API_KEY% 4ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  3 failed (3)
+     × treats it as no key: a call that uses Jev says so, and nothing is sent 75ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 9 skipped (10)
+     × --scorer jev with an unexpanded ${TYPESAFE_API_KEY} refuses, says why, and sends nothing 392ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 9 skipped (10)
+     × with CTXJEV_SCORER=jev and an unexpanded ${TYPESAFE_API_KEY}, scores offline, sends nothing, and says why 153ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 11 skipped (12)

@@ -204,6 +204,16 @@ describe('Jev cost', () => {
     jev.close()
   })
 
+  // Codex passes `${TYPESAFE_API_KEY}` through unexpanded; the CLI shouldn't take that for a key either.
+  it('--scorer jev with an unexpanded ${TYPESAFE_API_KEY} refuses, says why, and sends nothing', async () => {
+    const env = { TYPESAFE_API_KEY: '${TYPESAFE_API_KEY}', TYPESAFE_BASE_URL: `http://127.0.0.1:${(jev.address() as AddressInfo).port}` }
+    const analyze = await run(['analyze', sample('checkout-bug.json'), '--scorer', 'jev', '--no-cache'], env)
+    expect(analyze.exitCode).not.toBe(0)
+    expect(analyze.stderr).toContain('TYPESAFE_API_KEY')
+    expect(analyze.stderr).toContain('placeholder')
+    expect(requests).toBe(0)
+  }, 20_000)
+
   // prune --scorer jev spent money and never said how much.
   it('prune reports the same Jev cost line analyze does, from the usage Jev reported', async () => {
     const env = { TYPESAFE_API_KEY: 'not-a-real-key', TYPESAFE_BASE_URL: `http://127.0.0.1:${(jev.address() as AddressInfo).port}` }

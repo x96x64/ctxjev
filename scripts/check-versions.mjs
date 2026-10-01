@@ -31,7 +31,7 @@ const LOCKSTEP = [
   'packages/claude-plugin/.claude-plugin/plugin.json',
   'plugins/ctxjev/plugin.json',
 ]
-const PINNED = ['packages/mcp-server/README.md', 'plugins/ctxjev/mcp.json']
+const PINNED = ['packages/mcp-server/README.md', 'plugins/ctxjev/mcp.json', 'plugins/ctxjev/.codex-plugin/plugin.json']
 
 const problems = []
 const versions = LOCKSTEP.map((file) => [file, JSON.parse(readFileSync(file, 'utf8')).version])
@@ -50,6 +50,20 @@ for (const file of PINNED) {
   if (pins.length === 0) problems.push(`${file}: no ctxjev-mcp@<version> pin found`)
   if (unpinned > 0) problems.push(`${file}: ${unpinned} unpinned ctxjev-mcp reference(s) — pin them to ctxjev-mcp@${version}`)
   for (const pin of pins) if (pin !== version) problems.push(`${file}: pins ctxjev-mcp@${pin}, but this release is ${version} — update the pin`)
+}
+
+// The Agent Plugins bundle's Codex overlay. Codex expands only ${PLUGIN_ROOT} and ${PLUGIN_DATA} in
+// mcp.json's `env`, so `"TYPESAFE_API_KEY": "${TYPESAFE_API_KEY}"` reaches the server literally; the
+// overlay's `env_vars` makes Codex pass the real variable through instead, and must name the same
+// server and command as mcp.json.
+{
+  const bundle = JSON.parse(readFileSync('plugins/ctxjev/mcp.json', 'utf8')).mcpServers.ctxjev
+  const overlay = JSON.parse(readFileSync('plugins/ctxjev/.codex-plugin/plugin.json', 'utf8')).mcpServers?.ctxjev
+  if (!overlay) problems.push('plugins/ctxjev/.codex-plugin/plugin.json: no "ctxjev" MCP server')
+  else {
+    if (!overlay.env_vars?.includes('TYPESAFE_API_KEY')) problems.push('plugins/ctxjev/.codex-plugin/plugin.json: env_vars must include TYPESAFE_API_KEY, or Codex passes the key as the literal "${TYPESAFE_API_KEY}"')
+    if (overlay.command !== bundle.command || JSON.stringify(overlay.args) !== JSON.stringify(bundle.args)) problems.push('plugins/ctxjev/.codex-plugin/plugin.json: its command and args must match plugins/ctxjev/mcp.json')
+  }
 }
 
 // The plugin's marketplace entry: pinned to the release tag.

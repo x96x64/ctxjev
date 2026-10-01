@@ -100,6 +100,44 @@ describe('preCompact.js (dist)', () => {
     }
   }, 10_000)
 
+  // Codex passes `${TYPESAFE_API_KEY}` through unexpanded; a host could do the same to a hook.
+  it('with CTXJEV_SCORER=jev and an unexpanded ${TYPESAFE_API_KEY}, scores offline, sends nothing, and says why', async () => {
+    const transcriptPath = join(cwd, 'transcript.jsonl')
+    await writeFile(
+      transcriptPath,
+      [
+        { type: 'user', uuid: 'u1', timestamp: '2026-01-01T00:00:00.000Z', message: { role: 'user', content: 'fix the checkout double charge on retry' } },
+        { type: 'assistant', uuid: 'a1', timestamp: '2026-01-01T00:00:01.000Z', message: { role: 'assistant', content: [{ type: 'tool_use', id: 'c1', name: 'Grep', input: { pattern: 'charge' } }] } },
+        { type: 'user', uuid: 'u2', timestamp: '2026-01-01T00:00:02.000Z', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'c1', content: 'chargeCustomer() is called again by the retry handler' }] } },
+      ]
+        .map((r) => JSON.stringify(r))
+        .join('\n'),
+      'utf8',
+    )
+    const received: string[] = []
+    const jev = createServer((req, res) => {
+      received.push(`${req.method} ${req.url}`)
+      res.statusCode = 401
+      res.end()
+    })
+    await new Promise<void>((resolve) => jev.listen(0, '127.0.0.1', resolve))
+    try {
+      const result = await run(JSON.stringify({ cwd, transcript_path: transcriptPath, session_id: 'sess-1' }), {
+        TYPESAFE_API_KEY: '${TYPESAFE_API_KEY}',
+        CTXJEV_SCORER: 'jev',
+        TYPESAFE_BASE_URL: `http://127.0.0.1:${(jev.address() as AddressInfo).port}`,
+      })
+      expect(result.exitCode).toBe(0)
+      expect(received).toEqual([])
+      const lastRun = JSON.parse(await readFile(sessionFile('sess-1', 'last-run.json'), 'utf8'))
+      expect(lastRun).toMatchObject({ outcome: 'preserved', scorer: 'local' })
+      expect(lastRun.note).toContain('placeholder')
+    } finally {
+      jev.closeAllConnections()
+      jev.close()
+    }
+  }, 10_000)
+
   it('with CTXJEV_SCORER=jev but no TYPESAFE_API_KEY, scores offline, sends nothing, and says why in last-run.json', async () => {
     const transcriptPath = join(cwd, 'transcript.jsonl')
     await writeFile(

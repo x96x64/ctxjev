@@ -1,4 +1,5 @@
 import { TypeSafeClient, noul } from '@typesafe-ai/sdk'
+import { missingTypesafeApiKey, typesafeApiKey } from './apiKey.js'
 import { cacheKeyFor, type ScoreCache } from './cache.js'
 import { truncate } from './entryText.js'
 import { redactSecrets } from './redact.js'
@@ -34,7 +35,11 @@ let client: TypeSafeClient | undefined
 // (e.g. just for its types, or for a CLI command that never calls Jev) doesn't require an
 // API key to be present.
 function getClient(): JevClient {
-  client ??= new TypeSafeClient()
+  if (client) return client
+  // Never constructed without a usable key: the SDK would send an unexpanded placeholder as one.
+  const apiKey = typesafeApiKey()
+  if (apiKey === undefined) throw new Error(`${missingTypesafeApiKey()}: get one at console.typesafe.ai/settings/keys`)
+  client = new TypeSafeClient({ apiKey })
   return client
 }
 

@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import { missingTypesafeApiKey } from 'ctxjev-core'
 import { pruneHistorySchema, scoreRelevanceSchema } from './schemas.js'
 import { pruneHistoryTool, scoreRelevanceTool } from './tools.js'
 
@@ -12,19 +13,20 @@ const VERSION: string = JSON.parse(
   readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../package.json'), 'utf8'),
 ).version
 
-const MISSING_KEY = {
+const missingKeyResult = (missing: string) => ({
   isError: true,
   content: [
     {
       type: 'text' as const,
-      text: 'TYPESAFE_API_KEY is not set in the environment this MCP server runs in. scorer "jev" (the default) needs it: get one at console.typesafe.ai/settings/keys and add it to the server\'s env in your MCP host\'s config, or pass scorer "local" (keyword overlap) or "recency" (plain truncation), which run offline.',
+      text: `${missing} in the environment this MCP server runs in. scorer "jev" (the default) needs a key: get one at console.typesafe.ai/settings/keys and add it to the server's env in your MCP host's config, or pass scorer "local" (keyword overlap) or "recency" (plain truncation), which run offline.`,
     },
   ],
-}
+})
 
 // Checked per call, not at startup, so a server started without a key still connects and lists its
-// tools; and only for scorer 'jev', since 'local' and 'recency' need no key.
-const needsMissingKey = (scorer: string) => scorer === 'jev' && !process.env.TYPESAFE_API_KEY
+// tools; and only for scorer 'jev', since 'local' and 'recency' need no key. An unexpanded
+// placeholder (Codex passes `${TYPESAFE_API_KEY}` through as it is) counts as no key.
+const missingKeyFor = (scorer: string) => (scorer === 'jev' ? missingTypesafeApiKey() : undefined)
 
 export function createServer(): McpServer {
   const server = new McpServer({ name: 'ctxjev', version: VERSION })
@@ -37,7 +39,8 @@ export function createServer(): McpServer {
       inputSchema: scoreRelevanceSchema,
     },
     async (args) => {
-      if (needsMissingKey(args.scorer)) return MISSING_KEY
+      const missing = missingKeyFor(args.scorer)
+      if (missing !== undefined) return missingKeyResult(missing)
       const result = await scoreRelevanceTool(args)
       return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
     },
@@ -50,7 +53,8 @@ export function createServer(): McpServer {
       inputSchema: pruneHistorySchema,
     },
     async (args) => {
-      if (needsMissingKey(args.scorer)) return MISSING_KEY
+      const missing = missingKeyFor(args.scorer)
+      if (missing !== undefined) return missingKeyResult(missing)
       const result = await pruneHistoryTool(args)
       return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
     },
