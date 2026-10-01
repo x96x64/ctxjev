@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
- * The eval numbers in README.md, PREREGISTRATION.md, the plugin README, and the Japanese docs under
- * docs/, generated from the saved results in eval/results/ and checked against them in CI.
+ * The eval numbers in README.md, PREREGISTRATION.md, the plugin README, CHANGELOG.md, SECURITY.md,
+ * and the Japanese docs under docs/, generated from the saved results in eval/results/ and checked
+ * against them in CI.
  * Nobody types these numbers by hand.
  *
  * A generated block sits between `<!-- generated:NAME -->` and `<!-- /generated:NAME -->` (inline,
@@ -892,7 +893,9 @@ const RENDERERS = {
 // --- checking -----------------------------------------------------------------------------------
 
 // `prose: true`: the section's prose is checked too (see checkedProse). Anything between
-// `<!-- checked-prose -->` markers is checked in every doc listed.
+// `<!-- checked-prose -->` markers is checked in every doc listed. `claims: true`: an eval claim
+// anywhere in the doc is checked (see uncheckedClaims); `historical` names the sections, by their
+// heading, left as they were released.
 const DOCS = [
   { path: 'README.md', section: /^## Does It Work\?/m, prose: true },
   { path: 'packages/core/eval/PREREGISTRATION.md', section: /^## Results/m, prose: true },
@@ -901,7 +904,11 @@ const DOCS = [
   { path: 'docs/design/round-2-scoring-and-evaluation.md', section: /^## 1\./m },
   // No results section to police here: its tables are statuses, and its eval numbers are generated inline.
   { path: 'docs/audits/2026-09-25-round-1-changes-ja.md' },
-  { path: 'packages/claude-plugin/README.md' },
+  { path: 'packages/claude-plugin/README.md', claims: true },
+  // The fifth audit: a hand-typed eval number in CHANGELOG.md or SECURITY.md passed unchecked.
+  // Releases up to 0.7.0 stay as they were published.
+  { path: 'CHANGELOG.md', claims: true, historical: /^## 0\.(?:[0-6]\.\d+|7\.0)\b/ },
+  { path: 'SECURITY.md', claims: true },
   // Status tables, not results; the eval numbers in them are generated inline.
   { path: 'docs/audits/2026-09-25-audit-2-triage-ja.md' },
   // The masking holdout results, generated inline from the saved outputs.
@@ -1011,8 +1018,41 @@ function uncheckedNumbers(text, section, prose) {
   return problems
 }
 
+// --- eval claims anywhere in a doc ---------------------------------------------------------------
+
+// The fifth audit changed a hand-typed eval number in CHANGELOG.md and in the plugin README's prose,
+// and this passed both: only results sections and checked-prose regions were read. In a doc with
+// `claims: true`, a paragraph or list item that talks about an evaluation (EVAL_WORDS) and states a
+// result-like number (RESULT_NUMBER: a percentage, points, an interval, "N of M", "N/M") outside a
+// generated block is a problem, unless it sits directly below an `<!-- unverified: reason -->` line.
+// Numbers that aren't results (NOT_RESULTS: versions, dates, "95% CI", …) don't count.
+const EVAL_WORDS = /\b(?:holdout|held[- ]out|dev (?:split|half|tasks?)|evals?|evaluation|task success|tasks? passed|retention|retained|probes?|bootstrap|confidence interval|baseline|blind|corpus|corpora|false (?:positive|alarm)s?|harmless lines|preregist\w*|truncation|unseen tasks)\b/i
+const RESULT_NUMBER = /[+−-]?\d+(?:\.\d+)?\s?%|[+−-]?\d+(?:\.\d+)?\s(?:percentage\s)?points?\b|\bpp\b|\[\s*[+−-]?\d+(?:\.\d+)?\s*,\s*[+−-]?\d+|\b\d+\s(?:of|out of)\s\d+\b|\b\d+\s?\/\s?\d+\b/
+
+function uncheckedClaims(text, historical) {
+  const current = historical ? text.split(/^(?=## )/m).filter((part) => !historical.test(part.split('\n')[0])).join('') : text
+  const cleaned = current
+    .replace(/^```[\s\S]*?^```/gm, '')
+    .replace(GENERATED, ' ')
+    .replace(/<!-- (?!unverified:)[\s\S]*?-->/g, ' ')
+  const blocks = cleaned.split(/\n\s*\n|\n(?=\s*[-*] )/)
+  const problems = []
+  blocks.forEach((block, i) => {
+    const marked = (b) => b !== undefined && /^<!-- unverified: .+ -->$/.test(b.trim().split('\n')[0].trim())
+    if (marked(block) || (marked(blocks[i - 1]) && blocks[i - 1].trim().split('\n').length === 1)) return
+    let rest = block
+      .replace(/`[^`]*`/g, ' ')
+      .replace(/\]\([^)]*\)/g, ']')
+      .replace(/https?:\/\/\S+/g, ' ')
+    for (const pattern of NOT_RESULTS) rest = rest.replace(pattern, (_m, lead) => (typeof lead === 'string' ? lead : ' '))
+    const number = RESULT_NUMBER.exec(rest)
+    if (number && EVAL_WORDS.test(rest)) problems.push(`an eval claim with a number that isn't generated (or marked unverified): "${rest.slice(Math.max(0, number.index - 60), number.index + 40).replace(/\s+/g, ' ').trim()}"`)
+  })
+  return problems
+}
+
 /** Everything wrong with one doc's text: generated blocks, tables, and prose. */
-function problemsIn(path, section, prose, text) {
+function problemsIn(path, section, prose, text, claims, historical) {
   const problems = []
   const updated = text.replace(GENERATED, (whole, name, current) => {
     const render = RENDERERS[name]
@@ -1026,6 +1066,7 @@ function problemsIn(path, section, prose, text) {
   })
   if (section) problems.push(...uncheckedTables(updated, section))
   problems.push(...uncheckedNumbers(text, section, prose))
+  if (claims) problems.push(...uncheckedClaims(text, historical))
   return problems
 }
 
@@ -1037,12 +1078,18 @@ const AUDIT_EDITS = [
   ['ROADMAP.md', 'ROADMAP\'s "+0 points" becomes "+5 points"', (t) => t.replace(/<!-- generated:holdout-diff-short -->[+−]?0 points/, '<!-- generated:holdout-diff-short -->+5 points')],
   ['ROADMAP.md', 'ROADMAP\'s result is typed in by hand', (t) => t.replace(/<!-- generated:holdout-diff-short -->[\s\S]*?<!-- \/generated:holdout-diff-short -->/, '+0 points, 95% CI [+0, +0], two models, six unseen tasks')],
   ['README.md', '"Does It Work?"\'s task count becomes "Seven tasks"', (t) => t.replace(/<!-- generated:holdout-task-count -->\d+<!-- \/generated:holdout-task-count --> tasks\n\(`rate-limit-window`/, 'Seven tasks\n(`rate-limit-window`')],
+  // The fifth audit (check F3): edits to CHANGELOG.md and the plugin README's prose that passed.
+  ['CHANGELOG.md', 'a hand-typed blind-masking rate in the newest release', (t) => t.replace(/^(## [^\n]+\n\n)/m, '$1- Secret masking, measured blind: 93.4% of the holdout\'s lines with secrets masked.\n')],
+  ['CHANGELOG.md', 'a hand-typed task-success difference in the newest release', (t) => t.replace(/^(## [^\n]+\n\n)/m, '$1- The plugin\'s digest now adds +12 points [+2, +20] to tasks passed on the holdout.\n')],
+  ['packages/claude-plugin/README.md', 'the plugin README\'s "six unseen tasks" becomes "seven"', (t) => t.replace(/<!-- generated:holdout-task-count -->\d+<!-- \/generated:holdout-task-count --> unseen tasks/, 'seven unseen tasks')],
+  ['packages/claude-plugin/README.md', 'a hand-typed eval claim outside the results paragraph', (t) => t.replace(/^## How It Works\n/m, '## How It Works\n\nIn the retention eval the digest kept 87% of the probes.\n')],
+  ['SECURITY.md', 'a hand-typed blind-masking rate', (t) => t.replace(/^## Known limitations[^\n]*\n/m, (h) => `${h}\n- Masking catches 95.7% of secrets on the blind holdout corpus.\n`)],
 ]
 
 function selftest() {
   let ok = true
   for (const [path, what, edit] of AUDIT_EDITS) {
-    const { section, prose } = DOCS.find((d) => d.path === path)
+    const { section, prose, claims, historical } = DOCS.find((d) => d.path === path)
     const text = readFileSync(join(root, path), 'utf8')
     const edited = edit(text)
     if (edited === text) {
@@ -1050,8 +1097,8 @@ function selftest() {
       ok = false
       continue
     }
-    const before = problemsIn(path, section, prose, text).length
-    const after = problemsIn(path, section, prose, edited).length
+    const before = problemsIn(path, section, prose, text, claims, historical).length
+    const after = problemsIn(path, section, prose, edited, claims, historical).length
     console.log(`${after > before ? 'caught' : 'MISSED'}: ${what} (${path})`)
     if (after <= before) ok = false
   }
@@ -1063,7 +1110,7 @@ if (process.argv.includes('--selftest')) selftest()
 const write = process.argv.includes('--write')
 const used = new Set()
 let failed = false
-for (const { path, section, prose } of DOCS) {
+for (const { path, section, prose, claims, historical } of DOCS) {
   const file = join(root, path)
   const text = readFileSync(file, 'utf8')
   const updated = text.replace(GENERATED, (whole, name, current) => {
@@ -1086,6 +1133,10 @@ for (const { path, section, prose } of DOCS) {
     failed = true
   }
   for (const problem of uncheckedNumbers(updated, section, prose)) {
+    console.error(`${path}: ${problem}`)
+    failed = true
+  }
+  for (const problem of claims ? uncheckedClaims(updated, historical) : []) {
     console.error(`${path}: ${problem}`)
     failed = true
   }
