@@ -1,0 +1,8 @@
+     × no-ops silently on stdin that is JSON but not an object: null 58ms
+     × no-ops silently on stdin that is JSON but not an object: null 91ms
+     × says last-run.json is malformed when it holds null 38ms
+     × says last-run.json is malformed when it holds a number 14ms
+     × says last-run.json is malformed when it holds an array 12ms
+     × says last-run.json is malformed when it holds an object missing its fields 11ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  6 failed | 6 passed | 23 skipped (35)

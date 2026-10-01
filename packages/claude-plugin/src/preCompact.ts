@@ -26,7 +26,9 @@ const DEFAULT_JEV_TIMEOUT_MS = 20_000
  * instead of surfaced mid-compaction.
  */
 async function main() {
-  const input: PreCompactInput = JSON.parse(await readStdin())
+  const parsed: unknown = JSON.parse(await readStdin())
+  // JSON that isn't an object (null, a number) is no input, like `{}`: nothing to do, nothing to say.
+  const input: PreCompactInput = parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
   const { cwd, transcript_path: transcriptPath, session_id: sessionId } = input
   if (!cwd) return
 

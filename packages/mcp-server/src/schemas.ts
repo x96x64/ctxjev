@@ -49,7 +49,7 @@ export const scoreRelevanceInput = {
     .min(0)
     .max(1)
     .optional()
-    .describe(`How much an entry's position in the batch (recency) should factor into its score, 0-1. Defaults to ${DEFAULT_POLICY.recencyWeight}.`),
+    .describe(`How much an entry's position in the batch (recency) should factor into its score, 0-1. Defaults to ${DEFAULT_POLICY.recencyWeight}. Makes no difference under scorer 'recency', whose relevance already is the position.`),
 }
 
 export const pruneHistoryInput = {

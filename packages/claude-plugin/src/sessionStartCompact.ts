@@ -12,7 +12,9 @@ type SessionStartInput = { cwd?: string; session_id?: string }
  * otherwise have smoothed over.
  */
 async function main() {
-  const input: SessionStartInput = JSON.parse(await readStdin())
+  const parsed: unknown = JSON.parse(await readStdin())
+  // JSON that isn't an object (null, a number) is no input, like `{}`: nothing to do, nothing to say.
+  const input: SessionStartInput = parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
   if (!input.cwd) return
 
   const preserved = await readPreservedContext(input.cwd, input.session_id)
