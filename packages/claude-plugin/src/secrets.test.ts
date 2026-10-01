@@ -43,13 +43,16 @@ afterEach(async () => {
 
 // Each secret sits in a tool result relevant to the goal, so the offline scorer preserves it. The
 // fourth: the fourth audit's P0-1, a .env file's unquoted values with punctuation in them (0.7.0 kept
-// `Qx7vR2mK(pL9zW4tB` whole, and everything after the `{` of the other).
-const SECRETS = ['hunter22', 'abcd1234efgh5678', 'q9Zt7Lm2Vx4Rk8Np', 'Qx7vR2mK', 'pL9zW4tB', 'Rk2Lp6Yx']
+// `Qx7vR2mK(pL9zW4tB` whole, and everything after the `{` of the other). The fifth: the fifth audit's
+// three lines, a URL password with `#` in it, a passphrase, and a value after a Japanese label (0.7.1
+// kept all three whole).
+const SECRETS = ['hunter22', 'abcd1234efgh5678', 'q9Zt7Lm2Vx4Rk8Np', 'Qx7vR2mK', 'pL9zW4tB', 'Rk2Lp6Yx', 'Secr3t99', 'horse battery', 'Hunter2', '秘密']
 const LEAKS = [
   'Error: DB_PASSWORD=hunter22 was rejected by the checkout database',
   'checkout database env: API_KEY=abcd1234efgh5678 loaded',
   'checkout database callback https://db.example.com/cb?access_token=q9Zt7Lm2Vx4Rk8Np failed',
   'checkout database connection settings (.env):\nDB_HOST=db.internal\nDB_PASSWORD=Qx7vR2mK(pL9zW4tB\nSMTP_PASS=Wm4zT8q{Rk2Lp6Yx',
+  'checkout database connection string:\npostgres://app:Pg#Secr3t99@db.internal:5432/app\nJWT_SECRET=correct horse battery staple\nパスワード: Hunter2の秘密',
 ]
 
 async function writeTranscript(): Promise<string> {

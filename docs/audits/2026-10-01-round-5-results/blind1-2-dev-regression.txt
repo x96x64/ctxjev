@@ -1,0 +1,16 @@
+blind-redact dev half, redact.ts at v0.7.1:
+  lines with secrets detected: 89/91 (97.8%); none left whole (verbatim): 89/91 (97.8%)
+  secrets masked: 99/101 (98.0%)
+  harmless lines changed (false positives): 0/43 (0.0%)
+blind-redact dev half, redact.ts at the working tree:
+  lines with secrets detected: 89/91 (97.8%); none left whole (verbatim): 89/91 (97.8%)
+  secrets masked: 99/101 (98.0%)
+  harmless lines changed (false positives): 0/43 (0.0%)
+blind-redact-2 dev half, redact.ts at v0.7.1:
+  lines with secrets detected: 86/92 (93.5%); none left whole (verbatim): 86/92 (93.5%)
+  secrets masked: 97/103 (94.2%)
+  harmless lines changed (false positives): 1/41 (2.4%)
+blind-redact-2 dev half, redact.ts at the working tree:
+  lines with secrets detected: 86/92 (93.5%); none left whole (verbatim): 86/92 (93.5%)
+  secrets masked: 97/103 (94.2%)
+  harmless lines changed (false positives): 1/41 (2.4%)

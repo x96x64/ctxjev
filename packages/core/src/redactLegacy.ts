@@ -226,23 +226,36 @@ function classifyName(name: string): CredentialKind | undefined {
   return undefined
 }
 
-const PLACEHOLDER =
-  /^(?:true|false|null|nil|none|undefined|yes|no|on|off|required|optional|string|str|number|int|boolean|bool|\*+|x{3,}|\.{3}|…|<[^>]*>|\{\{.*\}\}|\$\{?[A-Za-z_]\w*\}?|\$\{[A-Za-z_][\w.]*(?::?\?[^}]*|:?-|:)?\}|%[A-Za-z_]\w*%?)$/i
+// (0.7.2) Python's `%(name)s` and PowerShell's `$env:NAME` are references too.
+export const PLACEHOLDER =
+  /^(?:true|false|null|nil|none|undefined|yes|no|on|off|required|optional|string|str|number|int|boolean|bool|\*+|x{3,}|\.{3}|…|<[^>]*>|\{\{.*\}\}|\$\{?[A-Za-z_]\w*\}?|\$\{[A-Za-z_][\w.]*(?::?\?[^}]*|:?-|:)?\}|%[A-Za-z_]\w*%?|%\([A-Za-z_][\w.]*\)[sdifr]|\$env:[A-Za-z_]\w*)$/i
 // An example cut short after a prefix and a separator (`sk-ant-...`, `ghp_…`): not a key, though a
 // password could end that way (`Summer_2024_...`), so never a password's placeholder.
 const ELIDED = /^[a-z]{1,8}(?:[-_][a-z0-9]{1,8}){0,3}[-_](?:\.{3}|…)$/i
-const REFERENCE = /^(?:process\.env|os\.environ|import\.meta\.env|ENV\[|System\.getenv|getenv)/
+// (0.7.2) Terraform's `var.x`, `local.x`, `module.x.y` too, whole: each part a name (letters, with
+// digits only at its end), so `local.Pa55word!` and `var.abc123def456` are values.
+export const REFERENCE = /^(?:process\.env|os\.environ|import\.meta\.env|ENV\[|System\.getenv|getenv)|^(?:var|local|module)(?:\.[A-Za-z_][A-Za-z_-]*[0-9]*)+$/
+
+// (0.7.2) A variable where a command's password goes: `-p$DB_PASS`, `-u "$USER:$PASS"`, `%DB_PASS%`.
+// In single quotes nothing expands, so `-p'$uperS3cret'` is a password; so is `%Secret1`, with no
+// closing `%`.
+export function isVariableArgument(value: string, quote: string | undefined): boolean {
+  return quote !== "'" && /^(?:\$[A-Za-z_]\w*|\$\{[A-Za-z_]\w*\}|\$env:[A-Za-z_]\w*|%[A-Za-z_]\w*%)$/.test(value)
+}
 // A version or a range of them (`^9.0.2`, `==0.9.5`, `>=3.1,<4`): a dependency whose package's name
 // ends in a credential's word (`"jsonwebtoken": "^9.0.2"`, `next-auth`, `csrf-token`), not a secret.
 // Shared with redact.ts.
 // A pre-release is a known word and a number (`-beta.2`, `-rc.1`), never any suffix: `1.2.3-<token>` is a token.
 const VERSION_PART = String.raw`(?:[~^]|[<>]=?|[=!~]={0,2})?v?\d+(?:\.(?:\d+|[xX*])){1,3}(?:-(?:alpha|beta|rc|pre|preview|next|canary|dev|nightly)(?:[.-]?\d+){0,3})?`
 export const VERSION = new RegExp(String.raw`^${VERSION_PART}(?:(?:,[ \t]*|[ \t]+|[ \t]*\|\|[ \t]*)${VERSION_PART.replace('{1,3}', '{0,3}')})*$`)
+// (0.7.2) A dependency's coordinates, `artifact:version` after a group whose name ends in a
+// credential's word (`implementation("io.jsonwebtoken:jjwt-api:0.12.6")`): not a secret either.
+export const COORDINATE = new RegExp(String.raw`^[A-Za-z][\w.-]{0,127}:${VERSION_PART}$`)
 
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 function isMaskableValue(value: string, kind: CredentialKind, bare: boolean, next: string | undefined, name: string): boolean {
-  if (value.length === 0 || isMasked(value) || PLACEHOLDER.test(value) || REFERENCE.test(value) || (kind !== 'password' && (VERSION.test(value) || ELIDED.test(value))) || /^=+$/.test(value)) return false
+  if (value.length === 0 || isMasked(value) || PLACEHOLDER.test(value) || REFERENCE.test(value) || (kind !== 'password' && (VERSION.test(value) || COORDINATE.test(value) || ELIDED.test(value))) || /^=+$/.test(value)) return false
   if (bare && (next === '(' || next === '[')) return false
   if (bare && (value === name || new RegExp(`^(?:[A-Za-z_][A-Za-z0-9_]*\\.)+${escapeRegExp(name)}$`, 'i').test(value))) return false
   if (value.includes('=') && nameWords(name).at(-1) === 'cookie') return false
@@ -260,8 +273,9 @@ export function redactLegacy(text: string): string {
   // Each rule below is skipped when the text lacks what it needs to match (`://` for a URL, "aws" or
   // "secret" before an AWS key): the same result, one pass over the text fewer.
   for (const [pattern, replacement] of POSITIONAL_PATTERNS.slice(0, 3)) if (pattern !== POSITIONAL_PATTERNS[0][0] || out.includes('://')) out = typeof replacement === 'string' ? out.replace(pattern, replacement) : out.replace(pattern, replacement)
-  out = maskAfterCommand(out, MYSQL, MYSQL_ARGUMENT, (m) => `${m[1]}${m[2]}${REDACTED}${m[2]}`)
-  out = maskAfterCommand(out, CURL, CURL_ARGUMENT, (m) => `${m[1]}${REDACTED}`)
+  // (0.7.2) A variable where the password goes (`-p$DB_PASS`, `-u "$USER:$PASS"`) is left as it is.
+  out = maskAfterCommand(out, MYSQL, MYSQL_ARGUMENT, (m) => (isVariableArgument(m[0].slice(m[1].length + m[2].length, m[0].length - m[2].length), m[2]) ? m[0] : `${m[1]}${m[2]}${REDACTED}${m[2]}`))
+  out = maskAfterCommand(out, CURL, CURL_ARGUMENT, (m) => (isVariableArgument(m[0].slice(m[1].length), /'/.test(m[1]) ? "'" : undefined) ? m[0] : `${m[1]}${REDACTED}`))
   for (const [pattern, replacement] of POSITIONAL_PATTERNS.slice(3)) out = typeof replacement === 'string' ? out.replace(pattern, replacement) : out.replace(pattern, replacement)
   out = out.replace(CARD_CANDIDATE, (match: string) => {
     if (looksLikeCardNumber(match)) return REDACTED
