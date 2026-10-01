@@ -7,11 +7,11 @@
         "source": "local",
         "path": "./plugins/ctxjev"
       },
-      "description": "Jev-based context scoring (score_relevance, prune_history) as MCP tools — the same server ctxjev-mcp ships on npm.",
+      "description": "Context scoring (score_relevance, prune_history) as MCP tools, the same server ctxjev-mcp ships on npm: offline with scorer \"local\" or \"recency\", or with TypeSafe AI's Jev (the default) when TYPESAFE_API_KEY is set. Its effect on held-out tasks hasn't been shown.",
       "category": "Productivity",
       "policy": {
         "installation": "AVAILABLE",
-        "authentication": "ON_INSTALL"
+        "authentication": "ON_USE"
       }
     }
   ]

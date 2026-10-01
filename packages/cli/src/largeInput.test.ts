@@ -3,6 +3,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { describeGrowth, isLinear, measureGrowth } from '../../../test-support/linearTime.js'
 import { subprocessEnv } from '../../../test-support/subprocessEnv.js'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
@@ -41,22 +42,27 @@ describe('ctxjev analyze on a 5,000,000-character entry', () => {
     ['█', '█'],
     ['/ and a line break', '/\n'],
     ['!! and a combining accent', '!!\u0301'],
-  ])('of %s finishes in under 30 seconds', async (_name, unit) => {
-    const file = join(dir, 'big.json')
-    await writeFile(
-      file,
-      JSON.stringify({
-        goal: 'find the separator line',
-        entries: [
-          { id: 'big', role: 'tool', toolName: 'bash', content: unit.repeat(5_000_000 / unit.length + 1).slice(0, 5_000_000), timestamp: 1 },
-          { id: 'small', role: 'assistant', content: 'done', timestamp: 2 },
-        ],
-      }),
-    )
-    const start = Date.now()
-    const result = await run(['analyze', file])
-    expect(result.exitCode).toBe(0)
-    expect(result.stdout).toContain('(of 2 entries)')
-    expect(Date.now() - start).toBeLessThan(30_000 * Number(process.env.CTXJEV_TIME_LIMIT_SCALE ?? 1))
+  ])('of %s finishes, and 5,000,000 characters take about 10 times as long as 500,000', async (_name, unit) => {
+    // How the time grows from 500,000 to 5,000,000 characters, not a wall-clock limit (see
+    // test-support/linearTime.ts): a slow machine slows both alike. Each size runs once, in its own
+    // process.
+    const analyze = async (n: number) => {
+      const file = join(dir, `big-${n}.json`)
+      await writeFile(
+        file,
+        JSON.stringify({
+          goal: 'find the separator line',
+          entries: [
+            { id: 'big', role: 'tool', toolName: 'bash', content: unit.repeat(n / unit.length + 1).slice(0, n), timestamp: 1 },
+            { id: 'small', role: 'assistant', content: 'done', timestamp: 2 },
+          ],
+        }),
+      )
+      const result = await run(['analyze', file])
+      expect(result.exitCode).toBe(0)
+      expect(result.stdout).toContain('(of 2 entries)')
+    }
+    const growth = await measureGrowth(analyze, 500_000, { repeats: 1 })
+    expect(isLinear(growth), describeGrowth(growth)).toBe(true)
   }, 300_000)
 })

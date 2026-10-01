@@ -25,10 +25,12 @@ The marketplace installs that release, not `main`. Every release is published fr
 ctxjev handles agent transcripts, which routinely contain secrets pasted into chat or echoed by a
 tool. The things most worth reporting:
 
-- **Content leaving the machine unmasked.** Nothing is sent anywhere by default: the CLI and the
-  library score offline unless asked for Jev (`--scorer jev`, `scorer: 'jev'`), and the Claude Code
-  plugin only when `CTXJEV_SCORER=jev` is set, a key alone is not enough. The MCP server's two tools
-  always use Jev, so it needs a key to do anything. When Jev is used, entry excerpts and the goal
+- **Content leaving the machine unmasked.** The CLI and the library score offline unless asked for
+  Jev (`--scorer jev`, `scorer: 'jev'`), and the Claude Code plugin only when `CTXJEV_SCORER=jev` is
+  set, a key alone is not enough. The MCP server's two tools take a `scorer` argument whose default
+  is `"jev"`: with `TYPESAFE_API_KEY` set in the server's environment, a call that names no scorer
+  sends masked excerpts to Jev; `scorer: "local"` or `"recency"` runs offline and sends nothing. When
+  Jev is used, entry excerpts and the goal
   are sent to TypeSafe AI's Jev API after `redactSecrets()` masks recognizable secret formats. A
   common credential format that passes through it, content sent while Jev wasn't asked for, or a
   code path that sends content without going through `buildJevRequest()`, is a vulnerability.

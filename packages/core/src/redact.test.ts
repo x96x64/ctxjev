@@ -2,6 +2,14 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { AUDIT3_FORMATS, AUDIT3_LINES, AUDIT4_HARMLESS, AUDIT5_HARMLESS, AUDIT5_LINES, B62, ENV_SWEEP, ENV_SWEEP_HALVES, FORMATS, HARMLESS, PW, j } from '../test/redactCases.js'
 import { redactSecrets } from './redact.js'
+import { describeGrowth, isLinear, measureGrowth } from '../../../test-support/linearTime.js'
+
+/** `text(1)` and `text(10)` are the same input at a tenth of the size and at full size (see test-support/linearTime.ts). */
+async function expectLinearRedaction(text: (k: number) => string) {
+  const inputs = new Map([1, 10].map((k) => [k, text(k)]))
+  const growth = await measureGrowth((k) => redactSecrets(inputs.get(k)!), 1, { warmUp: () => redactSecrets(inputs.get(1)!) })
+  expect(isLinear(growth), describeGrowth(growth)).toBe(true)
+}
 
 describe('redactSecrets', () => {
   it('masks recognizable API key formats', () => {
@@ -113,82 +121,81 @@ describe('redactSecrets: the third audit\'s lines', () => {
 
 // Every repeating quantifier is bounded or anchored: before, 100,000 characters of `a.a.a.…` took
 // 24 seconds (an unbounded assignment name re-tried at every dot), so a long minified or dotted
-// line could hold up a hook. Generous limits: the point is linear against quadratic, not speed.
-describe('redactSecrets: time on long runs', () => {
-  // Coverage instrumentation slows everything down; scripts/coverage.mjs scales the limit for it.
-  const SCALE = Number(process.env.CTXJEV_TIME_LIMIT_SCALE ?? 1)
-  const N = 200_000
-  const runs: Array<[string, string]> = [
-    ['a.a.a…', 'a.'.repeat(N / 2)],
-    ['a-a-a…', 'a-'.repeat(N / 2)],
-    ['a:a:a…', 'a:'.repeat(N / 2)],
-    ['x:tokenx:…', 'x:tokenx:'.repeat(N / 9)],
-    ['Error: …', 'Error: '.repeat(N / 7)],
-    ['a://b:…', 'a://b:'.repeat(N / 6)],
-    ['mysql …', 'mysql '.repeat(N / 6)],
-    ['"a": "…', '"a": "'.repeat(N / 6)],
-    ['█…', '█'.repeat(N)],
-    ['.netrc password lines…', `machine h\n${'password x\n'.repeat(N / 11)}`],
-    ['Cookie: a=b; …', `Cookie: ${'a=b; '.repeat(N / 5)}`],
-    ['.pgpass lines…', 'h:5432:d:u:p\n'.repeat(N / 13)],
-    [' --token …', ' --token '.repeat(N / 9)],
+// line could hold up a hook. The check is the growth from n to 10n: linear against quadratic, not speed.
+describe('redactSecrets: time grows linearly on long runs', () => {
+  // How the time grows from 20,000 to 200,000 characters (see test-support/linearTime.ts), not a
+  // wall-clock limit, which a slow machine or coverage instrumentation could fail.
+  const runs: Array<[string, (n: number) => string]> = [
+    ['a.a.a…', (n) => 'a.'.repeat(n / 2)],
+    ['a-a-a…', (n) => 'a-'.repeat(n / 2)],
+    ['a:a:a…', (n) => 'a:'.repeat(n / 2)],
+    ['x:tokenx:…', (n) => 'x:tokenx:'.repeat(n / 9)],
+    ['Error: …', (n) => 'Error: '.repeat(n / 7)],
+    ['a://b:…', (n) => 'a://b:'.repeat(n / 6)],
+    ['mysql …', (n) => 'mysql '.repeat(n / 6)],
+    ['"a": "…', (n) => '"a": "'.repeat(n / 6)],
+    ['█…', (n) => '█'.repeat(n)],
+    ['.netrc password lines…', (n) => `machine h\n${'password x\n'.repeat(n / 11)}`],
+    ['Cookie: a=b; …', (n) => `Cookie: ${'a=b; '.repeat(n / 5)}`],
+    ['.pgpass lines…', (n) => 'h:5432:d:u:p\n'.repeat(n / 13)],
+    [' --token …', (n) => ' --token '.repeat(n / 9)],
     // The rule for a value that ends its line (the fourth audit's P0-1).
-    ['a=a=a…', 'a='.repeat(N / 2)],
-    ['a=a=a… x', `${'a='.repeat(N / 2)} x`],
-    ['password=)))…', `password=${')'.repeat(N)}`],
-    ['password=,,,…', `password=${','.repeat(N)}`],
-    ['x=y, spaces, z', `x=y${' '.repeat(N)}z`],
-    ['Environment=Environment=…', `${'Environment='.repeat(N / 12)}DB_PASSWORD=x(y`],
-    ['a: a: a: …', 'a: '.repeat(N / 3)],
-    ['token=${${${…', `token=${'${'.repeat(N / 2)}`],
-    ['token: 1.0 1.0 … x', `token: ${'1.0 '.repeat(N / 4)}x`],
-    ['.env lines…', 'DB_PASSWORD=Qx7(pL9\n'.repeat(N / 20)],
+    ['a=a=a…', (n) => 'a='.repeat(n / 2)],
+    ['a=a=a… x', (n) => `${'a='.repeat(n / 2)} x`],
+    ['password=)))…', (n) => `password=${')'.repeat(n)}`],
+    ['password=,,,…', (n) => `password=${','.repeat(n)}`],
+    ['x=y, spaces, z', (n) => `x=y${' '.repeat(n)}z`],
+    ['Environment=Environment=…', (n) => `${'Environment='.repeat(n / 12)}DB_PASSWORD=x(y`],
+    ['a: a: a: …', (n) => 'a: '.repeat(n / 3)],
+    ['token=${${${…', (n) => `token=${'${'.repeat(n / 2)}`],
+    ['token: 1.0 1.0 … x', (n) => `token: ${'1.0 '.repeat(n / 4)}x`],
+    ['.env lines…', (n) => 'DB_PASSWORD=Qx7(pL9\n'.repeat(n / 20)],
     // The review of the change: each ` #` read the rest of the line again.
-    ['password=b # …', 'password=b # '.repeat(N / 13)],
-    ['a=b # …', 'a=b # '.repeat(N / 6)],
-    ['a: b\t#\t…', 'a: b\t#\t'.repeat(N / 7)],
+    ['password=b # …', (n) => 'password=b # '.repeat(n / 13)],
+    ['a=b # …', (n) => 'a=b # '.repeat(n / 6)],
+    ['a: b\t#\t…', (n) => 'a: b\t#\t'.repeat(n / 7)],
     // The fifth audit's rules: a URL password up to its last `@`, a passphrase, a Japanese label's value.
-    ['a://b:c#…', 'a://b:c#'.repeat(N / 8)],
-    ['a://b:#@c/…', 'a://b:#@c/'.repeat(N / 10)],
-    ['a://b:#@a@a…', `a://b:#${'@a'.repeat(N / 2)}`],
-    ['a://b:#@a.a.a…', `a://b:#@${'a.'.repeat(N / 2)}`],
-    ['"a://b:#…', '"a://b:#'.repeat(N / 8)],
-    ['password=a b lines…', 'password=a b\n'.repeat(N / 13)],
-    ['password=a a a…', `password=${'a '.repeat(N / 2)}`],
-    ['password: a b # # …', `password: a b${' #'.repeat(N / 2)}`],
-    ['export export …', `${'export '.repeat(N / 7)}PASSWORD=a b`],
-    ['パスワード: パスワード: …', 'パスワード: '.repeat(N / 7)],
-    ['パスワード:a1b2…', 'パスワード:a1b2'.repeat(N / 10)],
-    ['トークン=あああ…', `トークン=${'あ'.repeat(N)}`],
-    [' --password "…', ' --password "'.repeat(N / 13)],
-    [' --password "a b…', ' --password "a b'.repeat(N / 16)],
+    ['a://b:c#…', (n) => 'a://b:c#'.repeat(n / 8)],
+    ['a://b:#@c/…', (n) => 'a://b:#@c/'.repeat(n / 10)],
+    ['a://b:#@a@a…', (n) => `a://b:#${'@a'.repeat(n / 2)}`],
+    ['a://b:#@a.a.a…', (n) => `a://b:#@${'a.'.repeat(n / 2)}`],
+    ['"a://b:#…', (n) => '"a://b:#'.repeat(n / 8)],
+    ['password=a b lines…', (n) => 'password=a b\n'.repeat(n / 13)],
+    ['password=a a a…', (n) => `password=${'a '.repeat(n / 2)}`],
+    ['password: a b # # …', (n) => `password: a b${' #'.repeat(n / 2)}`],
+    ['export export …', (n) => `${'export '.repeat(n / 7)}PASSWORD=a b`],
+    ['パスワード: パスワード: …', (n) => 'パスワード: '.repeat(n / 7)],
+    ['パスワード:a1b2…', (n) => 'パスワード:a1b2'.repeat(n / 10)],
+    ['トークン=あああ…', (n) => `トークン=${'あ'.repeat(n)}`],
+    [' --password "…', (n) => ' --password "'.repeat(n / 13)],
+    [' --password "a b…', (n) => ' --password "a b'.repeat(n / 16)],
     // Round 5's shapes from its blind corpus: typed declarations, redis, labels in other languages.
-    ['x: y x: y …', 'x: y '.repeat(N / 5)],
-    ['password: str = "…', 'password: str = "'.repeat(N / 17)],
-    ['"AUTH" "…', '"AUTH" "'.repeat(N / 8)],
-    ['> AUTH …', '> AUTH '.repeat(N / 7)],
-    ['requirepass lines…', 'requirepass a\n'.repeat(N / 14)],
-    ['密码：密码：…', '密码：'.repeat(N / 3)],
-    ['mot de passe : …', 'mot de passe : '.repeat(N / 15)],
-    ['ssh-keygen -P …', 'ssh-keygen -P '.repeat(N / 14)],
-    ['7z -p7z -p…', '7z -p'.repeat(N / 5)],
+    ['x: y x: y …', (n) => 'x: y '.repeat(n / 5)],
+    ['password: str = "…', (n) => 'password: str = "'.repeat(n / 17)],
+    ['"AUTH" "…', (n) => '"AUTH" "'.repeat(n / 8)],
+    ['> AUTH …', (n) => '> AUTH '.repeat(n / 7)],
+    ['requirepass lines…', (n) => 'requirepass a\n'.repeat(n / 14)],
+    ['密码：密码：…', (n) => '密码：'.repeat(n / 3)],
+    ['mot de passe : …', (n) => 'mot de passe : '.repeat(n / 15)],
+    ['ssh-keygen -P …', (n) => 'ssh-keygen -P '.repeat(n / 14)],
+    ['7z -p7z -p…', (n) => '7z -p'.repeat(n / 5)],
     // The review of Round 5's change: a user name with `@`, a command after a run of spaces.
-    ['a://b@c:…', 'a://b@c:'.repeat(N / 8)],
-    ['a://@:@a…', `a://@:${'@a'.repeat(N / 2)}`],
-    ['spaces, then zip -P', `${' '.repeat(N)}zip -P x`],
-    ['; ; ; zip…', '; zip '.repeat(N / 6)],
-    ['h:1> AUTH …', 'h:1> AUTH '.repeat(N / 10)],
+    ['a://b@c:…', (n) => 'a://b@c:'.repeat(n / 8)],
+    ['a://@:@a…', (n) => `a://@:${'@a'.repeat(n / 2)}`],
+    ['spaces, then zip -P', (n) => `${' '.repeat(n)}zip -P x`],
+    ['; ; ; zip…', (n) => '; zip '.repeat(n / 6)],
+    ['h:1> AUTH …', (n) => 'h:1> AUTH '.repeat(n / 10)],
     // The re-review: a labelled value is read to its end, however long.
-    ['パスワード: a(a(…', `パスワード: ${'a('.repeat(N / 2)}`],
-    ['密码：xxx…', `密码：${'x1'.repeat(N / 2)}`],
-    ['トークン: a1 トークン: a1 …', 'トークン: a1 '.repeat(N / 10)],
-    ['zip -9 -9 …', `zip ${'-9 '.repeat(N / 3)}-P x`],
+    ['パスワード: a(a(…', (n) => `パスワード: ${'a('.repeat(n / 2)}`],
+    ['密码：xxx…', (n) => `密码：${'x1'.repeat(n / 2)}`],
+    ['トークン: a1 トークン: a1 …', (n) => 'トークン: a1 '.repeat(n / 10)],
+    ['zip -9 -9 …', (n) => `zip ${'-9 '.repeat(n / 3)}-P x`],
   ]
-  it.each(runs)('%s (200,000 characters) in under 2 seconds', (_name, text) => {
-    const start = performance.now()
-    redactSecrets(text)
-    expect(performance.now() - start).toBeLessThan(2000 * SCALE)
-  })
+  it.each(runs)('%s: 20,000 characters against 200,000', async (_name, text) => {
+    const inputs = new Map([20_000, 200_000].map((n) => [n, text(n)]))
+    const growth = await measureGrowth((n) => redactSecrets(inputs.get(n)!), 20_000, { warmUp: () => redactSecrets(inputs.get(20_000)!) })
+    expect(isLinear(growth), describeGrowth(growth)).toBe(true)
+  }, 60_000)
 })
 
 // General shapes added after the blind corpus's dev half showed them missing (the examples here are
@@ -471,20 +478,15 @@ describe('redactSecrets: the third review of the masking change', () => {
 
   // A bash header with CRLF line ends and a block of comments: NETRC_HINT's comment-line group was
   // ambiguous about the trailing whitespace, and 30 lines took 30 seconds.
-  it('takes linear time on comment blocks with trailing whitespace', () => {
-    const scale = Number(process.env.CTXJEV_TIME_LIMIT_SCALE ?? 1)
-    const texts = [
-      '#!/bin/bash\r\n#   --mode MODE   release or debug; release is the default\r\n' + '#   more help text here\r\n'.repeat(2000),
-      'use the default\r\n' + '# comment\r\n'.repeat(5000),
-      'machine example.com\n' + '# comment \n'.repeat(5000) + 'login u\npassword Hk3tR8pLq2Zx',
+  it('takes linear time on comment blocks with trailing whitespace', async () => {
+    const texts = (k: number) => [
+      '#!/bin/bash\r\n#   --mode MODE   release or debug; release is the default\r\n' + '#   more help text here\r\n'.repeat(200 * k),
+      'use the default\r\n' + '# comment\r\n'.repeat(500 * k),
+      'machine example.com\n' + '# comment \n'.repeat(500 * k) + 'login u\npassword Hk3tR8pLq2Zx',
     ]
-    for (const text of texts) {
-      const start = performance.now()
-      redactSecrets(text)
-      expect(performance.now() - start).toBeLessThan(1000 * scale)
-    }
-    expect(redactSecrets(texts[2])).not.toContain('Hk3tR8pLq2Zx')
-  })
+    for (let i = 0; i < texts(1).length; i++) await expectLinearRedaction((k) => texts(k)[i])
+    expect(redactSecrets(texts(10)[2])).not.toContain('Hk3tR8pLq2Zx')
+  }, 120_000)
 })
 
 describe('redactSecrets: the third review, found by its fuzzers', () => {
@@ -545,15 +547,9 @@ describe('redactSecrets: the fourth review of the masking change', () => {
     expect(redactSecrets(masked)).toBe(masked)
   })
 
-  it('takes linear time on joined Authorization labels', () => {
-    const scale = Number(process.env.CTXJEV_TIME_LIMIT_SCALE ?? 1)
-    for (const unit of ['Authorization=', 'Proxy-Authorization=']) {
-      const text = unit.repeat(Math.ceil(300_000 / unit.length)) + ': '
-      const start = performance.now()
-      redactSecrets(text)
-      expect(performance.now() - start).toBeLessThan(2000 * scale)
-    }
-  })
+  it('takes linear time on joined Authorization labels', async () => {
+    for (const unit of ['Authorization=', 'Proxy-Authorization=']) await expectLinearRedaction((k) => unit.repeat(Math.ceil((30_000 * k) / unit.length)) + ': ')
+  }, 60_000)
 })
 
 describe('redactSecrets: a cookie token followed by prose', () => {
@@ -568,16 +564,11 @@ describe('redactSecrets: a cookie token followed by prose', () => {
 })
 
 describe('redactSecrets: 0.6.1\'s rules, run first (redactLegacy.ts)', () => {
-  const scale = Number(process.env.CTXJEV_TIME_LIMIT_SCALE ?? 1)
   it.each([
-    ['curl -u followed by a run of "="', 'curl -u' + '='.repeat(300_000)],
-    ['mysql mentioned over and over with no -p', 'mysql '.repeat(50_000)],
-    ['curl mentioned over and over on one line', 'curl -H x '.repeat(30_000) + '-u admin:S3cretPw9xQ'],
-  ])('takes linear time: %s', (_name, text) => {
-    const start = performance.now()
-    redactSecrets(text)
-    expect(performance.now() - start).toBeLessThan(2000 * scale)
-  })
+    ['curl -u followed by a run of "="', (k: number) => 'curl -u' + '='.repeat(30_000 * k)],
+    ['mysql mentioned over and over with no -p', (k: number) => 'mysql '.repeat(5_000 * k)],
+    ['curl mentioned over and over on one line', (k: number) => 'curl -H x '.repeat(3_000 * k) + '-u admin:S3cretPw9xQ'],
+  ])('takes linear time: %s', async (_name, text) => expectLinearRedaction(text), 60_000)
 
   it('masks what 0.6.1 masked, 0.6.1\'s own cases included', () => {
     expect(redactSecrets('mysql -u root -pS3cretPw9xQ db')).not.toContain('S3cretPw9xQ')
@@ -630,7 +621,6 @@ describe('redactSecrets: the fifth review of the masking change', () => {
 
 // The sixth independent review.
 describe('redactSecrets: the sixth review of the masking change', () => {
-  const scale = Number(process.env.CTXJEV_TIME_LIMIT_SCALE ?? 1)
   it.each([
     ['a Japanese-label value that only ends in a header name', 'パスワード:hunter22;Cookie:', 'hunter22'],
     ['the same after an sshpass password', 'sshpass -p pw,パスワード: S3cretPw;Set-Cookie:', 'S3cretPw'],
@@ -653,15 +643,11 @@ describe('redactSecrets: the sixth review of the masking change', () => {
   // 0.6.1's JWT rule restarted at every "eyJ" after "-" or "_" and read to the end of the run:
   // 200,000 characters of "-eyJ" took 47 seconds. The URL rule's scheme was unbounded in 0.6.1 too.
   it.each([
-    ['-eyJ repeated', '-eyJ'.repeat(75_000)],
-    ['x-eyJ0-x-eyJ1-… repeated', Array.from({ length: 30_000 }, (_, i) => `x-eyJ${i}-`).join('')],
-    ['_eyJ repeated', '_eyJ'.repeat(75_000)],
-    ['a. repeated before ://', 'a.'.repeat(150_000) + '://'],
-  ])('takes linear time: %s', (_name, text) => {
-    const start = performance.now()
-    redactSecrets(text)
-    expect(performance.now() - start).toBeLessThan(2000 * scale)
-  })
+    ['-eyJ repeated', (k: number) => '-eyJ'.repeat(7_500 * k)],
+    ['x-eyJ0-x-eyJ1-… repeated', (k: number) => Array.from({ length: 3_000 * k }, (_, i) => `x-eyJ${i}-`).join('')],
+    ['_eyJ repeated', (k: number) => '_eyJ'.repeat(7_500 * k)],
+    ['a. repeated before ://', (k: number) => 'a.'.repeat(15_000 * k) + '://'],
+  ])('takes linear time: %s', async (_name, text) => expectLinearRedaction(text), 60_000)
 })
 
 // Formats the CHANGELOG lists that had no test of their own (the sixth review). Built at run time,
@@ -700,19 +686,14 @@ describe('redactSecrets: formats named in the CHANGELOG', () => {
 
 // The seventh independent review.
 describe('redactSecrets: the seventh review of the masking change', () => {
-  const scale = Number(process.env.CTXJEV_TIME_LIMIT_SCALE ?? 1)
   // `^` with the m flag also matches after `\r`, U+2028, and U+2029, and the .netrc comment-line
   // pattern read on to the next `\n` from each: 400,000 characters took 34 seconds.
   it.each([
-    ['comment lines ending in \\r after "default"', 'default ' + '#\r'.repeat(150_000)],
-    ['comment lines ending in U+2028 after "machine"', 'machine ' + '# '.repeat(150_000)],
-    ['comment lines ending in U+2029 after "default"', 'default ' + '# '.repeat(150_000)],
-    ['a \\r-only script with "default" in it', ('# default settings\r' + 'x=1\r').repeat(15_000)],
-  ])('takes linear time: %s', (_name, text) => {
-    const start = performance.now()
-    redactSecrets(text)
-    expect(performance.now() - start).toBeLessThan(2000 * scale)
-  })
+    ['comment lines ending in \\r after "default"', (k: number) => 'default ' + '#\r'.repeat(15_000 * k)],
+    ['comment lines ending in U+2028 after "machine"', (k: number) => 'machine ' + '# '.repeat(15_000 * k)],
+    ['comment lines ending in U+2029 after "default"', (k: number) => 'default ' + '# '.repeat(15_000 * k)],
+    ['a \\r-only script with "default" in it', (k: number) => ('# default settings\r' + 'x=1\r').repeat(1_500 * k)],
+  ])('takes linear time: %s', async (_name, text) => expectLinearRedaction(text), 60_000)
 
   it('still reads a .netrc entry across a comment line', () => {
     expect(redactSecrets('machine h\n# prod\nlogin u\npassword Hk3tR8pLq2Zx')).not.toContain('Hk3tR8pLq2Zx')

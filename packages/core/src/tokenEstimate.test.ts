@@ -2,56 +2,57 @@ import { encode } from 'gpt-tokenizer'
 import { describe, expect, it } from 'vitest'
 import { seededRandom } from './random.js'
 import { estimateTokens } from './tokenEstimate.js'
+import { describeGrowth, isLinear, measureGrowth } from '../../../test-support/linearTime.js'
 
 // The third audit (docs/audits/2026-09-25-audit-3-ja.md, 4.1-3 and check 17): encode() is
 // quadratic in the length of one pre-token, and a run of one character is one pre-token however
 // long. 100,000 `x` took 8.7 s, 100,000 `█` 82.5 s, and `analyze` on a 5,000,000-character entry
 // didn't finish in 120 s.
-// Coverage instrumentation slows everything down; scripts/coverage.mjs scales the limits for it.
-const SCALE = Number(process.env.CTXJEV_TIME_LIMIT_SCALE ?? 1)
-
-describe('estimateTokens: time on long runs', () => {
+// Each check is how the time grows from n to 10n (see test-support/linearTime.ts), not a wall-clock
+// limit: a 5-second one turned main's CI red under coverage (the fifth audit). Every call counts a
+// run of its own length (n + call units), or varied text from its own offset: gpt-tokenizer caches
+// what it encodes by pre-token, so a repeat of the same run would hide a quadratic first one (a
+// number in front of the same run did: the quadratic encode passed). The piece cache works as in use.
+describe('estimateTokens: time grows linearly on long runs', () => {
   const kana = 'あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん請求書日付検証'
-  const random = seededRandom(7)
-  const variedKana = Array.from({ length: 100_000 }, () => kana[Math.floor(random() * kana.length)]).join('')
+  const warmUp = () => estimateTokens('warm up the tokenizer: 請求書 ═══ 😀 //\n')
   const runs: Array<[string, string]> = [
-    ['█ × 100,000', '█'.repeat(100_000)],
-    ['x × 100,000', 'x'.repeat(100_000)],
-    ['x × 200,000', 'x'.repeat(200_000)],
-    ['= × 100,000', '='.repeat(100_000)],
-    ['space × 100,000', ' '.repeat(100_000)],
-    ['ab × 50,000', 'ab'.repeat(50_000)],
-    ['─ × 100,000', '─'.repeat(100_000)],
-    ['😀 × 50,000', '😀'.repeat(50_000)],
+    ['█', '█'],
+    ['x', 'x'],
+    ['=', '='],
+    ['space', ' '],
+    ['ab', 'ab'],
+    ['─', '─'],
+    ['😀', '😀'],
     // One pre-token of mixed kinds (the review of the first fix): 200,000 characters of `/\n` took
     // 20.7 seconds, and `!!` plus a combining accent 1.8 seconds at 48,000.
-    ['/\\n × 100,000', '/\n'.repeat(100_000)],
-    ['//\\n × 100,000 (empty comment lines)', '//\n'.repeat(100_000)],
-    ['!! and a combining accent × 66,667', '!!\u0301'.repeat(66_667)],
-    ['e and a combining accent × 100,000', 'e\u0301'.repeat(100_000)],
+    ['/\\n', '/\n'],
+    ['//\\n (empty comment lines)', '//\n'],
+    ['!! and a combining accent', '!!\u0301'],
+    ['e and a combining accent', 'e\u0301'],
   ]
-  it.each(runs)('%s in under 1 second', (_name, text) => {
-    const start = performance.now()
-    const tokens = estimateTokens(text)
-    expect(performance.now() - start).toBeLessThan(1000 * SCALE)
-    expect(tokens).toBeGreaterThan(0)
-  })
+  it.each(runs)('%s × 20,000 against × 200,000', async (_name, unit) => {
+    const growth = await measureGrowth((n, call) => expect(estimateTokens(unit.repeat(n + call))).toBeGreaterThan(0), 20_000, { warmUp })
+    expect(isLinear(growth), describeGrowth(growth)).toBe(true)
+  }, 60_000)
 
-  // Every 128-character piece of varied text is different, so none is cached: about 0.3 s here,
-  // against 67 s before. The same 1-second limit as the rest (scaled only under coverage).
-  it('varied kana, 100,000 with no punctuation, in under 1 second', () => {
-    const start = performance.now()
-    expect(estimateTokens(variedKana)).toBeGreaterThan(0)
-    expect(performance.now() - start).toBeLessThan(1000 * SCALE)
-  })
+  // Every 128-character piece of varied text is different, so none is cached: 100,000 took about
+  // 0.3 s, against 67 s before. Each size is its own random text.
+  it('varied kana with no punctuation, 20,000 against 200,000', async () => {
+    const random = seededRandom(7)
+    const variedKana = (n: number) => Array.from({ length: n }, () => kana[Math.floor(random() * kana.length)]).join('')
+    const texts = new Map([20_000, 200_000].map((n) => [n, variedKana(n)]))
+    const growth = await measureGrowth((n, call) => expect(estimateTokens(texts.get(n)!.slice(call % 101))).toBeGreaterThan(0), 20_000, { warmUp })
+    expect(isLinear(growth), describeGrowth(growth)).toBe(true)
+  }, 60_000)
 
   // 5,000,000 `█` also overflowed the regular expression engine's stack in the first version of the
-  // fix, which matched a whole run at once.
-  it.each(['x', '█', '😀', '/\n', '!!\u0301'])('5,000,000 characters of %s in under 5 seconds', (unit) => {
-    const start = performance.now()
-    expect(estimateTokens(unit.repeat(5_000_000 / unit.length + 1).slice(0, 5_000_000))).toBeGreaterThan(0)
-    expect(performance.now() - start).toBeLessThan(5000 * SCALE)
-  }, 60_000)
+  // fix, which matched a whole run at once: that size has to finish, however long it takes.
+  it.each(['x', '█', '😀', '/\n', '!!\u0301'])('5,000,000 characters of %s: 500,000 against 5,000,000', async (unit) => {
+    const text = (n: number) => unit.repeat(n / unit.length + 1).slice(0, n)
+    const growth = await measureGrowth((n, call) => expect(estimateTokens(text(n + call))).toBeGreaterThan(0), 500_000, { warmUp })
+    expect(isLinear(growth), describeGrowth(growth)).toBe(true)
+  }, 120_000)
 })
 
 describe('estimateTokens: counts', () => {

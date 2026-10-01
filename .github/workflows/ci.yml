@@ -78,6 +78,13 @@ jobs:
         run: |
           node eval/harness-selftest.mjs
           node eval/check-sessions.mjs
+      # local (the plugin's default) and recency (keep the newest, what the CLI's and the library's
+      # default amounts to) mustn't keep fewer probes on the dev split than
+      # eval/results/retention-dev.json saved, on the same sessions. Offline and deterministic, so it
+      # runs on every change; the release gate only ever tried Jev.
+      - name: Offline retention gate (shipped defaults, dev split)
+        working-directory: packages/core
+        run: node eval/run.mjs --gate-offline
       # The eval agent's commands run in a sandbox (packages/core/eval/sandbox.mjs), and --selftest
       # fails unless it keeps the agent inside its copy of the repo and off the network. Ubuntu 24.04
       # restricts the user namespaces the `unshare` backend needs; lift that for this job only.

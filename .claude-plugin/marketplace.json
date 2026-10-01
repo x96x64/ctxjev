@@ -4,7 +4,7 @@
     "name": "x96x64",
     "url": "https://github.com/x96x64"
   },
-  "description": "ctxjev — keeps what matters through Claude Code's own compaction. Scores offline by default and sends nothing; no configuration required to start.",
+  "description": "ctxjev: hands the highest-scoring context back after Claude Code compacts a session. Scores offline by default and sends nothing; no configuration required to start. Its effect on held-out tasks hasn't been shown.",
   "version": "0.7.1",
   "plugins": [
     {

@@ -1,0 +1,24 @@
+# The fifth audit's kind of edits (a hand-typed eval number in CHANGELOG.md, SECURITY.md, and the plugin README's prose), made in a scratch copy of the docs.
+$ node eval/check-docs-old.mjs   # check-docs.mjs as on main (0c1764f)
+check-docs: every eval number in README.md, PREREGISTRATION.md, ROADMAP.md, README.md, round-2-scoring-and-evaluation.md, 2026-09-25-round-1-changes-ja.md, README.md, 2026-09-25-audit-2-triage-ja.md, 2026-09-30-round-4-changes-ja.md matches eval/results/.
+exit 0
+
+$ node eval/check-docs.mjs       # this branch
+packages/claude-plugin/README.md: an eval claim with a number that isn't generated (or marked unverified): "In the retention eval the digest kept 87% of the probes."
+CHANGELOG.md: an eval claim with a number that isn't generated (or marked unverified): "- Secret masking, measured blind: 93.4% of the holdout's lines with secret"
+SECURITY.md: an eval claim with a number that isn't generated (or marked unverified): "- Masking catches 95.7% of secrets on the blind holdout co"
+check-docs: the docs disagree with eval/results/. Run `node eval/check-docs.mjs --write` if the saved results are right.
+exit 1
+
+$ node eval/check-docs.mjs --selftest   # on the unedited docs
+caught: the status paragraph says there was a difference (README.md)
+caught: the status paragraph gets a hand-typed task count (README.md)
+caught: ROADMAP's "+0 points" becomes "+5 points" (ROADMAP.md)
+caught: ROADMAP's result is typed in by hand (ROADMAP.md)
+caught: "Does It Work?"'s task count becomes "Seven tasks" (README.md)
+caught: a hand-typed blind-masking rate in the newest release (CHANGELOG.md)
+caught: a hand-typed task-success difference in the newest release (CHANGELOG.md)
+caught: the plugin README's "six unseen tasks" becomes "seven" (packages/claude-plugin/README.md)
+caught: a hand-typed eval claim outside the results paragraph (packages/claude-plugin/README.md)
+caught: a hand-typed blind-masking rate (SECURITY.md)
+exit 0
