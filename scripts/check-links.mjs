@@ -30,6 +30,13 @@ export function slug(heading) {
     .replace(/\s/g, '-')
 }
 
+let trackedPaths
+/** Whether git tracks `path`, a file or a directory holding tracked files. */
+function tracked(path) {
+  trackedPaths ??= execFileSync('git', ['ls-files', '-z'], { cwd: ROOT, encoding: 'utf8' }).split('\0').filter(Boolean)
+  return trackedPaths.some((f) => f === path || f.startsWith(`${path}/`))
+}
+
 function anchorsOf(text) {
   const seen = new Map()
   const anchors = new Set()
@@ -78,7 +85,8 @@ export function linkProblems(text, at) {
       if (anchor && !anchorsOf(text).has(decodeURIComponent(anchor))) problems.push(`${at}: ${target} — no heading "#${anchor}" here`)
       continue
     }
-    if (path.startsWith('..') || !existsSync(join(ROOT, path))) {
+    // Tracked by git, not just on disk: a built or ignored file (dist/, a local .env) 404s on GitHub.
+    if (path.startsWith('..') || !existsSync(join(ROOT, path)) || !tracked(path)) {
       problems.push(`${at}: ${target} — ${path} doesn't exist`)
       continue
     }
