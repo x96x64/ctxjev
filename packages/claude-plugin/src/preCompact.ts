@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { readFile } from 'node:fs/promises'
-import { parseClaudeCodeTranscript, resolveClaudeCodeGoal, type Entry } from 'ctxjev-core'
+import { missingTypesafeApiKey, parseClaudeCodeTranscript, resolveClaudeCodeGoal, type Entry } from 'ctxjev-core'
 import { writeLastRun, type LastRun } from './lastRun.js'
 import { clearPreservedContext, writePreservedContext } from './preserve.js'
 import { removeLegacyState } from './stateDir.js'
@@ -72,8 +72,9 @@ async function scoreForPreservation(entries: Entry[], goal: string, limit: numbe
 
   if (scorerFromEnv(process.env.CTXJEV_SCORER) !== 'jev') return offline()
 
-  if (!process.env.TYPESAFE_API_KEY) {
-    return offline('CTXJEV_SCORER=jev, but TYPESAFE_API_KEY is not set in the environment Claude Code runs in — scored offline by keyword overlap instead')
+  const missingKey = missingTypesafeApiKey()
+  if (missingKey !== undefined) {
+    return offline(`CTXJEV_SCORER=jev, but ${missingKey} in the environment Claude Code runs in — scored offline by keyword overlap instead`)
   }
 
   const timeoutMs = jevTimeoutFromEnv(process.env.CTXJEV_JEV_TIMEOUT_MS)

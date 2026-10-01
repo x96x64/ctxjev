@@ -31,6 +31,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 import Anthropic from '@anthropic-ai/sdk'
+import { missingTypesafeApiKey } from '../dist/index.js'
 import { ANSWER_MODEL, SpendLimitError, bootstrap, createLimiter, createSpend, pruneTo, rankings, rateDifference, successRate } from './lib.mjs'
 import { createAgentRunner, freshRepo, grade, tasksDir, workspaceTools } from './agent.mjs'
 import { requireSandbox } from './sandbox.mjs'
@@ -173,7 +174,8 @@ if (!(maxUsd > 0)) throw new Error('--max-usd is required: the most this run may
 const maxTurns = Number(args['max-turns'])
 const conditions = args.conditions ? args.conditions.split(',') : ALL_CONDITIONS
 for (const c of conditions) parseCondition(c)
-for (const key of ['ANTHROPIC_API_KEY', 'TYPESAFE_API_KEY']) if (!process.env[key]) throw new Error(`${key} is not set`)
+if (!process.env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY is not set')
+if (missingTypesafeApiKey() !== undefined) throw new Error(missingTypesafeApiKey())
 
 const client = new Anthropic()
 const spend = createSpend(maxUsd)

@@ -1,41 +1,42 @@
-<div align="center">
-
 # ctxjev-mcp
 
-**Context scoring (Jev, or offline) as MCP tools for Claude Code, Codex, and any other MCP host.**
+**Context scoring as MCP tools for Claude Code, Codex, and any other MCP host: with Jev by default,
+or offline.**
 
 [![npm](https://img.shields.io/npm/v/ctxjev-mcp.svg)](https://www.npmjs.com/package/ctxjev-mcp)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Node](https://img.shields.io/badge/node-%3E%3D20-339933?logo=node.js&logoColor=white)](package.json)
+[![CI](https://github.com/x96x64/ctxjev/actions/workflows/ci.yml/badge.svg)](https://github.com/x96x64/ctxjev/actions/workflows/ci.yml)
+[![License](https://img.shields.io/npm/l/ctxjev-mcp.svg)](LICENSE)
+[![Node](https://img.shields.io/node/v/ctxjev-mcp.svg)](https://nodejs.org)
 
-[Setup](#setup) · [Tools](#tools) · [Example Response](#example-response) · [Related Packages](#related-packages)
-
-</div>
-
----
-
-`ctxjev-mcp` speaks plain stdio MCP: the same binary works with every host below, and only the
-config shape differs.
+`ctxjev-mcp` is a stdio MCP server with two tools, `score_relevance` and `prune_history`. The same
+command works with every host below; only the config shape differs.
 
 > **Before you expect it to save tokens:** an MCP tool returns data to whoever called it; it can't
 > remove anything from the host's own context. And to score its history, the agent has to send
 > that history as tool arguments, which the host model pays for in its own output tokens. It's
 > useful when something acts on the scores (an agent framework that manages its own context), not
-> as a drop-in token saver for Claude Code, Codex, or Copilot. For Claude Code, the
-> [ctxjev plugin](https://github.com/x96x64/ctxjev#the-claude-code-plugin) is the integration that
-> actually helps.
+> as a drop-in token saver. For Claude Code, the
+> [ctxjev plugin](https://github.com/x96x64/ctxjev/tree/main/packages/claude-plugin) is the
+> integration that works alongside compaction.
+
+## What it sends
+
+Both tools score with Jev unless a call passes `scorer: "local"` (keyword overlap with the goal)
+or `scorer: "recency"` (newest first, the same as plain truncation). With Jev, the goal and an
+excerpt of each entry are sent to TypeSafe AI's Jev API, after common secret formats are masked to
+`[REDACTED]` (best-effort, not exhaustive). `local` and `recency` run offline and send nothing.
+
+Jev needs a key from [console.typesafe.ai/settings/keys](https://console.typesafe.ai/settings/keys)
+in the server's environment. Without one the server still starts and lists its tools, `local` and
+`recency` work, and a call that would use Jev returns an error saying the key is missing, having
+sent nothing. A value that is only an unexpanded placeholder, such as `${TYPESAFE_API_KEY}`, counts
+as no key.
 
 ## Setup
 
-Every example below pins the version (`ctxjev-mcp@0.7.2`, the latest on npm), so your host runs the
-release you chose rather than whatever npm has at the time; change the pin to upgrade.
-
-Both tools score with Jev by default (`scorer: "jev"`), which needs a key from
-[console.typesafe.ai/settings/keys](https://console.typesafe.ai/settings/keys) (no waitlist). Without
-one the server still starts and lists its two tools; a call with `scorer: "local"` (keyword overlap
-with the goal) or `scorer: "recency"` (newest first, the same as plain truncation) works offline and
-sends nothing, and a call that uses Jev returns an error saying `TYPESAFE_API_KEY` isn't set. For
-offline use only, leave `--env TYPESAFE_API_KEY=...` (or the `env` block) out of the examples below.
+Every example pins the version (`ctxjev-mcp@0.7.2`), so your host runs the release you chose
+rather than whatever npm has at the time; change the pin to upgrade. For offline use only, leave
+out `--env TYPESAFE_API_KEY=...` (or the `env` block).
 
 **Claude Code:**
 
@@ -43,30 +44,22 @@ offline use only, leave `--env TYPESAFE_API_KEY=...` (or the `env` block) out of
 claude mcp add ctxjev --env TYPESAFE_API_KEY=... -- npx ctxjev-mcp@0.7.2
 ```
 
-The ctxjev repo also carries a project-level `.mcp.json`, which runs the server from
-`packages/mcp-server/dist/` and so needs `pnpm install && pnpm build` in the clone first. That scope
-also needs an approval step
-that didn't surface in the UI when tested (Claude Code v2.1.278): `claude mcp list` silently omits
-the server. `claude mcp add` at local scope, as above, works immediately. If both exist, `claude
-mcp list` warns that the server is defined in two scopes; that concerns OAuth token storage, which
-a local stdio server doesn't use, so it's safe to ignore (or `claude mcp remove ctxjev -s project`).
-
-**Codex CLI** (verified against `codex-cli` v0.155.1):
+**Codex:**
 
 ```bash
 codex mcp add ctxjev --env TYPESAFE_API_KEY=... -- npx ctxjev-mcp@0.7.2
 ```
 
-Or through the [Agent Plugins](https://agent-plugins.org) bundle in the ctxjev repo
-(`.agents/plugins/marketplace.json`), which registers the same `npx ctxjev-mcp@0.7.2` command:
+Or install the plugin bundle in the ctxjev repository, which registers the same command and tells
+Codex to pass `TYPESAFE_API_KEY` through from the environment it runs in (`env_vars`):
 
 ```bash
 codex plugin marketplace add x96x64/ctxjev
 codex plugin add ctxjev@ctxjev-plugins
 ```
 
-**GitHub Copilot** (VS Code, agent mode) uses `.vscode/mcp.json` (note the top-level key is
-`servers`, not Claude Code's `mcpServers`):
+**GitHub Copilot** (VS Code, agent mode) uses `.vscode/mcp.json`, whose top-level key is `servers`,
+not `mcpServers`:
 
 ```json
 {
@@ -85,10 +78,9 @@ codex plugin add ctxjev@ctxjev-plugins
 
 - **`score_relevance`** takes `{ goal, entries, scorer?, recencyWeight? }` and returns a
   relevance/recency/combined score per entry plus Jev token usage, with no decision made.
-  `scorer` is `"jev"` (the default, as before 0.7.1; needs `TYPESAFE_API_KEY`), `"local"`, or
+  `scorer` is `"jev"` (the default; needs `TYPESAFE_API_KEY`), `"local"`, or
   `"recency"`; the last two run offline and report zero usage. Under `"local"`, relevance is the
-  keyword overlap ranked within the batch, the same scale `prune_history`'s thresholds use (0.7.1
-  returned the raw overlap here); when every entry overlaps equally, it's the overlap itself, marked
+  keyword overlap ranked within the batch, the same scale `prune_history`'s thresholds use; when every entry overlaps equally, it's the overlap itself, marked
   `tied`.
 - **`prune_history`** takes the same input plus `{ dropBelow?, summarizeBelow? }` and returns a
   decision (`keep`/`drop`/`summarize`) per entry, a savings report, and Jev token usage.
@@ -102,7 +94,7 @@ or `"recency"`, nothing is sent anywhere). Common secret formats (API keys,
 tokens, private-key blocks, `NAME=value` credentials) are masked to `[REDACTED]` first, on a
 best-effort basis.
 
-## Example Response
+## Example response
 
 Calling `prune_history` with two entries, one obviously relevant to the goal and one not, returns:
 
@@ -120,21 +112,17 @@ Calling `prune_history` with two entries, one obviously relevant to the goal and
 }
 ```
 
-This is a real response body, captured against the live API.
+This is a real response body from the live API; Jev's values vary between runs.
 
-## Related Packages
+## Related packages
 
 | Package | What it is |
 | --- | --- |
 | [`ctxjev-core`](https://www.npmjs.com/package/ctxjev-core) | The engine this server wraps. |
 | [`ctxjev-cli`](https://www.npmjs.com/package/ctxjev-cli) | The same scoring, as a terminal command. |
 
-Full docs, design notes, and per-host setup live in the main repo:
-**[github.com/x96x64/ctxjev](https://github.com/x96x64/ctxjev)**.
+The design notes and the evaluation are in the [ctxjev repository](https://github.com/x96x64/ctxjev).
 
 ## License
 
-This package is released under the [MIT](LICENSE) license: free to use, modify, and distribute,
-including in a commercial product, as long as the license text and copyright notice ship with it.
-See the [main repo](https://github.com/x96x64/ctxjev#license) for how this matches every
-dependency `ctxjev` currently uses.
+[MIT](LICENSE).

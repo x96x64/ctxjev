@@ -1,35 +1,14 @@
-<div align="center">
-
 # ctxjev-core
 
-**Score AI agent context for relevance with Jev, the engine behind `ctxjev`.**
+**Decide what to keep, drop, or summarize in an AI agent's history: by recency (the default),
+keyword overlap, or Jev's judgment of relevance (opt-in).** The engine behind
+[`ctxjev-cli`](https://www.npmjs.com/package/ctxjev-cli), [`ctxjev-mcp`](https://www.npmjs.com/package/ctxjev-mcp),
+and the ctxjev Claude Code plugin.
 
 [![npm](https://img.shields.io/npm/v/ctxjev-core.svg)](https://www.npmjs.com/package/ctxjev-core)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Node](https://img.shields.io/badge/node-%3E%3D20-339933?logo=node.js&logoColor=white)](package.json)
-[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)](package.json)
-
-[Why](#why) · [Install](#install) · [How It Works](#how-it-works) · [API](#api) · [Related Packages](#related-packages)
-
-</div>
-
----
-
-## Why
-
-Long-running agent loops, such as coding agents, browser agents, or anything with a growing
-tool-call history, accumulate context faster than it stays useful. Most of that history isn't hard
-to judge: *"is this old tool result still relevant to the current task?"* is exactly the kind of
-fast, cheap, structured decision [Jev](https://typesafe.ai) (TypeSafe AI's typed-decision model) is
-built for. It returns typed judgments (a yes/no probability, a choice, a score) instead of writing
-a sentence about it.
-
-`ctxjev-core` can ask Jev that question about every entry, and decides what to keep, drop, or
-summarize. Whether Jev's answers beat simpler rankings is an open question, and so far the evidence
-says they don't on unseen tasks; see [the main README](../../README.md#does-it-work). The default
-is plain truncation.
-It never asks Jev to see images, do arithmetic, or generate text. Token counting happens in code,
-and the keep/drop/summarize decision is a plain threshold applied to Jev's typed output.
+[![CI](https://github.com/x96x64/ctxjev/actions/workflows/ci.yml/badge.svg)](https://github.com/x96x64/ctxjev/actions/workflows/ci.yml)
+[![License](https://img.shields.io/npm/l/ctxjev-core.svg)](LICENSE)
+[![Node](https://img.shields.io/node/v/ctxjev-core.svg)](https://nodejs.org)
 
 ## Install
 
@@ -37,55 +16,35 @@ and the keep/drop/summarize decision is a plain threshold applied to Jev's typed
 npm install ctxjev-core
 ```
 
-No key needed by default: the default scorer is `'recency'` (newest kept, i.e. plain truncation),
-which needs no network and sends nothing. <!-- checked-prose -->On a [preregistered holdout
-comparison](eval/PREREGISTRATION.md), it tied Jev on whether the agent finished the job
-(<!-- generated:holdout-diff-short -->0 points, 95% CI [0, 0] with Claude Haiku 4.5 and with Claude Sonnet 5, 6 unseen tasks<!-- /generated:holdout-diff-short -->)<!-- /checked-prose -->; see the [main README](../../README.md#does-it-work) for the full result,
-including where Jev's ranking did and didn't separate itself. Pass `{ scorer: 'jev' }` to opt in,
-which needs `TYPESAFE_API_KEY` (get one at
-[console.typesafe.ai/settings/keys](https://console.typesafe.ai/settings/keys), no waitlist), or
-`{ scorer: 'local' }` for offline keyword overlap instead.
+No key and no network are needed by default: the default scorer, `'recency'`, ranks by position
+alone (newest kept, the same as plain truncation) and sends nothing. `{ scorer: 'local' }` scores
+by keyword overlap, also offline. `{ scorer: 'jev' }` opts in to Jev and needs `TYPESAFE_API_KEY`
+(get one at [console.typesafe.ai/settings/keys](https://console.typesafe.ai/settings/keys)).
 
-**What the default does:** with `'recency'`, the goal isn't used at all. Every entry's relevance is
-its position in the batch (oldest 0, newest 1), so with the default thresholds (`dropBelow` 0.3,
-`summarizeBelow` 0.6) `pruneContext()` drops roughly the oldest 30% of entries and marks the next
-30% for summarizing, whatever they say, including the first request. `pruneMessages()` never
-touches the first message, the latest turn, or (by default) anything the user wrote. `pruneContext()`
-only decides; `pruneEntries(entries, decisions)` applies its decisions to a plain entry list and
-keeps the first user entry and the last two entries (`protectFirstUserEntry`, `protectLast`).
+## Usage
 
-**With `'local'`**, keyword overlap is ranked within the batch before the thresholds apply: each
-decision's `relevance` is the entry's percentile rank of overlap (tied entries share their average
-rank), so the thresholds read as shares of the batch rather than as probabilities. Raw overlap
-rarely reaches 0.3, and the thresholds used to drop almost everything, relevant entries included.
-When most entries share no word with the goal, they tie in the middle and are marked for
-summarizing, not dropped; pass `targetTokens` to `pruneMessages()` if you need a fixed size. When
-every entry ties (none shares more of the goal's words than another), there's nothing to rank:
-each decision keeps its raw overlap as `relevance` and is marked `tied: true`, and its
-`combinedScore` ranks it first, as before, so position alone decides.
-`scoreEntries()` still returns the raw overlap; `rankLocalRelevance()` turns it into the ranked
-scale, which the Claude Code plugin uses too.
+In an agent loop that sends Anthropic Messages, prune the conversation before the next request:
 
-With `scorer: 'jev'`, entry content and the goal are sent to TypeSafe AI's Jev API. Every request
-passes through `redactSecrets()` first, masking common secret formats to `[REDACTED]` (best-effort, not
-exhaustive). It's exported too, if you want to apply the same masking elsewhere.
+```ts
+import { pruneMessages } from 'ctxjev-core'
 
-## How It Works
+const { messages: pruned, removed, savedTokens } = await pruneMessages(
+  messages,
+  'Fix a bug where checkout charges customers twice on a slow network retry.',
+  { scorer: 'local' }, // or 'jev' to opt in; the default is 'recency'
+)
+```
 
-With `scorer: 'jev'`, every entry becomes its own question, and the questions for up to 50 entries
-are evaluated **in parallel against one shared state**, as a single request. What Jev bills is input
-tokens, and those still grow with the entries in the request, since each entry's excerpt is part of
-the state; at Jev's published price that stays small, and every request's actual usage is reported
-through `onUsage`.
+For any other history shape, map it to plain entries and ask for a decision per entry:
 
 ```ts
 import { pruneContext } from 'ctxjev-core'
 
 const decisions = await pruneContext(
-  entries, // your agent's tool-call / message history
+  entries, // { id, role: 'user' | 'assistant' | 'tool', toolName?, content, timestamp }[]
   'Fix a bug where checkout charges customers twice on a slow network retry.',
   undefined, // the default policy
-  { scorer: 'jev' }, // without this, the default 'recency' ranks by position
+  { scorer: 'jev' },
 )
 ```
 
@@ -96,9 +55,35 @@ const decisions = await pruneContext(
 ]
 ```
 
-This is a real response shape, captured against the live API. `relevance` is Jev's own judgment,
-`recency` is this entry's position in the batch (oldest=0, newest=1), and `combinedScore` blends
-the two per `PruningPolicy.recencyWeight` before `action` is decided.
+That's the shape of a real response from Jev (its values vary between runs). `relevance` is the
+scorer's judgment, `recency` is the entry's position in the batch (oldest 0, newest 1), and
+`combinedScore` blends the two by `PruningPolicy.recencyWeight` before `action` is decided.
+
+## Scorers
+
+- **`'recency'` (default):** the goal isn't used. Every entry's relevance is its position, so with
+  the default thresholds (`dropBelow` 0.3, `summarizeBelow` 0.6) `pruneContext()` drops roughly the
+  oldest 30% of entries and marks the next 30% for summarizing, whatever they say, including
+  the first request. `pruneMessages()` never touches the first message, the latest turn, or (by
+  default) anything the user wrote; `pruneEntries(entries, decisions)` applies decisions to a plain
+  entry list and keeps the first user entry and the last two entries.
+- **`'local'`:** keyword overlap with the goal, ranked within the batch before the thresholds
+  apply, so a decision's `relevance` is the entry's percentile rank (tied entries share their
+  average rank). When most entries share no word with the goal, they tie in the middle and are
+  marked `summarize`, not dropped; pass `targetTokens` to `pruneMessages()` for a fixed size. When
+  every entry ties, there's nothing to rank: each keeps its raw overlap as `relevance`, marked
+  `tied: true`, and position alone decides.
+- **`'jev'`:** each entry becomes a yes/no question to Jev, and up to 50 are asked in one request
+  against a shared state. The goal and each entry's excerpt are sent to TypeSafe AI's Jev API after
+  `redactSecrets()` masks common secret formats (best-effort, not exhaustive). Every request's
+  real token usage is reported through `onUsage`.
+- **Your own function** (`CustomScorer`), described under `options.scorer` below.
+
+<!-- checked-prose -->
+No scorer has been shown to beat plain truncation on held-out tasks: Jev's ranking tied it on task
+success (<!-- generated:holdout-diff-short -->0 points, 95% CI [0, 0] with Claude Haiku 4.5 and with Claude Sonnet 5, 6 unseen tasks<!-- /generated:holdout-diff-short -->).
+The [evaluation](../../docs/evaluation.md) has the details.
+<!-- /checked-prose -->
 
 ## API
 
@@ -124,8 +109,7 @@ the two per `PruningPolicy.recencyWeight` before `action` is decided.
     A tool call keeps its `tool_use`; only its result is replaced.
   - `minSavedTokens`: change nothing unless it saves at least this many tokens.
   - `keepUserText` (default `true`): never remove what the user wrote. It costs few tokens and holds
-    the constraints; in the task eval, an agent that lost "keep the mark for 24 hours" chose its own
-    TTL.
+    the constraints and changes of plan.
   - `marker` (default `true`): add a one-line note where history was removed, so the model knows to
     re-read rather than trust what it half-remembers.
 
@@ -137,6 +121,9 @@ the two per `PruningPolicy.recencyWeight` before `action` is decided.
   the first unprotected user message after the first change, and there wasn't one (common with
   `keepUserText: false` and a tight `targetTokens`). A message holding only the note isn't inserted
   instead: between a `tool_use` and its `tool_result` it would make the request invalid.
+- **`typesafeApiKey(env?)`** / **`missingTypesafeApiKey(env?)`** return the usable Jev key in
+  `TYPESAFE_API_KEY` (or `undefined`), and why there isn't one. A value that's only an unexpanded
+  placeholder (`${TYPESAFE_API_KEY}`, `$NAME`, `%NAME%`) is no key, and Jev is never called without one.
 - **`parseClaudeCodeTranscript(jsonl, { countTokens? })`** / **`resolveClaudeCodeGoal(jsonl, entries)`**
   parse a real Claude Code session `.jsonl` transcript into `Entry[]` (what's still in context,
   without the text Claude Code writes into the user turn itself), and find the goal: the latest
@@ -195,24 +182,18 @@ A large saving pays for one rewrite quickly, because every later turn reads the 
 conversation from the cache again. `minSavedTokens` makes a small saving a no-op, so an unchanged
 conversation keeps its cache.
 
-Full type definitions ship with the package. Design notes (why relevance and recency are separate
-fields, why recency is batch-relative not wall-clock, how `recencyWeight`'s default was tuned
-against labeled fixtures) live in the main repo's README.
+Full type definitions ship with the package. Why relevance and recency are separate fields, why
+recency is relative to the batch rather than the clock, and how `recencyWeight`'s default was
+chosen are in the [design notes](../../docs/design-notes.md).
 
-## Related Packages
+## Related packages
 
 | Package | What it is |
 | --- | --- |
-| [`ctxjev-cli`](https://www.npmjs.com/package/ctxjev-cli) | `ctxjev analyze <transcript>`: a plain-text report, no UI. |
-| [`ctxjev-mcp`](https://www.npmjs.com/package/ctxjev-mcp) | MCP server exposing this engine as tools for Claude Code, Codex, and other MCP hosts. |
-| `ctxjev-claude` | Claude Code plugin (not on npm; see the main repo). |
-
-Full docs, design notes, and the Claude Code plugin live in the main repo:
-**[github.com/x96x64/ctxjev](https://github.com/x96x64/ctxjev)**.
+| [`ctxjev-cli`](https://www.npmjs.com/package/ctxjev-cli) | `ctxjev analyze` and `ctxjev prune` in a terminal. |
+| [`ctxjev-mcp`](https://www.npmjs.com/package/ctxjev-mcp) | This engine as MCP tools, for Claude Code, Codex, and other MCP hosts. |
+| Claude Code plugin | Hands the top entries back after compaction; installed from [the repository](https://github.com/x96x64/ctxjev), not npm. |
 
 ## License
 
-This package is released under the [MIT](LICENSE) license: free to use, modify, and distribute,
-including in a commercial product, as long as the license text and copyright notice ship with it.
-See the [main repo](https://github.com/x96x64/ctxjev#license) for how this matches every
-dependency `ctxjev` currently uses.
+[MIT](LICENSE).

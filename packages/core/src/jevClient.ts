@@ -1,4 +1,5 @@
 import { TypeSafeClient, noul } from '@typesafe-ai/sdk'
+import { missingTypesafeApiKey, typesafeApiKey } from './apiKey.js'
 import { cacheKeyFor, type ScoreCache } from './cache.js'
 import { truncate } from './entryText.js'
 import { redactSecrets } from './redact.js'
@@ -34,7 +35,11 @@ let client: TypeSafeClient | undefined
 // (e.g. just for its types, or for a CLI command that never calls Jev) doesn't require an
 // API key to be present.
 function getClient(): JevClient {
-  client ??= new TypeSafeClient()
+  if (client) return client
+  // Never constructed without a usable key: the SDK would send an unexpanded placeholder as one.
+  const apiKey = typesafeApiKey()
+  if (apiKey === undefined) throw new Error(`${missingTypesafeApiKey()}: get one at console.typesafe.ai/settings/keys`)
+  client = new TypeSafeClient({ apiKey })
   return client
 }
 
@@ -76,7 +81,8 @@ export function buildJevRequest(goal: string, entries: Entry[], latest: Entry[] 
  * `cache`, when provided, is checked before spending a Jev request on an entry and populated with
  * fresh verdicts afterward. Keyed on goal, entry content, and `latest` (see `cacheKeyFor`), not on
  * `entry.id`, so the same history scores as a hit across transcripts. `jev` defaults to a
- * `TypeSafeClient` that reads TYPESAFE_API_KEY (and TYPESAFE_BASE_URL) from the environment.
+ * `TypeSafeClient` with the key `typesafeApiKey()` finds (none: an error, and nothing sent) and
+ * TYPESAFE_BASE_URL from the environment.
  */
 export async function scoreRelevance(
   goal: string,

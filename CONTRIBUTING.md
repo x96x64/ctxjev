@@ -1,8 +1,9 @@
 # Contributing to ctxjev
 
 Issues and pull requests are welcome. This file covers setting up, the rules every change follows,
-and how releases are made. [`CLAUDE.md`](CLAUDE.md) has the same rules in more detail (it's written
-for AI coding agents working in this repo, but it's accurate for people too).
+and how releases are made. [`AGENTS.md`](AGENTS.md) has the same rules in more detail (it's written
+for AI coding agents working in this repo, and `CLAUDE.md` imports it, but it's accurate for people
+too).
 
 ## Setup
 
@@ -34,6 +35,7 @@ The eval harness has checks that call no model and run in CI:
 node examples/eval-tasks/verify.mjs                       # templates fail the hidden tests, solutions pass
 cd packages/core && node eval/tasks.mjs --selftest        # the agent's workspace tools behave
 cd packages/core && node eval/check-docs.mjs              # the docs' eval numbers match eval/results/
+node scripts/check-readme-examples.mjs                    # README examples match the CLI's real output
 cd packages/core && node eval/check-sessions.mjs          # Japanese sessions' probes are in Japanese
 node --experimental-strip-types scripts/redact-coverage.ts  # every secret format and harmless string in redactCases.ts
 ```
@@ -52,6 +54,8 @@ node --experimental-strip-types scripts/redact-coverage.ts  # every secret forma
   fails if the committed bundle is stale.
 - **Never type an eval number into a doc.** Save the run to `packages/core/eval/results/`, then
   generate the numbers with `node eval/check-docs.mjs --write`. CI fails if they disagree.
+- **Show only real output in a README.** Run the command and paste what it printed;
+  `scripts/check-readme-examples.mjs` compares every example that doesn't use Jev, byte for byte.
 - **Never weaken, skip, or delete a test to make it pass**, and never soften a negative result.
 - **Dev vs. holdout:** the `dev` eval tasks informed the design, so their numbers are optimistic.
   The current `holdout` tasks have been run and analyzed, so they can't confirm a new claim either;

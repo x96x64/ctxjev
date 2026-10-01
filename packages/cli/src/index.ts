@@ -8,6 +8,7 @@ import pc from 'picocolors'
 import {
   DEFAULT_POLICY,
   createUsageAccumulator,
+  missingTypesafeApiKey,
   pruneContext,
   pruneEntries,
   pruneMessages,
@@ -159,8 +160,8 @@ async function setUp(command: string, argv: string[], extraOptions: Record<strin
   const scorer: Scorer = SCORERS.includes(requested as Scorer) ? (requested as Scorer) : 'recency'
   if (!SCORERS.includes(requested as Scorer)) problems.push(`--scorer must be one of ${SCORERS.join(', ')}, got "${requested}"`)
   else if (values.offline && values.scorer !== undefined && values.scorer !== 'local') problems.push('--offline means --scorer local; pass one or the other')
-  else if (scorer === 'jev' && !process.env.TYPESAFE_API_KEY) {
-    problems.push('TYPESAFE_API_KEY is not set — get one at console.typesafe.ai/settings/keys, or drop --scorer jev to score offline')
+  else if (scorer === 'jev' && missingTypesafeApiKey() !== undefined) {
+    problems.push(`${missingTypesafeApiKey()} — get one at console.typesafe.ai/settings/keys, or drop --scorer jev to score offline`)
   }
 
   let raw: string | undefined

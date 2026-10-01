@@ -5,6 +5,14 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 (`.claude-plugin/marketplace.json`, `packages/claude-plugin/.claude-plugin/plugin.json`,
 `plugins/ctxjev/plugin.json`). A bump in one is a bump in all, even when only one changed.
 
+## Unreleased
+
+- Codex plugin: passes your real `TYPESAFE_API_KEY` to the MCP server. Codex doesn't expand `${TYPESAFE_API_KEY}` in a plugin's `mcp.json`, so the server got that text instead of the key, and Jev never worked through the plugin.
+- `ctxjev-mcp`, `ctxjev-cli`, the Claude Code plugin, and `ctxjev-core`: a `TYPESAFE_API_KEY` that is only an unexpanded placeholder (`${TYPESAFE_API_KEY}`, `$NAME`, `%NAME%`) counts as no key. Without a real key, a call that would use Jev now sends nothing and says so; before, it sent the masked goal and excerpts to Jev, which refused them.
+- `ctxjev-core`: new `typesafeApiKey()` and `missingTypesafeApiKey()` report whether the environment holds a usable Jev key.
+- `ctxjev-cli`: the `--scorer local` report no longer calls keyword overlap "much cruder than Jev"; on held-out tasks Jev's ranking wasn't shown to do better.
+- The READMEs are rewritten to be shorter and example-first; the evaluation's numbers moved to `docs/evaluation.md`, the design notes to `docs/design-notes.md`.
+
 ## 0.7.2 — 2026-10-01
 
 - `ctxjev-core`: masks a URL password holding `#`, `/`, or `?` (`postgres://app:Pg#Secr3t99@db…` was kept whole, on every path).

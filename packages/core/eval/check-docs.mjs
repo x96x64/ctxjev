@@ -751,6 +751,36 @@ function holdoutDiffShort() {
   return same ? `${diff(haiku)} with Claude Haiku 4.5 and with Claude Sonnet 5, ${tasks} unseen tasks` : `${diff(haiku)} with Claude Haiku 4.5, ${diff(sonnet)} with Claude Sonnet 5, ${tasks} unseen tasks`
 }
 
+// Numbers only, for README.md's status paragraph and its translations: the sentence around them is
+// prose (translated), the numbers are generated and byte-identical in every language.
+const holdoutDiffNumbers = (rows) => {
+  const d = taskDiff(rows, SHIPPED, TRUNCATION)
+  return `${points0(d.value)} ${interval0(d.interval)}`
+}
+const holdoutDiffHaiku = () => holdoutDiffNumbers(tasksHoldout.rows)
+const holdoutDiffSonnet = () => holdoutDiffNumbers(tasksHoldoutSonnet.rows)
+/** The README says Jev's ranking kept less than a random order on the holdout; fail if the numbers stop saying so. */
+function holdoutRetentionAt25(key) {
+  const at25 = (k) => retentionHoldout.retention[k][0.25].probes
+  if (!(at25('jev') < at25('random'))) throw new Error("README.md says Jev's ranking kept less than a random ordering on the holdout, and the saved results no longer show that: reword it")
+  return pct1(at25(key))
+}
+
+/** The masking holdout halves, one row per corpus, from the saved outputs (docs/evaluation.md). */
+function maskingBlindTable() {
+  return block(
+    table(
+      ['Blind corpus (holdout split, measured once)', 'Release measured', 'Lines with secrets masked', 'Harmless lines changed'],
+      MASKING_HOLDOUTS.map((h, i) => {
+        const r = maskingHoldout(h)
+        const name = `Corpus ${i + 1} (\`${['blind-redact', 'blind-redact-2', 'blind-redact-3'][i] ?? '?'}/\`)`
+        if (!r) return [name, h.version, 'not measured yet', 'not measured yet']
+        return [name, h.version, `${r.detected.n} of ${r.detected.of} (${pct1(r.detected.n / r.detected.of)})`, `${r.falsePositives.n} of ${r.falsePositives.of} (${pct1(r.falsePositives.n / r.falsePositives.of)})`]
+      }),
+    ),
+  )
+}
+
 /** Where the dev task runs failed, for the two conditions the README compares. */
 function failures(rows, condition) {
   const failed = rows.filter((r) => r.condition === condition && !r.success)
@@ -820,13 +850,6 @@ function maskingHoldout({ file }) {
   return { detected: read('lines with secrets detected'), falsePositives: read('harmless lines changed \\(false positives\\)') }
 }
 
-function maskingBlind() {
-  return MASKING_HOLDOUTS.map((h) => {
-    const r = maskingHoldout(h)
-    if (!r) return `${h.corpus}'s corpus: not measured yet (its holdout half is measured once, on the ${h.version} release)`
-    return `${h.corpus}'s corpus, ${h.version}: ${r.detected.n} of ${r.detected.of} lines with secrets masked (${pct1(r.detected.n / r.detected.of)}), and ${r.falsePositives.n} of ${r.falsePositives.of} harmless lines changed (${pct1(r.falsePositives.n / r.falsePositives.of)})`
-  }).join('. ')
-}
 
 // Round 5's record (docs/audits/2026-10-01-round-5-changes-ja.md): its blind corpus's dev half before
 // and after the fixes, its holdout half, and the fifth audit's masking table, from the saved outputs.
@@ -867,7 +890,6 @@ function maskingBlindJa() {
 }
 
 const RENDERERS = {
-  'masking-blind': maskingBlind,
   'masking-blind-ja': maskingBlindJa,
   'blind3-dev-ja': blind3DevJa,
   'blind3-holdout-ja': blind3HoldoutJa,
@@ -912,6 +934,11 @@ const RENDERERS = {
   'holdout-task-count': holdoutTaskCount,
   'holdout-runs': holdoutRuns,
   'holdout-diff-short': holdoutDiffShort,
+  'holdout-diff-haiku': holdoutDiffHaiku,
+  'holdout-diff-sonnet': holdoutDiffSonnet,
+  'holdout-retention-jev': () => holdoutRetentionAt25('jev'),
+  'holdout-retention-random': () => holdoutRetentionAt25('random'),
+  'masking-blind-table': maskingBlindTable,
   'dev-task-design': devTaskDesign,
   'dev-task-misses': devTaskMisses,
   'dev-sonnet-clean': devSonnetClean,
@@ -929,8 +956,13 @@ const RENDERERS = {
 // `<!-- checked-prose -->` markers is checked in every doc listed. `claims: true`: an eval claim
 // anywhere in the doc is checked (see uncheckedClaims); `historical` names the sections, by their
 // heading, left as they were released.
+// `whole: true`: the section runs to the end of the doc instead of to the next `## ` heading.
 const DOCS = [
-  { path: 'README.md', section: /^## Does It Work\?/m, prose: true },
+  // The README's status section: its tables and every number in its prose; eval claims anywhere.
+  { path: 'README.md', section: /^## Status and limits/m, prose: true, claims: true },
+  // Every table and every number in prose, from the title to the end: stricter than the claims check
+  // (which a budget like "a 25% budget" would trip), so that one isn't run here.
+  { path: 'docs/evaluation.md', section: /^# Evaluation/m, prose: true, whole: true },
   { path: 'packages/core/eval/PREREGISTRATION.md', section: /^## Results/m, prose: true },
   { path: 'ROADMAP.md' },
   { path: 'packages/core/README.md' },
@@ -951,13 +983,20 @@ const DOCS = [
 ]
 const GENERATED = /<!-- generated:([\w-]+) -->([\s\S]*?)<!-- \/generated:\1 -->/g
 
-/** Every table in the results section must be generated or explicitly marked unverified. */
-function uncheckedTables(text, section) {
+/** The results section: from `section` to the next `## ` heading, or to the end with `whole`. */
+function sectionBody(text, section, whole) {
   const start = text.search(section)
-  if (start === -1) return ['the results section is missing']
+  if (start === -1) return undefined
   const rest = text.slice(start)
+  if (whole) return rest
   const next = rest.slice(3).search(/^## /m)
-  const body = next === -1 ? rest : rest.slice(0, next + 3)
+  return next === -1 ? rest : rest.slice(0, next + 3)
+}
+
+/** Every table in the results section must be generated or explicitly marked unverified. */
+function uncheckedTables(text, section, whole) {
+  const body = sectionBody(text, section, whole)
+  if (body === undefined) return ['the results section is missing']
   const generatedSpans = [...body.matchAll(GENERATED)].map((m) => [m.index, m.index + m[0].length])
   const lines = body.split('\n')
   const problems = []
@@ -1002,23 +1041,19 @@ const budgetsUsed = new Set(
 )
 
 /** The parts of `text` whose prose is checked: its results section (if `prose`) and every checked-prose region. */
-function proseRegions(text, section, prose) {
+function proseRegions(text, section, prose, whole) {
   const regions = [...text.matchAll(/<!-- checked-prose -->([\s\S]*?)<!-- \/checked-prose -->/g)].map((m) => m[1])
   if (prose && section) {
-    const start = text.search(section)
-    if (start !== -1) {
-      const rest = text.slice(start)
-      const next = rest.slice(3).search(/^## /m)
-      regions.push(next === -1 ? rest : rest.slice(0, next + 3))
-    }
+    const body = sectionBody(text, section, whole)
+    if (body !== undefined) regions.push(body)
   }
   return regions
 }
 
 /** Every number in checked prose that isn't generated, isn't one of NOT_RESULTS, and isn't marked unverified. */
-function uncheckedNumbers(text, section, prose) {
+function uncheckedNumbers(text, section, prose, whole) {
   const problems = []
-  for (const region of proseRegions(text, section, prose)) {
+  for (const region of proseRegions(text, section, prose, whole)) {
     const cleaned = region
       .replace(/^```[\s\S]*?^```/gm, '')
       .replace(GENERATED, ' ')
@@ -1087,7 +1122,7 @@ function uncheckedClaims(text, historical) {
 }
 
 /** Everything wrong with one doc's text: generated blocks, tables, and prose. */
-function problemsIn(path, section, prose, text, claims, historical) {
+function problemsIn(path, section, prose, text, claims, historical, whole) {
   const problems = []
   const updated = text.replace(GENERATED, (whole, name, current) => {
     const render = RENDERERS[name]
@@ -1099,8 +1134,8 @@ function problemsIn(path, section, prose, text, claims, historical) {
     if (expected !== current) problems.push(`generated block "${name}" differs from the saved results.\n--- in the file:\n${current}\n--- from eval/results/:\n${expected}\n`)
     return `<!-- generated:${name} -->${expected}<!-- /generated:${name} -->`
   })
-  if (section) problems.push(...uncheckedTables(updated, section))
-  problems.push(...uncheckedNumbers(text, section, prose))
+  if (section) problems.push(...uncheckedTables(updated, section, whole))
+  problems.push(...uncheckedNumbers(text, section, prose, whole))
   if (claims) problems.push(...uncheckedClaims(text, historical))
   return problems
 }
@@ -1108,26 +1143,37 @@ function problemsIn(path, section, prose, text, claims, historical) {
 // The third audit (docs/audits/2026-09-25-audit-3-ja.md, 4.3-6) made three edits to prose numbers
 // and check-docs passed all three. Each, and each way of making it, must fail now.
 const AUDIT_EDITS = [
-  ['README.md', 'the status paragraph says there was a difference', (t) => t.replace('found no difference in whether the agent finished', 'found a 12-point difference in whether the agent finished')],
-  ['README.md', 'the status paragraph gets a hand-typed task count', (t) => t.replace(/<!-- generated:holdout-task-count -->\d+<!-- \/generated:holdout-task-count --> tasks Jev's ranking/, "seven tasks Jev's ranking")],
+  // README.md's status paragraph (it moved there from the "Does It Work?" section, now docs/evaluation.md).
+  ['README.md', 'the status paragraph says there was a difference', (t) => t.replace('finished the same share of tasks as an', 'finished 12 points more of the tasks than an')],
+  ['README.md', 'the status paragraph gets a hand-typed task count', (t) => t.replace(/<!-- generated:holdout-task-count -->\d+<!-- \/generated:holdout-task-count --> tasks the design had/, 'seven tasks the design had')],
   ['ROADMAP.md', 'ROADMAP\'s "+0 points" becomes "+5 points"', (t) => t.replace(/<!-- generated:holdout-diff-short -->[+−]?0 points/, '<!-- generated:holdout-diff-short -->+5 points')],
   ['ROADMAP.md', 'ROADMAP\'s result is typed in by hand', (t) => t.replace(/<!-- generated:holdout-diff-short -->[\s\S]*?<!-- \/generated:holdout-diff-short -->/, '+0 points, 95% CI [+0, +0], two models, six unseen tasks')],
-  ['README.md', '"Does It Work?"\'s task count becomes "Seven tasks"', (t) => t.replace(/<!-- generated:holdout-task-count -->\d+<!-- \/generated:holdout-task-count --> tasks\n\(`rate-limit-window`/, 'Seven tasks\n(`rate-limit-window`')],
+  ['docs/evaluation.md', 'the held-out section\'s task count becomes "Seven tasks"', (t) => t.replace(/<!-- generated:holdout-task-count -->\d+<!-- \/generated:holdout-task-count --> tasks\n\(`rate-limit-window`/, 'Seven tasks\n(`rate-limit-window`')],
   // The fifth audit (check F3): edits to CHANGELOG.md and the plugin README's prose that passed.
   ['CHANGELOG.md', 'a hand-typed blind-masking rate in the newest release', (t) => t.replace(/^(## [^\n]+\n\n)/m, '$1- Secret masking, measured blind: 93.4% of the holdout\'s lines with secrets masked.\n')],
   ['CHANGELOG.md', 'a hand-typed task-success difference in the newest release', (t) => t.replace(/^(## [^\n]+\n\n)/m, '$1- The plugin\'s digest now adds +12 points [+2, +20] to tasks passed on the holdout.\n')],
   ['packages/claude-plugin/README.md', 'the plugin README\'s "six unseen tasks" becomes "seven"', (t) => t.replace(/<!-- generated:holdout-task-count -->\d+<!-- \/generated:holdout-task-count --> unseen tasks/, 'seven unseen tasks')],
   ['packages/claude-plugin/README.md', 'a hand-typed eval claim outside the results paragraph', (t) => t.replace(/^## How It Works\n/m, '## How It Works\n\nIn the retention eval the digest kept 87% of the probes.\n')],
   ['SECURITY.md', 'a hand-typed blind-masking rate', (t) => t.replace(/^## Known limitations[^\n]*\n/m, (h) => `${h}\n- Masking catches 95.7% of secrets on the blind holdout corpus.\n`)],
+  // Round 6: the README's number-only blocks, and the whole of docs/evaluation.md.
+  ['README.md', 'a number-only block in the status paragraph is changed', (t) => t.replace(/(<!-- generated:holdout-diff-haiku -->)[^<]*/, '$1+8 [+1, +15]')],
+  ['README.md', 'the status paragraph\'s retention number is typed in by hand', (t) => t.replace(/<!-- generated:holdout-retention-jev -->[^<]*<!-- \/generated:holdout-retention-jev -->/, '31.0%')],
+  ['README.md', 'a hand-typed eval claim outside the status paragraph', (t) => t.replace(/^## Features\n/m, '## Features\n\nOn the held-out tasks, Jev kept 12 points more than truncation.\n')],
+  ['docs/evaluation.md', 'a hand-typed rate in the masking section\'s prose', (t) => t.replace(/^## Secret masking, measured blind\n/m, '## Secret masking, measured blind\n\nIt masks 97% of the secrets in practice.\n')],
+  ['docs/evaluation.md', 'a table added outside a generated block', (t) => t.replace(/^## Secret masking, measured blind\n/m, '## Secret masking, measured blind\n\n| Corpus | Masked |\n| --- | --- |\n| Corpus 4 | all |\n')],
   // The review of this check: two wordings that passed it.
   ['CHANGELOG.md', 'a rate written as "percent"', (t) => t.replace(/^(## [^\n]+\n\n)/m, '$1- Keeps 93.4 percent of the probes on the holdout.\n')],
   ['SECURITY.md', 'a rate claimed from "testing"', (t) => t.replace(/^## Known limitations[^\n]*\n/m, (h) => `${h}\n- In testing it now catches 97% of real secrets.\n`)],
+  // The review of Round 6's change: a result written as a share "of its tokens".
+  ['CHANGELOG.md', 'a result written as a share of its tokens', (t) => t.replace(/^(## [^\n]+\n\n)/m, '$1- On held-out tasks, the plugin now keeps 50% of its tokens.\n')],
+  ['packages/claude-plugin/README.md', 'a result written as a share of its tokens, in the plugin README', (t) => t.replace(/^## How It Works\n/m, '## How It Works\n\nIn the eval, the digest saves 25% of its tokens.\n')],
+  ['README.md', 'a table of hand-typed results in the status section', (t) => t.replace(/^## Status and limits\n/m, '## Status and limits\n\n| Scorer | Kept |\n| --- | --- |\n| local | 28.3% |\n')],
 ]
 
 function selftest() {
   let ok = true
   for (const [path, what, edit] of AUDIT_EDITS) {
-    const { section, prose, claims, historical } = DOCS.find((d) => d.path === path)
+    const { section, prose, claims, historical, whole } = DOCS.find((d) => d.path === path)
     const text = readFileSync(join(root, path), 'utf8')
     const edited = edit(text)
     if (edited === text) {
@@ -1135,8 +1181,8 @@ function selftest() {
       ok = false
       continue
     }
-    const before = problemsIn(path, section, prose, text, claims, historical).length
-    const after = problemsIn(path, section, prose, edited, claims, historical).length
+    const before = problemsIn(path, section, prose, text, claims, historical, whole).length
+    const after = problemsIn(path, section, prose, edited, claims, historical, whole).length
     console.log(`${after > before ? 'caught' : 'MISSED'}: ${what} (${path})`)
     if (after <= before) ok = false
   }
@@ -1148,7 +1194,7 @@ if (process.argv.includes('--selftest')) selftest()
 const write = process.argv.includes('--write')
 const used = new Set()
 let failed = false
-for (const { path, section, prose, claims, historical } of DOCS) {
+for (const { path, section, prose, claims, historical, whole } of DOCS) {
   const file = join(root, path)
   const text = readFileSync(file, 'utf8')
   const updated = text.replace(GENERATED, (whole, name, current) => {
@@ -1166,11 +1212,11 @@ for (const { path, section, prose, claims, historical } of DOCS) {
     }
     return `<!-- generated:${name} -->${expected}<!-- /generated:${name} -->`
   })
-  for (const problem of section ? uncheckedTables(updated, section) : []) {
+  for (const problem of section ? uncheckedTables(updated, section, whole) : []) {
     console.error(`${path}: ${problem}`)
     failed = true
   }
-  for (const problem of uncheckedNumbers(updated, section, prose)) {
+  for (const problem of uncheckedNumbers(updated, section, prose, whole)) {
     console.error(`${path}: ${problem}`)
     failed = true
   }

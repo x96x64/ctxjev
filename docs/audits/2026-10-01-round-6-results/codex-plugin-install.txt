@@ -1,0 +1,9 @@
+# codex-cli 0.159.3, CODEX_HOME empty, marketplace = a clone of this branch at d587e13 (its first line below); no model was called.
+# This shows the configuration Codex resolves (codex mcp get --json), not a running server's environment.
+Added marketplace `ctxjev-plugins` from /tmp/claude-0/-home-user-ctxjev/bba03e9a-ee41-579c-9e99-fd1e5ece7f2d/scratchpad/ctxrepo2.
+Installed marketplace root: /tmp/claude-0/-home-user-ctxjev/bba03e9a-ee41-579c-9e99-fd1e5ece7f2d/scratchpad/ctxrepo2
+Added plugin `ctxjev` from marketplace `ctxjev-plugins`.
+Installed plugin root: /tmp/claude-0/-home-user-ctxjev/bba03e9a-ee41-579c-9e99-fd1e5ece7f2d/scratchpad/codexhome2/plugins/cache/ctxjev-plugins/ctxjev/0.7.2
+command: npx ['ctxjev-mcp@0.7.2']
+env TYPESAFE_API_KEY: None
+env_vars: ['TYPESAFE_API_KEY']
