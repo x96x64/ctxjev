@@ -1026,8 +1026,8 @@ function uncheckedNumbers(text, section, prose) {
 // result-like number (RESULT_NUMBER: a percentage, points, an interval, "N of M", "N/M") outside a
 // generated block is a problem, unless it sits directly below an `<!-- unverified: reason -->` line.
 // Numbers that aren't results (NOT_RESULTS: versions, dates, "95% CI", …) don't count.
-const EVAL_WORDS = /\b(?:holdout|held[- ]out|dev (?:split|half|tasks?)|evals?|evaluation|task success|tasks? passed|retention|retained|probes?|bootstrap|confidence interval|baseline|blind|corpus|corpora|false (?:positive|alarm)s?|harmless lines|preregist\w*|truncation|unseen tasks)\b/i
-const RESULT_NUMBER = /[+−-]?\d+(?:\.\d+)?\s?%|[+−-]?\d+(?:\.\d+)?\s(?:percentage\s)?points?\b|\bpp\b|\[\s*[+−-]?\d+(?:\.\d+)?\s*,\s*[+−-]?\d+|\b\d+\s(?:of|out of)\s\d+\b|\b\d+\s?\/\s?\d+\b/
+const EVAL_WORDS = /\b(?:holdout|held[- ]out|dev (?:split|half|tasks?)|evals?|evaluation|task success|tasks? passed|retention|retained|probes?|bootstrap|confidence interval|baseline|blind|corpus|corpora|false (?:positive|alarm)s?|harmless lines|preregist\w*|truncation|unseen tasks|measured|testing|tested|benchmarks?)\b/i
+const RESULT_NUMBER = /[+−-]?\d+(?:\.\d+)?\s?(?:%|percent\b)|[+−-]?\d+(?:\.\d+)?\s(?:percentage\s)?points?\b|\bpp\b|\[\s*[+−-]?\d+(?:\.\d+)?\s*,\s*[+−-]?\d+|\b\d+\s(?:of|out of)\s\d+\b|\b\d+\s?\/\s?\d+\b/
 
 function uncheckedClaims(text, historical) {
   const current = historical ? text.split(/^(?=## )/m).filter((part) => !historical.test(part.split('\n')[0])).join('') : text
@@ -1084,6 +1084,9 @@ const AUDIT_EDITS = [
   ['packages/claude-plugin/README.md', 'the plugin README\'s "six unseen tasks" becomes "seven"', (t) => t.replace(/<!-- generated:holdout-task-count -->\d+<!-- \/generated:holdout-task-count --> unseen tasks/, 'seven unseen tasks')],
   ['packages/claude-plugin/README.md', 'a hand-typed eval claim outside the results paragraph', (t) => t.replace(/^## How It Works\n/m, '## How It Works\n\nIn the retention eval the digest kept 87% of the probes.\n')],
   ['SECURITY.md', 'a hand-typed blind-masking rate', (t) => t.replace(/^## Known limitations[^\n]*\n/m, (h) => `${h}\n- Masking catches 95.7% of secrets on the blind holdout corpus.\n`)],
+  // The review of this check: two wordings that passed it.
+  ['CHANGELOG.md', 'a rate written as "percent"', (t) => t.replace(/^(## [^\n]+\n\n)/m, '$1- Keeps 93.4 percent of the probes on the holdout.\n')],
+  ['SECURITY.md', 'a rate claimed from "testing"', (t) => t.replace(/^## Known limitations[^\n]*\n/m, (h) => `${h}\n- In testing it now catches 97% of real secrets.\n`)],
 ]
 
 function selftest() {

@@ -9,8 +9,10 @@ import { describeGrowth, isLinear, measureGrowth } from '../../../test-support/l
 // long. 100,000 `x` took 8.7 s, 100,000 `█` 82.5 s, and `analyze` on a 5,000,000-character entry
 // didn't finish in 120 s.
 // Each check is how the time grows from n to 10n (see test-support/linearTime.ts), not a wall-clock
-// limit: a 5-second one turned main's CI red under coverage (the fifth audit). Each size is timed
-// once, cold: the piece cache would make a repeat of the same text faster than its first run.
+// limit: a 5-second one turned main's CI red under coverage (the fifth audit). Every call counts a
+// run of its own length (n + call units), or varied text from its own offset: gpt-tokenizer caches
+// what it encodes by pre-token, so a repeat of the same run would hide a quadratic first one (a
+// number in front of the same run did: the quadratic encode passed). The piece cache works as in use.
 describe('estimateTokens: time grows linearly on long runs', () => {
   const kana = 'あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん請求書日付検証'
   const warmUp = () => estimateTokens('warm up the tokenizer: 請求書 ═══ 😀 //\n')
@@ -30,17 +32,17 @@ describe('estimateTokens: time grows linearly on long runs', () => {
     ['e and a combining accent', 'e\u0301'],
   ]
   it.each(runs)('%s × 20,000 against × 200,000', async (_name, unit) => {
-    const growth = await measureGrowth((n) => expect(estimateTokens(unit.repeat(n))).toBeGreaterThan(0), 20_000, { repeats: 1, warmUp })
+    const growth = await measureGrowth((n, call) => expect(estimateTokens(unit.repeat(n + call))).toBeGreaterThan(0), 20_000, { warmUp })
     expect(isLinear(growth), describeGrowth(growth)).toBe(true)
   }, 60_000)
 
   // Every 128-character piece of varied text is different, so none is cached: 100,000 took about
   // 0.3 s, against 67 s before. Each size is its own random text.
-  it('varied kana with no punctuation, 10,000 against 100,000', async () => {
+  it('varied kana with no punctuation, 20,000 against 200,000', async () => {
     const random = seededRandom(7)
     const variedKana = (n: number) => Array.from({ length: n }, () => kana[Math.floor(random() * kana.length)]).join('')
-    const texts = new Map([10_000, 100_000].map((n) => [n, variedKana(n)]))
-    const growth = await measureGrowth((n) => expect(estimateTokens(texts.get(n)!)).toBeGreaterThan(0), 10_000, { repeats: 1, warmUp })
+    const texts = new Map([20_000, 200_000].map((n) => [n, variedKana(n)]))
+    const growth = await measureGrowth((n, call) => expect(estimateTokens(texts.get(n)!.slice(call % 101))).toBeGreaterThan(0), 20_000, { warmUp })
     expect(isLinear(growth), describeGrowth(growth)).toBe(true)
   }, 60_000)
 
@@ -48,7 +50,7 @@ describe('estimateTokens: time grows linearly on long runs', () => {
   // fix, which matched a whole run at once: that size has to finish, however long it takes.
   it.each(['x', '█', '😀', '/\n', '!!\u0301'])('5,000,000 characters of %s: 500,000 against 5,000,000', async (unit) => {
     const text = (n: number) => unit.repeat(n / unit.length + 1).slice(0, n)
-    const growth = await measureGrowth((n) => expect(estimateTokens(text(n))).toBeGreaterThan(0), 500_000, { repeats: 1, warmUp })
+    const growth = await measureGrowth((n, call) => expect(estimateTokens(text(n + call))).toBeGreaterThan(0), 500_000, { warmUp })
     expect(isLinear(growth), describeGrowth(growth)).toBe(true)
   }, 120_000)
 })

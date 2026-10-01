@@ -17,7 +17,7 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 - `ctxjev-core`: a Claude Code log's malformed lines are counted and reported (they were skipped in silence).
 - `ctxjev-cli`: `prune` writes the file's own `goal` back as it was, and never writes `--goal` into the output.
 - `ctxjev-mcp`: an argument a tool doesn't take is an error instead of being ignored; `score_relevance` under `local` now returns `prune_history`'s ranked scale, not the raw overlap (a change in its output).
-- Codex plugin: asks for a key only when a call uses Jev (`authentication: ON_USE`), and says its tools also run offline.
+- Codex plugin: its marketplace entry asks for authentication on first use rather than at install (`authentication: ON_USE`), and says its tools also run offline.
 - Plugin and marketplace descriptions no longer say it "keeps what matters"; they say its effect on held-out tasks hasn't been shown.
 - `SECURITY.md`: the MCP tools take `scorer` (default `jev`, which sends masked excerpts when a key is set); it said they always used Jev.
 

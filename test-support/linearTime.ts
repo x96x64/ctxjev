@@ -12,18 +12,31 @@ export const TOO_FAST_TO_MATTER_MS = 25
 
 export type Growth = { n: number; small: number; large: number; ratio: number }
 
+// Each trial of a repeatable measurement runs the work until at least this long has passed, and the
+// time per run is the total over the count: a run of a millisecond or two fits in one scheduler time
+// slice while a longer one gets preempted, which on a busy machine read as ×30 growth for linear work
+// (the review of this change, at about ten runnable processes on four CPUs).
+const MIN_TRIAL_MS = 10
+
 /**
- * Times `run(n)` and `run(10 * n)`, each the best of `repeats` runs (1 when a cache inside the code
- * under test would make a repeat faster than a first run), after `warmUp` if given.
+ * Times `run(n)` and `run(10 * n)`, each the best of `repeats` trials, after `warmUp` if given.
+ * `call` counts every run: code with a cache inside should build a fresh input from it (a repeat of
+ * the same input would be faster than a first run, and could hide a quadratic first run). With
+ * `repeats: 1`, each size runs exactly once (a subprocess, whose start-up already takes a while).
  */
-export async function measureGrowth(run: (n: number) => unknown, n: number, { repeats = 2, warmUp }: { repeats?: number; warmUp?: () => unknown } = {}): Promise<Growth> {
+export async function measureGrowth(run: (n: number, call: number) => unknown, n: number, { repeats = 3, warmUp }: { repeats?: number; warmUp?: () => unknown } = {}): Promise<Growth> {
   await warmUp?.()
+  let call = 0
   const time = async (size: number) => {
     let best = Infinity
     for (let i = 0; i < repeats; i++) {
+      let runs = 0
       const start = performance.now()
-      await run(size)
-      best = Math.min(best, performance.now() - start)
+      do {
+        await run(size, call++)
+        runs++
+      } while (repeats > 1 && performance.now() - start < MIN_TRIAL_MS)
+      best = Math.min(best, (performance.now() - start) / runs)
     }
     return best
   }

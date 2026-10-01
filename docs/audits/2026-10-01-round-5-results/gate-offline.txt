@@ -15,3 +15,25 @@ $ # restored (pnpm build), the same command
 --gate-offline: local at a 50% budget keeps 79.8% of probes (saved: 79.8%)
 --gate-offline: passed.
 exit 0
+
+# The review of the gate: it passed when it read no dev session (every mean NaN).
+$ # every eval session filtered out (temporary): the gate reads no dev session
+$ node eval/run.mjs --gate-offline   # before the fix
+--gate-offline: recency at a 25% budget keeps NaN% of probes (saved: 66.3%)
+--gate-offline: recency at a 50% budget keeps NaN% of probes (saved: 80.4%)
+--gate-offline: local at a 25% budget keeps NaN% of probes (saved: 65.3%)
+--gate-offline: local at a 50% budget keeps NaN% of probes (saved: 79.8%)
+--gate-offline: passed.
+exit 0
+
+$ node eval/run.mjs --gate-offline   # after the fix, sessions still filtered out
+--gate-offline: recency at a 25% budget keeps NaN% of probes (saved: 66.3%)
+--gate-offline: recency at a 50% budget keeps NaN% of probes (saved: 80.4%)
+--gate-offline: local at a 25% budget keeps NaN% of probes (saved: 65.3%)
+--gate-offline: local at a 50% budget keeps NaN% of probes (saved: 79.8%)
+GATE FAILED: read 0 dev sessions, not the 15 retention-dev.json was saved from; if the set changed on purpose, save it again (node eval/run.mjs --split dev --out eval/results/retention-dev.json)
+GATE FAILED: recency at a 25% budget keeps NaN% of probes, not at least the saved 66.3% (eval/results/retention-dev.json)
+GATE FAILED: recency at a 50% budget keeps NaN% of probes, not at least the saved 80.4% (eval/results/retention-dev.json)
+GATE FAILED: local at a 25% budget keeps NaN% of probes, not at least the saved 65.3% (eval/results/retention-dev.json)
+GATE FAILED: local at a 50% budget keeps NaN% of probes, not at least the saved 79.8% (eval/results/retention-dev.json)
+exit 1

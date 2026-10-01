@@ -19,3 +19,11 @@ AssertionError: 1442.3 ms for n = 20,000, 156879.3 ms for 10n: ×108.8 (linear i
 
 $ # restored, the same command
       Tests  1 passed | 716 skipped (717)
+
+$ # after the review: looped best-of-3 timing, a run of its own length per call. estimateTokens() again temporarily encodes the whole text at once
+$ vitest run src/tokenEstimate.test.ts -t "linearly on long runs x "
+     × x × 20,000 against × 200,000 103724ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: 294.0 ms for n = 20,000, 32908.2 ms for 10n: ×111.9 (linear is about ×10; the limit is ×30): expected false to be true // Object.is equality
+      Tests  1 failed | 20 skipped (21)
+$ # restored: passes (and passes 3 runs of 3 with eight busy processes on four CPUs)

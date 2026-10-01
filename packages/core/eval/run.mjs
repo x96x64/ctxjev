@@ -59,9 +59,11 @@
  * tuned against by way of a failing release.
  *
  * With --gate-offline (CI's eval-harness job runs it on every change, with no key), exits 1 if, on
- * the dev split, the shipped defaults' mean probe retention falls below the saved
- * eval/results/retention-dev.json at any of its budgets: `recency` (the CLI's and the library's
- * default) or `local` (the plugin's). Both are deterministic, so the tolerance (1e-6) only covers
+ * the dev split, mean probe retention falls below the saved eval/results/retention-dev.json at any
+ * of its budgets for `local` (the plugin's default scorer) or `recency` (keep the newest: plain
+ * truncation, what the CLI's and the library's default scorer amounts to; this script ranks by
+ * position itself, and the core unit tests pin scoreByRecency()), or if it didn't read exactly the
+ * dev sessions that file was saved from. Both are deterministic, so the tolerance (1e-6) only covers
  * floating-point noise. It never calls Jev, even with a key set. The fifth audit found the release
  * gate tried Jev alone, so a change that made the shipped defaults keep less would have passed.
  *
@@ -448,12 +450,21 @@ if (args.gate) {
 if (offlineGate) {
   const TOLERANCE = 1e-6
   const failures = []
+  // The same sessions the saved file was made from, or the comparison means nothing: none read at all
+  // made every mean NaN, and a NaN compared below nothing, so the gate passed (the review of this
+  // gate). An added or removed dev session needs retention-dev.json saved again, on purpose.
+  const sessionsNow = Object.keys(summary.perSession).sort()
+  const sessionsSaved = Object.keys(savedDev.perSession).sort()
+  if (sessionsNow.length === 0 || sessionsNow.join('\n') !== sessionsSaved.join('\n')) {
+    failures.push(`read ${sessionsNow.length} dev sessions, not the ${sessionsSaved.length} retention-dev.json was saved from; if the set changed on purpose, save it again (node eval/run.mjs --split dev --out eval/results/retention-dev.json)`)
+  }
   for (const scorer of ['recency', 'local']) {
     for (const b of savedDev.budgets) {
-      const now = retentionSummary[scorer][b].probes
+      const now = retentionSummary[scorer]?.[b]?.probes
       const then = savedDev.retention[scorer][b].probes
       log(`--gate-offline: ${scorer} at a ${b * 100}% budget keeps ${pct(now).trim()} of probes (saved: ${pct(then).trim()})`)
-      if (now < then - TOLERANCE) failures.push(`${scorer} at a ${b * 100}% budget keeps ${pct(now).trim()} of probes, below the saved ${pct(then).trim()} (eval/results/retention-dev.json)`)
+      // Written so a NaN or a missing value fails too.
+      if (!(now >= then - TOLERANCE)) failures.push(`${scorer} at a ${b * 100}% budget keeps ${pct(now).trim()} of probes, not at least the saved ${pct(then).trim()} (eval/results/retention-dev.json)`)
     }
   }
   if (failures.length > 0) {

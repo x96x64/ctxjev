@@ -78,9 +78,10 @@ jobs:
         run: |
           node eval/harness-selftest.mjs
           node eval/check-sessions.mjs
-      # The shipped defaults (recency for the CLI and the library, local for the plugin) mustn't keep
-      # fewer probes on the dev split than eval/results/retention-dev.json saved. Offline and
-      # deterministic, so it runs on every change; the release gate only ever tried Jev.
+      # local (the plugin's default) and recency (keep the newest, what the CLI's and the library's
+      # default amounts to) mustn't keep fewer probes on the dev split than
+      # eval/results/retention-dev.json saved, on the same sessions. Offline and deterministic, so it
+      # runs on every change; the release gate only ever tried Jev.
       - name: Offline retention gate (shipped defaults, dev split)
         working-directory: packages/core
         run: node eval/run.mjs --gate-offline
