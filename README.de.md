@@ -2,7 +2,7 @@
 
 [en](https://github.com/x96x64/ctxjev/blob/main/README.md) | [ja](https://github.com/x96x64/ctxjev/blob/main/README.ja.md) | [zh](https://github.com/x96x64/ctxjev/blob/main/README.zh.md) | [es](https://github.com/x96x64/ctxjev/blob/main/README.es.md) | [ko](https://github.com/x96x64/ctxjev/blob/main/README.ko.md) | [pt](https://github.com/x96x64/ctxjev/blob/main/README.pt.md) | [fr](https://github.com/x96x64/ctxjev/blob/main/README.fr.md) | **de**
 
-<!-- translation-source: README.md sha256=ae7f159f1a78a3c17cc3e875c17eba4968fa5a795a47161d1f19a3ca68bdb039 -->
+<!-- translation-source: README.md sha256=a7698a8be4b8ca9f498efbdcbfac02aa00951a43b11dbdd0f4f7bfc8344235bc -->
 > Aus der englischen README übersetzt. Bei Abweichungen ist die englische Fassung maßgeblich.
 
 **Bewertet den Verlauf eines KI-Agenten und entscheidet, was behalten, verworfen oder zusammengefasst wird:
@@ -258,6 +258,8 @@ Auch der Digest des Claude-Code-Plugins hat keine nachgewiesene Wirkung. Deshalb
 
 - [docs/evaluation.md](docs/evaluation.md): was gemessen wurde und was nicht
 - [docs/design-notes.md](docs/design-notes.md): warum es so funktioniert, wie es funktioniert
+- [docs/api-stability.md](docs/api-stability.md): was in 1.x stabil bleibt
+- [docs/known-limitations.md](docs/known-limitations.md): was es nicht kann, und warum
 - READMEs der Pakete: [`ctxjev-core`](packages/core/README.md), [`ctxjev-cli`](packages/cli/README.md),
   [`ctxjev-mcp`](packages/mcp-server/README.md), [Claude-Code-Plugin](packages/claude-plugin/README.md)
 - [CHANGELOG.md](CHANGELOG.md) und [ROADMAP.md](ROADMAP.md)

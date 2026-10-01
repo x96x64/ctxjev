@@ -2,7 +2,7 @@
 
 [en](https://github.com/x96x64/ctxjev/blob/main/README.md) | [ja](https://github.com/x96x64/ctxjev/blob/main/README.ja.md) | [zh](https://github.com/x96x64/ctxjev/blob/main/README.zh.md) | [es](https://github.com/x96x64/ctxjev/blob/main/README.es.md) | [ko](https://github.com/x96x64/ctxjev/blob/main/README.ko.md) | **pt** | [fr](https://github.com/x96x64/ctxjev/blob/main/README.fr.md) | [de](https://github.com/x96x64/ctxjev/blob/main/README.de.md)
 
-<!-- translation-source: README.md sha256=ae7f159f1a78a3c17cc3e875c17eba4968fa5a795a47161d1f19a3ca68bdb039 -->
+<!-- translation-source: README.md sha256=a7698a8be4b8ca9f498efbdcbfac02aa00951a43b11dbdd0f4f7bfc8344235bc -->
 > Traduzido do README em inglês (português do Brasil). Em caso de diferença, vale a versão em inglês.
 
 **Dá uma pontuação ao histórico de um agente de IA e decide o que manter, descartar ou resumir: offline por
@@ -257,6 +257,8 @@ traz todos os números, como foram obtidos e o que eles não conseguem mostrar.
 
 - [docs/evaluation.md](docs/evaluation.md): o que foi e o que não foi medido
 - [docs/design-notes.md](docs/design-notes.md): por que funciona do jeito que funciona
+- [docs/api-stability.md](docs/api-stability.md): o que a 1.x mantém estável
+- [docs/known-limitations.md](docs/known-limitations.md): o que ele não faz, e por quê
 - READMEs dos pacotes: [`ctxjev-core`](packages/core/README.md), [`ctxjev-cli`](packages/cli/README.md),
   [`ctxjev-mcp`](packages/mcp-server/README.md), [plugin do Claude Code](packages/claude-plugin/README.md)
 - [CHANGELOG.md](CHANGELOG.md) e [ROADMAP.md](ROADMAP.md)

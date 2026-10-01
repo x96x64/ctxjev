@@ -2,7 +2,7 @@
 
 [en](https://github.com/x96x64/ctxjev/blob/main/README.md) | **ja** | [zh](https://github.com/x96x64/ctxjev/blob/main/README.zh.md) | [es](https://github.com/x96x64/ctxjev/blob/main/README.es.md) | [ko](https://github.com/x96x64/ctxjev/blob/main/README.ko.md) | [pt](https://github.com/x96x64/ctxjev/blob/main/README.pt.md) | [fr](https://github.com/x96x64/ctxjev/blob/main/README.fr.md) | [de](https://github.com/x96x64/ctxjev/blob/main/README.de.md)
 
-<!-- translation-source: README.md sha256=ae7f159f1a78a3c17cc3e875c17eba4968fa5a795a47161d1f19a3ca68bdb039 -->
+<!-- translation-source: README.md sha256=a7698a8be4b8ca9f498efbdcbfac02aa00951a43b11dbdd0f4f7bfc8344235bc -->
 > 英語版の README から翻訳したものです。内容が食い違う場合は、英語版が正本です。
 
 **AI エージェントの履歴を採点し、何を残し、何を削り、何を要約するかを決めます。既定ではオフラインで動き、
@@ -251,6 +251,8 @@ Jev の順位で削った履歴を渡したエージェントと、単純な切�
 
 - [docs/evaluation.md](docs/evaluation.md): 何が測られ、何が測られていないか
 - [docs/design-notes.md](docs/design-notes.md): なぜこの作りなのか
+- [docs/api-stability.md](docs/api-stability.md): 1.x で何が安定しているか
+- [docs/known-limitations.md](docs/known-limitations.md): 何ができないか、その理由
 - パッケージの README: [`ctxjev-core`](packages/core/README.md)、[`ctxjev-cli`](packages/cli/README.md)、
   [`ctxjev-mcp`](packages/mcp-server/README.md)、[Claude Code プラグイン](packages/claude-plugin/README.md)
 - [CHANGELOG.md](CHANGELOG.md) と [ROADMAP.md](ROADMAP.md)

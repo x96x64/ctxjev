@@ -2,7 +2,7 @@
 
 [en](https://github.com/x96x64/ctxjev/blob/main/README.md) | [ja](https://github.com/x96x64/ctxjev/blob/main/README.ja.md) | **zh** | [es](https://github.com/x96x64/ctxjev/blob/main/README.es.md) | [ko](https://github.com/x96x64/ctxjev/blob/main/README.ko.md) | [pt](https://github.com/x96x64/ctxjev/blob/main/README.pt.md) | [fr](https://github.com/x96x64/ctxjev/blob/main/README.fr.md) | [de](https://github.com/x96x64/ctxjev/blob/main/README.de.md)
 
-<!-- translation-source: README.md sha256=ae7f159f1a78a3c17cc3e875c17eba4968fa5a795a47161d1f19a3ca68bdb039 -->
+<!-- translation-source: README.md sha256=a7698a8be4b8ca9f498efbdcbfac02aa00951a43b11dbdd0f4f7bfc8344235bc -->
 > 本文由英文 README 翻译而来（简体中文）。如有出入，以英文版为准。
 
 **为 AI 智能体的历史记录打分，并决定保留、删除或概括哪些内容：默认离线运行，也可以选择使用
@@ -242,6 +242,8 @@ ctxjev 的行为与本页描述一致，但它是否能帮助智能体完成工�
 
 - [docs/evaluation.md](docs/evaluation.md)：哪些已经测量过，哪些还没有
 - [docs/design-notes.md](docs/design-notes.md)：为什么这样设计
+- [docs/api-stability.md](docs/api-stability.md)：1.x 中哪些内容保持稳定
+- [docs/known-limitations.md](docs/known-limitations.md)：它做不到什么，以及原因
 - 各包的 README：[`ctxjev-core`](packages/core/README.md)、[`ctxjev-cli`](packages/cli/README.md)、
   [`ctxjev-mcp`](packages/mcp-server/README.md)、[Claude Code 插件](packages/claude-plugin/README.md)
 - [CHANGELOG.md](CHANGELOG.md) 和 [ROADMAP.md](ROADMAP.md)

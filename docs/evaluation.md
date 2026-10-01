@@ -231,3 +231,46 @@ procedure are in [`packages/core/test/blind-redact*/`](../packages/core/test).
 The holdout split of every corpus so far has been measured, so each is used up too: a later fix
 can't be checked against it. The misses that remain are listed in the
 [open masking issues](https://github.com/x96x64/ctxjev/issues?q=is%3Aissue+is%3Aopen+masking).
+
+## Known limitations of the evaluation
+
+The independent audits (in Japanese, under [`audits/`](audits)) found these in the evaluation and
+its data. The data under `examples/` is left exactly as it was used, so the saved results stay
+reproducible; nothing below has been fixed by rewriting it. A new held-out set, checked
+independently, is future work ([ROADMAP](../ROADMAP.md)).
+
+<!-- unverified: counts of files, lines, tasks and questions in examples/, re-counted from the repository for this page; they describe the data, not eval results -->
+
+- **The held-out tasks are small and their conditions are spoken.** Their template code is about a
+  tenth the size of the dev tasks' (3.4 to 4.8 KB against 34.7 to 43.0 KB), their logs are a few
+  lines rather than hundreds, and every condition a hidden test checks is stated in the user's own
+  messages. Every history condition that keeps what the user wrote can solve them, so task success
+  sat at the ceiling and couldn't separate the scorers.
+- **Part of one comparison is decided by construction.** The preregistered retention measure covers
+  the whole session, including the implementation after the fix request, where the held-out
+  sessions label nothing; plain truncation keeps the newest entries, so it scores zero there.
+- **Repeated runs don't repeat Jev.** `eval/tasks.mjs` ranks each task's history once and reuses that
+  ranking across its runs, so the intervals reflect the agent's variation, not Jev's.
+- **A "leave this file unchanged" check can be passed by committing.** In 7 tasks
+  (`audit-retention`, `invoice-rounding`, `month-boundary`, `pii-logging`, `rate-limit-window`,
+  `shipping-fee`, `upload-size-limit`; 4 of them held out) the hidden test runs
+  `git diff --quiet HEAD`, which an agent's own commit would satisfy. No saved run was found to
+  commit.
+- **Two Japanese held-out sessions are probed in English.** All 14 probe questions of
+  `room-booking` and `shipping-fee` (7 each) are in English.
+- **Empty history commits.** Tasks in the first format create their later history commits empty, so
+  a probe that asks what a commit introduced (`config-precedence`, `invoice-rounding`) has no answer
+  in the repository, and in several held-out recordings the agent spent extra steps examining them.
+- **Logs that contradict the code.** The logs of `room-booking`, `coupon-stacking` (order #88213),
+  and `csv-import-encoding` (supplier B's `errors=0`) don't match what the template code does.
+- **Hidden tests that ask for what wasn't said.** `pii-logging`'s test requires a name kept that the
+  task's own data-handling document says not to log; `permission-check`'s forbids a word even in a
+  comment; `webhook-dedupe`'s accepts exactly 24 hours, not a margin.
+- **No human has checked the AI grader.** The outcome eval's answers are graded by Claude Sonnet 5;
+  the review page (`eval/review.html`) shows the AI's verdict by default, no human verdict has been
+  saved (`results/human-review/` holds only a 6-item demo of the page's input), and every label was
+  written by one AI.
+- **The held-out material is used up.** The held-out tasks have been run and analyzed, and the
+  holdout split of each secret-masking blind corpus (1 to 3) has been measured once, so none of them
+  can confirm a new claim. Corpus 2's spec also asked for more of the shapes that had just been
+  fixed (disclosed in its README), so its held-out rate may be optimistic.

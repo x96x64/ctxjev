@@ -2,7 +2,7 @@
 
 [en](https://github.com/x96x64/ctxjev/blob/main/README.md) | [ja](https://github.com/x96x64/ctxjev/blob/main/README.ja.md) | [zh](https://github.com/x96x64/ctxjev/blob/main/README.zh.md) | [es](https://github.com/x96x64/ctxjev/blob/main/README.es.md) | **ko** | [pt](https://github.com/x96x64/ctxjev/blob/main/README.pt.md) | [fr](https://github.com/x96x64/ctxjev/blob/main/README.fr.md) | [de](https://github.com/x96x64/ctxjev/blob/main/README.de.md)
 
-<!-- translation-source: README.md sha256=ae7f159f1a78a3c17cc3e875c17eba4968fa5a795a47161d1f19a3ca68bdb039 -->
+<!-- translation-source: README.md sha256=a7698a8be4b8ca9f498efbdcbfac02aa00951a43b11dbdd0f4f7bfc8344235bc -->
 > 영어 README를 번역한 문서입니다. 내용이 다를 경우 영어판이 기준입니다.
 
 **AI 에이전트의 이력에 점수를 매기고, 무엇을 남기고 버리고 요약할지 정합니다. 기본적으로 오프라인으로
@@ -251,6 +251,8 @@ ctxjev는 이 페이지에 쓴 대로 동작하지만, 그것이 에이전트가
 
 - [docs/evaluation.md](docs/evaluation.md): 무엇을 측정했고 무엇을 측정하지 않았는지
 - [docs/design-notes.md](docs/design-notes.md): 왜 이렇게 동작하는지
+- [docs/api-stability.md](docs/api-stability.md): 1.x에서 무엇이 안정적으로 유지되는지
+- [docs/known-limitations.md](docs/known-limitations.md): 무엇을 하지 못하는지와 그 이유
 - 패키지 README: [`ctxjev-core`](packages/core/README.md), [`ctxjev-cli`](packages/cli/README.md),
   [`ctxjev-mcp`](packages/mcp-server/README.md), [Claude Code 플러그인](packages/claude-plugin/README.md)
 - [CHANGELOG.md](CHANGELOG.md)와 [ROADMAP.md](ROADMAP.md)

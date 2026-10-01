@@ -42,6 +42,8 @@ tool. The things most worth reporting:
 
 ## Known limitations (not vulnerabilities by themselves)
 
+Every known limitation, security-related or not, is in [docs/known-limitations.md](docs/known-limitations.md).
+
 - Secret masking is best-effort pattern matching. It catches common formats, not every possible
   secret; the README says so wherever content is sent. A value that reads as a variable reference
   (`$NAME`, `%NAME%`) is deliberately left as it is, even when a real password happens to have that

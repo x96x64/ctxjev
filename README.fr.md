@@ -2,7 +2,7 @@
 
 [en](https://github.com/x96x64/ctxjev/blob/main/README.md) | [ja](https://github.com/x96x64/ctxjev/blob/main/README.ja.md) | [zh](https://github.com/x96x64/ctxjev/blob/main/README.zh.md) | [es](https://github.com/x96x64/ctxjev/blob/main/README.es.md) | [ko](https://github.com/x96x64/ctxjev/blob/main/README.ko.md) | [pt](https://github.com/x96x64/ctxjev/blob/main/README.pt.md) | **fr** | [de](https://github.com/x96x64/ctxjev/blob/main/README.de.md)
 
-<!-- translation-source: README.md sha256=ae7f159f1a78a3c17cc3e875c17eba4968fa5a795a47161d1f19a3ca68bdb039 -->
+<!-- translation-source: README.md sha256=a7698a8be4b8ca9f498efbdcbfac02aa00951a43b11dbdd0f4f7bfc8344235bc -->
 > Traduit du README anglais. En cas de divergence, c'est la version anglaise qui fait foi.
 
 **Attribue un score à l'historique d'un agent d'IA et décide quoi garder, retirer ou résumer : hors ligne par
@@ -262,6 +262,8 @@ et ce qu'ils ne peuvent pas montrer.
 
 - [docs/evaluation.md](docs/evaluation.md) : ce qui a été mesuré, et ce qui ne l'a pas été
 - [docs/design-notes.md](docs/design-notes.md) : pourquoi cela fonctionne ainsi
+- [docs/api-stability.md](docs/api-stability.md) : ce que la 1.x garde stable
+- [docs/known-limitations.md](docs/known-limitations.md) : ce qu'il ne fait pas, et pourquoi
 - README des paquets : [`ctxjev-core`](packages/core/README.md), [`ctxjev-cli`](packages/cli/README.md),
   [`ctxjev-mcp`](packages/mcp-server/README.md), [plugin Claude Code](packages/claude-plugin/README.md)
 - [CHANGELOG.md](CHANGELOG.md) et [ROADMAP.md](ROADMAP.md)

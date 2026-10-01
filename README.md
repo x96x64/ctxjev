@@ -262,6 +262,8 @@ has every number, how it was produced, and what it can't show.
 
 - [docs/evaluation.md](docs/evaluation.md): what has and hasn't been measured
 - [docs/design-notes.md](docs/design-notes.md): why it works the way it does
+- [docs/api-stability.md](docs/api-stability.md): what 1.x keeps stable
+- [docs/known-limitations.md](docs/known-limitations.md): what it doesn't do, and why
 - Package READMEs: [`ctxjev-core`](packages/core/README.md), [`ctxjev-cli`](packages/cli/README.md),
   [`ctxjev-mcp`](packages/mcp-server/README.md), [Claude Code plugin](packages/claude-plugin/README.md)
 - [CHANGELOG.md](CHANGELOG.md) and [ROADMAP.md](ROADMAP.md)

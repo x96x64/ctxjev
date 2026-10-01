@@ -18,6 +18,7 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 - `ctxjev-core`: new `typesafeApiKey()` and `missingTypesafeApiKey()` report whether the environment holds a usable Jev key.
 - `ctxjev-cli`: the `--scorer local` report no longer calls keyword overlap "much cruder than Jev"; on held-out tasks Jev's ranking wasn't shown to do better.
 - The READMEs are rewritten to be shorter and example-first; the evaluation's numbers moved to `docs/evaluation.md`, the design notes to `docs/design-notes.md`.
+- `docs/api-stability.md` says what 1.x keeps stable and what it doesn't cover; `docs/known-limitations.md` lists every known limitation and the issue that tracks it; `docs/evaluation.md` adds the known defects of the evaluation and its data.
 - The npm pages: each package README is complete on its own (what ctxjev is, privacy, status, license), and its links point at the release's files on GitHub instead of breaking.
 - The README is available in Japanese, Simplified Chinese, Spanish, Korean, Brazilian Portuguese, French, and German (`README.<lang>.md`); English stays authoritative.
 
