@@ -1,20 +1,33 @@
 # Roadmap
 
-What's done, in one line each, and what's next. The detail behind each phase is in the git history
-and [CHANGELOG.md](CHANGELOG.md).
+What's next, and the constraints that shaped the design. What has shipped is in
+[CHANGELOG.md](CHANGELOG.md).
+
+## Where things stand
+
+<!-- checked-prose -->
+- The preregistered held-out comparison has run: Jev's ranking tied plain truncation on task
+  success (<!-- generated:holdout-diff-short -->0 points, 95% CI [0, 0] with Claude Haiku 4.5 and with Claude Sonnet 5, 6 unseen tasks<!-- /generated:holdout-diff-short -->), so `recency` (plain
+  truncation) is the library's and the CLI's default and Jev is opt-in. Details are in
+  [docs/evaluation.md](docs/evaluation.md).
+<!-- /checked-prose -->
 
 ## Next
 
-1. **Round 2** ([plan, in Japanese](docs/design/round-2-scoring-and-evaluation.md)): a hybrid of
-   cheap deterministic signals, built on the dev split only, with Jev as an optional feature
-   compared with and without it; 24 new tasks, 8 of them written by a separate agent from a written
-   spec; preregistered and committed before any scoring, then run once within a fixed budget.
-2. **Why Jev ranked below keyword overlap and a random order on the holdout's retention measure**
-   when it beat both on dev. The labeling difference between the two splits (the holdout labeled
-   nothing after the fix request) is the leading explanation; the Round 2 retention measure (v2)
-   stops at the fix request for that reason.
-3. Token budgets with Claude's own token counting instead of `gpt-tokenizer`, if scorer choice
-   starts to hinge on budgets tighter than 25%.
+1. **A new held-out set, checked independently.** The current one is used up, and it has known
+   defects (listed in [docs/evaluation.md](docs/evaluation.md)). The plan, in Japanese, is the
+   [scoring and evaluation redesign](docs/design/round-2-scoring-and-evaluation.md): a hybrid of
+   cheap deterministic signals built on the dev split only, with Jev as an optional feature compared
+   with and without it; new tasks, some written by a separate agent from a written spec;
+   preregistered and committed before any scoring, then run once within a fixed budget.
+2. **Why Jev ranked below keyword overlap and a random order on the held-out retention measure**
+   when it beat both on dev. The leading explanation is a labeling difference between the two
+   splits (the held-out sessions labeled nothing after the fix request).
+3. **Codex compaction hooks.** Codex now has `PreCompact` and `SessionStart` (`source: "compact"`)
+   hooks, so the Claude Code plugin's approach could work there too, but it needs a parser for
+   Codex's own session logs and a check against a real Codex compaction.
+4. Token budgets with Claude's own token counting instead of `gpt-tokenizer`, if scorer choice
+   starts to hinge on budgets tighter than the ones measured so far.
 
 ## Constraints that shaped the design
 
@@ -27,36 +40,4 @@ and [CHANGELOG.md](CHANGELOG.md).
 - **Jev only answers typed questions**: no counting, no text. Token counts are computed, and
   `summarize` either keeps an excerpt or calls your own summarizer.
 
-## Done
-
-- Phase 0–1: workspace scaffold; `core` with chunked `noul` fan-out, recency blending, and a
-  keep/drop/summarize policy.
-- Phase 2: MCP server with `score_relevance` and `prune_history`, verified in-process.
-- Phase 3: Claude Code plugin on PreCompact / SessionStart(compact), after the rewrite design was
-  ruled out.
-- Phase 4: Codex verified hands-on, Copilot config from its docs; Xcode ruled out.
-- Phase 5: the Claude Code transcript parser moved to `core` so the CLI reads real sessions;
-  sidechains excluded.
-- Phase 6–7: first npm release; trusted publishing verified.
-- Phase 8–9: desktop-app plugin install; an Agent Plugins bundle for Codex.
-- Phase 10–11: self-audit fixes (`/compact` taken as the goal, among others); the README
-  rewritten to say what each integration can actually do, and the privacy disclosure.
-- Phase 12–13: `pruneMessages()` for Anthropic Messages; Japanese text; real token counts.
-- Phase 14–17 (0.4.0): pluggable scorer; `pruneMessages()` budgets, `summarize`, and prompt-cache
-  reporting; realistic eval sessions; `dropBelow` 0.3.
-- Phase 18–22: model-graded outcome eval; recorded sessions on throwaway task repos; task-
-  completion eval.
-- Phase 23–27 (0.5.0): `keepUserText` and the removal note; ten tasks with bootstrap intervals; the
-  plugin measured; Sonnet 5 on the task eval (the strategies stop differing).
-- 0.6.0: the review round.
-  - Goal inference fixed on real transcripts.
-  - `/ctxjev:set-goal` made per-session.
-  - Plugin state moved out of the project.
-  <!-- checked-prose -->
-  - The eval split into dev and holdout, and the holdout comparison preregistered — then run:
-    Jev tied plain truncation on task success (<!-- generated:holdout-diff-short -->0 points, 95% CI [0, 0] with Claude Haiku 4.5 and with Claude Sonnet 5, 6 unseen tasks<!-- /generated:holdout-diff-short -->). <!-- /checked-prose -->
-    **`recency` (plain truncation) is now the default scorer**; Jev is opt-in
-    (`scorer: 'jev'`). `ctxjev-mcp` is unaffected, since exposing Jev is its whole purpose.
-  - The release gate made strict.
-  - The plugin's holdout comparison, run twice: no demonstrated effect in either run. The plugin
-    now scores offline by default; Jev is opt-in (`CTXJEV_SCORER=jev`).
+More on each choice: [docs/design-notes.md](docs/design-notes.md).

@@ -81,7 +81,7 @@ export function formatReport(
       const overlap = Math.round(decisions[0].relevance * 100)
       lines.push(pc.dim(`every entry shares the same keyword overlap with the goal (${overlap === 0 ? 'none' : `${overlap}% of its words`}), so it can't rank them: they're scored by position alone`))
     }
-    lines.push(pc.dim('Scored offline by keyword overlap — no Jev call, nothing sent. Much cruder than Jev; treat the decisions as a rough guide.'))
+    lines.push(pc.dim('Scored offline by keyword overlap — no Jev call, nothing sent. It matches words only (no synonyms), so treat the decisions as a rough guide.'))
     return lines.join('\n')
   }
   if (scorer === 'recency') {

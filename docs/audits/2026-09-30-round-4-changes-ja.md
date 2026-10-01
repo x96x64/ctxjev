@@ -19,7 +19,7 @@
 | [#28](https://github.com/x96x64/ctxjev/pull/28) | プラグイン・MCP・CLI（P1-5、P1-7、P2-11、P2-12、P2-13、#20） | `f2a813f` | `a4e9f9f`、`f040ee4` |
 | [#30](https://github.com/x96x64/ctxjev/pull/30) | 文書と CI（P1-4、P2-15、ライセンスの記述、README の例の検査） | `6549104` | `accbeac`、`857e85b`、`3b440d3` |
 | [#32](https://github.com/x96x64/ctxjev/pull/32) | 0.7.1 のリリース | `3feba93` | `fd3e40c` |
-| [#33](https://github.com/x96x64/ctxjev/pull/33) | 新しい holdout の測定結果（一度だけ）と、この記録 | この PR のページを参照（この文書を含む PR なので、そのマージのコミットはこの中には書けない） | この PR のコミット |
+| [#33](https://github.com/x96x64/ctxjev/pull/33) | 新しい holdout の測定結果（一度だけ）と、この記録 | `a4ae4b9`（Round 6 で追記。この文書を含む PR なので、当時は書けなかった） | `c37d393` |
 
 どの PR も、必須の4つのチェック（`test (20)`、`test (22)`、`eval-harness`、`audit`）が成功してからマージコミットでマージし、ブランチは自動で削除されました。マージ後の `main` の CI は、#33 の後だけ失敗しました。
 

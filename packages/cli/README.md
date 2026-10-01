@@ -1,18 +1,12 @@
-<div align="center">
-
 # ctxjev-cli
 
-**See what an agent's history can lose, and prune it, right from your terminal: offline by default, with Jev if you opt in.**
+**See what an AI agent's history could lose, and prune it, from your terminal: offline by default,
+with Jev if you opt in.**
 
 [![npm](https://img.shields.io/npm/v/ctxjev-cli.svg)](https://www.npmjs.com/package/ctxjev-cli)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Node](https://img.shields.io/badge/node-%3E%3D20-339933?logo=node.js&logoColor=white)](package.json)
-
-[Install](#install) · [Usage](#usage) · [Options](#options) · [Transcript Formats](#transcript-formats) · [Related Packages](#related-packages)
-
-</div>
-
----
+[![CI](https://github.com/x96x64/ctxjev/actions/workflows/ci.yml/badge.svg)](https://github.com/x96x64/ctxjev/actions/workflows/ci.yml)
+[![License](https://img.shields.io/npm/l/ctxjev-cli.svg)](LICENSE)
+[![Node](https://img.shields.io/node/v/ctxjev-cli.svg)](https://nodejs.org)
 
 ## Install
 
@@ -20,18 +14,15 @@
 npm install -g ctxjev-cli
 ```
 
-No key needed: the default, `--scorer recency` (newest kept, plain truncation), scores offline and
-sends nothing, and tied Jev on a [preregistered holdout comparison](../core/eval/PREREGISTRATION.md)
-(see the [main README](../../README.md#does-it-work)). `--scorer local` (keyword overlap) is also
-offline. To opt in to Jev instead: `export TYPESAFE_API_KEY=...`
-(console.typesafe.ai/settings/keys, no waitlist) and pass `--scorer jev`.
-
-Versions before 0.6.0 score with Jev by default,
-so they need the key unless you pass `--offline`, and have no `--scorer`.
+No key needed: the default, `--scorer recency` (newest kept, plain truncation), and `--scorer
+local` (keyword overlap) both score offline and send nothing. To opt in to Jev, set
+`TYPESAFE_API_KEY` (from [console.typesafe.ai/settings/keys](https://console.typesafe.ai/settings/keys))
+and pass `--scorer jev`.
 
 With the default `recency`, the goal isn't used: an entry's score is its position (oldest 0,
 newest 1), so the default thresholds drop roughly the oldest 30% of entries and mark the next 30%
-for summarizing, whatever they say.
+for summarizing, whatever they say. No scorer has been shown to beat that on held-out tasks; see
+the [evaluation](../../docs/evaluation.md).
 
 ## Usage
 
@@ -92,8 +83,8 @@ prune would remove 2 of the 3 entries marked drop, ~28 / 154 tokens (18%); the 1
 Jev cost: 1,290 input tokens, 123 output tokens (free) — ~$0.000054
 ```
 
-Both are real output, captured 2026-09-25. Jev is probabilistic, so its numbers vary slightly
-between runs, and the cost line is computed from what Jev's API actually reported, not estimated.
+Both are real output. Jev's answers vary slightly between runs, and its cost line is computed from
+the usage Jev's API reported for that request, not estimated.
 
 ## Options
 
@@ -117,7 +108,7 @@ between runs, and the cost line is computed from what Jev's API actually reporte
 | `--min-saved-tokens <n>` | Anthropic Messages only (`analyze` and `prune`): changes nothing unless it saves at least n tokens. The summary line shows where a prompt cache would start over. |
 | `--help` / `--version` | Work without `TYPESAFE_API_KEY` set, before or after the command (`ctxjev prune --help`). |
 
-## Transcript Formats
+## Transcript formats
 
 Auto-detected, no flag needed:
 
@@ -132,19 +123,16 @@ Auto-detected, no flag needed:
 > real, sensitive session log without checking its contents first: common secret formats are
 > masked to `[REDACTED]` first, but that masking is best-effort and can't catch everything.
 
-## Related Packages
+## Related packages
 
 | Package | What it is |
 | --- | --- |
 | [`ctxjev-core`](https://www.npmjs.com/package/ctxjev-core) | The engine this CLI wraps. |
-| [`ctxjev-mcp`](https://www.npmjs.com/package/ctxjev-mcp) | The same scoring, as MCP tools for Claude Code, Codex, and other agent hosts. |
+| [`ctxjev-mcp`](https://www.npmjs.com/package/ctxjev-mcp) | The same scoring, as MCP tools for Claude Code, Codex, and other MCP hosts. |
 
-Full docs, design notes, and example transcripts live in the main repo:
-**[github.com/x96x64/ctxjev](https://github.com/x96x64/ctxjev)**.
+Example transcripts, the Claude Code plugin, and the design notes are in the
+[ctxjev repository](https://github.com/x96x64/ctxjev).
 
 ## License
 
-This package is released under the [MIT](LICENSE) license: free to use, modify, and distribute,
-including in a commercial product, as long as the license text and copyright notice ship with it.
-See the [main repo](https://github.com/x96x64/ctxjev#license) for how this matches every
-dependency `ctxjev` currently uses.
+[MIT](LICENSE).

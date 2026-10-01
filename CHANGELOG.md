@@ -10,6 +10,8 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 - Codex plugin: passes your real `TYPESAFE_API_KEY` to the MCP server. Codex doesn't expand `${TYPESAFE_API_KEY}` in a plugin's `mcp.json`, so the server got that text instead of the key, and Jev never worked through the plugin.
 - `ctxjev-mcp`, `ctxjev-cli`, the Claude Code plugin, and `ctxjev-core`: a `TYPESAFE_API_KEY` that is only an unexpanded placeholder (`${TYPESAFE_API_KEY}`, `$NAME`, `%NAME%`) counts as no key. Without a real key, a call that would use Jev now sends nothing and says so; before, it sent the masked goal and excerpts to Jev, which refused them.
 - `ctxjev-core`: new `typesafeApiKey()` and `missingTypesafeApiKey()` report whether the environment holds a usable Jev key.
+- `ctxjev-cli`: the `--scorer local` report no longer calls keyword overlap "much cruder than Jev"; on held-out tasks it kept more of what a task needed than Jev did.
+- The READMEs are rewritten to be shorter and example-first; the evaluation's numbers moved to `docs/evaluation.md`, the design notes to `docs/design-notes.md`.
 
 ## 0.7.2 — 2026-10-01
 

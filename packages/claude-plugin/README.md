@@ -1,17 +1,9 @@
-<div align="center">
+# ctxjev for Claude Code
 
-# ctxjev
+**Hands the highest-scoring entries of your session back to Claude Code right after it compacts.**
 
-**Keep what matters through Claude Code's own compaction.**
-
+[![CI](https://github.com/x96x64/ctxjev/actions/workflows/ci.yml/badge.svg)](https://github.com/x96x64/ctxjev/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Verified](https://img.shields.io/badge/verified-desktop%20app%20%2B%20CLI-brightgreen)](../../ROADMAP.md)
-
-[Overview](#overview) · [How It Works](#how-it-works) · [Skills](#skills) · [Install](#install) · [Requirements](#requirements) · [Privacy](#privacy)
-
-</div>
-
----
 
 ## Overview
 
@@ -23,15 +15,15 @@ everything that didn't.
 `ctxjev` scores your session's history against your goal right before compaction happens, by
 keyword overlap on your own machine (or, if you opt in, with [Jev](https://typesafe.ai), a fast,
 cheap, typed-decision model), and caches whatever scored highest. The moment compaction finishes, it hands that cache back to Claude
-Code as a reminder. Nothing about the compaction itself changes; what changes is that the few
-things that mattered most don't have to survive being summarized to still be there.
+Code as a reminder. Nothing about the compaction itself changes; the few entries that scored highest
+are put back in front of the model whether or not the summary kept them.
 
 No configuration is required: it activates automatically once installed. Set an explicit goal
 with `/ctxjev:set-goal` when you want scoring aimed at something more specific than your first
 request plus your latest instruction.
 
 <!-- checked-prose -->
-**What it's shown so far: no demonstrated effect.** In the [plugin eval](../../README.md#does-it-work),
+**What it's shown so far: no demonstrated effect.** In the [plugin eval](../../docs/evaluation.md),
 against a simulated compaction summary that already keeps every user instruction, the digest added
 <!-- generated:plugin-diff -->+5 points [0, +15]<!-- /generated:plugin-diff --> to tasks passed on
 the tasks it was designed on: within the noise. The
@@ -89,9 +81,13 @@ environment Claude Code runs in to change that.
 /plugin marketplace add x96x64/ctxjev
 ```
 
-Then install `ctxjev` from the marketplace list. Verified: adding the marketplace and installing
-the plugin both work from the desktop app, and `/ctxjev:set-goal`/`/ctxjev:status` show up as
-available skills immediately after.
+```
+/plugin install ctxjev@ctxjev-plugins
+```
+
+From a terminal, `claude plugin marketplace add x96x64/ctxjev` and `claude plugin install
+ctxjev@ctxjev-plugins` do the same. The marketplace installs the plugin from the repository at the
+latest release's tag. `/ctxjev:set-goal` and `/ctxjev:status` are available right after.
 
 **To develop against the plugin's own source** (this repo, not the installed copy):
 
@@ -106,8 +102,8 @@ claude --plugin-dir packages/claude-plugin
 Nothing beyond Node.js, which Claude Code already needs. By default the plugin scores offline by
 keyword overlap and sends nothing anywhere. That's the default because on the preregistered
 holdout sessions Jev's ranking kept less of what a task needed than keyword overlap (and than a
-random order), and the Jev-scored digest showed no demonstrated effect there (see
-[Does It Work?](../../README.md#does-it-work)); offline, your session also stays on your machine.
+random order), and the Jev-scored digest showed no demonstrated effect there (see the
+[evaluation](../../docs/evaluation.md)); offline, your session also stays on your machine.
 Nor has the offline digest been shown to help: neither scorer has a demonstrated effect.
 
 **Optional, Jev:** set `CTXJEV_SCORER=jev` and a [Jev](https://typesafe.ai) API key as
@@ -137,17 +133,14 @@ to TypeSafe AI's Jev API for scoring.
 - **Only short excerpts are sent**, not whole files or full tool output.
 - **Nothing is written into your project.** Scores and excerpts go to
   `~/.claude/ctxjev/sessions/<session id>/` (under `CLAUDE_CONFIG_DIR` if you set it), readable only
-  by you, one directory per session, and only the 50 most recent sessions are kept. Versions
-  before 0.6.0 kept this in `.ctxjev/` inside your project; the next compaction removes the files
-  they wrote there, and the directory too if nothing else is in it.
+  by you, one directory per session, and only the 50 most recent sessions are kept. If a version
+  before 0.6.0 left a `.ctxjev/` directory in your project, the next compaction removes the files it
+  wrote there, and the directory too if nothing else is in it.
 - **Nothing is sent unless you opt in.** Without `CTXJEV_SCORER=jev`, or with it but no
   `TYPESAFE_API_KEY`, nothing leaves your machine.
 
----
-
-Full design notes (why hooks can't do this the "obvious" way, why recency is scored relative to
-the batch and not wall-clock time, how the scoring threshold was tuned against labeled data) live
-in the main repo: **[github.com/x96x64/ctxjev](https://github.com/x96x64/ctxjev)**.
+Why hooks can't do this the "obvious" way, and the other design choices, are in the
+[design notes](../../docs/design-notes.md).
 
 ## License
 
