@@ -27,8 +27,6 @@ async function connect(): Promise<Client> {
   return client
 }
 
-// Codex (0.159.3) passes an Agent Plugins bundle's `"TYPESAFE_API_KEY": "${TYPESAFE_API_KEY}"`
-// through unexpanded. The server took it for a key and sent masked excerpts to Jev, which refused them.
 // 1.0: a call that names no scorer runs offline (`local`), like every other entry point, even with a
 // key set; only an explicit `scorer: "jev"` sends anything.
 describe('MCP server, default scorer', () => {
@@ -65,6 +63,8 @@ describe('MCP server, default scorer', () => {
   })
 })
 
+// Codex (0.159.3) passes an Agent Plugins bundle's `"TYPESAFE_API_KEY": "${TYPESAFE_API_KEY}"`
+// through unexpanded. The server took it for a key and sent masked excerpts to Jev, which refused them.
 describe('MCP server with an unexpanded ${TYPESAFE_API_KEY}', () => {
   const received: string[] = []
   let jev: Server
@@ -193,9 +193,10 @@ describe('MCP server without TYPESAFE_API_KEY', () => {
     await client.close()
   })
 
+  // scorer "jev", or no key check would run at all and the second expectation would prove nothing.
   it('still rejects invalid input first', async () => {
     const client = await connect()
-    const result = await client.callTool({ name: 'prune_history', arguments: { goal: '', entries } })
+    const result = await client.callTool({ name: 'prune_history', arguments: { goal: '', entries, scorer: 'jev' } })
     expect(result.isError).toBe(true)
     expect(JSON.stringify(result.content)).not.toContain('TYPESAFE_API_KEY')
     await client.close()

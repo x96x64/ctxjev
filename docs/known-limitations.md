@@ -1,8 +1,9 @@
 # Known limitations
 
 What ctxjev doesn't do, or doesn't do well, as of 1.0. Each item says why it is the way it is, and
-links the issue that tracks it. Nothing known is left off this page: an open issue is either here
-or fixed. The limits of the evaluation itself, and of its data, are in
+links the issue that tracks it. Every open issue is summarized here, and the linked issues hold the
+full, itemized lists (some, such as the masking misses, are too long to repeat). The limits of the
+evaluation itself, and of its data, are in
 [evaluation.md](evaluation.md#known-limitations-of-the-evaluation).
 
 ## What it can and can't do
@@ -22,6 +23,10 @@ or fixed. The limits of the evaluation itself, and of its data, are in
 - **Token counts are estimates.** They come from `gpt-tokenizer`, an approximation of Claude's
   tokenizer. On long runs of one repeated pattern the estimate can be well off; on realistic text
   it's close ([#20](https://github.com/x96x64/ctxjev/issues/20)).
+- **An image isn't counted.** `pruneMessages()`' `savedTokens` (and so `prune`'s "tokens saved" and
+  `analyze`'s "would remove") counts text and tool calls only. An image removed with an entry, such
+  as a screenshot in a tool result, adds nothing, so the real saving can be larger than reported:
+  ctxjev doesn't read an image's size.
 
 ## Secret masking
 
@@ -38,11 +43,13 @@ code is in [evaluation.md](evaluation.md#secret-masking-measured-blind).
   current lists are in [#16](https://github.com/x96x64/ctxjev/issues/16),
   [#27](https://github.com/x96x64/ctxjev/issues/27), and
   [#38](https://github.com/x96x64/ctxjev/issues/38).
-- **Deliberate choices.** A value that reads as a variable reference (`$NAME`, `${NAME}`, `%NAME%`)
-  is taken for a placeholder and left alone, even when a real password happens to look like one. A
-  digit-only value after a label isn't masked (since 0.6.1), nor is a value shaped like a dependency
-  coordinate (`API_KEY=abc:1.2.3`), nor a single plain word (`AUTH foobared`). Prose after a label
-  (`Token: expired yesterday`) is kept.
+- **Deliberate choices.** A value that reads as a variable reference (`$NAME`, `${NAME}`, `%NAME%`,
+  and `${NAME:?message}` with its message) is taken for a placeholder and left alone, even when a
+  real password happens to look like one. A digit-only value after a label isn't masked (since
+  0.6.1), nor is a value shaped like a dependency coordinate (`API_KEY=abc:1.2.3`), nor a single
+  plain word (`AUTH foobared`). Prose after a label (`Token: expired yesterday`) is kept, and so is
+  what reads as code: a reference ending in the name (`password: config.Password`) or a call whose
+  parts all look like names (`Pass(word)`) ([#27](https://github.com/x96x64/ctxjev/issues/27)).
 - **Over-masking.** Some harmless text is masked: a second quoted argument after a credential-like
   name, prose shaped like a `.netrc` line, an AWS Secrets Manager ARN's name, a scp-style URL with no
   user name, a placeholder in a typed declaration (`apiKey: string = "YOUR_API_KEY_HERE"`), and
@@ -63,6 +70,23 @@ code is in [evaluation.md](evaluation.md#secret-masking-measured-blind).
 - **The status hook's lazy import relies on `status.js`'s own main guard**, and its speed is
   measured by hand (`scripts/time-status-hook.mjs`), not in CI; CI only checks the bundle stays small
   ([#29](https://github.com/x96x64/ctxjev/issues/29)).
+
+## Releases and the marketplace
+
+- **The marketplace names the plugin by its release tag, not a commit**
+  ([#22](https://github.com/x96x64/ctxjev/issues/22)). Pinning a commit would make a release
+  installable as soon as its pull request merges, before the publish workflow's checks; the tag
+  exists only once they've passed. A repository ruleset protects `v*` tags from being moved or
+  deleted, so the tag is only as fixed as that setting.
+- **The npm pages' links point at the release tag**, which the publish workflow creates in its last
+  step. If that step failed after the packages were published, those links would 404 until the tag
+  exists ([#44](https://github.com/x96x64/ctxjev/issues/44)).
+
+## The evaluation harness
+
+- **It runs shell commands a model chose.** The task-completion evals run them in a sandbox
+  (`packages/core/eval/sandbox.mjs`), and unconfined only when `CTXJEV_SANDBOX=none` is set; see
+  [SECURITY.md](../SECURITY.md). It's a development tool, not part of any package.
 
 ## Library, CLI, and MCP server
 
@@ -85,14 +109,22 @@ code is in [evaluation.md](evaluation.md#secret-masking-measured-blind).
 - **Code the tests don't pin down.** A few checks can be changed without any test failing (surviving
   mutants), mostly length bounds in masking rules and redundant input checks that another check
   catches first ([#18](https://github.com/x96x64/ctxjev/issues/18), [#20](https://github.com/x96x64/ctxjev/issues/20)).
+- **One test would hang rather than fail.** If the `estimateTokens` fix were reverted,
+  `tokenEstimate.test.ts` would hang: the synchronous tokenizer can't be interrupted by the test
+  runner's timeout ([#20](https://github.com/x96x64/ctxjev/issues/20)).
 - **The docs checks read numbers, not meaning.** `check-docs.mjs` catches a hand-typed or changed
   eval number, not a sentence that changes a result's meaning without one ("found no difference" to
   "found a difference"); its claim detection relies on a word list; its selftest exercises a copy of
   the main loop's logic ([#22](https://github.com/x96x64/ctxjev/issues/22), [#38](https://github.com/x96x64/ctxjev/issues/38)).
+  Its prose check skips numbers inside quotes or backticks and phrases like "N% of its tokens".
   `check-translations.mjs` likewise can't see a translated sentence that says the opposite with the
-  same numbers ([#44](https://github.com/x96x64/ctxjev/issues/44)).
+  same numbers, and doesn't compare links written as `<a href>`, reference definitions, or bare
+  URLs, code fenced with `~~~` or indented, full-width digits, or a dropped link to an in-page
+  anchor ([#44](https://github.com/x96x64/ctxjev/issues/44)).
 - **Link and README checks have gaps**: a link with a title, an angle-bracket target, or a
-  single-quoted `href` isn't seen ([#44](https://github.com/x96x64/ctxjev/issues/44)).
+  single-quoted `href` isn't seen; only code fences at the start of a line count as code; and the
+  packed-README check ignores "no example found" (`check-readme-examples.mjs` still catches a lost
+  example in the committed READMEs) ([#44](https://github.com/x96x64/ctxjev/issues/44)).
 - **The growth-based speed tests** compare the time for n and 10n inputs, so they catch slowdowns
   faster than linear, not a constant-factor slowdown ([#38](https://github.com/x96x64/ctxjev/issues/38)).
 - **The boundary brute force** accepts any plain `Error` and limits each call to a few seconds,
@@ -100,8 +132,12 @@ code is in [evaluation.md](evaluation.md#secret-masking-measured-blind).
   [#22](https://github.com/x96x64/ctxjev/issues/22)).
 - **The offline retention gate's `recency` half** ranks by position in the script itself; the
   library's own recency scorer is covered by core's unit tests ([#38](https://github.com/x96x64/ctxjev/issues/38)).
-- **`check-sessions.mjs` pins how many English probe fields** two sessions have, not which ones
-  ([#31](https://github.com/x96x64/ctxjev/issues/31)).
+- **`check-sessions.mjs` pins how many English probe fields** two sessions have, not which ones, and
+  no test covers a known session whose count changes ([#31](https://github.com/x96x64/ctxjev/issues/31)).
+- **The Codex check shows the configuration Codex resolves**, not the environment of a running
+  server ([#44](https://github.com/x96x64/ctxjev/issues/44)).
+- **`scripts/loadRedact.ts`** reports a git ref it can't read as `ERR_MODULE_NOT_FOUND` rather than
+  as an unknown ref ([#27](https://github.com/x96x64/ctxjev/issues/27)).
 
 ## Dependencies and platforms
 

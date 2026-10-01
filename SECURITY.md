@@ -42,7 +42,7 @@ tool. The things most worth reporting:
 
 ## Known limitations (not vulnerabilities by themselves)
 
-Every known limitation, security-related or not, is in [docs/known-limitations.md](docs/known-limitations.md).
+Every open issue, security-related or not, is summarized in [docs/known-limitations.md](docs/known-limitations.md), which links the issues that hold the full lists.
 
 - Secret masking is best-effort pattern matching. It catches common formats, not every possible
   secret; the README says so wherever content is sent. A value that reads as a variable reference

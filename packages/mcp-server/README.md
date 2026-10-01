@@ -79,8 +79,8 @@ not `mcpServers`:
 
 - **`score_relevance`** takes `{ goal, entries, scorer?, recencyWeight? }` and returns a
   relevance/recency/combined score per entry plus Jev token usage, with no decision made.
-  `scorer` is `"jev"` (the default; needs `TYPESAFE_API_KEY`), `"local"`, or
-  `"recency"`; the last two run offline and report zero usage. Under `"local"`, relevance is the
+  `scorer` is `"local"` (the default), `"recency"`, or `"jev"` (needs `TYPESAFE_API_KEY`); the
+  first two run offline and report zero usage. Under `"local"`, relevance is the
   keyword overlap ranked within the batch, the same scale `prune_history`'s thresholds use; when every entry overlaps equally, it's the overlap itself, marked
   `tied`.
 - **`prune_history`** takes the same input plus `{ dropBelow?, summarizeBelow? }` and returns a
@@ -97,7 +97,8 @@ best-effort basis.
 
 ## Example response
 
-Calling `prune_history` with two entries, one obviously relevant to the goal and one not, returns:
+Calling `prune_history` with `scorer: "jev"` and two entries, one obviously relevant to the goal and
+one not, returns:
 
 ```json
 {

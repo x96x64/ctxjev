@@ -29,7 +29,7 @@ any of them is a major release of all of them.
 
 **Types and constants:** `Entry`, `EntryRole`, `PruneAction`, `ScoredEntry`, `PruneDecision`,
 `PruningPolicy`, `DEFAULT_POLICY`, `JevUsage`, `ScoreEntriesOptions`, `CustomScorer`, `ScoreCache`,
-`JevClient`, `AnthropicMessage`, `AnthropicContentBlock`, `PruneMessagesOptions`,
+`AnthropicMessage`, `AnthropicContentBlock`, `PruneMessagesOptions`,
 `PruneMessagesResult`, `KeptDrops`, `PruneEntriesOptions`, `PruneEntriesResult`, `EntryKeptDrops`,
 `SavingsReport`, `ParseClaudeCodeTranscriptOptions`, `ClaudeCodeGoal`. Their field names, types,
 and meanings are stable; a minor release may add an optional input field or a new output field.
@@ -65,8 +65,10 @@ change to what is sent, or when, is a breaking change.
   non-zero codes aren't promised.
 - **Input formats:** ctxjev's own JSON, an Anthropic Messages conversation (bare or as
   `{ goal?, messages }`), and a Claude Code session `.jsonl` (analyze only), detected automatically.
-- **`analyze --json` output:** the fields `decisions`, `savings`, `usage`, `scorer`, and `prune`, as
-  the CLI README describes them. A new field may appear in a minor release.
+- **`analyze --json` output:** the fields `decisions`, `savings`, `usage`, and `scorer`, plus
+  `prune` for ctxjev's own format and an Anthropic Messages transcript (not for a Claude Code
+  session, which `prune` can't write back), as the CLI README describes them. A new field may
+  appear in a minor release.
 - **What `prune` writes:** the input file's own structure with the removed entries gone and every
   other field as it was.
 
@@ -87,8 +89,8 @@ change to what is sent, or when, is a breaking change.
   digest), and `UserPromptSubmit` (answer `/ctxjev:status`).
 - **Skills:** `/ctxjev:set-goal <text>` and `/ctxjev:status`.
 - **Environment variables:** `CTXJEV_SCORER` (`jev` opts in; anything else is offline),
-  `CTXJEV_PRESERVE_LIMIT` (1 to 50, default 5), `CTXJEV_STATE_DIR` (default `~/.claude/ctxjev`),
-  and `TYPESAFE_API_KEY`.
+  `CTXJEV_PRESERVE_LIMIT` (1 to 50, default 5), `CTXJEV_STATE_DIR` (default `~/.claude/ctxjev`, or
+  `ctxjev` under `CLAUDE_CONFIG_DIR` when that is set), and `TYPESAFE_API_KEY`.
 - **Where state lives, and how it's protected:** under the state directory, one directory per
   session, never in your project; directories 0700 and files 0600; secrets masked before anything is
   written.
@@ -103,6 +105,8 @@ through. What Codex gets is what `ctxjev-mcp` promises above.
 - **`ctxjev-core/internal`.** Helpers the ctxjev packages share among themselves (`truncate`,
   `atomicWriteFile`, `seededRandom`, `validateEntries`, `rankLocalRelevance`, and the rest). Any of
   them can change or go in any release.
+- **`JevClient`'s shape.** It is the type of `@typesafe-ai/sdk`'s client, the part ctxjev calls, so
+  it follows that SDK: updating the SDK can change it in a minor release.
 - **Files inside a package.** The `dist/` layout, file names, and source maps; `ctxjev-core`'s
   `exports` map refuses imports by path.
 - **Human-readable output.** The CLI's report, warnings, and error messages; the MCP tools' error

@@ -1,0 +1,14 @@
+# PR #45 review finding B1: an import-only exports map refused require("ctxjev-core"), which 0.7.2 allows on Node 20.19+/22.12+
+## entryPoints.test.ts with the import-only map (the map as first committed in a5a8dab)
+     × package.json maps both entry points, and nothing else beyond package.json 6ms
+     × resolves both entry points for require() as well as import, and refuses a path into dist/ 2ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  2 failed | 2 passed (4)
+## with "default" instead of "import"
+      Tests  4 passed (4)
+## packed ctxjev-core, installed fresh, Node v22.22.0 (CommonJS t.cjs, then ESM)
+require main: function | require internal: function
+path import refused: ERR_PACKAGE_PATH_NOT_EXPORTED
+import main: function
+import internal: function
+import path refused: ERR_PACKAGE_PATH_NOT_EXPORTED

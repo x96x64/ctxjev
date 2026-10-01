@@ -39,7 +39,7 @@ const scoreCache = createBoundedScoreCache()
 export type ToolDeps = { jevClient?: JevClient; cache?: ScoreCache }
 
 export type ScoreRelevanceArgs = {
-  /** Defaults to 'jev', as in 0.7.0; 'local' and 'recency' run offline. */
+  /** Defaults to 'local' (from 1.0; 'jev' before). 'local' and 'recency' run offline; only 'jev' sends anything. */
   scorer?: McpScorer
   goal: string
   entries: Entry[]
