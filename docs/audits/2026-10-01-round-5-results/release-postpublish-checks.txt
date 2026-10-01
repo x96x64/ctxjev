@@ -1,0 +1,27 @@
+# After "Publish to npm" run #23 (https://github.com/x96x64/ctxjev/actions/runs/36813362245, on 059d32d, every step succeeded), 2026-10-01, from the npm registry, TYPESAFE_API_KEY unset.
+
+$ npm view <package> dist-tags --prefer-online
+ctxjev-core: {"latest":"0.7.2"}
+ctxjev-cli: {"latest":"0.7.2"}
+ctxjev-mcp: {"latest":"0.7.2"}
+(right after the run the registry still listed 0.7.1 as latest for each package: about 1 minute for ctxjev-cli, 2 for ctxjev-core, 2.5 for ctxjev-mcp; npm had said "Your package is being processed and may take a few minutes to become available")
+
+GitHub: the latest release is v0.7.2 (https://github.com/x96x64/ctxjev/releases/tag/v0.7.2); tag v0.7.2 -> 059d32dde98e304c24282048a627398994c1d148
+
+$ npm install -g --prefix <empty dir> ctxjev-cli && ctxjev --version
+0.7.2
+
+$ node scripts/check-readme-examples.mjs --bin <that ctxjev>   # raw.githubusercontent.com is blocked here; the sample came from examples/sample-transcripts/
+ok    README.md: ctxjev analyze examples/sample-transcripts/checkout-bug.json
+ok    README.md: ctxjev analyze claude-code-session.jsonl
+ok    README.md: ctxjev prune examples/sample-transcripts/checkout-bug.json --out pruned.json
+ok    packages/cli/README.md: ctxjev analyze checkout-bug.json
+4/4 README examples match
+
+$ npm install ctxjev-mcp (into an empty dir) && node mcp-offline.mjs   # installed version: 0.7.2
+server: ctxjev 0.7.2; tools: score_relevance, prune_history
+prune_history scorer=local: isError=false [["a","keep"],["b","drop"]] usage {"inputTokens":0,"outputTokens":0}
+score_relevance scorer=local: isError=false [["a",1],["b",0]] usage {"inputTokens":0,"outputTokens":0}
+prune_history scorer=recency: isError=false [["a","drop"],["b","keep"]] usage {"inputTokens":0,"outputTokens":0}
+prune_history scorer=(default): isError=true TYPESAFE_API_KEY is not set in the environment this MCP server runs in. scorer "jev" (the 
+stderr at start: ctxjev-mcp: TYPESAFE_API_KEY is not set, so only scorer "local" and "recency" work; a call that uses Jev (the default) returns an error until it is — get one at console.typesafe.ai/settings/keys
