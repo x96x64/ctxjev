@@ -1,5 +1,7 @@
 # ctxjev
 
+**en** | [ja](https://github.com/x96x64/ctxjev/blob/main/README.ja.md) | [zh](https://github.com/x96x64/ctxjev/blob/main/README.zh.md) | [es](https://github.com/x96x64/ctxjev/blob/main/README.es.md) | [ko](https://github.com/x96x64/ctxjev/blob/main/README.ko.md) | [pt](https://github.com/x96x64/ctxjev/blob/main/README.pt.md) | [fr](https://github.com/x96x64/ctxjev/blob/main/README.fr.md) | [de](https://github.com/x96x64/ctxjev/blob/main/README.de.md)
+
 **Score an AI agent's history and decide what to keep, drop, or summarize: offline by default, or
 with TypeSafe AI's [Jev](https://typesafe.ai) if you opt in.**
 
@@ -67,7 +69,7 @@ Scored offline by keyword overlap — no Jev call, nothing sent. It matches word
 
 ## Features
 
-- **Three built-in scorers, or your own:** `recency` (plain truncation, the default), `local`
+- **Built-in scorers, or your own:** `recency` (plain truncation, the default), `local`
   (keyword overlap), and `jev` (Jev's judgment of relevance to your goal; opt-in).
 - **Pruning that keeps a request valid:** `pruneMessages()` removes a `tool_use` and its
   `tool_result` together, never touches the first message or the latest turn, keeps what the user
@@ -126,10 +128,9 @@ removed 2 of 7 entries, ~27 tokens · scored by position alone
 ⚠ removed the first entry (e1): this transcript has no user entry to protect as the original request
 ```
 
-By default, `prune` never removes the first user entry or the last two entries of ctxjev's own
+By default, `prune` never removes the first user entry or the last 2 entries of ctxjev's own
 format, and never touches the first message or the latest turn of an Anthropic Messages
-conversation. Every
-flag is in the [`ctxjev-cli` README](packages/cli/README.md).
+conversation. Every flag is in the [`ctxjev-cli` README](packages/cli/README.md).
 
 ### Library
 
@@ -151,7 +152,7 @@ API is in the [`ctxjev-core` README](packages/core/README.md).
 
 ### MCP server
 
-`ctxjev-mcp` is a stdio MCP server with two tools: `score_relevance` (a score per entry) and
+`ctxjev-mcp` is a stdio MCP server whose tools are `score_relevance` (a score per entry) and
 `prune_history` (a keep/drop/summarize decision per entry, plus a savings report).
 
 ```bash
@@ -286,7 +287,7 @@ issue.
 or Anthropic. It's built on [`@typesafe-ai/sdk`](https://www.npmjs.com/package/@typesafe-ai/sdk) and
 Anthropic's [`@modelcontextprotocol/sdk`](https://www.npmjs.com/package/@modelcontextprotocol/sdk);
 every direct dependency is under MIT or ISC. A few of their own dependencies are BSD-licensed
-(`fast-uri`, `qs`, `json-schema-typed`) and ask you to keep their notices too; `pnpm licenses list
---prod` lists every one. The
-Claude Code plugin bundles code from `@typesafe-ai/sdk` and ships its notice in
+(`fast-uri`, `qs`, `json-schema-typed`) and ask you to keep their notices too;
+`pnpm licenses list --prod` lists every one. The Claude Code plugin bundles code from
+`@typesafe-ai/sdk` and ships its notice in
 [`THIRD_PARTY_NOTICES`](packages/claude-plugin/THIRD_PARTY_NOTICES).

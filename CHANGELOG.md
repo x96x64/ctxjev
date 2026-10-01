@@ -13,6 +13,7 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 - `ctxjev-cli`: the `--scorer local` report no longer calls keyword overlap "much cruder than Jev"; on held-out tasks Jev's ranking wasn't shown to do better.
 - The READMEs are rewritten to be shorter and example-first; the evaluation's numbers moved to `docs/evaluation.md`, the design notes to `docs/design-notes.md`.
 - The npm pages: each package README is complete on its own (what ctxjev is, privacy, status, license), and its links point at the release's files on GitHub instead of breaking.
+- The README is available in Japanese, Simplified Chinese, Spanish, Korean, Brazilian Portuguese, French, and German (`README.<lang>.md`); English stays authoritative.
 
 ## 0.7.2 — 2026-10-01
 

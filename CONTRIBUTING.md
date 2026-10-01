@@ -39,6 +39,7 @@ node scripts/check-readme-examples.mjs                    # README examples matc
 node scripts/readmes.mjs                                  # package READMEs carry docs/readme-shared/ as it is
 node scripts/check-links.mjs                              # every Markdown link resolves
 node scripts/check-packed-readmes.mjs                     # the READMEs npm will show, from real tarballs
+node scripts/check-translations.mjs                       # README.<lang>.md keep English's code and numbers
 cd packages/core && node eval/check-sessions.mjs          # Japanese sessions' probes are in Japanese
 node --experimental-strip-types scripts/redact-coverage.ts  # every secret format and harmless string in redactCases.ts
 ```

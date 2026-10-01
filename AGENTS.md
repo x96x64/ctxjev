@@ -149,6 +149,11 @@ that was never part of what the parent session's compaction actually operates on
   never by hand in a package README. Packing (`prepack`) rewrites every relative link to an absolute
   GitHub URL at the release tag; `node scripts/check-packed-readmes.mjs` checks the tarball's README,
   and `node scripts/check-links.mjs` every link in the repository's Markdown (CI runs all three).
+- `README.<lang>.md` (ja, zh, es, ko, pt, fr, de) translate the English README, which stays
+  authoritative. Their code blocks, generated numbers, inline code, numbers, and link targets must
+  match English exactly (`node scripts/check-translations.mjs`). After changing `README.md`, update
+  the translations (or leave them for a later update: CI warns, not fails) and record the new
+  source hash from `--hash` in each one's `translation-source` line.
 
 ## Releasing
 
