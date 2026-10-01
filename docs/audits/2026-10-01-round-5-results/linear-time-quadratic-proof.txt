@@ -1,0 +1,11 @@
+$ # estimateTokens() temporarily encodes the whole text at once, as before the third audit's fix
+$ vitest run src/tokenEstimate.test.ts -t "^estimateTokens: time grows linearly on long runs x "
+     × x × 20,000 against × 200,000 34881ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/tokenEstimate.test.ts > estimateTokens: time grows linearly on long runs > x × 20,000 against × 200,000
+AssertionError: 302.0 ms for n = 20,000, 34546.3 ms for 10n: ×114.4 (linear is about ×10; the limit is ×30): expected false to be true // Object.is equality
+     32|   it.each(runs)('%s × 20,000 against × 200,000', async (_name, unit) =…
+      Tests  1 failed | 20 skipped (21)
+
+$ # restored, the same command
+      Tests  1 passed | 20 skipped (21)
