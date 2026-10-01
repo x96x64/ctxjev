@@ -1,13 +1,15 @@
 /**
  * redactSecrets() against a blind corpus in packages/core/test/: lines written by a separate agent
  * that never saw redact.ts or its tests (see the README in each). `--corpus 2` picks Round 4's
- * (test/blind-redact-2/); the default is Round 3's (test/blind-redact/), whose holdout half is used up.
+ * (test/blind-redact-2/), `--corpus 3` Round 5's (test/blind-redact-3/); the default is Round 3's
+ * (test/blind-redact/). The first two holdout halves are used up.
  *
  *   node --experimental-strip-types scripts/redact-blind.ts dev             # the working tree
  *   node --experimental-strip-types scripts/redact-blind.ts dev d55aa18     # redact.ts at any commit
  *   node --experimental-strip-types scripts/redact-blind.ts dev --show      # and list every miss
  *   node --experimental-strip-types scripts/redact-blind.ts holdout         # rates only, never lines
  *   node --experimental-strip-types scripts/redact-blind.ts dev --corpus 2  # Round 4's corpus
+ *   node --experimental-strip-types scripts/redact-blind.ts dev --corpus 3  # Round 5's corpus
  *
  * The measures (fixed before anything was measured) are in packages/core/test/blindCorpus.ts. The
  * holdout half prints rates only: it's measured once, at the end, and not looked at to tune.
@@ -22,8 +24,8 @@ const show = args.includes('--show')
 if (show && half === 'holdout') throw new Error('--show lists lines; the holdout half is measured for rates only')
 const corpusAt = args.indexOf('--corpus')
 const corpusArg = corpusAt === -1 ? undefined : args[corpusAt + 1]
-if (corpusAt !== -1 && corpusArg !== '1' && corpusArg !== '2') throw new Error('--corpus takes 1 (Round 3) or 2 (Round 4)')
-const corpus = corpusArg === '2' ? 'blind-redact-2' : 'blind-redact'
+if (corpusAt !== -1 && corpusArg !== '1' && corpusArg !== '2' && corpusArg !== '3') throw new Error('--corpus takes 1 (Round 3), 2 (Round 4), or 3 (Round 5)')
+const corpus = corpusArg === '3' ? 'blind-redact-3' : corpusArg === '2' ? 'blind-redact-2' : 'blind-redact'
 const ref = args.slice(1).find((a, i, rest) => a !== '--show' && a !== '--corpus' && rest[i - 1] !== '--corpus')
 
 const redactSecrets = await loadRedactSecrets(ref)

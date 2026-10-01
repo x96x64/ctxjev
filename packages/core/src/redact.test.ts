@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { AUDIT3_FORMATS, AUDIT3_LINES, AUDIT4_HARMLESS, B62, ENV_SWEEP, ENV_SWEEP_HALVES, FORMATS, HARMLESS, PW, j } from '../test/redactCases.js'
+import { AUDIT3_FORMATS, AUDIT3_LINES, AUDIT4_HARMLESS, AUDIT5_HARMLESS, AUDIT5_LINES, B62, ENV_SWEEP, ENV_SWEEP_HALVES, FORMATS, HARMLESS, PW, j } from '../test/redactCases.js'
 import { redactSecrets } from './redact.js'
 
 describe('redactSecrets', () => {
@@ -147,6 +147,42 @@ describe('redactSecrets: time on long runs', () => {
     ['password=b # …', 'password=b # '.repeat(N / 13)],
     ['a=b # …', 'a=b # '.repeat(N / 6)],
     ['a: b\t#\t…', 'a: b\t#\t'.repeat(N / 7)],
+    // The fifth audit's rules: a URL password up to its last `@`, a passphrase, a Japanese label's value.
+    ['a://b:c#…', 'a://b:c#'.repeat(N / 8)],
+    ['a://b:#@c/…', 'a://b:#@c/'.repeat(N / 10)],
+    ['a://b:#@a@a…', `a://b:#${'@a'.repeat(N / 2)}`],
+    ['a://b:#@a.a.a…', `a://b:#@${'a.'.repeat(N / 2)}`],
+    ['"a://b:#…', '"a://b:#'.repeat(N / 8)],
+    ['password=a b lines…', 'password=a b\n'.repeat(N / 13)],
+    ['password=a a a…', `password=${'a '.repeat(N / 2)}`],
+    ['password: a b # # …', `password: a b${' #'.repeat(N / 2)}`],
+    ['export export …', `${'export '.repeat(N / 7)}PASSWORD=a b`],
+    ['パスワード: パスワード: …', 'パスワード: '.repeat(N / 7)],
+    ['パスワード:a1b2…', 'パスワード:a1b2'.repeat(N / 10)],
+    ['トークン=あああ…', `トークン=${'あ'.repeat(N)}`],
+    [' --password "…', ' --password "'.repeat(N / 13)],
+    [' --password "a b…', ' --password "a b'.repeat(N / 16)],
+    // Round 5's shapes from its blind corpus: typed declarations, redis, labels in other languages.
+    ['x: y x: y …', 'x: y '.repeat(N / 5)],
+    ['password: str = "…', 'password: str = "'.repeat(N / 17)],
+    ['"AUTH" "…', '"AUTH" "'.repeat(N / 8)],
+    ['> AUTH …', '> AUTH '.repeat(N / 7)],
+    ['requirepass lines…', 'requirepass a\n'.repeat(N / 14)],
+    ['密码：密码：…', '密码：'.repeat(N / 3)],
+    ['mot de passe : …', 'mot de passe : '.repeat(N / 15)],
+    ['ssh-keygen -P …', 'ssh-keygen -P '.repeat(N / 14)],
+    ['7z -p7z -p…', '7z -p'.repeat(N / 5)],
+    // The review of Round 5's change: a user name with `@`, a command after a run of spaces.
+    ['a://b@c:…', 'a://b@c:'.repeat(N / 8)],
+    ['a://@:@a…', `a://@:${'@a'.repeat(N / 2)}`],
+    ['spaces, then zip -P', `${' '.repeat(N)}zip -P x`],
+    ['; ; ; zip…', '; zip '.repeat(N / 6)],
+    ['h:1> AUTH …', 'h:1> AUTH '.repeat(N / 10)],
+    // The re-review: a labelled value is read to its end, however long.
+    ['パスワード: a(a(…', `パスワード: ${'a('.repeat(N / 2)}`],
+    ['密码：xxx…', `密码：${'x1'.repeat(N / 2)}`],
+    ['トークン: a1 トークン: a1 …', 'トークン: a1 '.repeat(N / 10)],
+    ['zip -9 -9 …', `zip ${'-9 '.repeat(N / 3)}-P x`],
   ]
   it.each(runs)('%s (200,000 characters) in under 2 seconds', (_name, text) => {
     const start = performance.now()
@@ -905,6 +941,183 @@ describe('redactSecrets: the review of the fourth audit\'s masking change', () =
     'auth: {}',
     'credentials: {"user": "bob"}',
   ])('still leaves %j as it is', (text) => {
+    expect(redactSecrets(text)).toBe(text)
+  })
+})
+
+// The fifth audit (docs/audits/2026-10-01-audit-5-ja.md, improvement 2): a URL password holding
+// `#`, `/`, or `?`, a passphrase with spaces, a non-ASCII value after a Japanese label.
+describe('redactSecrets: the fifth audit\'s lines', () => {
+  it.each(AUDIT5_LINES)('masks $name', ({ text, secrets }) => {
+    const masked = redactSecrets(text)
+    for (const secret of secrets) expect(masked).not.toContain(secret)
+    expect(redactSecrets(masked)).toBe(masked)
+  })
+
+  it('keeps the host, the port, and the path of the audit\'s URL', () => {
+    expect(redactSecrets('postgres://app:Pg#Secr3t99@db.internal:5432/app')).toBe('postgres://app:[REDACTED]@db.internal:5432/app')
+    expect(redactSecrets('DATABASE_URL=mysql://root:a/b?c#d@db:3306/shop?ssl=true')).toBe('DATABASE_URL=mysql://root:[REDACTED]@db:3306/shop?ssl=true')
+  })
+
+  it('masks the whole passphrase and keeps the name', () => {
+    expect(redactSecrets('JWT_SECRET=correct horse battery staple')).toBe('JWT_SECRET=[REDACTED]')
+    expect(redactSecrets('DB_PASSWORD = correct horse battery staple # rotated')).toBe('DB_PASSWORD = [REDACTED] # rotated')
+    expect(redactSecrets('パスワード: Hunter2の秘密')).toBe('パスワード: [REDACTED]')
+  })
+
+  it.each(AUDIT5_HARMLESS)('leaves alone: %s', (text) => {
+    expect(redactSecrets(text)).toBe(text)
+  })
+})
+
+// General shapes added after Round 5's blind corpus's dev half (test/blind-redact-3/) showed them
+// missing or over-masked. The examples are this file's own, not the corpus's.
+describe('redactSecrets: shapes added from the Round 5 blind corpus\'s dev half', () => {
+  const pw = 'Hq7rT2vLm9Xc'
+  const leaks: Array<[string, string, string]> = [
+    ['a WireGuard preshared key', `[Peer]\nPresharedKey = ${pw}Zw4Pq8Ns6Ty1Bv3Kd5Rf0Ga=`, pw],
+    ['a wpa_supplicant psk', 'network={\n    ssid="office"\n    psk="lantern 42 copper meadow"\n}', 'lantern 42 copper'],
+    ['a Portuguese name', `app.senha=${pw}`, pw],
+    ['a German name', `Kennwort=${pw}`, pw],
+    ['a Korean label', `서버 비밀번호: ${pw} 입니다`, pw],
+    ['a Chinese label', `数据库密码：${pw}，请勿外传`, pw],
+    ['a Turkish label', `Veritabanı şifresi: Çğ${pw}`, pw],
+    ['a Russian label', `пароль: ${pw}`, pw],
+    ['a French label, a space before the colon', `mot de passe : ${pw}`, pw],
+    ['a Spanish label', `contraseña=${pw}`, pw],
+    ['an Italian label', `chiave API: ${pw}`, pw],
+    ['ssh-keygen -P and -N, the old passphrase', `ssh-keygen -p -f key -P '${pw}' -N 'river stone'`, pw],
+    ['ssh-keygen -P and -N, the new passphrase', `ssh-keygen -p -f key -P '${pw}' -N 'river stone 81'`, 'river stone 81'],
+    ['7z -p with a quoted passphrase', `7z a -p"cobalt ${pw} tide" -mhe=on out.7z ./dir`, pw],
+    ['7z -p run together', `7z x -p${pw} backup.7z`, pw],
+    ['unzip -P', `unzip -P ${pw} bundle.zip`, pw],
+    ['redis.conf requirepass', `port 6379\nrequirepass ${pw}\nappendonly yes`, pw],
+    ['redis.conf masterauth', `masterauth ${pw}`, pw],
+    ['a redis MONITOR AUTH line', `1784747937.595199 [0 10.0.0.9:41256] "AUTH" "${pw}"`, pw],
+    ['a redis MONITOR AUTH line with a user', `1784747937.595199 [0 10.0.0.9:41256] "AUTH" "default" "${pw}"`, pw],
+    ['redis-cli AUTH at its prompt', `127.0.0.1:6379> AUTH ${pw}`, pw],
+    ['a Rust typed constant', `const API_KEY: &str = "${pw}";`, pw],
+    ['a TypeScript typed constant', `export const apiToken: string = '${pw}'`, pw],
+    ['a Python annotated constant', `SECRET_KEY: Final[str] = "${pw}"`, pw],
+  ]
+  it.each(leaks)('masks: %s', (_name, text, secret) => {
+    const masked = redactSecrets(text)
+    expect(masked).not.toContain(secret)
+    expect(redactSecrets(masked)).toBe(masked)
+  })
+
+  const harmless = [
+    '[db]\npassword = %(db_password)s\nhost = %(db_host)s',
+    'implementation("org.jsonwebtoken:jjwt-core:2.1.0")',
+    'curl -u "$REPO_USER:$REPO_PASS" --upload-file a.jar https://repo.example/x',
+    'mysql -u app -p$DB_PASS shop',
+    '  password = var.admin_password',
+    '  token    = local.api_token',
+    'curl -H "X-Api-Key: $env:MY_API_KEY" https://api.example/v1',
+    'PublicKey = Zw4Pq8Ns6Ty1Bv3Kd5Rf0GaHq7rT2vLm9Xc=',
+    'AUTH failed for user',
+    '비밀번호를 변경했습니다',
+    '密码：请联系管理员',
+    'const apiUrl: string = "https://api.example/v1"',
+    'archive.7z -p8080 -o out',
+  ]
+  it.each(harmless)('leaves alone: %s', (text) => {
+    expect(redactSecrets(text)).toBe(text)
+  })
+})
+
+// The independent review of Round 5's masking change (before merging): regressions against 0.7.1
+// and gaps in the shapes it claimed to handle.
+describe('redactSecrets: the review of Round 5\'s masking change', () => {
+  const leaks: Array<[string, string, string]> = [
+    ['a single-quoted $ password after mysql -p (0.7.1 masked it)', "mysql -u root -p'$uperS3cret' mydb", 'uperS3cret'],
+    ['a single-quoted $ password after curl -u (0.7.1 masked it)', "curl -u 'admin:$ecretPass9' https://api.example.com", 'ecretPass9'],
+    ['a single-quoted $ password after sshpass -p', "sshpass -p '$uperS3cret' ssh deploy@host", 'uperS3cret'],
+    ['a single-quoted $ password after redis-cli -a', "redis-cli -a '$uperS3cret' ping", 'uperS3cret'],
+    ['a % password after curl -u (0.7.1 masked it)', 'curl -u admin:%Secret1 https://x', 'Secret1'],
+    ['a single-quoted % password after mysql -p', "mysql -p'%Passw0rd' db", 'Passw0rd'],
+    ['a password that only starts like a Terraform reference', 'DB_PASSWORD=local.Pa55word!', 'Pa55word'],
+    ['a token that only starts like a Terraform reference', 'API_TOKEN=var.abc123def456ghi789', 'abc123def456ghi789'],
+    ['a URL password with digits before #', 'postgres://admin:2024#Summer@db:5432/app', 'Summer'],
+    ['a URL password with digits before /', 'postgres://admin:123/abc@db:5432/app', '123/abc'],
+    ['a URL whose host is followed by ":"', 'failed to connect to postgres://u:Pg#Secr3t99@db.internal:5432: connection refused', 'Secr3t99'],
+    ['a URL in Markdown bold', '**postgres://u:Pg#Secr3t99@db**', 'Secr3t99'],
+    ['an Azure user name with @, and #', 'postgres://myadmin@myserver:Pg#Secr3t99@myserver.postgres.database.azure.com:5432/db', 'Secr3t99'],
+    ['an Azure user name with @', 'postgres://myadmin@myserver:Secr3t99xQ@myserver.postgres.database.azure.com:5432/db', 'Secr3t99xQ'],
+    ['a passphrase in YAML under a secret\'s name', 'jwt_secret: correct horse battery staple', 'horse battery staple'],
+    ['a passphrase in YAML under a client secret', 'client_secret: my super secret phrase 42', 'super secret phrase'],
+    ['a passphrase in a YAML list item', '- password: correct horse battery staple', 'horse battery staple'],
+    ['a tab before a quoted passphrase flag', 'tool\t--passphrase "correct horse battery"', 'horse battery'],
+  ]
+  it.each(leaks)('masks: %s', (_name, text, secret) => {
+    const masked = redactSecrets(text)
+    expect(masked).not.toContain(secret)
+    expect(redactSecrets(masked)).toBe(masked)
+  })
+
+  const harmless = [
+    'mysql -u app -p"$DB_PASS" shop',
+    'curl -u admin:%DB_PASS% https://x',
+    'auth required pam_deny.so',
+    'auth include system-auth',
+    'auth required pam_google_authenticator.so',
+    'AUTH LOGIN',
+    'AUTH CRAM-MD5',
+    'secret = a if b else c',
+    'token = token or default',
+    'auth = basic or digest',
+    'token = await fetch',
+    'SECRET_KEY=dev python manage.py runserver',
+    'TOKEN=abc123 make deploy',
+    '最大トークン: 128k',
+    'トークン：1.5k',
+    'トークン: GPT-4では128kまで',
+    'パスワード: UTF-8で保存',
+    '암호: AES-256',
+    '  password = local.db_password',
+    'zip the logs then rsync -P logs.zip host:',
+    'archive.7z -p8080',
+    'def connect(token: str = "default")',
+    'http://localhost:8080/#/users/@alice',
+  ]
+  it.each(harmless)('leaves alone: %s', (text) => {
+    expect(redactSecrets(text)).toBe(text)
+  })
+})
+
+// The re-review of Round 5's masking change: a value after a Japanese (or other) label was masked
+// only up to an ASCII `(` or its 256th character, leaving the rest, which 0.7.1 masked whole; and
+// documentation under a setting's name (`api_key: Your Anthropic API key.`) read as a passphrase.
+describe('redactSecrets: the re-review of Round 5\'s masking change', () => {
+  const longToken = `${'eyJzdWIiOiIxMjM0NTY3ODkwIn0'.repeat(10)}SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV`
+  const leaks: Array<[string, string, string]> = [
+    ['a Japanese-labelled value with "(" (0.7.1 masked it)', 'パスワード: Pass1(word99xyz', 'word99xyz'],
+    ['a Japanese-labelled value with "(…)" (0.7.1 masked it)', 'DBのパスワード: S3cr3t(2024)Prod', '(2024)Prod'],
+    ['a token over 256 characters after トークン (0.7.1 masked it)', `トークン: ${longToken}`, 'SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV'],
+    ['a key over 256 characters after APIキー (0.7.1 masked it)', `APIキー: ${'8kL0zX2cV4bN6mQ8wE0r'.repeat(15)}Zq9Tail77`, 'Zq9Tail77'],
+    ['a value over 256 characters after 密码', `密码: ${'8kL0zX2cV4bN6mQ8wE0r'.repeat(15)}Zq9Tail77`, 'Zq9Tail77'],
+    ['zip -9 -P', 'zip -9 -P S3cret99x out.zip a.txt', 'S3cret99x'],
+    ['zip -r9 -P', 'zip -r9 -P S3cret99x out.zip dir', 'S3cret99x'],
+    ['a quoted redis password with spaces', 'requirepass "my redis pass 42"', 'redis pass 42'],
+  ]
+  it.each(leaks)('masks: %s', (_name, text, secret) => {
+    const masked = redactSecrets(text)
+    expect(masked).not.toContain(secret)
+    expect(redactSecrets(masked)).toBe(masked)
+  })
+
+  const harmless = [
+    '            api_key: Your Anthropic API key.',
+    '        access_token: Optional bearer token for auth',
+    '    access_token : str, optional',
+    '      invalid_token: Invalid authentication token.',
+    'github_token: required for private repos',
+    'client_secret: from the Azure portal',
+    'refresh_token: null until first login',
+    'pip install git+ssh://git@github.com:org/repo.git@v1.2.3',
+    'poetry add git+ssh://git@github.com:sdispater/pendulum.git@develop',
+  ]
+  it.each(harmless)('leaves alone: %s', (text) => {
     expect(redactSecrets(text)).toBe(text)
   })
 })

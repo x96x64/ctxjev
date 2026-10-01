@@ -1,6 +1,7 @@
 /**
- * The blind secret-masking corpora in test/blind-redact/ (Round 3) and test/blind-redact-2/ (Round 4,
- * written after the first one's holdout half was used up; see the README in each), and the measures
+ * The blind secret-masking corpora in test/blind-redact/ (Round 3), test/blind-redact-2/ (Round 4,
+ * written after the first one's holdout half was used up), and test/blind-redact-3/ (Round 5, after
+ * the second's was; see the README in each), and the measures
  * shared by src/redactBlind.test.ts (dev half only) and scripts/redact-blind.ts. Fixed before
  * anything was measured:
  * - a line with secrets is detected when, for every secret on it, no piece of it min(8, its length)
@@ -13,7 +14,7 @@ import { readFileSync } from 'node:fs'
 
 export type BlindItem = { id: string; kind: 'secret' | 'benign'; context: string; text: string; secrets: string[]; note: string }
 
-export type BlindCorpus = 'blind-redact' | 'blind-redact-2'
+export type BlindCorpus = 'blind-redact' | 'blind-redact-2' | 'blind-redact-3'
 
 export function loadBlindHalf(half: 'dev' | 'holdout', corpus: BlindCorpus = 'blind-redact'): BlindItem[] {
   const encoded = readFileSync(new URL(`./${corpus}/${half}.json.b64`, import.meta.url), 'utf8')

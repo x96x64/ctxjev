@@ -182,3 +182,64 @@ export const AUDIT4_HARMLESS = [
   'token: expired',
   'SECRET_NAME=prod-db-credentials # the name, not the value',
 ]
+
+/**
+ * The fifth audit (docs/audits/2026-10-01-audit-5-ja.md, section 4.6 and improvement 2). A URL's
+ * password holding `#`, `/`, or `?` (or a quote, `<`, `>`) that its writer didn't percent-encode was
+ * left whole, for any scheme: the password rule stopped at the character. So were a passphrase with
+ * spaces on a `.env`-style line and a value with non-ASCII characters after a Japanese label. The
+ * audit's three example lines come first, exactly; the rest are variants built from them. Every
+ * string in `secrets` must be gone from the output.
+ */
+export const AUDIT5_URL_CHARS = [...'#/?"\'<>']
+export const AUDIT5_URL_SCHEMES = ['postgres', 'postgresql', 'mysql', 'mongodb+srv', 'redis', 'rediss', 'amqp', 'https', 'ftp', 'smtp']
+export const AUDIT5_LINES: Array<{ name: string; text: string; secrets: string[] }> = [
+  { name: 'the audit: # in a postgres password', text: 'postgres://app:Pg#Secr3t99@db.internal:5432/app', secrets: ['Secr3t99'] },
+  { name: 'the audit: a passphrase on a .env line', text: 'JWT_SECRET=correct horse battery staple', secrets: ['correct', 'horse', 'battery', 'staple'] },
+  { name: 'the audit: a non-ASCII value after a Japanese label', text: 'パスワード: Hunter2の秘密', secrets: ['Hunter2', '秘密'] },
+  ...AUDIT5_URL_CHARS.flatMap((c) =>
+    AUDIT5_URL_SCHEMES.map((scheme) => ({ name: `${JSON.stringify(c)} in a ${scheme} password`, text: `${scheme}://app:Pg${c}Secr3t99@db.internal:5432/app`, secrets: ['Secr3t99'] })),
+  ),
+  { name: '# at the start of the password', text: 'DATABASE_URL=postgres://app:#Secr3t99xy@db.internal:5432/app', secrets: ['Secr3t99xy'] },
+  { name: '/ ? and # together, no user name', text: 'REDIS_URL=redis://:Zq/8X?w7#Vu6Ts5Rq@cache:6379/0', secrets: ['Zq/8X?w7#Vu6Ts5Rq', 'Vu6Ts5Rq'] },
+  { name: '@ and # both in the password', text: 'amqp://svc:Mq@7#Rb2Lx9Kp@rabbit.internal:5672/vh', secrets: ['Rb2Lx9Kp'] },
+  { name: 'in a log line', text: 'connect failed: mysql://root:Pg/Secr3t99@10.0.0.5:3306/shop (timeout)', secrets: ['Secr3t99'] },
+  { name: 'in escaped JSON', text: '{\\"url\\": \\"postgres://app:Pg#Secr3t99@db.internal/app\\"}', secrets: ['Secr3t99'] },
+  { name: 'in a JSON string', text: '{"DATABASE_URL": "postgres://app:Pg?Secr3t99@db.internal:5432/app", "PORT": 8080}', secrets: ['Secr3t99'] },
+  { name: 'an IPv6 host', text: 'postgres://app:Pg#Secr3t99@[fd00::5]:5432/app', secrets: ['Secr3t99'] },
+  { name: 'a passphrase after export', text: 'export GPG_PASSPHRASE=my dog has fleas 2019', secrets: ['dog has fleas'] },
+  { name: 'a passphrase with a comment after it', text: 'DB_PASSWORD = correct horse battery staple # rotated 2026-09', secrets: ['correct', 'horse', 'battery', 'staple'] },
+  { name: 'a passphrase in a .env block', text: 'DB_HOST=db.internal\nSMTP_PASS=purple Monkey dishwasher 42!\nPORT=8080', secrets: ['purple', 'Monkey', 'dishwasher'] },
+  { name: 'a passphrase in YAML', text: 'signing:\n  passphrase: correct horse battery staple', secrets: ['correct', 'horse', 'battery', 'staple'] },
+  { name: 'a quoted passphrase after a flag', text: 'gpg-tool sign --passphrase "correct horse battery staple" release.tar', secrets: ['correct', 'horse', 'battery', 'staple'] },
+  { name: 'a single-quoted password after a flag', text: "mytool --password 'correct horse battery staple'", secrets: ['correct', 'horse', 'battery', 'staple'] },
+  { name: 'a Japanese label, full-width colon', text: 'パスワード：Hunter2の秘密です', secrets: ['Hunter2', 'の秘密'] },
+  { name: 'a Japanese label, a short ASCII value', text: 'APIキー: Zq8Xw7Vu', secrets: ['Zq8Xw7Vu'] },
+  { name: 'a Japanese label, non-ASCII first', text: 'トークン: 秘密Tk92xLmQ', secrets: ['Tk92xLmQ', '秘密'] },
+]
+
+/** What the fifth audit's fixes must leave exactly as it is. */
+export const AUDIT5_HARMLESS = [
+  'https://example.com/docs#section@anchor',
+  'http://localhost:3000/users/@alice',
+  'https://registry.npmjs.org:443/@scope%2fpkg',
+  'http://host:8080/login?next=/a@b.com',
+  'see https://github.com/@scope/pkg for details',
+  'git@github.com:org/repo.git',
+  'ssh://git@github.com:22/org/repo.git',
+  'postgres://app:${DB_PASSWORD}@db:5432/app',
+  'postgres://app:********@db.internal:5432/app',
+  'https://user@host.example.com/path#section',
+  'mailto:ops@example.com?subject=a#b',
+  'http://[::1]:8080/health?user=a@b.com',
+  'PASSWORD_HINT=first pet name',
+  'password = input("Password: ")',
+  'secret_key = settings.SECRET_KEY if DEBUG else None',
+  'Token: expired yesterday',
+  'token: expired',
+  'トークン：有効期限切れのため再発行',
+  'パスワード: 8文字以上にしてください',
+  'パスワードを変更しました',
+  'APIキー: v1.2.3に更新しました',
+  'トークン: v2形式',
+]
