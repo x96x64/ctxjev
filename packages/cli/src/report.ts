@@ -60,7 +60,7 @@ export function formatReport(
 
     const id = entry.id.padEnd(idWidth)
     const role = (entry.toolName ?? entry.role).padEnd(roleWidth)
-    const score = decision.combinedScore.toFixed(2)
+    const score = decision.tied ? 'tied' : decision.combinedScore.toFixed(2)
     const action = ACTION_COLOR[decision.action](decision.action.padEnd(ACTION_WIDTH))
 
     lines.push(`  ${pc.dim(id)}  ${role}  ${action}  ${pc.dim(`score ${score}`)}  ${truncate(entry.content, 60)}`)
@@ -77,6 +77,10 @@ export function formatReport(
   lines.push(pc.dim(describeOutcome(savings, outcome)))
 
   if (scorer === 'local') {
+    if (decisions.length > 1 && decisions.every((d) => d.tied)) {
+      const overlap = Math.round(decisions[0].relevance * 100)
+      lines.push(pc.dim(`every entry shares the same keyword overlap with the goal (${overlap === 0 ? 'none' : `${overlap}% of its words`}), so it can't rank them: they're scored by position alone`))
+    }
     lines.push(pc.dim('Scored offline by keyword overlap — no Jev call, nothing sent. Much cruder than Jev; treat the decisions as a rough guide.'))
     return lines.join('\n')
   }
@@ -178,7 +182,11 @@ export function formatMessagesOutcome(total: number, result: PruneMessagesResult
   const changed = result.removed.length > 0 || result.summarized.length > 0
   const left = changed ? "what's left is protected" : did ? 'nothing was removed (see above)' : 'nothing would be removed (see above)'
   const budget = result.overBudget ? `\n${pc.yellow('⚠')} ${did ? 'still over' : 'would still be over'} --target-tokens: ${left}` : ''
-  return `${parts.join(', ')}${keptLine}${cache}${budget}`
+  // The fifth audit: the note was left out without a word when there was nowhere to put it.
+  const noNote = result.noteOmitted
+    ? `\n${pc.yellow('⚠')} no unprotected user message after the first removal to carry the removal note: the model ${did ? "won't" : "wouldn't"} be told history was removed (a lower --protect-last or --no-protect-last-turn leaves it a place)`
+    : ''
+  return `${parts.join(', ')}${keptLine}${cache}${budget}${noNote}`
 }
 
 /**

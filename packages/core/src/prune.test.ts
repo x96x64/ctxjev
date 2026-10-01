@@ -38,4 +38,38 @@ describe("pruneContext with scorer: 'local'", () => {
     const decisions = await pruneContext(entries, 'something else entirely', undefined, { scorer: 'local' })
     expect(decisions.map((d) => d.action)).toEqual(['keep', 'keep', 'keep'])
   })
+
+  // The fifth audit (section 4.1, problem 3): a full tie ranked every entry 1, the most relevant a
+  // score can say, when it says nothing at all. The overlap itself is shown, marked tied, and kept.
+  it('shows a full tie as the overlap it is, marked tied, and still keeps every entry', async () => {
+    const entries: Entry[] = ['alpha', 'beta', 'gamma'].map((content, i) => ({ id: `e${i}`, role: 'tool', content, timestamp: i }))
+    const decisions = await pruneContext(entries, 'something else entirely', undefined, { scorer: 'local' })
+    expect(decisions.map((d) => d.relevance)).toEqual([0, 0, 0])
+    expect(decisions.every((d) => d.tied === true && d.action === 'keep')).toBe(true)
+
+    const shared: Entry[] = ['retry alpha', 'retry beta'].map((content, i) => ({ id: `s${i}`, role: 'tool', content, timestamp: i }))
+    const both = await pruneContext(shared, 'retry charge', undefined, { scorer: 'local' })
+    expect(both.map((d) => d.relevance)).toEqual([0.5, 0.5])
+    expect(both.every((d) => d.tied === true && d.action === 'keep')).toBe(true)
+  })
+
+  // The independent review of this change: forcing a tie to `keep` changed decisions under a
+  // non-default recencyWeight. A tied entry is scored as if it ranked first, as 0.7.1 ranked it, so
+  // every decision and the budget's order stay 0.7.1's; only `relevance` shows the overlap itself.
+  it('decides a full tie exactly as 0.7.1 did, whatever the recency weight', async () => {
+    const entries: Entry[] = ['alpha', 'beta', 'gamma', 'delta', 'epsilon', 'zeta'].map((content, i) => ({ id: `e${i}`, role: 'tool', content, timestamp: i }))
+    // 0.7.1's actions (k keep, s summarize, d drop), from the review's run of v0.7.1.
+    const expected: Array<[number, string]> = [[0.1, 'kkkkkk'], [0.5, 'skkkkk'], [0.8, 'dsskkk'], [1, 'ddskkk']]
+    for (const [recencyWeight, actions] of expected) {
+      const decisions = await pruneContext(entries, 'qqq', { dropBelow: 0.3, summarizeBelow: 0.6, recencyWeight }, { scorer: 'local' })
+      expect(decisions.map((d) => d.action[0]).join('')).toBe(actions)
+      expect(decisions.every((d) => d.tied === true && d.relevance === 0 && d.combinedScore === 1 - recencyWeight + recencyWeight * d.recency)).toBe(true)
+    }
+  })
+
+  it('marks nothing tied when the overlap differs', async () => {
+    const entries: Entry[] = ['retry alpha', 'beta'].map((content, i) => ({ id: `e${i}`, role: 'tool', content, timestamp: i }))
+    const decisions = await pruneContext(entries, 'retry charge', undefined, { scorer: 'local' })
+    expect(decisions.some((d) => 'tied' in d)).toBe(false)
+  })
 })

@@ -595,6 +595,8 @@ describe('pruneMessages', () => {
       const drops = result.decisions.filter((d) => d.action === 'drop').map((d) => d.entryId)
       for (const id of drops) expect(Number(result.removed.includes(id)) + kept.filter((k) => k === id).length).toBe(1)
       expect(kept.every((id) => drops.includes(id))).toBe(true)
+      // The note is on (the default) here: noteOmitted says exactly when a removal came without it.
+      expect(result.noteOmitted).toBe(result.removed.length > 0 && !JSON.stringify(result.messages).includes('[ctxjev: '))
       if (result.removed.length === 0 && result.summarized.length === 0) expect(result.messages).toEqual(messages)
       else {
         changedRuns++
@@ -608,4 +610,37 @@ describe('pruneMessages', () => {
     // An explicit time limit, since the default 5 s was close: every entry's text is masked, and
     // masking now applies 0.6.1's rules and the newer ones (redact.ts), about 3.4 s here.
   }, 20_000)
+})
+
+// The fifth audit (section 4.1, problem 1; improvement 5): the note goes into the first unprotected
+// user message after the first change, and with none, entries were removed with no note and no word
+// about it. On the audit's own example, the Anthropic Messages sample pruned to 50 tokens, 5 of 8
+// entries went and nothing said so.
+describe('noteOmitted says when entries were removed but the removal note had nowhere to go', () => {
+  const sampleFile = join(dirname(fileURLToPath(import.meta.url)), '../../../examples/sample-transcripts/anthropic-messages.json')
+  const loadSample = async () => JSON.parse(await readFile(sampleFile, 'utf8')) as { goal: string; messages: AnthropicMessage[] }
+
+  it('on the audit\'s example: the Anthropic Messages sample with a 50-token target', async () => {
+    const { goal, messages } = await loadSample()
+    const result = await pruneMessages(messages, goal, { scorer: 'recency', targetTokens: 50 })
+    expect(result.removed).toHaveLength(5)
+    expect(JSON.stringify(result.messages)).not.toContain('[ctxjev:')
+    expect(result.noteOmitted).toBe(true)
+  })
+
+  it('is false when the note was added', async () => {
+    const { goal, messages } = await loadSample()
+    const result = await pruneMessages(messages, goal, { scorer: 'recency', targetTokens: 50, protectLastTurn: false, protectLast: 1 })
+    expect(result.removed.length).toBeGreaterThan(0)
+    expect(JSON.stringify(result.messages)).toContain('[ctxjev:')
+    expect(result.noteOmitted).toBe(false)
+  })
+
+  it('is false when nothing was removed, or the note was turned off', async () => {
+    const { goal, messages } = await loadSample()
+    expect((await pruneMessages(messages, goal, { scorer: 'recency' })).noteOmitted).toBe(false)
+    const off = await pruneMessages(messages, goal, { scorer: 'recency', targetTokens: 50, marker: false })
+    expect(off.removed.length).toBeGreaterThan(0)
+    expect(off.noteOmitted).toBe(false)
+  })
 })

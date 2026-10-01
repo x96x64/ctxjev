@@ -331,8 +331,9 @@ async function runPrune(argv: string[]) {
     const { protectLast, options: settings } = entriesSettings(values)
     const { result: decisions, usage } = await withScoreCache(setup, (options) => pruneContext(transcript.entries, goal, policy, { ...options, scorer }))
     const result = pruneEntries(transcript.entries, decisions, settings)
-    // Every other field of the file (groundTruth, notes, anything) is written back as it was.
-    await writeOutput({ ...transcript.file, goal, entries: result.entries }, values.out as string | undefined)
+    // Every other field of the file (goal, groundTruth, notes, anything) is written back as it was:
+    // --goal scores this run, and isn't written into the file (0.7.1 wrote it, the fifth audit found).
+    await writeOutput({ ...transcript.file, entries: result.entries }, values.out as string | undefined)
     console.error(pc.dim(formatEntriesOutcome(transcript.entries.length, result, protectLast, 'did', offlineNote(scorer))))
     if (result.firstUserEntryRemoved) console.error(`${pc.yellow('⚠')} ${firstUserEntryWarning(result.firstUserEntryRemoved, 'did')}`)
     if (result.firstEntryRemovedWithoutUserEntry) console.error(`${pc.yellow('⚠')} ${noUserEntryWarning(result.firstEntryRemovedWithoutUserEntry, 'did')}`)
@@ -342,7 +343,7 @@ async function runPrune(argv: string[]) {
 
   const { protectLast, options: settings } = messagesSettings(values)
   const { result, usage } = await withScoreCache(setup, (options) => pruneMessages(transcript.messages, goal, { ...options, scorer, policy, ...settings }))
-  await writeOutput(transcript.wrapped ? { ...transcript.file, goal, messages: result.messages } : result.messages, values.out as string | undefined)
+  await writeOutput(transcript.wrapped ? { ...transcript.file, messages: result.messages } : result.messages, values.out as string | undefined)
   console.error(pc.dim(formatMessagesOutcome(transcript.entries.length, result, protectLast, 'did')))
   if (scorer === 'jev') console.error(pc.dim(jevCostLine(usage)))
 }

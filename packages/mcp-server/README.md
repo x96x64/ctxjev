@@ -86,11 +86,16 @@ codex plugin add ctxjev@ctxjev-plugins
 - **`score_relevance`** takes `{ goal, entries, scorer?, recencyWeight? }` and returns a
   relevance/recency/combined score per entry plus Jev token usage, with no decision made.
   `scorer` is `"jev"` (the default, as before 0.7.1; needs `TYPESAFE_API_KEY`), `"local"`, or
-  `"recency"`; the last two run offline and report zero usage.
+  `"recency"`; the last two run offline and report zero usage. Under `"local"`, relevance is the
+  keyword overlap ranked within the batch, the same scale `prune_history`'s thresholds use (0.7.1
+  returned the raw overlap here); when every entry overlaps equally, it's the overlap itself, marked
+  `tied`.
 - **`prune_history`** takes the same input plus `{ dropBelow?, summarizeBelow? }` and returns a
   decision (`keep`/`drop`/`summarize`) per entry, a savings report, and Jev token usage.
 
-`entries` is `{ id, role: 'user'|'assistant'|'tool', toolName?, content, timestamp }[]`.
+`entries` is `{ id, role: 'user'|'assistant'|'tool', toolName?, content, timestamp }[]`. An
+argument a tool doesn't take (a misspelt `recencyweight`, a `policy` object) is an error rather than
+ignored.
 
 With `scorer: "jev"`, entry content and the goal are sent to TypeSafe AI's Jev API (with `"local"`
 or `"recency"`, nothing is sent anywhere). Common secret formats (API keys,

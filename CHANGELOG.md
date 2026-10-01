@@ -12,6 +12,11 @@ Versions are shared (lockstep) across `ctxjev-core`, `ctxjev-cli`, `ctxjev-mcp`,
 - `ctxjev-core`: masks a value with non-ASCII characters after a Japanese label (`パスワード: Hunter2の秘密` was kept whole).
 - `ctxjev-core`: masks credential labels in other languages (Korean, Chinese, Russian, Turkish, French, Spanish, "API key" in Italian and others), WireGuard and Wi-Fi pre-shared keys, `ssh-keygen -P/-N`, `7z -p`, `unzip -P`, redis `requirepass`/`AUTH`, and typed constants (`const API_KEY: &str = "…"`).
 - `ctxjev-core`: stops masking variable references and dependency coordinates it took for secrets (`%(name)s`, `$env:NAME`, Terraform's `var.x`, `$VAR` after `curl -u`, `io.jsonwebtoken:jjwt-api:0.12.6`).
+- `ctxjev-core`: `pruneMessages()` reports `noteOmitted` when it removed entries but had nowhere to put the removal note; `ctxjev prune`/`analyze` warn about it.
+- `ctxjev-core`: under `scorer: 'local'`, a batch where every entry ties shows its raw overlap as `relevance`, marked `tied` (it showed relevance 1); decisions are unchanged.
+- `ctxjev-core`: a Claude Code log's malformed lines are counted and reported (they were skipped in silence).
+- `ctxjev-cli`: `prune` writes the file's own `goal` back as it was, and never writes `--goal` into the output.
+- `ctxjev-mcp`: an argument a tool doesn't take is an error instead of being ignored; `score_relevance` under `local` now returns `prune_history`'s ranked scale, not the raw overlap (a change in its output).
 
 ## 0.7.1 — 2026-09-30
 

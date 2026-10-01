@@ -90,6 +90,36 @@ describe('MCP server without TYPESAFE_API_KEY', () => {
     await client.close()
   })
 
+  // The fifth audit (check D1): an unknown argument (`policy`, a misspelt `recencyweight`) was
+  // dropped in silence, so the call ran on the defaults the caller meant to change.
+  it('rejects an unknown argument instead of ignoring it', async () => {
+    const client = await connect()
+    const calls = [
+      { name: 'prune_history', arguments: { goal: 'fix the double charge', entries, scorer: 'local', policy: { dropBelow: 0.9 } } },
+      { name: 'score_relevance', arguments: { goal: 'fix the double charge', entries, scorer: 'local', recencyweight: 0.5 } },
+    ]
+    for (const call of calls) {
+      const result = await client.callTool(call)
+      expect(result.isError).toBe(true)
+      expect(JSON.stringify(result.content)).toMatch(/policy|recencyweight/)
+      expect(JSON.stringify(result.content)).not.toContain('TYPESAFE_API_KEY')
+    }
+    await client.close()
+  })
+
+  // The fifth audit (improvement 11): score_relevance returned 'local''s raw keyword overlap while
+  // prune_history ranked it within the batch, so the same entry scored differently in the two.
+  it('scores an entry on the same scale in both tools under scorer "local"', async () => {
+    const client = await connect()
+    const goal = 'retry charge customer twice payment'
+    const mixed = ['retry charge customer', 'retry', 'listed public audio', 'charge twice payment retry'].map((content, i) => ({ id: `e${i}`, role: 'tool', content, timestamp: i }))
+    const scored = JSON.parse(((await client.callTool({ name: 'score_relevance', arguments: { goal, entries: mixed, scorer: 'local' } })).content as Array<{ text: string }>)[0].text)
+    const pruned = JSON.parse(((await client.callTool({ name: 'prune_history', arguments: { goal, entries: mixed, scorer: 'local' } })).content as Array<{ text: string }>)[0].text)
+    const byId = (list: Array<{ entryId: string; relevance: number; combinedScore: number }>) => Object.fromEntries(list.map((s) => [s.entryId, [s.relevance, s.combinedScore]]))
+    expect(byId(scored.scored)).toEqual(byId(pruned.decisions))
+    await client.close()
+  })
+
   it('still rejects invalid input first', async () => {
     const client = await connect()
     const result = await client.callTool({ name: 'prune_history', arguments: { goal: '', entries } })
