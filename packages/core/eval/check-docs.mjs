@@ -1162,12 +1162,12 @@ const AUDIT_EDITS = [
   ['docs/evaluation.md', 'a hand-typed rate in the masking section\'s prose', (t) => t.replace(/^## Secret masking, measured blind\n/m, '## Secret masking, measured blind\n\nIt masks 97% of the secrets in practice.\n')],
   ['docs/evaluation.md', 'a table added outside a generated block', (t) => t.replace(/^## Secret masking, measured blind\n/m, '## Secret masking, measured blind\n\n| Corpus | Masked |\n| --- | --- |\n| Corpus 4 | all |\n')],
   // The review of this check: two wordings that passed it.
+  ['CHANGELOG.md', 'a rate written as "percent"', (t) => t.replace(/^(## [^\n]+\n\n)/m, '$1- Keeps 93.4 percent of the probes on the holdout.\n')],
+  ['SECURITY.md', 'a rate claimed from "testing"', (t) => t.replace(/^## Known limitations[^\n]*\n/m, (h) => `${h}\n- In testing it now catches 97% of real secrets.\n`)],
   // The review of Round 6's change: a result written as a share "of its tokens".
   ['CHANGELOG.md', 'a result written as a share of its tokens', (t) => t.replace(/^(## [^\n]+\n\n)/m, '$1- On held-out tasks, the plugin now keeps 50% of its tokens.\n')],
   ['packages/claude-plugin/README.md', 'a result written as a share of its tokens, in the plugin README', (t) => t.replace(/^## How It Works\n/m, '## How It Works\n\nIn the eval, the digest saves 25% of its tokens.\n')],
   ['README.md', 'a table of hand-typed results in the status section', (t) => t.replace(/^## Status and limits\n/m, '## Status and limits\n\n| Scorer | Kept |\n| --- | --- |\n| local | 28.3% |\n')],
-  ['CHANGELOG.md', 'a rate written as "percent"', (t) => t.replace(/^(## [^\n]+\n\n)/m, '$1- Keeps 93.4 percent of the probes on the holdout.\n')],
-  ['SECURITY.md', 'a rate claimed from "testing"', (t) => t.replace(/^## Known limitations[^\n]*\n/m, (h) => `${h}\n- In testing it now catches 97% of real secrets.\n`)],
 ]
 
 function selftest() {

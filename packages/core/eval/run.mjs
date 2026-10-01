@@ -157,7 +157,7 @@ function atCut(fixture) {
 }
 
 const scorers = typesafeApiKey() !== undefined && !offlineGate ? ['local', 'jev'] : ['local']
-if (scorers.length === 1) log('TYPESAFE_API_KEY not set — running the offline baseline only.\n')
+if (scorers.length === 1) log(`${offlineGate ? 'offline gate' : missingTypesafeApiKey()} — running the offline baseline only.\n`)
 log(`Policy: dropBelow=${DEFAULT_POLICY.dropBelow}, summarizeBelow=${DEFAULT_POLICY.summarizeBelow}, recencyWeight=${DEFAULT_POLICY.recencyWeight} (only "drop" counts as "not relevant")`)
 for (const set of ['short', 'sessions']) {
   const fs = fixtures.filter((f) => f.set === set)
